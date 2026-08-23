@@ -63,7 +63,9 @@ class MutationCostDeltaReport:
                 self.plan.expected_delta.storage_bytes,
             )
         ):
-            raise MutationCostDeltaError("mask-only mutations cannot claim physical cost reductions")
+            raise MutationCostDeltaError(
+                "mask-only mutations cannot claim physical cost reductions"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
