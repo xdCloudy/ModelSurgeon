@@ -25,7 +25,13 @@ MODELSURGEON_HARDWARE__MEMORY_MODE=streaming
 MODELSURGEON_SAFETY__TRUST_REMOTE_CODE=false
 ```
 
-File loading and CLI precedence are tracked separately in issue #3.
+`load_settings()` reads UTF-8 YAML or TOML and applies sources in this order:
+
+```text
+schema defaults < configuration file < environment < CLI overrides
+```
+
+CLI integrations pass dotted overrides such as `hardware.max_vram_gb`; nested siblings are merged rather than erased. Unsupported extensions, non-mapping roots, invalid UTF-8, and parse failures raise `ConfigurationFileError` before schema validation. `dump_resolved_settings()` emits canonical JSON with no secret-bearing schema fields.
 
 ## Canonical form
 

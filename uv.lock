@@ -648,6 +648,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyyaml" },
     { name = "structlog" },
     { name = "typer" },
 ]
@@ -674,6 +675,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.4,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<9" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5,<7" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6,<1" },
     { name = "safetensors", marker = "extra == 'hf'", specifier = ">=0.4,<1" },
     { name = "structlog", specifier = ">=24.4,<26" },
