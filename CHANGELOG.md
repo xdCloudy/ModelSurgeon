@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add deterministic, immutable transactional mutation request, compatibility,
+  precondition, delta, plan, apply/rollback, and safe ownership contracts.
 - Add a finite Gemma GGUF surgery compatibility contract for dense Gemma v1,
   with Gemma 2/3 failing closed pending their extra normalization and attention rules.
 - Add native and legacy-prefix Mistral GGUF surgery mappings with required
