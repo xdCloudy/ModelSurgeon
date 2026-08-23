@@ -109,8 +109,11 @@ def _layer_index(component_id: ComponentId, node: GraphNode) -> int | None:
         return explicit
     segments = tuple(segment.value for segment in component_id)
     for index, segment in enumerate(segments[:-1]):
-        if segment == "layers" and isinstance(segments[index + 1], int):
-            return segments[index + 1]
+        if segment != "layers":
+            continue
+        candidate = segments[index + 1]
+        if isinstance(candidate, int):
+            return candidate
     return None
 
 
