@@ -109,11 +109,17 @@ class MutationCandidate:
 
     def __post_init__(self) -> None:
         if not self.candidate_id.startswith("cand_"):
-            raise CandidateEnumerationError("candidate identity must use the canonical cand_ prefix")
+            raise CandidateEnumerationError(
+                "candidate identity must use the canonical cand_ prefix"
+            )
         if self.request.targets != (self.component_id,):
-            raise CandidateEnumerationError("enumerated candidates require exactly one requested target")
+            raise CandidateEnumerationError(
+                "enumerated candidates require exactly one requested target"
+            )
         if self.component_id not in self.affected_components:
-            raise CandidateEnumerationError("candidate coupling closure omitted its requested target")
+            raise CandidateEnumerationError(
+                "candidate coupling closure omitted its requested target"
+            )
 
     @property
     def mutation_id(self) -> str:
