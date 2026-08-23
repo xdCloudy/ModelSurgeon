@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -53,21 +54,17 @@ def _validate_time(now_ns: int) -> None:
         raise WorkLeaseError("lease timestamps must be non-negative integer nanoseconds")
 
 
-def _row_to_lease(row: object) -> WorkLease:
-    # sqlite3.Row is intentionally accessed structurally to keep this module store-local.
-    item = row  # mypy narrows values through indexed access below.
+def _row_to_lease(row: sqlite3.Row) -> WorkLease:
     return WorkLease(
-        str(item["candidate_id"]),  # type: ignore[index]
-        str(item["attempt_id"]),  # type: ignore[index]
-        str(item["worker_id"]),  # type: ignore[index]
-        str(item["lease_token"]),  # type: ignore[index]
-        int(item["generation"]),  # type: ignore[index]
-        int(item["acquired_at_ns"]),  # type: ignore[index]
-        int(item["heartbeat_at_ns"]),  # type: ignore[index]
-        int(item["expires_at_ns"]),  # type: ignore[index]
-        None
-        if item["completed_at_ns"] is None  # type: ignore[index]
-        else int(item["completed_at_ns"]),  # type: ignore[index]
+        str(row["candidate_id"]),
+        str(row["attempt_id"]),
+        str(row["worker_id"]),
+        str(row["lease_token"]),
+        int(row["generation"]),
+        int(row["acquired_at_ns"]),
+        int(row["heartbeat_at_ns"]),
+        int(row["expires_at_ns"]),
+        None if row["completed_at_ns"] is None else int(row["completed_at_ns"]),
     )
 
 
@@ -208,6 +205,8 @@ class ExperimentWorkQueue:
                 lease = _row_to_lease(row)
                 if lease.completed:
                     raise WorkLeaseError("completed leases cannot heartbeat")
+                if now_ns < lease.heartbeat_at_ns:
+                    raise WorkLeaseError("heartbeat timestamp moved backwards")
                 if lease.expires_at_ns <= now_ns:
                     raise WorkLeaseError("lease expired before heartbeat")
                 connection.execute(
@@ -248,6 +247,8 @@ class ExperimentWorkQueue:
                 lease = _row_to_lease(row)
                 if lease.completed:
                     return lease
+                if now_ns < lease.heartbeat_at_ns:
+                    raise WorkLeaseError("completion timestamp moved backwards")
                 if lease.expires_at_ns <= now_ns:
                     raise WorkLeaseError("expired lease cannot complete")
                 connection.execute(
