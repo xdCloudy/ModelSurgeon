@@ -21,6 +21,17 @@ from modelsurgeon.experiments.memory import (
     ResourceEstimate,
     plan_memory_mode,
 )
+from modelsurgeon.experiments.migrations import (
+    EXPERIMENT_DB_SCHEMA_VERSION,
+    MIGRATIONS,
+    ExperimentMigration,
+    ExperimentMigrationError,
+    MigrationBackupGuidance,
+    MigrationReport,
+    apply_experiment_migrations,
+    migration_backup_guidance,
+    open_experiment_database,
+)
 from modelsurgeon.experiments.schema import (
     EXPERIMENT_SCHEMA_VERSION,
     MUTATION_EXAMPLE_SCHEMA_VERSION,
@@ -41,13 +52,17 @@ from modelsurgeon.experiments.schema import (
 )
 
 __all__ = [
+    "EXPERIMENT_DB_SCHEMA_VERSION",
     "EXPERIMENT_SCHEMA_VERSION",
     "HARDWARE_INVENTORY_SCHEMA_VERSION",
+    "MIGRATIONS",
     "MUTATION_EXAMPLE_SCHEMA_VERSION",
     "CPUInventory",
     "CUDAInventory",
     "DatasetTarget",
     "DiskInventory",
+    "ExperimentMigration",
+    "ExperimentMigrationError",
     "ExperimentOutcome",
     "ExperimentOutcomeKind",
     "ExperimentRecord",
@@ -59,6 +74,8 @@ __all__ = [
     "MemoryPlanningError",
     "MetricObservation",
     "MetricState",
+    "MigrationBackupGuidance",
+    "MigrationReport",
     "ModelTarget",
     "MutationExampleRecord",
     "OperationMemoryEstimates",
@@ -72,6 +89,9 @@ __all__ = [
     "SoftwareInventory",
     "StageTiming",
     "VersionContext",
+    "apply_experiment_migrations",
     "collect_hardware_inventory",
+    "migration_backup_guidance",
+    "open_experiment_database",
     "plan_memory_mode",
 ]
