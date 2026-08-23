@@ -26,6 +26,11 @@ from modelsurgeon.surgery.gguf_alignment import (
     propose_aligned_axis_removal,
     validate_gguf_quantized_plan,
 )
+from modelsurgeon.surgery.native_mlp_plan import (
+    NativeGGUFMLPPlanError,
+    NativeGGUFMLPRemovalPlan,
+    plan_native_gguf_mlp_channel_removal,
+)
 from modelsurgeon.surgery.physical_plan import (
     PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION,
     AxisRemoval,
@@ -108,6 +113,8 @@ __all__ = [
     "MutationRunRecord",
     "MutationTargetResolutionError",
     "MutationTransaction",
+    "NativeGGUFMLPPlanError",
+    "NativeGGUFMLPRemovalPlan",
     "PhysicalMetadataUpdate",
     "PhysicalMutationPlan",
     "PhysicalPlanError",
@@ -130,6 +137,7 @@ __all__ = [
     "TransactionState",
     "TransactionalMutation",
     "compile_physical_mutation_plan",
+    "plan_native_gguf_mlp_channel_removal",
     "propose_aligned_axis_removal",
     "require_safe_transaction",
     "resolve_mutation_targets",
