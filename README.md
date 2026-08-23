@@ -36,10 +36,12 @@ The base install deliberately excludes heavyweight ML dependencies. Install the 
 ## CLI
 
 ```text
-modelsurgeon inspect MODEL [--revision REVISION] [--trust-remote-code]
+modelsurgeon inspect MODEL [--revision REVISION] [--device-map cpu|auto] [--dtype auto|float32|float16|bfloat16] [--trust-remote-code] [--json]
 ```
 
 All commands accept `--log-level LEVEL` and `--log-format human|json`. JSON logs carry bound run, model, and component context for automation; normal command output remains on stdout.
+
+`inspect` emits a stable model-identity record followed by canonical component records, including resolved revision, selected family evidence, loader options, module/parameter/logical-component totals, semantic kinds, and parameter counts. Dependency, model, revision, and adapter failures use distinct messages, JSON categories, and exit codes.
 
 Planned command groups include `calibrate`, `features`, `experiment`, `generate-dataset`, `train-surgeon`, `predict`, `search`, `report`, and `reproduce`.
 

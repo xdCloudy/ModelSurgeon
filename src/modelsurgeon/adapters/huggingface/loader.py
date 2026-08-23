@@ -18,6 +18,22 @@ class HuggingFaceDType(StrEnum):
     BFLOAT16 = "bfloat16"
 
 
+class HuggingFaceLoadError(RuntimeError):
+    """Base class for categorized loader failures."""
+
+
+class HuggingFaceDependencyError(HuggingFaceLoadError):
+    """Raised when the optional loading runtime is unavailable."""
+
+
+class HuggingFaceModelError(HuggingFaceLoadError):
+    """Raised when model files or configuration cannot be loaded."""
+
+
+class HuggingFaceRevisionError(HuggingFaceLoadError):
+    """Raised when a requested or resolved revision is invalid."""
+
+
 _DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "cpu", "sequential"})
 
 
@@ -85,7 +101,7 @@ def _torch_dtype(dtype: HuggingFaceDType) -> Any:
     try:
         torch = import_module("torch")
     except ImportError as exc:
-        raise RuntimeError(
+        raise HuggingFaceDependencyError(
             "Hugging Face support is optional; install with `uv sync --extra hf`"
         ) from exc
     return getattr(torch, dtype.value)
@@ -107,7 +123,7 @@ def _resolved_revision(model: object, request: HuggingFaceLoadRequest) -> str:
     local_path = Path(request.model)
     if local_path.exists():
         return str(local_path.resolve())
-    raise RuntimeError(
+    raise HuggingFaceRevisionError(
         "Transformers did not expose the resolved Hub commit; pin a revision explicitly"
     )
 
@@ -117,19 +133,27 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
     try:
         auto_model = import_module("transformers").AutoModelForCausalLM
     except (AttributeError, ImportError) as exc:
-        raise RuntimeError(
+        raise HuggingFaceDependencyError(
             "Hugging Face support is optional; install with `uv sync --extra hf`"
         ) from exc
 
-    model = auto_model.from_pretrained(
-        request.model,
-        revision=request.revision,
-        trust_remote_code=request.trust_remote_code,
-        device_map=_transformers_device_map(request.device_map),
-        torch_dtype=_torch_dtype(request.dtype),
-        local_files_only=request.local_files_only,
-        low_cpu_mem_usage=request.low_cpu_mem_usage,
-    )
+    try:
+        model = auto_model.from_pretrained(
+            request.model,
+            revision=request.revision,
+            trust_remote_code=request.trust_remote_code,
+            device_map=_transformers_device_map(request.device_map),
+            torch_dtype=_torch_dtype(request.dtype),
+            local_files_only=request.local_files_only,
+            low_cpu_mem_usage=request.low_cpu_mem_usage,
+        )
+    except Exception as exc:
+        exception_names = {exception_type.__name__ for exception_type in type(exc).mro()}
+        if any("Revision" in name for name in exception_names):
+            raise HuggingFaceRevisionError(
+                f"failed to load revision {request.revision!r} for {request.model!r}: {exc}"
+            ) from exc
+        raise HuggingFaceModelError(f"failed to load model {request.model!r}: {exc}") from exc
     provenance = HuggingFaceLoadProvenance(
         source=request.model,
         requested_revision=request.revision,
