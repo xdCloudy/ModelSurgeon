@@ -59,7 +59,7 @@ class LatencyConfidenceSummary:
     sample_count: int
 
     @classmethod
-    def from_profile(cls, profile: LatencyProfile) -> "LatencyConfidenceSummary":
+    def from_profile(cls, profile: LatencyProfile) -> LatencyConfidenceSummary:
         scaled_mad = 1.4826 * profile.median_absolute_deviation_ns
         return cls(
             profile.median_ns,
@@ -119,9 +119,17 @@ class LatencyComparison:
         ratios = (self.prefill_speedup_ratio, self.decode_speedup_ratio)
         if self.comparable:
             if self.reason is not None or any(value is None for value in ratios):
-                raise LatencyEvaluationError("comparable latency results require both speedup ratios")
-            if any(value is not None and (not math.isfinite(value) or value <= 0) for value in ratios):
-                raise LatencyEvaluationError("latency speedup ratios must be finite and positive")
+                raise LatencyEvaluationError(
+                    "comparable latency results require both speedup ratios"
+                )
+            invalid_ratio = any(
+                value is not None and (not math.isfinite(value) or value <= 0)
+                for value in ratios
+            )
+            if invalid_ratio:
+                raise LatencyEvaluationError(
+                    "latency speedup ratios must be finite and positive"
+                )
         elif not self.reason or any(value is not None for value in ratios):
             raise LatencyEvaluationError("invalid latency comparisons need a reason and no ratios")
 
