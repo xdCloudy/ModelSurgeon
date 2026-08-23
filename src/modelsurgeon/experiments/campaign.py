@@ -6,7 +6,8 @@ import hashlib
 import json
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from contextlib import suppress
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, cast
 
@@ -23,6 +24,7 @@ from modelsurgeon.evaluation.tiered import (
 )
 from modelsurgeon.experiments.candidates import MutationCandidate
 from modelsurgeon.experiments.gpu_cleanup import ExperimentGPUCleanup
+from modelsurgeon.experiments.hardware import HardwareInventory
 from modelsurgeon.experiments.identity import (
     canonical_identity_json,
     derive_candidate_identity,
@@ -49,7 +51,6 @@ from modelsurgeon.experiments.state_machine import (
     ExperimentStateMachine,
 )
 from modelsurgeon.experiments.store import ExperimentMetadataStore, ExperimentStoreError
-from modelsurgeon.experiments.hardware import HardwareInventory
 
 CAMPAIGN_RUNNER_VERSION = "1"
 _CAMPAIGN_MUTATION_ID = "__campaign__"
@@ -91,7 +92,7 @@ class MutationCheckpoint:
 
     @classmethod
     def from_record(cls, value: object) -> MutationCheckpoint:
-        record = _json_object_value(value, "mutation checkpoint")
+        record = _object(value, "mutation checkpoint")
         if set(record) != {"checkpoint_id", "metadata"}:
             raise CampaignError("mutation checkpoint has missing or unknown fields")
         checkpoint_id = record["checkpoint_id"]
@@ -102,12 +103,12 @@ class MutationCheckpoint:
             isinstance(key, str) and key for key in metadata
         ):
             raise CampaignError("mutation checkpoint metadata is invalid")
-        entries: list[tuple[str, str | int | float | bool | None]] = []
+        values: list[tuple[str, str | int | float | bool | None]] = []
         for key, item in metadata.items():
             if item is not None and not isinstance(item, (str, int, float, bool)):
                 raise CampaignError("mutation checkpoint metadata values must be primitive")
-            entries.append((key, item))
-        return cls(checkpoint_id, tuple(sorted(entries)))
+            values.append((key, item))
+        return cls(checkpoint_id, tuple(sorted(values)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,10 +143,14 @@ class CampaignContext:
 class CampaignRunnerConfig:
     worker_id: str
     lease_duration_ns: int = 60_000_000_000
-    mutation_attempt: OOMAttemptConfig = OOMAttemptConfig(1, 1)
-    evaluation_attempt: OOMAttemptConfig = OOMAttemptConfig(1, 1)
-    oom_policy: OOMRetryPolicy = OOMRetryPolicy()
-    evaluation: TieredEvaluationConfig = TieredEvaluationConfig()
+    mutation_attempt: OOMAttemptConfig = field(
+        default_factory=lambda: OOMAttemptConfig(1, 1)
+    )
+    evaluation_attempt: OOMAttemptConfig = field(
+        default_factory=lambda: OOMAttemptConfig(1, 1)
+    )
+    oom_policy: OOMRetryPolicy = field(default_factory=OOMRetryPolicy)
+    evaluation: TieredEvaluationConfig = field(default_factory=TieredEvaluationConfig)
 
     def __post_init__(self) -> None:
         if not self.worker_id:
@@ -243,18 +248,18 @@ class CampaignWorker(Protocol):
     ) -> TieredEvaluationBackend: ...
 
 
+def _object(value: object, label: str) -> dict[str, object]:
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise CampaignError(f"{label} must be a JSON object")
+    return cast(dict[str, object], value)
+
+
 def _json_object(payload: str, label: str) -> dict[str, object]:
     try:
         value = json.loads(payload)
     except json.JSONDecodeError as error:
         raise CampaignError(f"stored {label} JSON is malformed") from error
-    return _json_object_value(value, label)
-
-
-def _json_object_value(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
-        raise CampaignError(f"{label} must be a JSON object")
-    return cast(dict[str, object], value)
+    return _object(value, label)
 
 
 def _input_id(context: CampaignContext) -> str:
@@ -281,9 +286,9 @@ def _validate_candidates(
     candidates: tuple[MutationCandidate, ...],
 ) -> None:
     ids = tuple(candidate.candidate_id for candidate in candidates)
+    mutation_ids = tuple(candidate.mutation_id for candidate in candidates)
     if len(ids) != len(set(ids)):
         raise CampaignError("campaign candidate IDs must be unique")
-    mutation_ids = tuple(candidate.mutation_id for candidate in candidates)
     if len(mutation_ids) != len(set(mutation_ids)):
         raise CampaignError("campaign mutation IDs must be unique")
     for candidate in candidates:
@@ -375,7 +380,6 @@ def register_campaign(
         else canonical_identity_json(context.quantization_control.to_record()),
     )
     baseline_key_json = canonical_identity_json(context.baseline_key.to_record())
-
     try:
         with store._write() as connection:
             store._insert_or_verify(
@@ -426,10 +430,7 @@ def register_campaign(
                     ),
                 )
                 connection.execute(
-                    """
-                    INSERT OR IGNORE INTO experiment_campaign_status(candidate_id)
-                    VALUES (?)
-                    """,
+                    "INSERT OR IGNORE INTO experiment_campaign_status(candidate_id) VALUES (?)",
                     (candidate.candidate_id,),
                 )
     except ExperimentStoreError as error:
@@ -478,7 +479,10 @@ def persist_campaign_checkpoint(
     encoded = canonical_identity_json(checkpoint.to_record())
     with store._write() as connection:
         row = connection.execute(
-            "SELECT checkpoint_json, outcome FROM experiment_campaign_status WHERE candidate_id = ?",
+            (
+                "SELECT checkpoint_json, outcome FROM experiment_campaign_status "
+                "WHERE candidate_id = ?"
+            ),
             (candidate_id,),
         ).fetchone()
         if row is None:
@@ -493,11 +497,11 @@ def persist_campaign_checkpoint(
             )
 
 
-def persist_campaign_recovery(
+def persist_campaign_recovery[T](
     store: ExperimentMetadataStore,
     candidate_id: str,
     stage: CandidateWorkStage,
-    recovery: OOMRecoveryResult[object],
+    recovery: OOMRecoveryResult[T],
 ) -> None:
     record = recovery.to_record()
     with store._write() as connection:
@@ -586,40 +590,40 @@ def query_campaign_progress(store: ExperimentMetadataStore, run_id: str) -> Camp
             """,
             (run_id,),
         ).fetchall()
-    planned = active = interrupted = succeeded = rejected = failed = 0
+    counts = {
+        "planned": 0,
+        "active": 0,
+        "interrupted": 0,
+        "succeeded": 0,
+        "rejected": 0,
+        "failed": 0,
+    }
     for row in rows:
         outcome = CampaignOutcome(str(row["outcome"]))
         state = None if row["state"] is None else CandidateState(str(row["state"]))
         if outcome is CampaignOutcome.SUCCEEDED or state is CandidateState.SUCCEEDED:
-            succeeded += 1
+            counts["succeeded"] += 1
         elif outcome is CampaignOutcome.REJECTED or state is CandidateState.REJECTED:
-            rejected += 1
+            counts["rejected"] += 1
         elif outcome is CampaignOutcome.FAILED or state is CandidateState.FAILED:
-            failed += 1
+            counts["failed"] += 1
         elif state in {CandidateState.INTERRUPTED, CandidateState.RECOVERABLE_OOM}:
-            interrupted += 1
+            counts["interrupted"] += 1
         elif state in {CandidateState.RUNNING, CandidateState.EVALUATING}:
-            active += 1
+            counts["active"] += 1
         else:
-            planned += 1
-    return CampaignProgress(
-        run_id,
-        len(rows),
-        planned,
-        active,
-        interrupted,
-        succeeded,
-        rejected,
-        failed,
-    )
+            counts["planned"] += 1
+    return CampaignProgress(run_id, len(rows), **counts)
 
 
 def _terminal_state(outcome: CampaignOutcome) -> CandidateState:
-    return {
-        CampaignOutcome.SUCCEEDED: CandidateState.SUCCEEDED,
-        CampaignOutcome.REJECTED: CandidateState.REJECTED,
-        CampaignOutcome.FAILED: CandidateState.FAILED,
-    }[outcome]
+    if outcome is CampaignOutcome.SUCCEEDED:
+        return CandidateState.SUCCEEDED
+    if outcome is CampaignOutcome.REJECTED:
+        return CandidateState.REJECTED
+    if outcome is CampaignOutcome.FAILED:
+        return CandidateState.FAILED
+    raise CampaignError("pending campaign outcome has no terminal state")
 
 
 def _reconcile_terminal(
@@ -638,29 +642,42 @@ def _reconcile_terminal(
     if current is None:
         machine.initialize(candidate_id, "reconcile persisted campaign outcome")
         current = CandidateState.PLANNED
-    if target is CandidateState.FAILED:
-        machine.transition(candidate_id, target, "reconcile persisted failed result")
-        return
-    if target is CandidateState.REJECTED:
-        machine.transition(candidate_id, target, "reconcile persisted rejected result")
+    if target in {CandidateState.FAILED, CandidateState.REJECTED}:
+        machine.transition(candidate_id, target, f"reconcile persisted {target.value} result")
         return
     while current is not CandidateState.EVALUATING:
         if current is CandidateState.PLANNED:
-            machine.transition(candidate_id, CandidateState.RUNNING, "reconcile completed mutation")
+            machine.transition(
+                candidate_id,
+                CandidateState.RUNNING,
+                "reconcile completed mutation",
+            )
         elif current is CandidateState.RUNNING:
-            machine.transition(candidate_id, CandidateState.EVALUATING, "reconcile completed evaluation")
+            machine.transition(
+                candidate_id,
+                CandidateState.EVALUATING,
+                "reconcile completed evaluation",
+            )
         elif current in {CandidateState.INTERRUPTED, CandidateState.RECOVERABLE_OOM}:
             recovery = machine.recovery_plan(candidate_id)
-            resume = (
+            target_state = (
                 CandidateState.RUNNING
                 if recovery.next_stage is CandidateWorkStage.MUTATION
                 else CandidateState.EVALUATING
             )
-            machine.transition(candidate_id, resume, "reconcile persisted terminal result")
+            machine.transition(
+                candidate_id,
+                target_state,
+                "reconcile persisted terminal result",
+            )
         else:
             raise CampaignError("cannot reconcile succeeded campaign result from current state")
         current = machine.current(candidate_id)
-    machine.transition(candidate_id, CandidateState.SUCCEEDED, "reconcile persisted succeeded result")
+    machine.transition(
+        candidate_id,
+        CandidateState.SUCCEEDED,
+        "reconcile persisted succeeded result",
+    )
 
 
 class CampaignRunner:
@@ -696,20 +713,11 @@ class CampaignRunner:
 
         return heartbeat
 
-    def _record_recovery[T](
+    def _resume_state(
         self,
         candidate_id: str,
-        stage: CandidateWorkStage,
-        result: OOMRecoveryResult[T],
-    ) -> None:
-        persist_campaign_recovery(
-            self.store,
-            candidate_id,
-            stage,
-            cast(OOMRecoveryResult[object], result),
-        )
-
-    def _resume_state(self, candidate_id: str, status: CampaignCandidateStatus) -> CandidateState:
+        status: CampaignCandidateStatus,
+    ) -> CandidateState:
         current = self.machine.current(candidate_id)
         if current is None:
             self.machine.initialize(candidate_id)
@@ -751,7 +759,6 @@ class CampaignRunner:
         current = self._resume_state(candidate.candidate_id, status)
         heartbeat = self._heartbeat(lease)
         checkpoint = status.checkpoint
-
         if current is CandidateState.RUNNING:
             mutation = run_with_oom_recovery(
                 self.machine,
@@ -769,7 +776,8 @@ class CampaignRunner:
                 ),
                 lease_heartbeat=heartbeat,
             )
-            self._record_recovery(
+            persist_campaign_recovery(
+                self.store,
                 candidate.candidate_id,
                 CandidateWorkStage.MUTATION,
                 mutation,
@@ -788,16 +796,14 @@ class CampaignRunner:
             persist_campaign_checkpoint(self.store, candidate.candidate_id, checkpoint)
             self.machine.transition(candidate.candidate_id, CandidateState.EVALUATING)
             current = CandidateState.EVALUATING
-
+        if current in _TERMINAL_STATES:
+            return
         if current is not CandidateState.EVALUATING:
-            if current in _TERMINAL_STATES:
-                return
             raise CampaignError(f"candidate reached unsupported campaign state {current.value}")
         if checkpoint is None:
             checkpoint = campaign_status(self.store, candidate.candidate_id).checkpoint
         if checkpoint is None:
             raise CampaignError("evaluation resume requires a persisted mutation checkpoint")
-
         evaluation = run_with_oom_recovery(
             self.machine,
             candidate.candidate_id,
@@ -818,7 +824,8 @@ class CampaignRunner:
             ),
             lease_heartbeat=heartbeat,
         )
-        self._record_recovery(
+        persist_campaign_recovery(
+            self.store,
             candidate.candidate_id,
             CandidateWorkStage.EVALUATION,
             evaluation,
@@ -860,7 +867,6 @@ class CampaignRunner:
                 skipped_completed.append(candidate.candidate_id)
             else:
                 pending.append(candidate)
-
         if not pending:
             return CampaignRunReport(
                 CAMPAIGN_RUNNER_VERSION,
@@ -871,7 +877,6 @@ class CampaignRunner:
                 (),
                 (),
             )
-
         baseline = self.baseline_cache.get_or_compute(
             self.context.baseline_key,
             self.worker.compute_baseline,
@@ -881,12 +886,11 @@ class CampaignRunner:
         lease_lost: list[str] = []
         failures: list[CandidateExecutionFailure] = []
         for candidate in pending:
-            now = self.clock_ns()
             lease = self.queue.claim(
                 candidate.candidate_id,
                 attempt_id=self.context.attempt_id,
                 worker_id=self.config.worker_id,
-                now_ns=now,
+                now_ns=self.clock_ns(),
             )
             if lease is None:
                 leased_elsewhere.append(candidate.candidate_id)
@@ -896,7 +900,6 @@ class CampaignRunner:
                 processed.append(candidate.candidate_id)
             except WorkLeaseError:
                 lease_lost.append(candidate.candidate_id)
-                continue
             except Exception as error:
                 failures.append(
                     CandidateExecutionFailure(
@@ -907,23 +910,19 @@ class CampaignRunner:
                 )
                 current = self.machine.current(candidate.candidate_id)
                 if current not in _TERMINAL_STATES:
-                    try:
+                    with suppress(ExperimentStateError):
                         self.machine.transition(
                             candidate.candidate_id,
                             CandidateState.FAILED,
                             f"campaign-error:{type(error).__name__}",
                         )
-                    except ExperimentStateError:
-                        pass
-                try:
+                with suppress(CampaignError):
                     persist_campaign_outcome(
                         self.store,
                         candidate.candidate_id,
                         CampaignOutcome.FAILED,
                         detail=f"{type(error).__name__}: {error}",
                     )
-                except CampaignError:
-                    pass
             finally:
                 current = self.machine.current(candidate.candidate_id)
                 if current in _TERMINAL_STATES:
@@ -932,7 +931,6 @@ class CampaignRunner:
                     except WorkLeaseError:
                         if candidate.candidate_id not in lease_lost:
                             lease_lost.append(candidate.candidate_id)
-
         return CampaignRunReport(
             CAMPAIGN_RUNNER_VERSION,
             query_campaign_progress(self.store, self.context.run_id),
