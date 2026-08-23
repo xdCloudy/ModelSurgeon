@@ -247,5 +247,8 @@ def extract_direct_quantized_feature(
     return LocalDecodeRequired(
         name,
         source.quant_type,
-        "feature depends on decoded weight values and cannot be inferred safely from encoded blocks",
+        (
+            "feature depends on decoded weight values and cannot be inferred safely "
+            "from encoded blocks"
+        ),
     )
