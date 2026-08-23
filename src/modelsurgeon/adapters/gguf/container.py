@@ -23,7 +23,7 @@ from modelsurgeon.adapters.gguf.quantization import (
 
 _MAX_SIGNED_OFFSET = (1 << 63) - 1
 _DEFAULT_ALIGNMENT = 32
-_GGML_TYPE_IDS = {
+GGML_TYPE_IDS = {
     0: GGMLQuantizationType.F32,
     1: GGMLQuantizationType.F16,
     8: GGMLQuantizationType.Q8_0,
@@ -257,7 +257,9 @@ def _align(offset: int, alignment: int) -> int:
     return (offset + alignment - 1) & -alignment
 
 
-def _tensor_size(quant_type: GGMLQuantizationType, dimensions: tuple[int, ...]) -> int:
+def gguf_tensor_byte_size(
+    quant_type: GGMLQuantizationType, dimensions: tuple[int, ...]
+) -> int:
     layout = QUANT_LAYOUTS[quant_type]
     if not dimensions or any(dimension <= 0 for dimension in dimensions):
         raise CorruptGGUFError("GGUF tensor dimensions must be positive")
@@ -436,7 +438,7 @@ class MemoryMappedGGUF:
 
         tensors: list[GGUFTensorDescriptor] = []
         for name, dimensions, ggml_type_id, relative_offset, start, size in raw_descriptors:
-            quant_type = _GGML_TYPE_IDS.get(ggml_type_id)
+            quant_type = GGML_TYPE_IDS.get(ggml_type_id)
             if quant_type is None:
                 raise UnsupportedGGUFTypeError(
                     f"tensor {name!r} uses unsupported ggml type id {ggml_type_id}"
@@ -448,7 +450,7 @@ class MemoryMappedGGUF:
                     f"tensor {name!r} relative offset {relative_offset} is not aligned "
                     f"to {alignment}"
                 )
-            byte_size = _tensor_size(quant_type, dimensions)
+            byte_size = gguf_tensor_byte_size(quant_type, dimensions)
             absolute_offset = data_offset + relative_offset
             if absolute_offset > len(mapping) - byte_size:
                 raise CorruptGGUFError(
