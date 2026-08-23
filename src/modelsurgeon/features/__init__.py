@@ -82,6 +82,12 @@ from modelsurgeon.features.spectral_randomized import (
     extract_randomized_spectral_features,
     plan_randomized_spectral_workspace,
 )
+from modelsurgeon.features.topology import (
+    TOPOLOGY_FEATURE_EXTRACTOR_VERSION,
+    TopologyFeatureError,
+    TopologyFeatures,
+    extract_topology_features,
+)
 from modelsurgeon.features.weight_distribution import (
     WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION,
     WeightDistribution,
@@ -107,6 +113,7 @@ __all__ = [
     "NEURON_CORRELATION_EXTRACTOR_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
     "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
+    "TOPOLOGY_FEATURE_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
     "ActivationBatch",
@@ -154,6 +161,8 @@ __all__ = [
     "RandomizedSpectralFeatures",
     "RandomizedSpectralOutcome",
     "RandomizedWorkspacePlan",
+    "TopologyFeatureError",
+    "TopologyFeatures",
     "WeightDistribution",
     "WeightDistributionConfig",
     "WeightDistributionError",
@@ -168,6 +177,7 @@ __all__ = [
     "extract_layer_similarities",
     "extract_pairwise_cosine_similarities",
     "extract_randomized_spectral_features",
+    "extract_topology_features",
     "extract_weight_distribution",
     "extract_weight_statistics",
     "generate_cosine_candidates",
