@@ -15,7 +15,12 @@ from modelsurgeon.evaluation.latency import (
 from modelsurgeon.features.latency import LatencyBackend, LatencyEnvironment, LatencyProfile
 
 
-def _profile(median: float, mad: float = 10.0) -> LatencyProfile:
+def _profile(
+    median: float,
+    mad: float = 10.0,
+    *,
+    device: str = "cpu",
+) -> LatencyProfile:
     return LatencyProfile(
         version="1",
         sample_count=20,
@@ -28,7 +33,7 @@ def _profile(median: float, mad: float = 10.0) -> LatencyProfile:
         cpu_median_ns=median,
         cuda_median_ns=None,
         environment=LatencyEnvironment(
-            LatencyBackend.CPU, "perf_counter_ns", "cpu", "explicit_callback"
+            LatencyBackend.CPU, "perf_counter_ns", device, "explicit_callback"
         ),
     )
 
@@ -113,11 +118,17 @@ def test_invalid_comparison_context_is_flagged(overrides: dict[str, object]) -> 
         _context(),
         FakeProfiler([_profile(1000.0), _profile(400.0)]),
     )
+    candidate_context = _context(**overrides)
     candidate = evaluate_end_to_end_latency(
         lambda: None,
         lambda: None,
-        _context(**overrides),
-        FakeProfiler([_profile(800.0), _profile(200.0)]),
+        candidate_context,
+        FakeProfiler(
+            [
+                _profile(800.0, device=candidate_context.device),
+                _profile(200.0, device=candidate_context.device),
+            ]
+        ),
     )
     comparison = compare_end_to_end_latency(baseline, candidate)
     assert not comparison.comparable
