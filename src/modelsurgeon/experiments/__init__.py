@@ -1,5 +1,15 @@
 """Resumable experiment orchestration, persistence, and host inventory."""
 
+from modelsurgeon.experiments.artifacts import (
+    ARTIFACT_DIGEST_ALGORITHM,
+    ARTIFACT_METADATA_SCHEMA_VERSION,
+    ArtifactDigest,
+    ArtifactMetadata,
+    ArtifactStoreError,
+    ContentAddressedArtifactStore,
+    PublishedArtifactReference,
+    StoredArtifact,
+)
 from modelsurgeon.experiments.hardware import (
     HARDWARE_INVENTORY_SCHEMA_VERSION,
     CPUInventory,
@@ -80,15 +90,21 @@ from modelsurgeon.experiments.store import (
 )
 
 __all__ = [
+    "ARTIFACT_DIGEST_ALGORITHM",
+    "ARTIFACT_METADATA_SCHEMA_VERSION",
     "EXPERIMENT_DB_SCHEMA_VERSION",
     "EXPERIMENT_SCHEMA_VERSION",
     "HARDWARE_INVENTORY_SCHEMA_VERSION",
     "IDENTITY_SCHEMA_VERSION",
     "MIGRATIONS",
     "MUTATION_EXAMPLE_SCHEMA_VERSION",
+    "ArtifactDigest",
+    "ArtifactMetadata",
+    "ArtifactStoreError",
     "CPUInventory",
     "CUDAInventory",
     "CandidateTrace",
+    "ContentAddressedArtifactStore",
     "DatasetTarget",
     "DerivedCandidateIdentity",
     "DerivedExperimentIdentity",
@@ -119,6 +135,7 @@ __all__ = [
     "OperationMemoryEstimates",
     "PathAlias",
     "PersistedExperiment",
+    "PublishedArtifactReference",
     "QuantizationControl",
     "QuantizationControlKind",
     "RejectedMemoryMode",
@@ -128,6 +145,7 @@ __all__ = [
     "SeedContext",
     "SoftwareInventory",
     "StageTiming",
+    "StoredArtifact",
     "StoredArtifactReference",
     "StoredCandidate",
     "StoredInput",
