@@ -161,7 +161,7 @@ class _ProcessMemoryCounters(ctypes.Structure):
 
 def _windows_rss_bytes() -> int | None:
     try:
-        windll: Any = getattr(ctypes, "windll")
+        windll: Any = getattr(ctypes, "windll")  # noqa: B009
         kernel32: Any = windll.kernel32
         psapi: Any = windll.psapi
         counters = _ProcessMemoryCounters()
