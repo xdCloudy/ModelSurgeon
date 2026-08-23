@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -123,7 +124,7 @@ class FakeWorker:
         baseline: BaselineArtifact,
         config: OOMAttemptConfig,
         cleanup: ExperimentGPUCleanup,
-        heartbeat: object,
+        heartbeat: Callable[[], None],
     ) -> MutationCheckpoint:
         del baseline, config
         self.mutation_calls.append(candidate.candidate_id)
@@ -143,7 +144,7 @@ class FakeWorker:
         baseline: BaselineArtifact,
         config: OOMAttemptConfig,
         cleanup: ExperimentGPUCleanup,
-        heartbeat: object,
+        heartbeat: Callable[[], None],
     ) -> Tier0PassBackend:
         del checkpoint, baseline, config
         self.evaluation_calls.append(candidate.candidate_id)
@@ -248,7 +249,9 @@ def test_campaign_reuses_one_baseline_and_completed_candidates_are_not_rerun(
         second = CampaignRunner(store, cache, context, candidates, worker, _config()).run()
         assert second.progress.succeeded == 2
         assert second.processed == ()
-        assert second.skipped_completed == tuple(candidate.candidate_id for candidate in candidates)
+        assert second.skipped_completed == tuple(
+            candidate.candidate_id for candidate in candidates
+        )
         assert worker.baseline_calls == 1
         assert len(worker.mutation_calls) == 2
         assert len(worker.evaluation_calls) == 2
@@ -281,10 +284,11 @@ def test_candidate_failure_is_isolated_and_campaign_progress_remains_queryable(
         assert len(report.failures) == 1
         assert report.failures[0].candidate_id == candidates[0].candidate_id
         assert report.failures[0].exception_type == "ValueError"
-        progress = query_campaign_progress(store, context.run_id)
-        assert progress == report.progress
-        assert campaign_status(store, candidates[0].candidate_id).outcome is CampaignOutcome.FAILED
-        assert campaign_status(store, candidates[1].candidate_id).outcome is CampaignOutcome.SUCCEEDED
+        assert query_campaign_progress(store, context.run_id) == report.progress
+        first = campaign_status(store, candidates[0].candidate_id)
+        second = campaign_status(store, candidates[1].candidate_id)
+        assert first.outcome is CampaignOutcome.FAILED
+        assert second.outcome is CampaignOutcome.SUCCEEDED
     finally:
         store.close()
 
