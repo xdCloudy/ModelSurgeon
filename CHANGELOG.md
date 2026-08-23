@@ -39,6 +39,8 @@
   atomic manifests, stale-artifact recovery, and scoped cleanup.
 - Add tensor-boundary resumable GGUF output with input/plan identity checks, committed
   prefix verification, partial-range truncation, and no incomplete publication.
+- Add pinned license-compatible encoded/decoded conformance vectors for every native
+  GGUF codec type with byte-order, field-packing, shape, and checksum validation.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
