@@ -15,6 +15,7 @@ from modelsurgeon.adapters.gguf.architecture import (
     MetadataSemantic,
     ResolvedGGUFArchitecture,
     TensorMapping,
+    TensorRole,
     resolve_gguf_architecture,
 )
 from modelsurgeon.adapters.gguf.container import (
@@ -60,6 +61,16 @@ class GGUFModelShape:
     feed_forward_length: int
     attention_heads: int
     kv_heads: int
+    key_head_length: int | None = None
+    value_head_length: int | None = None
+
+    @property
+    def key_length(self) -> int:
+        return self.key_head_length or self.embedding_length // self.attention_heads
+
+    @property
+    def value_length(self) -> int:
+        return self.value_head_length or self.embedding_length // self.attention_heads
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +131,12 @@ def _required_positive_int(container: GGUFContainer, key: str) -> int:
     return entry.value
 
 
+def _optional_positive_int(container: GGUFContainer, key: str) -> int | None:
+    if container.metadata_entry(key) is None:
+        return None
+    return _required_positive_int(container, key)
+
+
 def _model_shape(
     container: GGUFContainer,
     architecture: ResolvedGGUFArchitecture,
@@ -144,19 +161,38 @@ def _model_shape(
         feed_forward_length=value(MetadataSemantic.FEED_FORWARD_LENGTH),
         attention_heads=heads,
         kv_heads=kv_heads,
+        key_head_length=_optional_positive_int(
+            container, architecture.metadata_key(MetadataSemantic.KEY_LENGTH)
+        ),
+        value_head_length=_optional_positive_int(
+            container, architecture.metadata_key(MetadataSemantic.VALUE_LENGTH)
+        ),
     )
 
 
-def _expected_axis_size(semantic: AxisSemantic, shape: GGUFModelShape) -> int | None:
+def _expected_axis_size(
+    semantic: AxisSemantic,
+    role: TensorRole,
+    shape: GGUFModelShape,
+) -> int | None:
     if semantic in {
         AxisSemantic.INPUT_FEATURE,
         AxisSemantic.OUTPUT_FEATURE,
         AxisSemantic.HIDDEN_FEATURE,
-        AxisSemantic.ATTENTION_HEAD,
     }:
         return shape.embedding_length
+    if semantic is AxisSemantic.ATTENTION_HEAD:
+        return (
+            shape.value_length
+            if role is TensorRole.ATTENTION_O
+            else shape.key_length
+        ) * shape.attention_heads
     if semantic is AxisSemantic.KV_HEAD:
-        return shape.embedding_length // shape.attention_heads * shape.kv_heads
+        return (
+            shape.value_length
+            if role is TensorRole.ATTENTION_V
+            else shape.key_length
+        ) * shape.kv_heads
     if semantic is AxisSemantic.MLP_CHANNEL:
         return shape.feed_forward_length
     return None
@@ -186,7 +222,7 @@ def _map_tensor(
             f"tensor {descriptor.name!r} architecture axes are not contiguous"
         )
     for axis in mapping.axes:
-        expected = _expected_axis_size(axis.semantic, shape)
+        expected = _expected_axis_size(axis.semantic, mapping.role, shape)
         actual = descriptor.dimensions[axis.index]
         if expected is not None and actual != expected:
             raise GGUFTensorShapeError(

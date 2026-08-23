@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolve model-wide native Llama/Qwen MHA, GQA, and MQA Q/K/V/O head-removal
+  rules with fixed explicit head dimensions, safe KV grouping, exact codec
+  alignment strategies, and fail-closed rejection of semantic remapping.
 - Add matched no-surgery requantization controls that stream the same exact-codec
   block ranges as a structural plan and separately attribute requantization,
   surgery, and combined metric deltas.
