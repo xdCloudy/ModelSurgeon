@@ -1,6 +1,15 @@
 """Versioned framework-neutral model feature records and extractors."""
 
 from modelsurgeon.features.activation import ActivationBatch, ActivationSummaryCollector
+from modelsurgeon.features.activation_covariance import (
+    ACTIVATION_COVARIANCE_EXTRACTOR_VERSION,
+    ActivationCovarianceCollector,
+    ActivationCovarianceConfig,
+    ActivationCovarianceError,
+    ActivationCovarianceSummary,
+    CovarianceAccuracyReport,
+    evaluate_covariance_accuracy,
+)
 from modelsurgeon.features.channel_activation import (
     ChannelActivationCollector,
     ChannelActivationConfig,
@@ -51,6 +60,7 @@ from modelsurgeon.features.weight_statistics import (
 )
 
 __all__ = [
+    "ACTIVATION_COVARIANCE_EXTRACTOR_VERSION",
     "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
@@ -58,11 +68,16 @@ __all__ = [
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
     "ActivationBatch",
+    "ActivationCovarianceCollector",
+    "ActivationCovarianceConfig",
+    "ActivationCovarianceError",
+    "ActivationCovarianceSummary",
     "ActivationSummaryCollector",
     "ChannelActivationCollector",
     "ChannelActivationConfig",
     "ChannelActivationFeature",
     "ChannelActivationSummary",
+    "CovarianceAccuracyReport",
     "ErrorProvenance",
     "ExactSpectralConfig",
     "ExactSpectralError",
@@ -84,6 +99,7 @@ __all__ = [
     "WeightStatistics",
     "WeightStatisticsError",
     "WeightTensor",
+    "evaluate_covariance_accuracy",
     "extract_exact_spectral_features",
     "extract_randomized_spectral_features",
     "extract_weight_distribution",
