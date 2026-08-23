@@ -252,8 +252,9 @@ def apply_experiment_migrations(
 
     _validate_registry(migrations)
     if target_version < 0 or target_version > len(migrations):
+        supported = f"0..{len(migrations)}"
         raise ExperimentMigrationError(
-            f"target schema version {target_version} is outside supported range 0..{len(migrations)}"
+            f"target schema version {target_version} is outside supported range {supported}"
         )
     _configure_connection(connection)
     _bootstrap(connection)
