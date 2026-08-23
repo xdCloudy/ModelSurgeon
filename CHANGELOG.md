@@ -7,6 +7,7 @@
 - Add a versioned, framework-neutral component dependency, coupling, and mutation-constraint graph schema.
 - Build deterministic transformer hierarchy, dataflow, residual, projection-coupling, and mutation-constraint graphs from discovery records.
 - Validate graph endpoints, reciprocal edges, forbidden cycles, constraint membership, and complete mutation coupling closures with exact diagnostics.
+- Persist and strictly reload canonical versioned component graphs with required adapter and immutable-model provenance.
 
 All notable changes will be documented here. This project follows Keep a Changelog and semantic versioning once public APIs stabilize.
 

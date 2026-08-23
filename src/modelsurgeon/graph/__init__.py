@@ -17,6 +17,14 @@ from modelsurgeon.graph.schema import (
     GraphNode,
     MutationConstraint,
 )
+from modelsurgeon.graph.serialization import (
+    GRAPH_ARTIFACT_SCHEMA_VERSION,
+    GraphProvenance,
+    GraphSerializationError,
+    PersistedComponentGraph,
+    dump_component_graph,
+    load_component_graph,
+)
 from modelsurgeon.graph.validation import (
     GraphValidationError,
     GraphValidationReport,
@@ -30,6 +38,7 @@ from modelsurgeon.graph.walker import ComponentRecord, walk_named_modules
 __all__ = [
     "CONSTRAINT_SCHEMA_VERSION",
     "EDGE_SEMANTICS_VERSION",
+    "GRAPH_ARTIFACT_SCHEMA_VERSION",
     "GRAPH_SCHEMA_VERSION",
     "ComponentGraph",
     "ComponentId",
@@ -41,12 +50,17 @@ __all__ = [
     "GraphBuildError",
     "GraphEdge",
     "GraphNode",
+    "GraphProvenance",
+    "GraphSerializationError",
     "GraphValidationError",
     "GraphValidationReport",
     "GraphValidationRule",
     "GraphViolation",
     "MutationConstraint",
+    "PersistedComponentGraph",
     "build_component_graph",
+    "dump_component_graph",
+    "load_component_graph",
     "validate_component_graph",
     "validate_graph_records",
     "walk_named_modules",
