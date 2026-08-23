@@ -6,6 +6,8 @@
   metadata, exact tensor ranges, endian detection, and corruption checks.
 - Add stable lazy GGUF tensor handles with tensor-scoped byte reads and complete-block
   chunk iteration under explicit allocation limits.
+- Discover reconciled GGUF physical component graphs with explicit tensor-axis and
+  architecture coupling constraints.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
