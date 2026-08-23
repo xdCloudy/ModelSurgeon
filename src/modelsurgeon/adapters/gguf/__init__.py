@@ -82,6 +82,11 @@ from modelsurgeon.adapters.gguf.intermediate import (
     DiskTensorSpec,
     StaleDiskTensorError,
 )
+from modelsurgeon.adapters.gguf.q8_codec import (
+    Q8_0_CODEC,
+    Q8_0Codec,
+    Q8QuantizationReport,
+)
 from modelsurgeon.adapters.gguf.quantization import (
     QUANT_LAYOUTS,
     AlignmentConstraint,
@@ -147,6 +152,7 @@ __all__ = [
     "GGUF_CODEC_CONFORMANCE_VECTORS",
     "GGUF_PY_QUANTS_BLOB",
     "GGUF_RESUME_SCHEMA_VERSION",
+    "Q8_0_CODEC",
     "QUANT_LAYOUTS",
     "AlignmentConstraint",
     "AmbiguousGGUFArchitectureError",
@@ -216,6 +222,8 @@ __all__ = [
     "MetadataSemantic",
     "MissingGGUFMetadataError",
     "MissingGGUFTensorError",
+    "Q8QuantizationReport",
+    "Q8_0Codec",
     "QuantizationCodec",
     "QuantizationError",
     "QuantizationFamily",
