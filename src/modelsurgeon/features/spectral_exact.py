@@ -202,7 +202,9 @@ class ExactSpectralOutcome:
 
     def __post_init__(self) -> None:
         if (self.features is None) == (self.decline_reason is None):
-            raise ExactSpectralError("spectral outcome must contain either features or a decline reason")
+            raise ExactSpectralError(
+                "spectral outcome must contain either features or a decline reason"
+            )
 
     @property
     def accepted(self) -> bool:
@@ -329,7 +331,10 @@ def _energy_ranks(
     threshold_index = 0
     for rank, energy in enumerate(energies, start=1):
         cumulative += energy
-        while threshold_index < len(thresholds) and cumulative / total >= thresholds[threshold_index]:
+        while (
+            threshold_index < len(thresholds)
+            and cumulative / total >= thresholds[threshold_index]
+        ):
             output.append((thresholds[threshold_index], rank))
             threshold_index += 1
     while threshold_index < len(thresholds):
