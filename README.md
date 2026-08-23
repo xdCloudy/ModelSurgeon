@@ -39,6 +39,8 @@ The base install deliberately excludes heavyweight ML dependencies. Install the 
 modelsurgeon inspect MODEL [--revision REVISION] [--trust-remote-code]
 ```
 
+All commands accept `--log-level LEVEL` and `--log-format human|json`. JSON logs carry bound run, model, and component context for automation; normal command output remains on stdout.
+
 Planned command groups include `calibrate`, `features`, `experiment`, `generate-dataset`, `train-surgeon`, `predict`, `search`, `report`, and `reproduce`.
 
 ## Principles
@@ -64,4 +66,3 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), [ARCHITECTUR
 ## License
 
 Apache-2.0. Model and dataset licenses remain the responsibility of their users.
-
