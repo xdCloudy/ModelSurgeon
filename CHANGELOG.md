@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
+
 All notable changes will be documented here. This project follows Keep a Changelog and semantic versioning once public APIs stabilize.
 
 ## [Unreleased]
