@@ -186,7 +186,7 @@ def _histogram(values: tuple[float, ...], bins: int) -> tuple[tuple[float, ...],
         low -= half_width
         high += half_width
     width = (high - low) / bins
-    edges = tuple(low + width * index for index in range(bins)) + (high,)
+    edges = (*(low + width * index for index in range(bins)), high)
     counts = [0] * bins
     for value in values:
         if value == high:
