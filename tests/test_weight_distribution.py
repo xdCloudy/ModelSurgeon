@@ -43,7 +43,12 @@ class FakeTensor:
 
     def reshape(self, *shape: int) -> FakeTensor:
         assert shape == (-1,)
-        return FakeTensor(list(self.values), (len(self.values),), dtype=self.dtype, device=self.device)
+        return FakeTensor(
+            list(self.values),
+            (len(self.values),),
+            dtype=self.dtype,
+            device=self.device,
+        )
 
     def tolist(self) -> object:
         return list(self.values)
@@ -112,7 +117,7 @@ def test_constant_low_precision_tensor_never_emits_nan() -> None:
 def test_invalid_distribution_configuration_is_rejected() -> None:
     with pytest.raises(WeightDistributionError, match="strictly increasing"):
         WeightDistributionConfig(quantiles=(0.5, 0.25))
-    with pytest.raises(WeightDistributionError, match="within \[0, 1\]"):
+    with pytest.raises(WeightDistributionError, match=r"within \[0, 1\]"):
         WeightDistributionConfig(quantiles=(-0.1,))
     with pytest.raises(WeightDistributionError, match="bin count"):
         WeightDistributionConfig(histogram_bins=1)
