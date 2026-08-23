@@ -82,6 +82,13 @@ from modelsurgeon.adapters.gguf.intermediate import (
     DiskTensorSpec,
     StaleDiskTensorError,
 )
+from modelsurgeon.adapters.gguf.q4_k_codec import (
+    Q4_K_CODEC,
+    Q4_KCodec,
+    Q4KRecipe,
+    Q4KRecipeMetadata,
+    resolve_q4_k_recipe,
+)
 from modelsurgeon.adapters.gguf.q5_k_codec import (
     Q5_K_CODEC,
     Q5_KCodec,
@@ -160,6 +167,7 @@ __all__ = [
     "GGUF_CODEC_CONFORMANCE_VECTORS",
     "GGUF_PY_QUANTS_BLOB",
     "GGUF_RESUME_SCHEMA_VERSION",
+    "Q4_K_CODEC",
     "Q5_K_CODEC",
     "Q6_K_CODEC",
     "Q8_0_CODEC",
@@ -232,6 +240,9 @@ __all__ = [
     "MetadataSemantic",
     "MissingGGUFMetadataError",
     "MissingGGUFTensorError",
+    "Q4KRecipe",
+    "Q4KRecipeMetadata",
+    "Q4_KCodec",
     "Q5KRecipe",
     "Q5KRecipeMetadata",
     "Q5_KCodec",
@@ -266,6 +277,7 @@ __all__ = [
     "plan_supported_axes",
     "preflight_gguf_disk",
     "resolve_gguf_architecture",
+    "resolve_q4_k_recipe",
     "resolve_q5_k_recipe",
     "validate_codec_vector",
     "validate_tensor_alignment",
