@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add candidate-restricted tensor/output cosine similarities with configurable adjacent,
+  explicit, or bounded all-pairs generation, blockwise evaluation, and an explicit
+  zero-vector policy that returns zero while recording the degeneracy.
 - Add per-component gradient norm, weight×gradient, and first-order removal
   sensitivity features with explicit mean-over-batches semantics and typed missing-gradient outcomes.
 - Add opt-in bounded selected-parameter gradient collection with detached CPU snapshots,
