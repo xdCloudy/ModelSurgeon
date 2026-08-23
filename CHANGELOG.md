@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resolve requested mutation targets into deterministic transitive component
+  closures with constraint and coupled-edge reasons before any model change.
 - Add deterministic, immutable transactional mutation request, compatibility,
   precondition, delta, plan, apply/rollback, and safe ownership contracts.
 - Add a finite Gemma GGUF surgery compatibility contract for dense Gemma v1,
