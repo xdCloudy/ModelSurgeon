@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native and legacy-prefix Mistral GGUF surgery mappings with required
+  sliding-window metadata, strict GQA geometry, and complete coupled edit axes.
 - Add explicit dense Qwen2/Qwen3 GGUF surgery mappings and GQA constraints, with
   recognized MoE variants failing closed pending expert/router support.
 - Add a versioned Llama GGUF surgery adapter with strict physical tensor maps,
