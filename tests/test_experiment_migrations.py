@@ -37,10 +37,14 @@ def test_fresh_and_incrementally_upgraded_databases_reach_identical_schema() -> 
 
         assert fresh_report.start_version == 0
         assert fresh_report.end_version == EXPERIMENT_DB_SCHEMA_VERSION
-        assert fresh_report.applied_versions == (1, 2)
+        assert fresh_report.applied_versions == tuple(
+            range(1, EXPERIMENT_DB_SCHEMA_VERSION + 1)
+        )
         assert first_report.applied_versions == (1,)
         assert upgrade_report.start_version == 1
-        assert upgrade_report.applied_versions == (2,)
+        assert upgrade_report.applied_versions == tuple(
+            range(2, EXPERIMENT_DB_SCHEMA_VERSION + 1)
+        )
         assert upgrade_report.backup.recommended
         assert "Connection.backup" in upgrade_report.backup.guidance
         assert _schema_snapshot(fresh) == _schema_snapshot(upgraded)
