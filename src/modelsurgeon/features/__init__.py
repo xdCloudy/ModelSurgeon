@@ -1,2 +1,21 @@
-"""Versioned model feature extractors."""
+"""Versioned framework-neutral model feature records and extractors."""
 
+from modelsurgeon.features.schema import (
+    FEATURE_SCHEMA_VERSION,
+    ErrorProvenance,
+    FeatureKind,
+    FeatureRecord,
+    FeatureSampleContext,
+    PrecisionProvenance,
+    PrecisionSource,
+)
+
+__all__ = [
+    "FEATURE_SCHEMA_VERSION",
+    "ErrorProvenance",
+    "FeatureKind",
+    "FeatureRecord",
+    "FeatureSampleContext",
+    "PrecisionProvenance",
+    "PrecisionSource",
+]
