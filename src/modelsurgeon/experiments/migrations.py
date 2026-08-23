@@ -193,7 +193,10 @@ MIGRATIONS: tuple[ExperimentMigration, ...] = (
                 completed_at_ns INTEGER CHECK(completed_at_ns >= heartbeat_at_ns)
             )
             """.strip(),
-            "CREATE INDEX experiment_work_leases_expiry_idx ON experiment_work_leases(expires_at_ns)",
+            (
+                "CREATE INDEX experiment_work_leases_expiry_idx "
+                "ON experiment_work_leases(expires_at_ns)"
+            ),
         ),
     ),
 )
