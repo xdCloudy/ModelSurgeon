@@ -1,5 +1,10 @@
 """Canonical model graph types."""
 
+from modelsurgeon.graph.builder import (
+    ComponentRecordLike,
+    GraphBuildError,
+    build_component_graph,
+)
 from modelsurgeon.graph.component_id import ComponentId, ComponentSegment
 from modelsurgeon.graph.schema import (
     CONSTRAINT_SCHEMA_VERSION,
@@ -21,11 +26,14 @@ __all__ = [
     "ComponentGraph",
     "ComponentId",
     "ComponentRecord",
+    "ComponentRecordLike",
     "ComponentSegment",
     "ConstraintKind",
     "EdgeKind",
+    "GraphBuildError",
     "GraphEdge",
     "GraphNode",
     "MutationConstraint",
+    "build_component_graph",
     "walk_named_modules",
 ]
