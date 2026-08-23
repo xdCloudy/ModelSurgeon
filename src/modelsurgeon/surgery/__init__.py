@@ -14,6 +14,18 @@ from modelsurgeon.surgery.contracts import (
     TransactionState,
     require_safe_transaction,
 )
+from modelsurgeon.surgery.physical_plan import (
+    PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION,
+    AxisRemoval,
+    PhysicalMetadataUpdate,
+    PhysicalMutationPlan,
+    PhysicalPlanError,
+    PhysicalTensorDescriptor,
+    PhysicalTensorEdit,
+    TensorAxisTransform,
+    TensorEditIntent,
+    compile_physical_mutation_plan,
+)
 from modelsurgeon.surgery.serialization import (
     MUTATION_RECORD_SCHEMA_VERSION,
     REDACTED_LOCAL_PATH,
@@ -34,7 +46,9 @@ from modelsurgeon.surgery.target_resolution import (
 __all__ = [
     "MUTATION_RECORD_SCHEMA_VERSION",
     "MUTATION_SCHEMA_VERSION",
+    "PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION",
     "REDACTED_LOCAL_PATH",
+    "AxisRemoval",
     "MutationCompatibility",
     "MutationContractError",
     "MutationDelta",
@@ -50,10 +64,18 @@ __all__ = [
     "MutationRunRecord",
     "MutationTargetResolutionError",
     "MutationTransaction",
+    "PhysicalMetadataUpdate",
+    "PhysicalMutationPlan",
+    "PhysicalPlanError",
+    "PhysicalTensorDescriptor",
+    "PhysicalTensorEdit",
     "ResolvedMutationTarget",
     "ResolvedMutationTargets",
+    "TensorAxisTransform",
+    "TensorEditIntent",
     "TransactionState",
     "TransactionalMutation",
+    "compile_physical_mutation_plan",
     "require_safe_transaction",
     "resolve_mutation_targets",
 ]

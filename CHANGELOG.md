@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Compile closed mutation plans into allocation-free physical tensor shape/index
+  transforms, metadata updates, identity mappings, and reconciled storage deltas.
 - Add explicit retained, removed, renumbered, split, and merged component identity
   remaps that compose across surgeries without silent identity fallback.
 - Serialize canonical mutation plans, revisions, outcomes, deltas, and explicit
