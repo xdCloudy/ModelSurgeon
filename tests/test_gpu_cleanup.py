@@ -114,11 +114,10 @@ def test_cleanup_runs_after_operation_exception_without_masking_original() -> No
     events: list[str] = []
     boundary = ExperimentGPUCleanup(rss_probe=lambda: 100)
 
-    with pytest.raises(RuntimeError, match="operation failed"):
-        with boundary:
-            boundary.own_hooks(Closeable("hooks", events))
-            boundary.own_gradients(Clearable("gradients", events))
-            raise RuntimeError("operation failed")
+    with pytest.raises(RuntimeError, match="operation failed"), boundary:
+        boundary.own_hooks(Closeable("hooks", events))
+        boundary.own_gradients(Clearable("gradients", events))
+        raise RuntimeError("operation failed")
 
     assert events == ["gradients", "hooks"]
     assert boundary.last_report is not None
@@ -130,10 +129,9 @@ def test_cleanup_failure_does_not_mask_active_exception_but_is_reported() -> Non
         raise ValueError("cleanup boom")
 
     boundary = ExperimentGPUCleanup(rss_probe=lambda: 100)
-    with pytest.raises(RuntimeError, match="operation failed") as captured:
-        with boundary:
-            boundary.own_model(WeakResource(), cleanup=fail_cleanup)
-            raise RuntimeError("operation failed")
+    with pytest.raises(RuntimeError, match="operation failed") as captured, boundary:
+        boundary.own_model(WeakResource(), cleanup=fail_cleanup)
+        raise RuntimeError("operation failed")
 
     assert boundary.last_report is not None
     assert boundary.last_report.failures[0].resource == "model"
@@ -148,10 +146,9 @@ def test_cleanup_failure_without_active_exception_raises_after_full_cleanup() ->
         raise ValueError("cleanup boom")
 
     boundary = ExperimentGPUCleanup(rss_probe=lambda: 100)
-    with pytest.raises(GPUCleanupError, match="failed cleanup"):
-        with boundary:
-            boundary.own_model(WeakResource(), cleanup=fail_cleanup)
-            boundary.own_cache(Clearable("cache", events))
+    with pytest.raises(GPUCleanupError, match="failed cleanup"), boundary:
+        boundary.own_model(WeakResource(), cleanup=fail_cleanup)
+        boundary.own_cache(Clearable("cache", events))
 
     assert events == ["cache", "failing"]
     assert boundary.last_report is not None
