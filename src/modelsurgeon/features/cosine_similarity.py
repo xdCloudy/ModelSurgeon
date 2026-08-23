@@ -6,6 +6,7 @@ import math
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import pairwise
 
 from modelsurgeon.features.schema import (
     FeatureKind,
@@ -149,7 +150,7 @@ def generate_cosine_candidates(
     *,
     explicit_candidates: Iterable[CosineCandidate] = (),
 ) -> Iterator[CosineCandidate]:
-    """Yield deterministic candidates lazily and never allocate an N×N pair matrix."""
+    """Yield deterministic candidates lazily without an N-by-N pair matrix."""
 
     ordered = tuple(sorted(set(component_ids)))
     if config.candidate_mode is CosineCandidateMode.EXPLICIT:
@@ -159,7 +160,9 @@ def generate_cosine_candidates(
         for candidate in explicit_candidates:
             canonical = _canonical_candidate(candidate.left, candidate.right)
             if canonical.left not in allowed or canonical.right not in allowed:
-                raise CosineSimilarityError("explicit cosine candidate references an unknown vector")
+                raise CosineSimilarityError(
+                    "explicit cosine candidate references an unknown vector"
+                )
             if canonical in seen:
                 continue
             count += 1
@@ -170,9 +173,7 @@ def generate_cosine_candidates(
         return
 
     if config.candidate_mode is CosineCandidateMode.ADJACENT:
-        count = 0
-        for left, right in zip(ordered, ordered[1:], strict=False):
-            count += 1
+        for count, (left, right) in enumerate(pairwise(ordered), start=1):
             if count > config.max_candidates:
                 raise CosineSimilarityError("cosine candidate count exceeds configured maximum")
             yield CosineCandidate(left, right)
@@ -220,24 +221,19 @@ def cosine_similarity_for_candidate(
     if count <= 0 or len(right.values) != count:
         raise CosineSimilarityError("cosine vectors must have equal non-zero lengths")
 
-    dot_terms: list[float] = []
-    left_norm_terms: list[float] = []
-    right_norm_terms: list[float] = []
+    dot = 0.0
+    left_energy = 0.0
+    right_energy = 0.0
     for start in range(0, count, block_size):
         end = min(count, start + block_size)
         left_block = _block(left.values, start, end)
         right_block = _block(right.values, start, end)
-        dot_terms.append(
-            math.fsum(
-                a * b for a, b in zip(left_block, right_block, strict=True)
-            )
+        dot += math.fsum(
+            a * b for a, b in zip(left_block, right_block, strict=True)
         )
-        left_norm_terms.append(math.fsum(value * value for value in left_block))
-        right_norm_terms.append(math.fsum(value * value for value in right_block))
+        left_energy += math.fsum(value * value for value in left_block)
+        right_energy += math.fsum(value * value for value in right_block)
 
-    dot = math.fsum(dot_terms)
-    left_energy = math.fsum(left_norm_terms)
-    right_energy = math.fsum(right_norm_terms)
     zero_vector = left_energy == 0.0 or right_energy == 0.0
     if zero_vector:
         value = 0.0
