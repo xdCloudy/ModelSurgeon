@@ -155,7 +155,9 @@ def profile_component_latency(
     if backend is LatencyBackend.CUDA:
         assert cuda_timer is not None
         samples = tuple(cuda_timer.measure_ns(operation) for _ in range(resolved.sample_runs))
-        overhead_samples = tuple(cuda_timer.measure_ns(lambda: None) for _ in range(resolved.sample_runs))
+        overhead_samples = tuple(
+            cuda_timer.measure_ns(lambda: None) for _ in range(resolved.sample_runs)
+        )
         environment = LatencyEnvironment(
             LatencyBackend.CUDA,
             "cuda_event",
