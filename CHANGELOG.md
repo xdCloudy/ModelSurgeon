@@ -53,6 +53,8 @@
   without treating whole-file recipes as tensor types.
 - Add separate Q2_K and Q3_K super-block codecs with non-interchangeable validation,
   packed scale/high-bit handling, endian-aware deltas, and bounded range access.
+- Bound v1 IQ-family native writes to prioritized IQ4 targets with explicit read-only
+  IQ2 and deferred IQ1/IQ3 decisions plus pinned codebook provenance.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
