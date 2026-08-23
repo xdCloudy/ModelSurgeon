@@ -224,7 +224,10 @@ MIGRATIONS: tuple[ExperimentMigration, ...] = (
                 detail TEXT
             )
             """.strip(),
-            "CREATE INDEX experiment_campaign_status_outcome_idx ON experiment_campaign_status(outcome)",
+            (
+                "CREATE INDEX experiment_campaign_status_outcome_idx "
+                "ON experiment_campaign_status(outcome)"
+            ),
         ),
     ),
 )
