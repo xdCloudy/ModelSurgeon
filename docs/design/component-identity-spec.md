@@ -151,7 +151,7 @@ Parsers reject, with the failing segment and reason:
 
 - empty input, empty segments, leading/trailing dots, or a root other than `model`;
 - negative indices, signs, whitespace, or leading-zero indices such as `01`;
-- raw provider names containing dots, percent characters, slashes, brackets, commas, or whitespace;
+- raw provider names containing percent characters, slashes, brackets, commas, or whitespace; a raw dot is parsed as a path boundary and therefore cannot represent a dot inside one provider name;
 - an empty escaped name, incomplete/invalid/lowercase percent escapes, invalid UTF-8, NUL, or controls;
 - escaped names that have a valid simple representation, such as `~head`;
 - percent-encoding an unreserved byte, such as `~with%2Ddash`;

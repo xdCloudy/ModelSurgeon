@@ -38,7 +38,6 @@
     {"text": "model.module.~with%2", "reason": "incomplete percent escape"},
     {"text": "model.module.~with%GG", "reason": "invalid percent escape"},
     {"text": "model.module.~with%2Ddash", "reason": "escaped unreserved byte"},
-    {"text": "model.module.with.dot", "reason": "raw dot changes path structure"},
     {"text": "model.layers.*.head.0", "reason": "selector is not an identity"},
     {"text": "model.layers.0,model.layers.1", "reason": "set syntax is not an identity"}
   ]
