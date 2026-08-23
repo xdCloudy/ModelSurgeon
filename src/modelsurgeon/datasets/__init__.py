@@ -26,9 +26,9 @@ from modelsurgeon.datasets.parquet_store import (
     ParquetManifestEntry,
     ParquetPartition,
     ParquetStoreError,
+    PartitionedParquetStore,
     PartitionKind,
     PartitionPredicate,
-    PartitionedParquetStore,
     PyArrowParquetBackend,
 )
 
@@ -49,9 +49,9 @@ __all__ = [
     "ParquetManifestEntry",
     "ParquetPartition",
     "ParquetStoreError",
+    "PartitionedParquetStore",
     "PartitionKind",
     "PartitionPredicate",
-    "PartitionedParquetStore",
     "PreprocessingIdentity",
     "PyArrowParquetBackend",
     "SelectionConfig",
