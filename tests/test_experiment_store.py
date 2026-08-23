@@ -32,7 +32,12 @@ from modelsurgeon.experiments import (
     derive_run_identity,
 )
 from modelsurgeon.graph import ComponentId
-from modelsurgeon.surgery.contracts import MutationDelta, MutationKind, MutationPlan, MutationRequest
+from modelsurgeon.surgery.contracts import (
+    MutationDelta,
+    MutationKind,
+    MutationPlan,
+    MutationRequest,
+)
 from modelsurgeon.surgery.serialization import (
     MutationOutcome,
     MutationOutcomeStatus,
@@ -66,7 +71,16 @@ def _record(*, attempt_id: str = "attempt-1") -> ExperimentRecord:
     )
     seeds = SeedContext(1, 2, 3)
     identity = derive_experiment_identity(
-        ExperimentIdentitySpec(model, dataset, {"evaluation": {"max_tier": 2}}, seeds, "tool", "1", 1, 1)
+        ExperimentIdentitySpec(
+            model,
+            dataset,
+            {"evaluation": {"max_tier": 2}},
+            seeds,
+            "tool",
+            "1",
+            1,
+            1,
+        )
     )
     run = derive_run_identity(identity.experiment_id)
     component = ComponentId.parse("model.layers.0.mlp.up_proj")
@@ -206,6 +220,5 @@ def test_wal_reader_remains_available_while_writer_lock_is_held(tmp_path: Path) 
 def test_closed_store_rejects_new_readers(tmp_path: Path) -> None:
     store = ExperimentMetadataStore(tmp_path / "metadata.sqlite3")
     store.close()
-    with pytest.raises(ExperimentStoreError, match="closed"):
-        with store.reader():
-            pass
+    with pytest.raises(ExperimentStoreError, match="closed"), store.reader():
+        pass
