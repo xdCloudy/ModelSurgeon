@@ -67,6 +67,7 @@ class GGUFWriteResult:
     file_size: int
     sha256: str
     tensors: tuple[GGUFPlannedTensor, ...]
+    tensor_sha256: tuple[tuple[str, str], ...]
 
 
 _SCALAR_CODES: dict[GGUFValueType, str] = {
@@ -261,6 +262,7 @@ def write_gguf_transactionally(
     )
     staging = output.with_name(f".{output.name}.modelsurgeon-{secrets.token_hex(8)}.tmp")
     digest = hashlib.sha256()
+    tensor_digests: list[tuple[str, str]] = []
     try:
         with staging.open("xb") as stream:
             _write(stream, digest, layout.header)
@@ -272,11 +274,13 @@ def write_gguf_transactionally(
                     _write(stream, digest, bytes(padding))
                     cursor += padding
                 written = 0
+                tensor_digest = hashlib.sha256()
                 for chunk in tensor.chunks:
                     view = memoryview(chunk).cast("B")
                     if written > planned.byte_size - len(view):
                         raise GGUFWriteError(f"tensor {tensor.name!r} supplied too many bytes")
                     _write(stream, digest, view)
+                    tensor_digest.update(view)
                     written += len(view)
                 if written != planned.byte_size:
                     raise GGUFWriteError(
@@ -284,6 +288,7 @@ def write_gguf_transactionally(
                         f"expected {planned.byte_size}"
                     )
                 cursor += written
+                tensor_digests.append((tensor.name, tensor_digest.hexdigest()))
             if cursor != layout.total_bytes:
                 raise GGUFWriteError("written GGUF size does not match the planned layout")
             stream.flush()
@@ -305,4 +310,10 @@ def write_gguf_transactionally(
     except BaseException:
         staging.unlink(missing_ok=True)
         raise
-    return GGUFWriteResult(output, layout.total_bytes, digest.hexdigest(), layout.tensors)
+    return GGUFWriteResult(
+        output,
+        layout.total_bytes,
+        digest.hexdigest(),
+        layout.tensors,
+        tuple(tensor_digests),
+    )

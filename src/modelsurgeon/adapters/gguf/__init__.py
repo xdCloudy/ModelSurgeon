@@ -34,6 +34,10 @@ from modelsurgeon.adapters.gguf.container import (
     UnsupportedGGUFVersionError,
     open_gguf,
 )
+from modelsurgeon.adapters.gguf.direct_copy import (
+    GGUFUnchangedTensorCopy,
+    copy_unchanged_gguf_tensor,
+)
 from modelsurgeon.adapters.gguf.discovery import (
     GGUFDiscovery,
     GGUFDiscoveryError,
@@ -150,6 +154,7 @@ __all__ = [
     "GGUFTensorReadLimits",
     "GGUFTensorReader",
     "GGUFTensorShapeError",
+    "GGUFUnchangedTensorCopy",
     "GGUFValueType",
     "GGUFWriteError",
     "GGUFWriteMetadata",
@@ -176,6 +181,7 @@ __all__ = [
     "UnsupportedGGUFTypeError",
     "UnsupportedGGUFVersionError",
     "build_tensor_index",
+    "copy_unchanged_gguf_tensor",
     "discover_gguf_components",
     "monitor_gguf_disk",
     "open_gguf",

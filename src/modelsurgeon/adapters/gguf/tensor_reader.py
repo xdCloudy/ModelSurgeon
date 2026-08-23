@@ -134,7 +134,9 @@ class GGUFTensorReader:
         self.limits = limits or GGUFTensorReadLimits()
         self.index = build_tensor_index(source.container)
 
-    def _descriptor(self, handle: GGUFTensorHandle) -> GGUFTensorDescriptor:
+    def descriptor(self, handle: GGUFTensorHandle) -> GGUFTensorDescriptor:
+        """Resolve a handle to its immutable descriptor after source validation."""
+
         if handle.source_key != self.index.source_key:
             raise StaleGGUFTensorHandleError("tensor handle belongs to a different GGUF source")
         if handle.ordinal < 0 or handle.ordinal >= len(self.index.tensors):
@@ -153,7 +155,7 @@ class GGUFTensorReader:
         size: int,
     ) -> bytes:
         """Copy an arbitrary bounded byte span wholly inside one tensor."""
-        descriptor = self._descriptor(handle)
+        descriptor = self.descriptor(handle)
         if self.source.closed:
             raise GGUFTensorReadError("GGUF source is closed")
         if size < 0 or size > self.limits.max_chunk_bytes:
