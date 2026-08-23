@@ -15,12 +15,26 @@ from modelsurgeon.adapters.base import (
     UnsupportedCapabilityError,
     require_capability,
 )
+from modelsurgeon.adapters.family import (
+    ArchitectureDetectionError,
+    ArchitectureEvidence,
+    ConflictingArchitectureError,
+    FamilySelection,
+    ModelFamily,
+    UnknownArchitectureError,
+    detect_model_family,
+)
 
 __all__ = [
     "AdapterCapability",
     "AdapterIdentity",
+    "ArchitectureDetectionError",
+    "ArchitectureEvidence",
     "ComponentDescriptor",
+    "ConflictingArchitectureError",
+    "FamilySelection",
     "ModelAdapter",
+    "ModelFamily",
     "ModelFormat",
     "ModelSession",
     "ModelSource",
@@ -28,7 +42,9 @@ __all__ = [
     "OpenOptions",
     "TensorChunk",
     "TensorDescriptor",
+    "UnknownArchitectureError",
     "UnsupportedCapabilityError",
+    "detect_model_family",
     "require_capability",
 ]
 
