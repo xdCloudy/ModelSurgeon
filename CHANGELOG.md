@@ -23,6 +23,8 @@
   capture cleanup across success, exception, and interrupt paths.
 - Add mergeable fixed-memory streaming moments, extrema, RMS, sparsity, activation,
   histogram, and percentile accumulators.
+- Add masked per-component activation summaries with sample and aggregation-axis
+  provenance.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
