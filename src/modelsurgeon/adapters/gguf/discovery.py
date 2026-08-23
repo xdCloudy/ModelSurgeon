@@ -147,13 +147,20 @@ def _model_shape(
     heads = value(MetadataSemantic.HEAD_COUNT)
     kv_heads = value(MetadataSemantic.KV_HEAD_COUNT)
     embedding = value(MetadataSemantic.EMBEDDING_LENGTH)
+    key_head_length = _optional_positive_int(
+        container, architecture.metadata_key(MetadataSemantic.KEY_LENGTH)
+    )
+    value_head_length = _optional_positive_int(
+        container, architecture.metadata_key(MetadataSemantic.VALUE_LENGTH)
+    )
     if kv_heads > heads:
         raise GGUFTensorShapeError(
             f"KV head count {kv_heads} exceeds attention head count {heads}"
         )
-    if embedding % heads:
+    if (key_head_length is None or value_head_length is None) and embedding % heads:
         raise GGUFTensorShapeError(
-            f"embedding length {embedding} is not divisible by attention head count {heads}"
+            f"embedding length {embedding} is not divisible by attention head count "
+            f"{heads} and explicit head lengths are incomplete"
         )
     return GGUFModelShape(
         layers=value(MetadataSemantic.BLOCK_COUNT),
@@ -161,12 +168,8 @@ def _model_shape(
         feed_forward_length=value(MetadataSemantic.FEED_FORWARD_LENGTH),
         attention_heads=heads,
         kv_heads=kv_heads,
-        key_head_length=_optional_positive_int(
-            container, architecture.metadata_key(MetadataSemantic.KEY_LENGTH)
-        ),
-        value_head_length=_optional_positive_int(
-            container, architecture.metadata_key(MetadataSemantic.VALUE_LENGTH)
-        ),
+        key_head_length=key_head_length,
+        value_head_length=value_head_length,
     )
 
 
