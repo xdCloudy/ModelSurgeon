@@ -313,6 +313,11 @@ class MemoryMappedGGUF:
         if not self._stream.closed:
             self._stream.close()
 
+    @property
+    def closed(self) -> bool:
+        """Whether the source mapping has been released."""
+        return self._mapping.closed
+
     def raw_bytes(self, offset: int, size: int, *, max_bytes: int = 16 * 1024 * 1024) -> bytes:
         """Copy one explicitly bounded source span; never return a live mmap view."""
         if max_bytes <= 0 or size < 0 or size > max_bytes:

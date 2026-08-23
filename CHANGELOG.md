@@ -4,6 +4,8 @@
 
 - Add a bounded, read-only memory-mapped GGUF v2/v3 container parser with typed
   metadata, exact tensor ranges, endian detection, and corruption checks.
+- Add stable lazy GGUF tensor handles with tensor-scoped byte reads and complete-block
+  chunk iteration under explicit allocation limits.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.

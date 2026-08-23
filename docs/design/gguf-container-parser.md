@@ -19,3 +19,11 @@ keys repeat, dimensions are invalid, block divisibility fails, alignment is unsa
 offset arithmetic overflows, byte ranges leave the file, or tensor ranges overlap.
 The public bounded `raw_bytes` method returns copies rather than live views, keeping
 the mmap handle private to the adapter boundary.
+
+`GGUFTensorReader` builds deterministic immutable handles from that descriptor index
+without requesting payload bytes. Every handle is bound to one structural source
+identity and revalidated against its ordinal descriptor before a read. Arbitrary byte
+reads must remain inside the tensor and under the configured allocation cap. Block
+reads and chunk iteration additionally operate on complete exact-codec blocks; each
+chunk reports physical byte and logical element offsets. Returned data is an owned
+bounded `bytes` copy, never a view that can outlive or expose the source mapping.
