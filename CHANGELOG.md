@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit retained, removed, renumbered, split, and merged component identity
+  remaps that compose across surgeries without silent identity fallback.
 - Serialize canonical mutation plans, revisions, outcomes, deltas, and explicit
   identity mappings with verified IDs and default local-path redaction.
 - Resolve requested mutation targets into deterministic transitive component

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, cast
 
-from modelsurgeon.graph import ComponentId
+from modelsurgeon.graph import ComponentId, ComponentIdentityMapping, IdentityRemapError
 from modelsurgeon.surgery.contracts import (
     MUTATION_SCHEMA_VERSION,
     MutationContractError,
@@ -56,29 +56,7 @@ class MutationProvenance:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class MutationIdentityMapping:
-    source: ComponentId
-    targets: tuple[ComponentId, ...]
-    reason: str
-
-    def __post_init__(self) -> None:
-        if self.targets != tuple(sorted(set(self.targets))):
-            raise MutationRecordError("identity mapping targets must be unique and canonical")
-        if not self.reason:
-            raise MutationRecordError("identity mappings require a reason")
-
-    @property
-    def removed(self) -> bool:
-        return not self.targets
-
-    def to_record(self) -> dict[str, object]:
-        return {
-            "source": str(self.source),
-            "targets": [str(target) for target in self.targets],
-            "removed": self.removed,
-            "reason": self.reason,
-        }
+MutationIdentityMapping = ComponentIdentityMapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,11 +278,14 @@ def _mapping(value: object) -> MutationIdentityMapping:
     removed = record["removed"]
     if not isinstance(removed, bool) or removed != (not targets):
         raise MutationRecordError("identity mapping removed flag disagrees with targets")
-    return MutationIdentityMapping(
-        ComponentId.parse(_string(record["source"], "mapping.source")),
-        targets,
-        _string(record["reason"], "mapping.reason"),
-    )
+    try:
+        return MutationIdentityMapping(
+            ComponentId.parse(_string(record["source"], "mapping.source")),
+            targets,
+            _string(record["reason"], "mapping.reason"),
+        )
+    except IdentityRemapError as error:
+        raise MutationRecordError(f"invalid identity mapping: {error}") from error
 
 
 def _outcome(value: object) -> MutationOutcome:

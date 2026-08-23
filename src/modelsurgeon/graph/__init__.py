@@ -6,6 +6,14 @@ from modelsurgeon.graph.builder import (
     build_component_graph,
 )
 from modelsurgeon.graph.component_id import ComponentId, ComponentSegment
+from modelsurgeon.graph.remapping import (
+    ComponentIdentityMapping,
+    ComponentIdentityRemap,
+    IdentityDisposition,
+    IdentityRemapError,
+    RemovedSourceIdentityError,
+    UnknownSourceIdentityError,
+)
 from modelsurgeon.graph.schema import (
     CONSTRAINT_SCHEMA_VERSION,
     EDGE_SEMANTICS_VERSION,
@@ -42,6 +50,8 @@ __all__ = [
     "GRAPH_SCHEMA_VERSION",
     "ComponentGraph",
     "ComponentId",
+    "ComponentIdentityMapping",
+    "ComponentIdentityRemap",
     "ComponentRecord",
     "ComponentRecordLike",
     "ComponentSegment",
@@ -56,8 +66,12 @@ __all__ = [
     "GraphValidationReport",
     "GraphValidationRule",
     "GraphViolation",
+    "IdentityDisposition",
+    "IdentityRemapError",
     "MutationConstraint",
     "PersistedComponentGraph",
+    "RemovedSourceIdentityError",
+    "UnknownSourceIdentityError",
     "build_component_graph",
     "dump_component_graph",
     "load_component_graph",
