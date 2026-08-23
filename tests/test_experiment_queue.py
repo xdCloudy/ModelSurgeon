@@ -208,51 +208,44 @@ def test_expired_lease_cannot_heartbeat_or_complete(tmp_path: Path) -> None:
 
 def test_two_concurrent_workers_cannot_both_claim_current_lease(tmp_path: Path) -> None:
     database, candidate_id = _database_with_candidate(tmp_path)
-    first_store = ExperimentMetadataStore(database)
-    second_store = ExperimentMetadataStore(database)
     barrier = threading.Barrier(2)
+    result_lock = threading.Lock()
     results: list[str | None] = []
     errors: list[BaseException] = []
 
-    def claim(queue: ExperimentWorkQueue, attempt_id: str, worker_id: str) -> None:
+    def claim(attempt_id: str, worker_id: str, token: str) -> None:
         try:
-            barrier.wait()
-            lease = queue.claim(
-                candidate_id,
-                attempt_id=attempt_id,
-                worker_id=worker_id,
-                now_ns=100,
-            )
-            results.append(None if lease is None else lease.lease_token)
+            with ExperimentMetadataStore(database) as store:
+                queue = ExperimentWorkQueue(
+                    store,
+                    lease_duration_ns=10,
+                    token_factory=lambda: token,
+                )
+                barrier.wait()
+                lease = queue.claim(
+                    candidate_id,
+                    attempt_id=attempt_id,
+                    worker_id=worker_id,
+                    now_ns=100,
+                )
+                with result_lock:
+                    results.append(None if lease is None else lease.lease_token)
         except BaseException as error:
-            errors.append(error)
+            with result_lock:
+                errors.append(error)
 
-    try:
-        first = ExperimentWorkQueue(
-            first_store,
-            lease_duration_ns=10,
-            token_factory=lambda: "token-first",
-        )
-        second = ExperimentWorkQueue(
-            second_store,
-            lease_duration_ns=10,
-            token_factory=lambda: "token-second",
-        )
-        threads = (
-            threading.Thread(target=claim, args=(first, "attempt-1", "worker-1")),
-            threading.Thread(target=claim, args=(second, "attempt-2", "worker-2")),
-        )
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+    threads = (
+        threading.Thread(target=claim, args=("attempt-1", "worker-1", "token-first")),
+        threading.Thread(target=claim, args=("attempt-2", "worker-2", "token-second")),
+    )
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
 
-        assert not errors
-        assert len(results) == 2
-        assert sum(item is not None for item in results) == 1
-    finally:
-        first_store.close()
-        second_store.close()
+    assert not errors
+    assert len(results) == 2
+    assert sum(item is not None for item in results) == 1
 
 
 def test_unknown_candidate_and_backward_time_fail_closed(tmp_path: Path) -> None:
