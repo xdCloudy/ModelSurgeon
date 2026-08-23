@@ -35,6 +35,8 @@
   staged validation, fsync, atomic publication, and SHA-256 integrity provenance.
 - Add byte-for-byte unchanged GGUF tensor copying with complete-block chunk bounds and
   per-tensor output checksums.
+- Add checksummed, resumable disk-backed tensor intermediates with fixed chunk memory,
+  atomic manifests, stale-artifact recovery, and scoped cleanup.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
