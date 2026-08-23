@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "valid": [
+    {"canonical": "model", "kind": "model"},
+    {"canonical": "model.embed_tokens", "kind": "embedding"},
+    {"canonical": "model.norm", "kind": "normalization"},
+    {"canonical": "model.layers.0", "kind": "transformer_layer"},
+    {"canonical": "model.layers.17.self_attn", "kind": "attention"},
+    {"canonical": "model.layers.17.self_attn.head.4", "kind": "attention_head"},
+    {"canonical": "model.layers.2.self_attn.kv_head.1", "kind": "kv_head"},
+    {"canonical": "model.layers.8.self_attn.q_proj", "kind": "projection"},
+    {"canonical": "model.layers.8.self_attn.k_proj", "kind": "projection"},
+    {"canonical": "model.layers.8.self_attn.v_proj", "kind": "projection"},
+    {"canonical": "model.layers.8.self_attn.o_proj", "kind": "projection"},
+    {"canonical": "model.layers.12.mlp", "kind": "mlp"},
+    {"canonical": "model.layers.12.mlp.up_proj.channel.1830", "kind": "mlp_channel"},
+    {"canonical": "model.layers.3.residual", "kind": "residual_path"},
+    {"canonical": "model.layers.5.mlp.expert.3", "kind": "moe_expert"},
+    {"canonical": "model.layers.5.mlp.router", "kind": "moe_router"},
+    {"canonical": "model.layers.0.module.~123", "kind": "module"},
+    {"canonical": "model.layers.0.module.~with%2Edot", "kind": "module"},
+    {"canonical": "model.layers.0.module.~50%25", "kind": "module"},
+    {"canonical": "model.layers.0.module.~snowman%E2%98%83", "kind": "module"}
+  ],
+  "invalid": [
+    {"text": "", "reason": "empty ID"},
+    {"text": ".model", "reason": "leading dot"},
+    {"text": "model.", "reason": "trailing dot"},
+    {"text": "model..layers", "reason": "empty segment"},
+    {"text": "network.layers.0", "reason": "unknown root"},
+    {"text": "model.layers.-1", "reason": "negative index"},
+    {"text": "model.layers.+1", "reason": "signed index"},
+    {"text": "model.layers.01", "reason": "leading-zero index"},
+    {"text": "model.layers. 1", "reason": "raw whitespace"},
+    {"text": "model.module.~", "reason": "empty escaped name"},
+    {"text": "model.module.~head", "reason": "unnecessary escaped name"},
+    {"text": "model.module.~with%2edot", "reason": "lowercase percent escape"},
+    {"text": "model.module.~with%2", "reason": "incomplete percent escape"},
+    {"text": "model.module.~with%GG", "reason": "invalid percent escape"},
+    {"text": "model.module.~with%2Ddash", "reason": "escaped unreserved byte"},
+    {"text": "model.module.with.dot", "reason": "raw dot changes path structure"},
+    {"text": "model.layers.*.head.0", "reason": "selector is not an identity"},
+    {"text": "model.layers.0,model.layers.1", "reason": "set syntax is not an identity"}
+  ]
+}
+
