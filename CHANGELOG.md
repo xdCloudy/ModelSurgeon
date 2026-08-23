@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add matched no-surgery requantization controls that stream the same exact-codec
+  block ranges as a structural plan and separately attribute requantization,
+  surgery, and combined metric deltas.
 - Execute coupled native quantized GGUF MLP channel removal with bounded encoded
   copies, one-row selective repacking, exact-codec requantization, resumable
   transactional output, untouched-tensor hashes, and output-graph validation.
