@@ -72,12 +72,18 @@ class ComponentCostSpec:
             raise CostModelError("component parameter count cannot be negative")
         if self.input_width <= 0 or self.output_width <= 0:
             raise CostModelError("component input/output widths must be positive")
-        if self.operation is CostOperation.GATED_MLP:
-            if self.intermediate_width is None or self.intermediate_width <= 0:
-                raise CostModelError("gated MLP cost requires a positive intermediate width")
-        if self.operation is CostOperation.ATTENTION:
-            if self.heads is None or self.heads <= 0 or self.head_dim is None or self.head_dim <= 0:
-                raise CostModelError("attention cost requires positive heads and head_dim")
+        if (
+            self.operation is CostOperation.GATED_MLP
+            and (self.intermediate_width is None or self.intermediate_width <= 0)
+        ):
+            raise CostModelError("gated MLP cost requires a positive intermediate width")
+        if self.operation is CostOperation.ATTENTION and (
+            self.heads is None
+            or self.heads <= 0
+            or self.head_dim is None
+            or self.head_dim <= 0
+        ):
+            raise CostModelError("attention cost requires positive heads and head_dim")
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,7 +176,8 @@ def _estimate(
         intermediate = spec.intermediate_width
         if intermediate is None:
             raise CostModelError("gated MLP intermediate width is missing")
-        flops = madd * batch * tokens * (2 * input_width * intermediate + intermediate * output_width)
+        projection_terms = 2 * input_width * intermediate + intermediate * output_width
+        flops = madd * batch * tokens * projection_terms
         working_elements = batch * tokens * (2 * intermediate + output_width)
         peak_bytes = working_elements * bytes_per_element
     else:
