@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a versioned Llama GGUF surgery adapter with strict physical tensor maps,
+  coupled edit axes, MHA/GQA geometry, and fail-closed compatibility validation.
 - Add prioritized native IQ4_NL and IQ4_XS codecs with nonlinear codebook
   packing, endian-aware scales, exact-type dispatch, and fail-closed unsupported
   IQ writes.
