@@ -1,0 +1,2 @@
+"""Safetensors model adapter."""
+

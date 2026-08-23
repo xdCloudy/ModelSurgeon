@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modelsurgeon"
+version = "0.0.1"
+description = "Learned automated structural optimization and pruning for neural networks"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "ModelSurgeon contributors" }]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "pydantic>=2.8,<3",
+  "pydantic-settings>=2.4,<3",
+  "structlog>=24.4,<26",
+  "typer>=0.12,<1",
+]
+
+[project.optional-dependencies]
+hf = [
+  "accelerate>=1.0,<2",
+  "safetensors>=0.4,<1",
+  "torch>=2.4,<3",
+  "transformers>=4.45,<5",
+]
+dev = [
+  "mypy>=1.11,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=5,<7",
+  "ruff>=0.6,<1",
+]
+
+[project.scripts]
+modelsurgeon = "modelsurgeon.cli.app:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelsurgeon"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/bootstrap_github.py" = ["E501", "RUF001"]
+"tools/audit_github.py" = ["E501"]
+"tools/roadmap_catalog.py" = ["E501", "RUF001"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["modelsurgeon"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -q"
+testpaths = ["tests"]
