@@ -92,17 +92,19 @@ def test_out_of_range_and_unsupported_outputs_fail_with_component_context() -> N
     module = Module()
     component = ComponentId.parse("model.layers.2.mlp")
 
-    with _transaction(owner) as transaction, ComponentOutputMask(
-        component, module, transaction, indices=(3,)
+    with (
+        _transaction(owner) as transaction,
+        ComponentOutputMask(component, module, transaction, indices=(3,)),
+        pytest.raises(ComponentMaskError, match=r"model\.layers\.2\.mlp"),
     ):
-        with pytest.raises(ComponentMaskError, match=r"model\.layers\.2\.mlp"):
-            module.emit(((1.0, 2.0),))
+        module.emit(((1.0, 2.0),))
 
-    with _transaction(object()) as transaction, ComponentOutputMask(
-        component, module, transaction
+    with (
+        _transaction(object()) as transaction,
+        ComponentOutputMask(component, module, transaction),
+        pytest.raises(ComponentMaskError, match="unsupported"),
     ):
-        with pytest.raises(ComponentMaskError, match="unsupported"):
-            module.emit({"hidden": (1.0, 2.0)})
+        module.emit({"hidden": (1.0, 2.0)})
 
 
 def test_mask_requires_prepared_transaction_ownership() -> None:
@@ -133,11 +135,12 @@ def test_backend_shape_or_dtype_change_fails_closed() -> None:
     owner = object()
     module = Module()
     component = ComponentId.parse("model.layers.0.mlp")
-    with _transaction(owner) as transaction, ComponentOutputMask(
-        component, module, transaction, backend=BadBackend()
+    with (
+        _transaction(owner) as transaction,
+        ComponentOutputMask(component, module, transaction, backend=BadBackend()),
+        pytest.raises(ComponentMaskError, match="shape or dtype"),
     ):
-        with pytest.raises(ComponentMaskError, match="shape or dtype"):
-            module.emit(((1.0, 2.0),))
+        module.emit(((1.0, 2.0),))
 
 
 def test_mask_index_contract_rejects_duplicates_noncanonical_and_negative() -> None:
