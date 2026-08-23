@@ -35,7 +35,9 @@ class CausalLMBatch:
                 )
             vocab_widths.update(len(row) for row in rows)
         if len(vocab_widths) != 1 or 0 in vocab_widths:
-            raise PerplexityEvaluationError("logit vocabulary width must be positive and consistent")
+            raise PerplexityEvaluationError(
+                "logit vocabulary width must be positive and consistent"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +130,9 @@ def evaluate_perplexity(
         try:
             baseline_perplexity = math.exp(baseline_loss)
         except OverflowError as error:
-            raise PerplexityEvaluationError("baseline perplexity overflowed finite range") from error
+            raise PerplexityEvaluationError(
+                "baseline perplexity overflowed finite range"
+            ) from error
         if not math.isfinite(baseline_perplexity):
             raise PerplexityEvaluationError("baseline perplexity is non-finite")
         loss_delta = mean_loss - baseline_loss
