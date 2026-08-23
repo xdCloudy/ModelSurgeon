@@ -13,6 +13,8 @@ from modelsurgeon.surgery.component_mask import (
     ComponentOutputMask,
     MaskHookModule,
     OutputMaskBackend,
+    OutputSignature,
+    SequenceOutputMaskBackend,
 )
 from modelsurgeon.surgery.contracts import MutationTransaction
 
@@ -66,6 +68,28 @@ class AttentionHeadMaskSpec:
         return heads * self.head_width
 
 
+class _WidthCheckedBackend:
+    def __init__(self, backend: OutputMaskBackend, expected_width: int) -> None:
+        self._backend = backend
+        self._expected_width = expected_width
+
+    def signature(self, output: object) -> OutputSignature:
+        signature = self._backend.signature(output)
+        if signature.shape[-1] != self._expected_width:
+            raise AttentionHeadMaskError(
+                f"attention mask point width {signature.shape[-1]} does not match "
+                f"adapter geometry {self._expected_width}"
+            )
+        return signature
+
+    def mask_last_axis(
+        self,
+        output: object,
+        indices: tuple[int, ...] | None,
+    ) -> object:
+        return self._backend.mask_last_axis(output, indices)
+
+
 class AttentionHeadMask(AbstractContextManager["AttentionHeadMask"]):
     """Compose generic output masking into one logical attention-head experiment."""
 
@@ -78,12 +102,15 @@ class AttentionHeadMask(AbstractContextManager["AttentionHeadMask"]):
         backend: OutputMaskBackend | None = None,
     ) -> None:
         self.spec = spec
+        resolved_backend = _WidthCheckedBackend(
+            backend or SequenceOutputMaskBackend(), spec.expected_output_width
+        )
         self._mask = ComponentOutputMask(
             spec.component_id,
             module,
             transaction,
             indices=spec.mask_indices,
-            backend=backend,
+            backend=resolved_backend,
         )
 
     @property
