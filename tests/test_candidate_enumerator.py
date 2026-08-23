@@ -13,6 +13,8 @@ from modelsurgeon.graph import (
     ComponentGraph,
     ComponentId,
     ConstraintKind,
+    EdgeKind,
+    GraphEdge,
     GraphNode,
     MutationConstraint,
 )
@@ -54,12 +56,29 @@ def _graph() -> ComponentGraph:
         GraphNode(_id("model.layers.1.kv_head.0"), "kv_head"),
         GraphNode(_id("model.residual_path.0"), "residual_path"),
     )
+    coupled = tuple(
+        sorted(
+            (
+                _id("model.layers.0.self_attn.q_proj"),
+                _id("model.layers.0.input_norm"),
+            )
+        )
+    )
     constraint = MutationConstraint(
         "q-proj-norm-coupling",
         ConstraintKind.GROUPED_MUTATION,
-        tuple(sorted((_id("model.layers.0.self_attn.q_proj"), _id("model.layers.0.input_norm")))),
+        coupled,
     )
-    return ComponentGraph.build(nodes, constraints=(constraint,))
+    edges = (
+        GraphEdge(coupled[0], coupled[1], EdgeKind.COUPLED),
+        GraphEdge(
+            coupled[0],
+            coupled[1],
+            EdgeKind.CONSTRAINED,
+            attributes=(("constraint_id", constraint.constraint_id),),
+        ),
+    )
+    return ComponentGraph.build(nodes, edges, (constraint,))
 
 
 def _run_id() -> str:
@@ -72,10 +91,10 @@ def test_enumeration_is_deterministic_unique_and_uses_canonical_request_ids() ->
     second = enumerate_mutation_candidates(_graph(), _run_id(), config)
 
     assert first.to_record() == second.to_record()
-    assert first.eligible_count == 8
-    assert len(first.candidates) == 8
-    assert len({item.candidate_id for item in first.candidates}) == 8
-    assert len({item.mutation_id for item in first.candidates}) == 8
+    assert first.eligible_count == 9
+    assert len(first.candidates) == 9
+    assert len({item.candidate_id for item in first.candidates}) == 9
+    assert len({item.mutation_id for item in first.candidates}) == 9
     assert all(item.request.targets == (item.component_id,) for item in first.candidates)
     assert all(item.request.parameters[0][0] == "candidate_scope" for item in first.candidates)
 
@@ -141,8 +160,8 @@ def test_seeded_limit_is_bounded_repeatable_and_changes_selection() -> None:
         item.candidate_id for item in repeated.candidates
     ]
     assert len(first.candidates) == 3
-    assert first.eligible_count == 8
-    assert {item.reason: item.count for item in first.exclusions}["sampled-out"] == 5
+    assert first.eligible_count == 9
+    assert {item.reason: item.count for item in first.exclusions}["sampled-out"] == 6
     assert [item.candidate_id for item in first.candidates] != [
         item.candidate_id for item in other_seed.candidates
     ]
