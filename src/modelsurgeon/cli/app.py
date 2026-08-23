@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -14,6 +15,13 @@ from modelsurgeon.adapters.huggingface import (
     HuggingFaceLoadRequest,
     HuggingFaceModelError,
     HuggingFaceRevisionError,
+)
+from modelsurgeon.cli.experiment import (
+    ExperimentCommandError,
+    load_experiment_runtime,
+    read_mutation_request,
+    run_single_mutation_experiment,
+    write_experiment_result,
 )
 from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.logging import LogFormat, configure_logging
@@ -106,10 +114,68 @@ def inspect(
                 f"family={payload['family']} parameters={payload['parameter_count']}"
             )
         else:
-            attributes = json.dumps(payload["attributes"], sort_keys=True, separators=(",", ":"))
+            attributes = json.dumps(
+                payload["attributes"], sort_keys=True, separators=(",", ":")
+            )
             typer.echo(
                 f"{payload['component_id']:<64} {payload['kind']:<24} {attributes}"
             )
+
+
+@app.command()
+def experiment(
+    mutation: Annotated[
+        Path,
+        typer.Argument(help="Canonical MutationRequest JSON file"),
+    ],
+    runtime: Annotated[
+        str,
+        typer.Option(
+            "--runtime",
+            help="Adapter runtime factory as module:factory",
+        ),
+    ],
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Resolve and print the plan without mutation"),
+    ] = False,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Save the structured result without overwriting"),
+    ] = None,
+    include_local_paths: Annotated[
+        bool,
+        typer.Option(
+            "--include-local-paths",
+            help="Include local source paths in provenance output",
+        ),
+    ] = False,
+) -> None:
+    """Resolve, evaluate, and roll back one transactional mutation experiment."""
+
+    try:
+        request = read_mutation_request(mutation)
+        experiment_runtime = load_experiment_runtime(runtime)
+        result = run_single_mutation_experiment(
+            request,
+            experiment_runtime,
+            dry_run=dry_run,
+        )
+        if output is not None:
+            write_experiment_result(
+                output,
+                result,
+                redact_local_paths=not include_local_paths,
+            )
+        typer.echo(
+            result.canonical_json(redact_local_paths=not include_local_paths)
+        )
+    except KeyboardInterrupt:
+        typer.echo("experiment interrupted; transaction rolled back", err=True)
+        raise typer.Exit(130) from None
+    except (ExperimentCommandError, OSError, RuntimeError, ValueError) as error:
+        typer.echo(f"experiment error: {error}", err=True)
+        raise typer.Exit(2) from error
 
 
 if __name__ == "__main__":  # pragma: no cover
