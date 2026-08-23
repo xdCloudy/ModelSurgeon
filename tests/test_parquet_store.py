@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -13,9 +13,9 @@ from modelsurgeon.datasets import (
     ParquetDependencyError,
     ParquetPartition,
     ParquetStoreError,
+    PartitionedParquetStore,
     PartitionKind,
     PartitionPredicate,
-    PartitionedParquetStore,
     PyArrowParquetBackend,
 )
 from modelsurgeon.experiments import (
@@ -175,10 +175,12 @@ def test_predicate_reads_prune_unrelated_partitions(tmp_path: Path) -> None:
         )
     )
 
+    expected_path = store.root / Path(*PurePosixPath(first.relative_path).parts)
     assert len(rows) == 1
     assert rows[0]["component_id"] == "model.layers.0.mlp.up_proj"
-    assert backend.read_paths == [store.root / Path(*Path(first.relative_path).parts)]
-    assert second.relative_path not in {path.relative_to(store.root).as_posix() for path in backend.read_paths}
+    assert backend.read_paths == [expected_path]
+    scanned = {path.relative_to(store.root).as_posix() for path in backend.read_paths}
+    assert second.relative_path not in scanned
     assert len(store.load_manifest().entries) == 2
 
 
