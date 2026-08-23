@@ -17,8 +17,16 @@ from modelsurgeon.evaluation.numerics import (
 
 def test_finite_parameter_activation_logits_and_loss_pass() -> None:
     surfaces = (
-        SequenceNumericSurface(NumericSurfaceKind.PARAMETER, "model.layers.0.mlp", (1.0, 2.0)),
-        SequenceNumericSurface(NumericSurfaceKind.ACTIVATION, "model.layers.0.mlp.output", (0.0, 3.0)),
+        SequenceNumericSurface(
+            NumericSurfaceKind.PARAMETER,
+            "model.layers.0.mlp",
+            (1.0, 2.0),
+        ),
+        SequenceNumericSurface(
+            NumericSurfaceKind.ACTIVATION,
+            "model.layers.0.mlp.output",
+            (0.0, 3.0),
+        ),
         SequenceNumericSurface(NumericSurfaceKind.LOGITS, "logits", (-1.0, 1.0)),
         SequenceNumericSurface(NumericSurfaceKind.LOSS, "loss", (1.25,)),
     )
