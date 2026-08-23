@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Serialize canonical mutation plans, revisions, outcomes, deltas, and explicit
+  identity mappings with verified IDs and default local-path redaction.
 - Resolve requested mutation targets into deterministic transitive component
   closures with constraint and coupled-edge reasons before any model change.
 - Add deterministic, immutable transactional mutation request, compatibility,
