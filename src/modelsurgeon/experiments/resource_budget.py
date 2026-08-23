@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 from modelsurgeon.experiments.hardware import HardwareInventory
 from modelsurgeon.experiments.state_machine import (
@@ -21,8 +21,6 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     CudaMemoryProvider,
     process_rss_bytes,
 )
-
-T = TypeVar("T")
 
 
 class ResourceBudgetError(ValueError):
@@ -298,7 +296,7 @@ def _expected_state(stage: CandidateWorkStage) -> CandidateState:
     return CandidateState.EVALUATING
 
 
-def run_budgeted_stage(
+def run_budgeted_stage[T](
     state_machine: ExperimentStateMachine,
     candidate_id: str,
     work_stage: CandidateWorkStage,
