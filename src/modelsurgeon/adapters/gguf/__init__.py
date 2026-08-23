@@ -42,6 +42,13 @@ from modelsurgeon.adapters.gguf.container import (
     UnsupportedGGUFVersionError,
     open_gguf,
 )
+from modelsurgeon.adapters.gguf.dense_codec import (
+    BF16_CODEC,
+    DENSE_GGUF_CODECS,
+    F16_CODEC,
+    F32_CODEC,
+    DenseGGUFCodec,
+)
 from modelsurgeon.adapters.gguf.direct_copy import (
     GGUFUnchangedTensorCopy,
     copy_unchanged_gguf_tensor,
@@ -130,7 +137,11 @@ from modelsurgeon.adapters.gguf.writer import (
 )
 
 __all__ = [
+    "BF16_CODEC",
+    "DENSE_GGUF_CODECS",
     "DISK_TENSOR_SCHEMA_VERSION",
+    "F16_CODEC",
+    "F32_CODEC",
     "GGML_UPSTREAM_REVISION",
     "GGUF_ARCHITECTURE_CONTRACTS",
     "GGUF_CODEC_CONFORMANCE_VECTORS",
@@ -156,6 +167,7 @@ __all__ = [
     "CorruptGGUFError",
     "CouplingGroup",
     "CouplingKind",
+    "DenseGGUFCodec",
     "DiskBackedTensor",
     "DiskProbe",
     "DiskProbeFunction",
