@@ -272,7 +272,8 @@ class ExperimentMetadataStore:
                 "experiment persistence requires deterministic experiment and run IDs"
             )
         input_id = derive_input_id(record)
-        candidate_id = derive_candidate_identity(record.run_id, record.mutation_id).candidate_id
+        mutation_id = record.mutation.mutation_id
+        candidate_id = derive_candidate_identity(record.run_id, mutation_id).candidate_id
         input_columns = (
             "input_id",
             "model_identifier",
@@ -327,7 +328,7 @@ class ExperimentMetadataStore:
             record.experiment_id,
             record.attempt_id,
             input_id,
-            record.mutation_id,
+            mutation_id,
             record.schema_version,
             record.mutation.schema_version,
             mutation_json,
@@ -349,7 +350,7 @@ class ExperimentMetadataStore:
         candidate_values: tuple[object, ...] = (
             candidate_id,
             record.run_id,
-            record.mutation_id,
+            mutation_id,
             _json([str(item) for item in record.components]),
             candidate_order,
         )
@@ -419,7 +420,9 @@ class ExperimentMetadataStore:
                     (candidate_id, timing.stage),
                 ).fetchone()
                 if row is None or tuple(row[column] for column in columns) != values:
-                    raise ExperimentStoreError("immutable stage timing conflicts with existing data")
+                    raise ExperimentStoreError(
+                        "immutable stage timing conflicts with existing data"
+                    )
         return PersistedExperiment(input_id, record.run_id, candidate_id)
 
     @staticmethod
@@ -469,7 +472,12 @@ class ExperimentMetadataStore:
         if row is None or tuple(row[column] for column in columns) != values:
             raise ExperimentStoreError("immutable metric conflicts with existing data")
 
-    def append_state(self, candidate_id: str, state: str, detail: str | None = None) -> StoredStateEvent:
+    def append_state(
+        self,
+        candidate_id: str,
+        state: str,
+        detail: str | None = None,
+    ) -> StoredStateEvent:
         if not candidate_id or not state or (detail is not None and not detail):
             raise ExperimentStoreError("state events require candidate/state and non-blank detail")
         with self._write() as connection:
@@ -495,6 +503,8 @@ class ExperimentMetadataStore:
                 """,
                 (candidate_id, sequence, state, detail),
             )
+            if cursor.lastrowid is None:
+                raise ExperimentStoreError("SQLite did not return a state event ID")
             event_id = int(cursor.lastrowid)
         return StoredStateEvent(event_id, candidate_id, sequence, state, detail)
 
@@ -524,7 +534,13 @@ class ExperimentMetadataStore:
                     table="experiment_artifact_references",
                     key_column="reference_id",
                     key_value=reference_id,
-                    columns=("reference_id", "candidate_id", "role", "digest", "metadata_json"),
+                    columns=(
+                        "reference_id",
+                        "candidate_id",
+                        "role",
+                        "digest",
+                        "metadata_json",
+                    ),
                     values=values,
                 )
             except sqlite3.IntegrityError as error:
@@ -552,7 +568,9 @@ class ExperimentMetadataStore:
             str(row["model_revision"]),
             str(row["model_family"]),
             str(row["model_format"]),
-            None if row["model_parameter_count"] is None else int(row["model_parameter_count"]),
+            None
+            if row["model_parameter_count"] is None
+            else int(row["model_parameter_count"]),
             None if row["model_quantization"] is None else str(row["model_quantization"]),
             str(row["dataset_identifier"]),
             str(row["dataset_revision"]),
