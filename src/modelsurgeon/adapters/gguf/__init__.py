@@ -20,6 +20,14 @@ from modelsurgeon.adapters.gguf.architecture import (
     UnknownTensorMappingError,
     resolve_gguf_architecture,
 )
+from modelsurgeon.adapters.gguf.conformance import (
+    GGML_UPSTREAM_REVISION,
+    GGUF_CODEC_CONFORMANCE_VECTORS,
+    GGUF_PY_QUANTS_BLOB,
+    CodecConformanceVector,
+    CodecVectorError,
+    validate_codec_vector,
+)
 from modelsurgeon.adapters.gguf.container import (
     CorruptGGUFError,
     GGUFContainer,
@@ -123,7 +131,10 @@ from modelsurgeon.adapters.gguf.writer import (
 
 __all__ = [
     "DISK_TENSOR_SCHEMA_VERSION",
+    "GGML_UPSTREAM_REVISION",
     "GGUF_ARCHITECTURE_CONTRACTS",
+    "GGUF_CODEC_CONFORMANCE_VECTORS",
+    "GGUF_PY_QUANTS_BLOB",
     "GGUF_RESUME_SCHEMA_VERSION",
     "QUANT_LAYOUTS",
     "AlignmentConstraint",
@@ -136,10 +147,12 @@ __all__ = [
     "BlockOperation",
     "BlockValidation",
     "ByteOrder",
+    "CodecConformanceVector",
     "CodecContractError",
     "CodecIdentity",
     "CodecLayout",
     "CodecRegistry",
+    "CodecVectorError",
     "CorruptGGUFError",
     "CouplingGroup",
     "CouplingKind",
@@ -219,6 +232,7 @@ __all__ = [
     "plan_supported_axes",
     "preflight_gguf_disk",
     "resolve_gguf_architecture",
+    "validate_codec_vector",
     "validate_tensor_alignment",
     "write_gguf_resumably",
     "write_gguf_transactionally",
