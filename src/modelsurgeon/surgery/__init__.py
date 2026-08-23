@@ -1,5 +1,12 @@
 """Transactional model mutation APIs."""
 
+from modelsurgeon.surgery.attention_head_execute import (
+    AttentionHeadRequantizationError,
+    NativeGGUFAttentionHeadExecutionError,
+    NativeGGUFAttentionHeadExecutionLimits,
+    NativeGGUFAttentionHeadExecutionResult,
+    execute_native_gguf_attention_head_removal,
+)
 from modelsurgeon.surgery.attention_head_rules import (
     AttentionHeadEditStrategy,
     AttentionHeadMode,
@@ -101,6 +108,7 @@ __all__ = [
     "AlignedAxisRemovalProposal",
     "AttentionHeadEditStrategy",
     "AttentionHeadMode",
+    "AttentionHeadRequantizationError",
     "AttentionHeadTensorRule",
     "AxisRemoval",
     "ChangedGGUFFloatChunk",
@@ -130,6 +138,9 @@ __all__ = [
     "MutationRunRecord",
     "MutationTargetResolutionError",
     "MutationTransaction",
+    "NativeGGUFAttentionHeadExecutionError",
+    "NativeGGUFAttentionHeadExecutionLimits",
+    "NativeGGUFAttentionHeadExecutionResult",
     "NativeGGUFAttentionHeadRuleError",
     "NativeGGUFAttentionHeadRules",
     "NativeGGUFMLPExecutionError",
@@ -159,6 +170,7 @@ __all__ = [
     "TransactionState",
     "TransactionalMutation",
     "compile_physical_mutation_plan",
+    "execute_native_gguf_attention_head_removal",
     "execute_native_gguf_mlp_channel_removal",
     "plan_native_gguf_mlp_channel_removal",
     "propose_aligned_axis_removal",

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Execute model-wide native quantized GGUF attention-head removal with direct
+  Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
+  metadata, resumable output, error ceilings, and output-graph validation.
 - Resolve model-wide native Llama/Qwen MHA, GQA, and MQA Q/K/V/O head-removal
   rules with fixed explicit head dimensions, safe KV grouping, exact codec
   alignment strategies, and fail-closed rejection of semantic remapping.
