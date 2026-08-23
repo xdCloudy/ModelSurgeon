@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from modelsurgeon.features.schema import (
     FeatureKind,
@@ -204,7 +204,7 @@ def _host_values(tensor: WeightTensor) -> tuple[tuple[float, ...], tuple[int, ..
     if not isinstance(raw, list):
         raise WeightStatisticsError("flattened weight tensor did not produce a value list")
     try:
-        values = tuple(float(item) for item in cast("list[object]", raw))
+        values = tuple(float(item) for item in cast("list[Any]", raw))
     except (TypeError, ValueError, OverflowError) as error:
         raise WeightStatisticsError("weight tensor contains non-numeric values") from error
     if len(values) != count:
