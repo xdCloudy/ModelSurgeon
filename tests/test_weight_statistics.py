@@ -51,14 +51,22 @@ class FakeTensor:
     def double(self) -> FakeTensor:
         self.calls.append("double")
         return FakeTensor(
-            list(self.values), self.shape, dtype="torch.float64", device=self.device, calls=self.calls
+            list(self.values),
+            self.shape,
+            dtype="torch.float64",
+            device=self.device,
+            calls=self.calls,
         )
 
     def reshape(self, *shape: int) -> FakeTensor:
         self.calls.append("reshape")
         assert shape == (-1,)
         return FakeTensor(
-            list(self.values), (len(self.values),), dtype=self.dtype, device=self.device, calls=self.calls
+            list(self.values),
+            (len(self.values),),
+            dtype=self.dtype,
+            device=self.device,
+            calls=self.calls,
         )
 
     def tolist(self) -> object:
@@ -104,14 +112,19 @@ def test_statistics_match_reference_values_and_release_cuda_source() -> None:
 def test_constant_tensor_has_zero_dispersion_without_nan() -> None:
     result = extract_weight_statistics(
         ComponentId.parse("model.layers.0.self_attn.q_proj.weight"),
-        FakeTensor([4.0, 4.0, 4.0, 4.0], (2, 2), dtype="torch.bfloat16", device="cpu"),
+        FakeTensor(
+            [4.0, 4.0, 4.0, 4.0],
+            (2, 2),
+            dtype="torch.bfloat16",
+            device="cpu",
+        ),
     )
 
     assert result.mean == 4.0
     assert result.variance == 0.0
     assert result.standard_deviation == 0.0
     assert result.sparsity == 0.0
-    assert all(math.isfinite(float(value)) for key, value in result.to_record().items() if key in {
+    numeric_keys = {
         "minimum",
         "maximum",
         "mean",
@@ -122,7 +135,12 @@ def test_constant_tensor_has_zero_dispersion_without_nan() -> None:
         "frobenius_norm",
         "max_magnitude",
         "sparsity",
-    })
+    }
+    assert all(
+        math.isfinite(float(value))
+        for key, value in result.to_record().items()
+        if key in numeric_keys
+    )
 
 
 def test_empty_tensor_declines_explicitly() -> None:
