@@ -36,6 +36,14 @@ from modelsurgeon.features.gradient_features import (
     GradientFeatures,
     extract_gradient_features,
 )
+from modelsurgeon.features.neuron_correlation import (
+    NEURON_CORRELATION_EXTRACTOR_VERSION,
+    ChannelRedundancyInput,
+    DuplicateChannelFeature,
+    NeuronCorrelationConfig,
+    NeuronCorrelationError,
+    rank_duplicate_channels,
+)
 from modelsurgeon.features.schema import (
     FEATURE_SCHEMA_VERSION,
     ErrorProvenance,
@@ -85,6 +93,7 @@ __all__ = [
     "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
     "GRADIENT_FEATURE_EXTRACTOR_VERSION",
+    "NEURON_CORRELATION_EXTRACTOR_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
     "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
@@ -99,6 +108,7 @@ __all__ = [
     "ChannelActivationConfig",
     "ChannelActivationFeature",
     "ChannelActivationSummary",
+    "ChannelRedundancyInput",
     "CosineCandidate",
     "CosineCandidateMode",
     "CosineSimilarity",
@@ -107,6 +117,7 @@ __all__ = [
     "CosineVector",
     "CosineVectorKind",
     "CovarianceAccuracyReport",
+    "DuplicateChannelFeature",
     "ErrorProvenance",
     "ExactSpectralConfig",
     "ExactSpectralError",
@@ -118,6 +129,8 @@ __all__ = [
     "GradientFeatureError",
     "GradientFeatureOutcome",
     "GradientFeatures",
+    "NeuronCorrelationConfig",
+    "NeuronCorrelationError",
     "PrecisionProvenance",
     "PrecisionSource",
     "RandomizedSpectralConfig",
@@ -141,4 +154,5 @@ __all__ = [
     "extract_weight_statistics",
     "generate_cosine_candidates",
     "plan_randomized_spectral_workspace",
+    "rank_duplicate_channels",
 ]
