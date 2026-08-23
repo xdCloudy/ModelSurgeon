@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add deterministic per-tensor weight statistics with detached CPU snapshots,
+  float64 accumulation, shape/dtype/device provenance, and explicit empty/non-finite rejection.
 - Validate generated GGUFs with the pinned llama.cpp revision using a bounded
   one-token forward/generation check, captured tool/command provenance, capped logs,
   and fail-closed timeout or non-zero-exit reporting.
