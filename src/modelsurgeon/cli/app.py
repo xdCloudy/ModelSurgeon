@@ -7,15 +7,38 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.adapters import ArchitectureDetectionError
 from modelsurgeon.adapters.huggingface import (
+    HuggingFaceDependencyError,
     HuggingFaceDType,
     HuggingFaceLoadRequest,
-    load_causal_lm,
+    HuggingFaceModelError,
+    HuggingFaceRevisionError,
 )
-from modelsurgeon.graph import walk_named_modules
+from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.logging import LogFormat, configure_logging
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+
+
+def _inspection_error(
+    category: str,
+    error: Exception,
+    *,
+    exit_code: int,
+    output_json: bool,
+) -> None:
+    if output_json:
+        typer.echo(
+            json.dumps(
+                {"record_type": "error", "category": category, "message": str(error)},
+                sort_keys=True,
+            ),
+            err=True,
+        )
+    else:
+        typer.echo(f"{category} error: {error}", err=True)
+    raise typer.Exit(exit_code)
 
 
 @app.callback()
@@ -55,27 +78,37 @@ def inspect(
     ] = False,
 ) -> None:
     """Load and enumerate a Hugging Face causal language model."""
-    loaded = load_causal_lm(
-        HuggingFaceLoadRequest(
-            model=model,
-            revision=revision,
-            trust_remote_code=trust_remote_code,
-            device_map=device_map,
-            dtype=dtype,
+    try:
+        inspection = inspect_huggingface_model(
+            HuggingFaceLoadRequest(
+                model=model,
+                revision=revision,
+                trust_remote_code=trust_remote_code,
+                device_map=device_map,
+                dtype=dtype,
+            )
         )
-    )
-    for record in walk_named_modules(loaded.model):
-        payload = {
-            "component_id": str(record.component_id),
-            "module_type": record.module_type,
-            "parameter_count": record.parameter_count,
-        }
+    except HuggingFaceDependencyError as exc:
+        _inspection_error("dependency", exc, exit_code=3, output_json=output_json)
+    except HuggingFaceRevisionError as exc:
+        _inspection_error("revision", exc, exit_code=5, output_json=output_json)
+    except HuggingFaceModelError as exc:
+        _inspection_error("model", exc, exit_code=4, output_json=output_json)
+    except (ArchitectureDetectionError, ValueError) as exc:
+        _inspection_error("adapter", exc, exit_code=6, output_json=output_json)
+
+    for payload in inspection.records():
         if output_json:
             typer.echo(json.dumps(payload, sort_keys=True))
-        else:
+        elif payload["record_type"] == "model":
             typer.echo(
-                f"{payload['component_id']:<64} "
-                f"{payload['module_type']:<24} {payload['parameter_count'] or 0:>12}"
+                f"model {payload['source']}@{payload['resolved_revision']} "
+                f"family={payload['family']} parameters={payload['parameter_count']}"
+            )
+        else:
+            attributes = json.dumps(payload["attributes"], sort_keys=True, separators=(",", ":"))
+            typer.echo(
+                f"{payload['component_id']:<64} {payload['kind']:<24} {attributes}"
             )
 
 
