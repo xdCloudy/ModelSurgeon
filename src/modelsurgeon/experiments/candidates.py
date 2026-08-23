@@ -5,12 +5,12 @@ from __future__ import annotations
 import hashlib
 import heapq
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 from modelsurgeon.experiments.identity import derive_candidate_identity
 from modelsurgeon.graph import ComponentGraph, ComponentId, GraphNode
-from modelsurgeon.surgery.contracts import MutationKind, MutationRequest
+from modelsurgeon.surgery.contracts import MutationKind, MutationPrimitive, MutationRequest
 from modelsurgeon.surgery.target_resolution import (
     MutationTargetResolutionError,
     resolve_mutation_targets,
@@ -166,10 +166,6 @@ class CandidateEnumerationReport:
         if reasons != tuple(sorted(reasons)) or len(reasons) != len(set(reasons)):
             raise CandidateEnumerationError("candidate exclusions must be unique and canonical")
 
-    @property
-    def excluded_count(self) -> int:
-        return sum(item.count for item in self.exclusions)
-
     def to_record(self) -> dict[str, object]:
         return {
             "version": self.version,
@@ -190,6 +186,13 @@ class _PreCandidate:
     node: GraphNode
     layer_index: int | None
     request: MutationRequest
+
+
+@dataclass(order=True, frozen=True, slots=True)
+class _RankedCandidate:
+    negative_rank: int
+    negative_mutation: int
+    candidate: _PreCandidate = field(compare=False)
 
 
 def _scope_for_node(node: GraphNode) -> CandidateScope | None:
@@ -255,17 +258,17 @@ def _request_for_node(
     scope: CandidateScope,
     layer_index: int | None,
 ) -> MutationRequest | None:
-    parameters: list[tuple[str, str | int]] = [("candidate_scope", scope.value)]
+    parameters: list[tuple[str, MutationPrimitive]] = [("candidate_scope", scope.value)]
     if scope is CandidateScope.ATTENTION_HEAD:
         index = _index_attribute(node, "head_index")
         if index is None or layer_index is None:
             return None
-        parameters.extend((('head_index', index), ('layer_index', layer_index)))
+        parameters.extend((("head_index", index), ("layer_index", layer_index)))
     elif scope is CandidateScope.MLP_CHANNEL:
         index = _index_attribute(node, "channel_index")
         if index is None or layer_index is None:
             return None
-        parameters.extend((('channel_index', index), ('layer_index', layer_index)))
+        parameters.extend((("channel_index", index), ("layer_index", layer_index)))
     elif scope is CandidateScope.TRANSFORMER_LAYER:
         if layer_index is None:
             return None
@@ -284,35 +287,36 @@ def _rank(seed: int, request: MutationRequest) -> tuple[int, int]:
     return rank, mutation
 
 
+def _ranked(seed: int, candidate: _PreCandidate) -> _RankedCandidate:
+    rank, mutation = _rank(seed, candidate.request)
+    return _RankedCandidate(-rank, -mutation, candidate)
+
+
 def _select_bounded(
-    items: list[_PreCandidate],
+    items: list[_RankedCandidate],
     candidate: _PreCandidate,
     seed: int,
     maximum: int | None,
 ) -> None:
+    entry = _ranked(seed, candidate)
     if maximum is None:
-        items.append(candidate)
+        items.append(entry)
         return
-    rank, mutation = _rank(seed, candidate.request)
-    entry = (-rank, -mutation, candidate)
     if len(items) < maximum:
-        heapq.heappush(items, entry)  # type: ignore[arg-type]
+        heapq.heappush(items, entry)
         return
-    worst = items[0]  # type: ignore[index]
-    if entry > worst:  # type: ignore[operator]
-        heapq.heapreplace(items, entry)  # type: ignore[arg-type]
+    if entry > items[0]:
+        heapq.heapreplace(items, entry)
 
 
 def _selected_candidates(
-    selected: list[object],
-    seed: int,
-    maximum: int | None,
+    selected: list[_RankedCandidate],
 ) -> tuple[_PreCandidate, ...]:
-    if maximum is None:
-        items = selected
-    else:
-        items = [entry[2] for entry in selected]  # type: ignore[index]
-    return tuple(sorted(items, key=lambda item: _rank(seed, item.request)))  # type: ignore[attr-defined]
+    ordered = sorted(
+        selected,
+        key=lambda entry: (-entry.negative_rank, -entry.negative_mutation),
+    )
+    return tuple(entry.candidate for entry in ordered)
 
 
 def enumerate_mutation_candidates(
@@ -326,7 +330,7 @@ def enumerate_mutation_candidates(
         raise CandidateEnumerationError("candidate enumeration requires a canonical run ID")
     canonical = ComponentGraph.build(graph.nodes, graph.edges, graph.constraints)
     exclusions: Counter[str] = Counter()
-    selected: list[object] = []
+    selected: list[_RankedCandidate] = []
     eligible_count = 0
 
     for node in canonical.nodes:
@@ -344,11 +348,18 @@ def enumerate_mutation_candidates(
             exclusions[f"invalid-metadata:{scope.value}"] += 1
             continue
         eligible_count += 1
-        preliminary = _PreCandidate(scope, node, layer_index, request)
-        _select_bounded(selected, preliminary, config.seed, config.max_candidates)  # type: ignore[arg-type]
+        _select_bounded(
+            selected,
+            _PreCandidate(scope, node, layer_index, request),
+            config.seed,
+            config.max_candidates,
+        )
+
+    if config.max_candidates is not None and eligible_count > len(selected):
+        exclusions["sampled-out"] += eligible_count - len(selected)
 
     candidates: list[MutationCandidate] = []
-    for preliminary in _selected_candidates(selected, config.seed, config.max_candidates):
+    for preliminary in _selected_candidates(selected):
         try:
             resolution = resolve_mutation_targets(preliminary.request, canonical)
         except MutationTargetResolutionError:
