@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add configurable linear percentiles, fixed-width histograms, skewness, and excess
+  kurtosis for weight tensors with recorded bin/interpolation definitions and finite
+  constant-tensor behavior.
 - Add deterministic per-tensor weight statistics with detached CPU snapshots,
   float64 accumulation, shape/dtype/device provenance, and explicit empty/non-finite rejection.
 - Validate generated GGUFs with the pinned llama.cpp revision using a bounded
