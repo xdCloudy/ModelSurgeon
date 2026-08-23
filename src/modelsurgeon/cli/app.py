@@ -7,7 +7,11 @@ from typing import Annotated
 
 import typer
 
-from modelsurgeon.adapters.huggingface import HuggingFaceLoadRequest, load_causal_lm
+from modelsurgeon.adapters.huggingface import (
+    HuggingFaceDType,
+    HuggingFaceLoadRequest,
+    load_causal_lm,
+)
 from modelsurgeon.graph import walk_named_modules
 from modelsurgeon.logging import LogFormat, configure_logging
 
@@ -37,6 +41,14 @@ def inspect(
         bool,
         typer.Option(help="Allow model repository code; disabled by default"),
     ] = False,
+    device_map: Annotated[
+        str,
+        typer.Option(help="Placement strategy; defaults to CPU"),
+    ] = "cpu",
+    dtype: Annotated[
+        HuggingFaceDType,
+        typer.Option(help="Requested model compute dtype"),
+    ] = HuggingFaceDType.AUTO,
     output_json: Annotated[
         bool,
         typer.Option("--json", help="Emit newline-delimited JSON records"),
@@ -48,9 +60,11 @@ def inspect(
             model=model,
             revision=revision,
             trust_remote_code=trust_remote_code,
+            device_map=device_map,
+            dtype=dtype,
         )
     )
-    for record in walk_named_modules(loaded):
+    for record in walk_named_modules(loaded.model):
         payload = {
             "component_id": str(record.component_id),
             "module_type": record.module_type,
