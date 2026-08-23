@@ -7,7 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-EXPERIMENT_DB_SCHEMA_VERSION = 2
+EXPERIMENT_DB_SCHEMA_VERSION = 3
 
 
 class ExperimentMigrationError(RuntimeError):
@@ -173,6 +173,27 @@ MIGRATIONS: tuple[ExperimentMigration, ...] = (
             """.strip(),
             "CREATE INDEX experiment_candidates_run_idx ON experiment_candidates(run_id)",
             "CREATE INDEX experiment_metrics_candidate_idx ON experiment_metrics(candidate_id)",
+        ),
+    ),
+    ExperimentMigration(
+        3,
+        "candidate work leases",
+        (
+            """
+            CREATE TABLE experiment_work_leases (
+                candidate_id TEXT PRIMARY KEY
+                    REFERENCES experiment_candidates(candidate_id) ON DELETE CASCADE,
+                attempt_id TEXT NOT NULL,
+                worker_id TEXT NOT NULL,
+                lease_token TEXT NOT NULL UNIQUE,
+                generation INTEGER NOT NULL CHECK(generation > 0),
+                acquired_at_ns INTEGER NOT NULL CHECK(acquired_at_ns >= 0),
+                heartbeat_at_ns INTEGER NOT NULL CHECK(heartbeat_at_ns >= acquired_at_ns),
+                expires_at_ns INTEGER NOT NULL CHECK(expires_at_ns > heartbeat_at_ns),
+                completed_at_ns INTEGER CHECK(completed_at_ns >= heartbeat_at_ns)
+            )
+            """.strip(),
+            "CREATE INDEX experiment_work_leases_expiry_idx ON experiment_work_leases(expires_at_ns)",
         ),
     ),
 )
