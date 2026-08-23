@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit dense Qwen2/Qwen3 GGUF surgery mappings and GQA constraints, with
+  recognized MoE variants failing closed pending expert/router support.
 - Add a versioned Llama GGUF surgery adapter with strict physical tensor maps,
   coupled edit axes, MHA/GQA geometry, and fail-closed compatibility validation.
 - Add prioritized native IQ4_NL and IQ4_XS codecs with nonlinear codebook
