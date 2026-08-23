@@ -10,6 +10,7 @@
 - Persist and strictly reload canonical versioned component graphs with required adapter and immutable-model provenance.
 - Pin the native GGUF container/codec specification, low-memory surgery decisions, and independent-reader conformance vector.
 - Define exact GGUF block layouts, axis/divisibility planning, bounded codec operations, validation, error metrics, and no-substitution registry semantics.
+- Define versioned GGUF family aliases, tensor/component axes, coupling groups, metadata updates, and block renaming contracts.
 
 All notable changes will be documented here. This project follows Keep a Changelog and semantic versioning once public APIs stabilize.
 
