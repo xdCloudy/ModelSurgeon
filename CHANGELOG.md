@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Validate GGUF mutation axes against exact codec blocks, distinguish direct copy,
+  repack, and whole-slice strategies, and expose non-automatic aligned proposals.
 - Compile closed mutation plans into allocation-free physical tensor shape/index
   transforms, metadata updates, identity mappings, and reconciled storage deltas.
 - Add explicit retained, removed, renumbered, split, and merged component identity
