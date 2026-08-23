@@ -35,11 +35,13 @@ def test_interrupted_staging_is_cleaned_and_never_replaces_source(tmp_path) -> N
     source.write_bytes(b"stable-source")
     staging = None
 
-    with pytest.raises(RuntimeError, match="interrupt"):
-        with AtomicCheckpointDestination(source, destination) as target:
-            staging = target.staging_path
-            target.staging_path.write_bytes(b"partial")
-            raise RuntimeError("interrupt")
+    with (
+        pytest.raises(RuntimeError, match="interrupt"),
+        AtomicCheckpointDestination(source, destination) as target,
+    ):
+        staging = target.staging_path
+        target.staging_path.write_bytes(b"partial")
+        raise RuntimeError("interrupt")
 
     assert source.read_bytes() == b"stable-source"
     assert not destination.exists()
