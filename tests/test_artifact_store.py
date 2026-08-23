@@ -10,9 +10,9 @@ import pytest
 from modelsurgeon.experiments import (
     ArtifactDigest,
     ArtifactStoreError,
+    ContentAddressedArtifactStore,
     CPUInventory,
     CUDAInventory,
-    ContentAddressedArtifactStore,
     DatasetTarget,
     DiskInventory,
     ExperimentIdentitySpec,
