@@ -33,6 +33,7 @@ hf = [
   "transformers>=4.45,<5",
 ]
 dev = [
+  "gguf>=0.17,<1",
   "mypy>=1.11,<2",
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
