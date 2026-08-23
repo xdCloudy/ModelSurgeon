@@ -81,6 +81,14 @@ def _sequence_dtype(value: object) -> str:
     return "python.float" if "float" in leaves else "python.int"
 
 
+def _typed_zero(value: object) -> int | float:
+    if isinstance(value, float):
+        return 0.0
+    if isinstance(value, int) and not isinstance(value, bool):
+        return 0
+    raise ComponentMaskError("output contains an unsupported non-numeric leaf")
+
+
 def _mask_sequence_last_axis(
     value: object,
     selected: frozenset[int],
@@ -89,7 +97,10 @@ def _mask_sequence_last_axis(
     if not isinstance(value, (tuple, list)):
         raise ComponentMaskError("mask traversal reached a scalar before the final axis")
     if len(value) == width and all(not isinstance(item, (tuple, list)) for item in value):
-        masked = [0 if index in selected else item for index, item in enumerate(value)]
+        masked = [
+            _typed_zero(item) if index in selected else item
+            for index, item in enumerate(value)
+        ]
         return tuple(masked) if isinstance(value, tuple) else masked
     masked_children = [
         _mask_sequence_last_axis(item, selected, width) for item in value
