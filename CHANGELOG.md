@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add per-component gradient norm, weight×gradient, and first-order removal
+  sensitivity features with explicit mean-over-batches semantics and typed missing-gradient outcomes.
 - Add opt-in bounded selected-parameter gradient collection with detached CPU snapshots,
   explicit missing-gradient reporting, per-gradient size ceilings, and guaranteed
   gradient cleanup before and after every calibration backward pass.
