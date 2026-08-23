@@ -7,6 +7,7 @@ import threading
 import uuid
 from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
+from types import TracebackType
 from typing import Protocol, Self
 
 from modelsurgeon.surgery.contracts import MutationContractError, TransactionState
@@ -54,7 +55,6 @@ class InMemoryMutationTransaction(AbstractContextManager["InMemoryMutationTransa
             raise MutationTransactionError(
                 "unknown changed targets: " + ", ".join(missing)
             )
-        self._owner = owner
         self._owner_id = id(owner)
         self._targets = targets
         self.changed_keys = canonical
@@ -103,14 +103,18 @@ class InMemoryMutationTransaction(AbstractContextManager["InMemoryMutationTransa
 
     def mark_applied(self) -> None:
         if not self._owns_mutable_inputs or self._state is not TransactionState.PREPARED:
-            raise MutationTransactionError("only an active prepared transaction can be marked applied")
+            raise MutationTransactionError(
+                "only an active prepared transaction can be marked applied"
+            )
         self._state = TransactionState.APPLIED
 
     def commit(self) -> None:
         if not self._owns_mutable_inputs:
             raise MutationTransactionError("cannot commit a transaction without mutable ownership")
         if self._state not in {TransactionState.PREPARED, TransactionState.APPLIED}:
-            raise MutationTransactionError(f"cannot commit transaction in state {self._state.value}")
+            raise MutationTransactionError(
+                f"cannot commit transaction in state {self._state.value}"
+            )
         self._state = TransactionState.COMMITTED
         self._snapshots.clear()
         self._release_ownership()
@@ -121,7 +125,9 @@ class InMemoryMutationTransaction(AbstractContextManager["InMemoryMutationTransa
         if self._state is TransactionState.COMMITTED:
             raise MutationTransactionError("committed transactions cannot be rolled back")
         if not self._owns_mutable_inputs:
-            raise MutationTransactionError("cannot roll back a transaction without mutable ownership")
+            raise MutationTransactionError(
+                "cannot roll back a transaction without mutable ownership"
+            )
         errors: list[BaseException] = []
         for key in reversed(self.changed_keys):
             if key not in self._snapshots:
@@ -142,7 +148,12 @@ class InMemoryMutationTransaction(AbstractContextManager["InMemoryMutationTransa
                 _ACTIVE_OWNER_IDS.discard(self._owner_id)
             self._owns_mutable_inputs = False
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         del exc_type, exc_value, traceback
         if self._state in {TransactionState.PREPARED, TransactionState.APPLIED}:
             self.rollback()
