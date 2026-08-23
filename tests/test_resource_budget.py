@@ -207,9 +207,8 @@ def test_cuda_budget_is_supported_and_cpu_only_vram_request_fails_explicitly() -
             )
         ),
     )
-    with pytest.raises(ResourceBudgetExceeded) as captured:
-        with guard:
-            guard.check()
+    with pytest.raises(ResourceBudgetExceeded) as captured, guard:
+        guard.check()
     assert captured.value.violation.resource is ResourceKind.VRAM
 
 
@@ -285,8 +284,7 @@ def test_disk_checkpoint_uses_stage_local_consumption() -> None:
             )
         ),
     )
-    with pytest.raises(ResourceBudgetExceeded) as captured:
-        with guard:
-            guard.check()
+    with pytest.raises(ResourceBudgetExceeded) as captured, guard:
+        guard.check()
     assert captured.value.violation.resource is ResourceKind.DISK
     assert captured.value.violation.observed == 101
