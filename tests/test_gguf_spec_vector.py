@@ -11,6 +11,9 @@ from typing import BinaryIO, cast
 from gguf import GGUFReader
 from gguf.constants import GGML_QUANT_SIZES, GGMLQuantizationType
 
+from modelsurgeon.adapters.gguf import GGMLQuantizationType as ModelSurgeonQuantType
+from modelsurgeon.adapters.gguf import open_gguf
+
 FIXTURE = Path(__file__).parent / "fixtures" / "gguf_spec_v1.json"
 VALUE_TYPES = {
     "uint32": 4,
@@ -144,6 +147,7 @@ def test_fixture_metadata_agrees_in_two_independent_readers(tmp_path: Path) -> N
 
     oracle = _oracle_read(path)
     official = GGUFReader(path)
+    native = open_gguf(path)
     expected = cast(dict[str, object], vector["container"])
     expected_metadata = {
         cast(str, item["key"]): item["value"]
@@ -152,17 +156,26 @@ def test_fixture_metadata_agrees_in_two_independent_readers(tmp_path: Path) -> N
     assert oracle["magic"] == b"GGUF"
     assert oracle["version"] == expected["version"]
     assert oracle["metadata"] == expected_metadata
-    assert official.alignment == expected["alignment"]
-    for key, value in expected_metadata.items():
-        assert official.fields[key].contents() == value
-    expected_tensor = cast(dict[str, object], expected["tensor"])
-    tensor = official.tensors[0]
-    assert tensor.name == expected_tensor["name"]
-    assert tensor.tensor_type.name == expected_tensor["ggml_type"]
-    assert tensor.shape.tolist() == expected_tensor["dimensions"]
-    assert tensor.n_elements == expected_tensor["element_count"]
-    assert tensor.n_bytes == expected_tensor["byte_count"]
-    assert official.data_offset == cast(dict[str, object], oracle["tensor"])["data_offset"]
+    try:
+        assert official.alignment == expected["alignment"]
+        for key, value in expected_metadata.items():
+            assert official.fields[key].contents() == value
+            expected_native = tuple(value) if isinstance(value, list) else value
+            assert native.container.metadata_entry(key).value == expected_native  # type: ignore[union-attr]
+        expected_tensor = cast(dict[str, object], expected["tensor"])
+        tensor = official.tensors[0]
+        native_tensor = native.container.tensors[0]
+        assert tensor.name == expected_tensor["name"] == native_tensor.name
+        assert tensor.tensor_type.name == expected_tensor["ggml_type"]
+        assert native_tensor.quant_type is ModelSurgeonQuantType.Q8_0
+        assert tensor.shape.tolist() == expected_tensor["dimensions"]
+        assert native_tensor.dimensions == tuple(expected_tensor["dimensions"])  # type: ignore[arg-type]
+        assert tensor.n_elements == expected_tensor["element_count"]
+        assert tensor.n_bytes == expected_tensor["byte_count"] == native_tensor.byte_size
+        oracle_data_offset = cast(dict[str, object], oracle["tensor"])["data_offset"]
+        assert official.data_offset == oracle_data_offset == native.container.data_offset
+    finally:
+        native.close()
 
 
 def test_quant_block_layouts_match_pinned_official_reader() -> None:

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a bounded, read-only memory-mapped GGUF v2/v3 container parser with typed
+  metadata, exact tensor ranges, endian detection, and corruption checks.
+
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
 - Add a versioned, framework-neutral component dependency, coupling, and mutation-constraint graph schema.
