@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Plan coupled native Llama/Qwen GGUF MLP channel removal across gate/up/down
+  axes with reconciled shapes, metadata, identities, parameters, and file size.
 - Stream changed GGUF blocks through exact original or selected codecs with
   payload validation, bounded round-trip checks, and quantization error summaries.
 - Selectively read and dequantize only GGUF repack block spans under simultaneous
