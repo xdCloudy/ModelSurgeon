@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add exact bounded singular-value extraction with spectral/effective/stable rank,
+  normalized decay, energy-rank thresholds, explicit size declines, and recorded
+  float64 convergence tolerance/provenance.
 - Add configurable linear percentiles, fixed-width histograms, skewness, and excess
   kurtosis for weight tensors with recorded bin/interpolation definitions and finite
   constant-tensor behavior.

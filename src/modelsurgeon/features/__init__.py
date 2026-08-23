@@ -16,6 +16,14 @@ from modelsurgeon.features.schema import (
     PrecisionProvenance,
     PrecisionSource,
 )
+from modelsurgeon.features.spectral_exact import (
+    EXACT_SPECTRAL_EXTRACTOR_VERSION,
+    ExactSpectralConfig,
+    ExactSpectralError,
+    ExactSpectralFeatures,
+    ExactSpectralOutcome,
+    extract_exact_spectral_features,
+)
 from modelsurgeon.features.weight_distribution import (
     WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION,
     WeightDistribution,
@@ -32,6 +40,7 @@ from modelsurgeon.features.weight_statistics import (
 )
 
 __all__ = [
+    "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
@@ -42,6 +51,10 @@ __all__ = [
     "ChannelActivationFeature",
     "ChannelActivationSummary",
     "ErrorProvenance",
+    "ExactSpectralConfig",
+    "ExactSpectralError",
+    "ExactSpectralFeatures",
+    "ExactSpectralOutcome",
     "FeatureKind",
     "FeatureRecord",
     "FeatureSampleContext",
@@ -53,6 +66,7 @@ __all__ = [
     "WeightStatistics",
     "WeightStatisticsError",
     "WeightTensor",
+    "extract_exact_spectral_features",
     "extract_weight_distribution",
     "extract_weight_statistics",
 ]
