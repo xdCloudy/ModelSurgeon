@@ -11,6 +11,16 @@ from modelsurgeon.experiments.hardware import (
     SoftwareInventory,
     collect_hardware_inventory,
 )
+from modelsurgeon.experiments.memory import (
+    MemoryPlan,
+    MemoryPlanningError,
+    OperationMemoryEstimates,
+    RejectedMemoryMode,
+    ResourceCapacity,
+    ResourceCeilings,
+    ResourceEstimate,
+    plan_memory_mode,
+)
 
 __all__ = [
     "HARDWARE_INVENTORY_SCHEMA_VERSION",
@@ -20,6 +30,14 @@ __all__ = [
     "GPUDeviceInventory",
     "HardwareInventory",
     "MemoryInventory",
+    "MemoryPlan",
+    "MemoryPlanningError",
+    "OperationMemoryEstimates",
+    "RejectedMemoryMode",
+    "ResourceCapacity",
+    "ResourceCeilings",
+    "ResourceEstimate",
     "SoftwareInventory",
     "collect_hardware_inventory",
+    "plan_memory_mode",
 ]
