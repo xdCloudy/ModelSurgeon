@@ -6,10 +6,20 @@ from modelsurgeon.instrumentation.hooks import (
     HookableModule,
     HookLifecycleError,
 )
+from modelsurgeon.instrumentation.statistics import (
+    StatisticsConfig,
+    StatisticsError,
+    StatisticsSnapshot,
+    StreamingStatistics,
+)
 
 __all__ = [
     "ActivationCapture",
     "ActivationHookManager",
     "HookLifecycleError",
     "HookableModule",
+    "StatisticsConfig",
+    "StatisticsError",
+    "StatisticsSnapshot",
+    "StreamingStatistics",
 ]
