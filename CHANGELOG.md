@@ -45,6 +45,8 @@
   behavior, and round-to-nearest-even BF16 encoding.
 - Add a bit-exact block-aware Q8_0 codec with bounded range access, endian preservation,
   validation, and quantization error reports.
+- Add a dedicated Q6_K super-block codec with pinned 6-bit packing, subgroup scales,
+  endian-aware encoding, range access, and validation.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
