@@ -99,6 +99,11 @@ from modelsurgeon.surgery.target_resolution import (
     ResolvedMutationTargets,
     resolve_mutation_targets,
 )
+from modelsurgeon.surgery.transaction import (
+    InMemoryMutationTransaction,
+    MutationSnapshotTarget,
+    MutationTransactionError,
+)
 
 __all__ = [
     "MUTATION_RECORD_SCHEMA_VERSION",
@@ -123,6 +128,7 @@ __all__ = [
     "GGUFRequantizationErrorSummary",
     "GGUFRequantizationLimits",
     "GGUFRequantizationReport",
+    "InMemoryMutationTransaction",
     "MutationCompatibility",
     "MutationContractError",
     "MutationDelta",
@@ -136,8 +142,10 @@ __all__ = [
     "MutationRecordError",
     "MutationRequest",
     "MutationRunRecord",
+    "MutationSnapshotTarget",
     "MutationTargetResolutionError",
     "MutationTransaction",
+    "MutationTransactionError",
     "NativeGGUFAttentionHeadExecutionError",
     "NativeGGUFAttentionHeadExecutionLimits",
     "NativeGGUFAttentionHeadExecutionResult",
