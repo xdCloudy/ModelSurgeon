@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add seeded randomized spectral extraction with configurable rank/oversampling,
+  low-rank reconstruction-error estimates, power iteration, and hard CPU workspace
+  preflight before tensor snapshot allocation.
 - Add exact bounded singular-value extraction with spectral/effective/stable rank,
   normalized decay, energy-rank thresholds, explicit size declines, and recorded
   float64 convergence tolerance/provenance.
