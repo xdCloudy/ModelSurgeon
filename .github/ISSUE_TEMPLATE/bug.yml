@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible ModelSurgeon defect
+title: "[Bug]: "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include sanitized config, model revision, commands and smallest reproducible input.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python, PyTorch/CUDA, CPU/GPU/RAM and ModelSurgeon revision.
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Did this overwrite or corrupt an input checkpoint?
+      options: ["No", "Possibly", "Yes"]
+    validations:
+      required: true
+

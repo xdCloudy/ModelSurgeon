@@ -1,0 +1,26 @@
+name: Research proposal
+description: Propose a bounded, measurable research question
+title: "[Research]: "
+labels: ["type:research"]
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Bounded protocol
+      description: Models, datasets, metrics, baselines, resource budget and stopping condition.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Decision enabled
+      description: State which implementation decision this result will determine.
+    validations:
+      required: true
+
