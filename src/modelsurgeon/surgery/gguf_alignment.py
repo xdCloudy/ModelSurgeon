@@ -33,6 +33,15 @@ class QuantizedEditStrategy(StrEnum):
 class GGUFQuantizationBinding:
     component_id: ComponentId
     quant_type: GGMLQuantizationType
+    destination_quant_type: GGMLQuantizationType | None = None
+
+    @property
+    def output_quant_type(self) -> GGMLQuantizationType:
+        return (
+            self.quant_type
+            if self.destination_quant_type is None
+            else self.destination_quant_type
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +79,7 @@ class QuantizedAxisEdit:
 class GGUFQuantizedTensorEdit:
     component_id: ComponentId
     quant_type: GGMLQuantizationType
+    destination_quant_type: GGMLQuantizationType
     old_shape: tuple[int, ...]
     new_shape: tuple[int, ...]
     axis_edits: tuple[QuantizedAxisEdit, ...]
@@ -79,6 +89,7 @@ class GGUFQuantizedTensorEdit:
         return {
             "component_id": str(self.component_id),
             "quant_type": self.quant_type.value,
+            "destination_quant_type": self.destination_quant_type.value,
             "old_shape": list(self.old_shape),
             "new_shape": list(self.new_shape),
             "axis_edits": [item.to_record() for item in self.axis_edits],
@@ -242,13 +253,21 @@ def validate_gguf_quantized_plan(
     validated: list[GGUFQuantizedTensorEdit] = []
     for edit in edits:
         quant_type = binding_by_component[edit.component_id].quant_type
+        destination_quant_type = binding_by_component[
+            edit.component_id
+        ].output_quant_type
         if quant_type not in _NATIVE_WRITE_TYPES:
             raise GGUFAlignmentError(
                 f"{quant_type.value} has no exact native write codec; family substitution "
                 "is forbidden"
             )
+        if destination_quant_type not in _NATIVE_WRITE_TYPES:
+            raise GGUFAlignmentError(
+                f"{destination_quant_type.value} has no exact native write codec; "
+                "family substitution is forbidden"
+            )
         try:
-            plan_axis_edit(quant_type, edit.new_shape, 0)
+            plan_axis_edit(destination_quant_type, edit.new_shape, 0)
         except CodecContractError as error:
             raise GGUFAlignmentError(
                 f"new shape {edit.new_shape} for {edit.locator!r} is not representable; "
@@ -259,16 +278,19 @@ def validate_gguf_quantized_plan(
             _axis_edit(edit, quant_type, transform.axis, transform.removed_indices)
             for transform in edit.transforms
         )
-        expected_size = plan_axis_edit(quant_type, edit.new_shape, 0).tensor_bytes
+        expected_size = plan_axis_edit(
+            destination_quant_type, edit.new_shape, 0
+        ).tensor_bytes
         if expected_size != edit.new_storage_bytes:
             raise GGUFAlignmentError(
                 f"{edit.locator!r} encoded size {edit.new_storage_bytes} disagrees with "
-                f"{quant_type.value} layout size {expected_size}"
+                f"{destination_quant_type.value} layout size {expected_size}"
             )
         validated.append(
             GGUFQuantizedTensorEdit(
                 edit.component_id,
                 quant_type,
+                destination_quant_type,
                 edit.old_shape,
                 edit.new_shape,
                 axis_edits,
