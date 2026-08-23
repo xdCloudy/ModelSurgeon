@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add fixed-memory activation covariance collection with exact diagonal Welford
+  statistics, deterministic rank-bounded Nyström sketches, workspace preflight,
+  and small-case approximation-accuracy reporting.
 - Add seeded randomized spectral extraction with configurable rank/oversampling,
   low-rank reconstruction-error estimates, power iteration, and hard CPU workspace
   preflight before tensor snapshot allocation.
