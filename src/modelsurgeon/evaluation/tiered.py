@@ -106,7 +106,9 @@ class MetricDecision:
             raise TieredEvaluationError("metric decisions cannot contain non-finite values")
         if self.threshold is None:
             if self.passed is not None:
-                raise TieredEvaluationError("unthresholded metrics cannot claim a threshold result")
+                raise TieredEvaluationError(
+                    "unthresholded metrics cannot claim a threshold result"
+                )
         elif self.threshold.tier is not self.tier or self.threshold.metric != self.metric:
             raise TieredEvaluationError("metric decision threshold identity does not match")
         elif self.passed is None:
@@ -139,12 +141,16 @@ class TierDecision:
     def __post_init__(self) -> None:
         if self.executed:
             if self.passed is None or self.action is EscalationAction.SKIP:
-                raise TieredEvaluationError("executed tiers require pass state and non-skip action")
+                raise TieredEvaluationError(
+                    "executed tiers require pass state and non-skip action"
+                )
             if self.reason is not None and self.passed:
                 raise TieredEvaluationError("passing tiers cannot carry a failure reason")
         else:
             if self.passed is not None or self.action is not EscalationAction.SKIP:
-                raise TieredEvaluationError("skipped tiers require skip action and no pass state")
+                raise TieredEvaluationError(
+                    "skipped tiers require skip action and no pass state"
+                )
             if not self.reason:
                 raise TieredEvaluationError("skipped tiers require a reason")
 
@@ -168,7 +174,9 @@ class TieredEvaluationReport:
 
     def __post_init__(self) -> None:
         if tuple(item.tier for item in self.decisions) != tuple(EvaluationTier):
-            raise TieredEvaluationError("tiered reports must contain canonical decisions for Tier 0-3")
+            raise TieredEvaluationError(
+                "tiered reports must contain canonical decisions for Tier 0-3"
+            )
         executed = tuple(item.tier for item in self.decisions if item.executed)
         if not executed or executed[-1] is not self.highest_executed_tier:
             raise TieredEvaluationError("highest executed tier disagrees with decision history")
@@ -232,7 +240,10 @@ def _metric_decision(
 
 
 def _threshold_failure(metrics: tuple[MetricDecision, ...]) -> MetricDecision | None:
-    return next((item for item in metrics if item.threshold is not None and not item.passed), None)
+    return next(
+        (item for item in metrics if item.threshold is not None and item.passed is False),
+        None,
+    )
 
 
 def _skip_metrics(tier: EvaluationTier, reason: str) -> tuple[MetricDecision, ...]:
@@ -242,14 +253,7 @@ def _skip_metrics(tier: EvaluationTier, reason: str) -> tuple[MetricDecision, ..
     )
 
 
-def _next_action(tier: EvaluationTier, max_tier: EvaluationTier) -> EscalationAction:
-    return EscalationAction.COMPLETE if tier is max_tier else EscalationAction.ESCALATE
-
-
-def _skipped_tail(
-    start: EvaluationTier,
-    reason: str,
-) -> list[TierDecision]:
+def _skipped_tail(start: EvaluationTier, reason: str) -> list[TierDecision]:
     return [
         TierDecision(
             tier,
@@ -267,18 +271,73 @@ def _skipped_tail(
 def _tier_failure_reason(metric: MetricDecision) -> str:
     if metric.value is None:
         return f"required threshold metric {metric.metric} is unavailable"
-    assert metric.threshold is not None
+    if metric.threshold is None:
+        raise TieredEvaluationError("failed metric is missing its threshold")
     return (
         f"metric {metric.metric}={metric.value} failed "
         f"{metric.threshold.comparator.value} threshold {metric.threshold.limit}"
     )
 
 
+def _reject(
+    decisions: list[TierDecision],
+    tier: EvaluationTier,
+    reason: str,
+    metrics: tuple[MetricDecision, ...],
+) -> TieredEvaluationReport:
+    decisions.append(
+        TierDecision(
+            tier,
+            True,
+            False,
+            EscalationAction.REJECT,
+            reason,
+            metrics,
+        )
+    )
+    next_tier_value = int(tier) + 1
+    if next_tier_value <= int(EvaluationTier.TIER3):
+        decisions.extend(
+            _skipped_tail(
+                EvaluationTier(next_tier_value),
+                f"candidate rejected by Tier {int(tier)}",
+            )
+        )
+    return TieredEvaluationReport(tuple(decisions), False, tier)
+
+
+def _record_pass(
+    decisions: list[TierDecision],
+    tier: EvaluationTier,
+    max_tier: EvaluationTier,
+    metrics: tuple[MetricDecision, ...],
+) -> TieredEvaluationReport | None:
+    complete = tier is max_tier
+    decisions.append(
+        TierDecision(
+            tier,
+            True,
+            True,
+            EscalationAction.COMPLETE if complete else EscalationAction.ESCALATE,
+            None,
+            metrics,
+        )
+    )
+    if not complete:
+        return None
+    next_tier_value = int(tier) + 1
+    if next_tier_value <= int(EvaluationTier.TIER3):
+        decisions.extend(
+            _skipped_tail(EvaluationTier(next_tier_value), "tier not configured")
+        )
+    return TieredEvaluationReport(tuple(decisions), True, tier)
+
+
 def run_tiered_evaluation(
     backend: TieredEvaluationBackend,
     config: TieredEvaluationConfig | None = None,
 ) -> TieredEvaluationReport:
-    """Run configured tiers sequentially, rejecting before any unnecessary higher-tier work."""
+    """Run configured tiers sequentially and stop before unnecessary higher-tier work."""
 
     resolved = config or TieredEvaluationConfig()
     thresholds = _threshold_map(resolved)
@@ -292,81 +351,59 @@ def run_tiered_evaluation(
         thresholds,
     )
     if not load.passed:
-        numerics_reason = "skipped because Tier 0 load/shape/forward validation failed"
-        tier0_metrics = (
-            load_metric,
-            MetricDecision(
-                EvaluationTier.TIER0,
-                "numerics_pass",
-                None,
-                thresholds.get((EvaluationTier.TIER0, "numerics_pass")),
-                False
-                if (EvaluationTier.TIER0, "numerics_pass") in thresholds
-                else None,
-                numerics_reason,
-            ),
+        reason = "skipped because Tier 0 load/shape/forward validation failed"
+        numerics_metric = _metric_decision(
+            EvaluationTier.TIER0,
+            "numerics_pass",
+            None,
+            thresholds,
+            unavailable_reason=reason,
         )
-        decisions.append(
-            TierDecision(
-                EvaluationTier.TIER0,
-                True,
-                False,
-                EscalationAction.REJECT,
-                "Tier 0 load/shape/forward validation failed",
-                tier0_metrics,
-            )
+        return _reject(
+            decisions,
+            EvaluationTier.TIER0,
+            "Tier 0 load/shape/forward validation failed",
+            (load_metric, numerics_metric),
         )
-        decisions.extend(
-            _skipped_tail(EvaluationTier.TIER1, "candidate rejected by Tier 0")
-        )
-        return TieredEvaluationReport(tuple(decisions), False, EvaluationTier.TIER0)
 
     numerics = backend.run_tier0_numerics()
-    numerics_metric = _metric_decision(
-        EvaluationTier.TIER0,
-        "numerics_pass",
-        1.0 if numerics.passed else 0.0,
-        thresholds,
-    )
-    tier0_metrics = (load_metric, numerics_metric)
-    tier0_threshold_failure = _threshold_failure(tier0_metrics)
-    if not numerics.passed or tier0_threshold_failure is not None:
-        reason = "Tier 0 numerical validation failed"
-        if tier0_threshold_failure is not None:
-            reason = _tier_failure_reason(tier0_threshold_failure)
-        decisions.append(
-            TierDecision(
-                EvaluationTier.TIER0,
-                True,
-                False,
-                EscalationAction.REJECT,
-                reason,
-                tier0_metrics,
-            )
-        )
-        decisions.extend(
-            _skipped_tail(EvaluationTier.TIER1, "candidate rejected by Tier 0")
-        )
-        return TieredEvaluationReport(tuple(decisions), False, EvaluationTier.TIER0)
-
-    decisions.append(
-        TierDecision(
+    tier0_metrics = (
+        load_metric,
+        _metric_decision(
             EvaluationTier.TIER0,
-            True,
-            True,
-            _next_action(EvaluationTier.TIER0, resolved.max_tier),
-            None,
+            "numerics_pass",
+            1.0 if numerics.passed else 0.0,
+            thresholds,
+        ),
+    )
+    failure = _threshold_failure(tier0_metrics)
+    if not numerics.passed:
+        return _reject(
+            decisions,
+            EvaluationTier.TIER0,
+            "Tier 0 numerical validation failed",
             tier0_metrics,
         )
+    if failure is not None:
+        return _reject(
+            decisions,
+            EvaluationTier.TIER0,
+            _tier_failure_reason(failure),
+            tier0_metrics,
+        )
+    report = _record_pass(
+        decisions,
+        EvaluationTier.TIER0,
+        resolved.max_tier,
+        tier0_metrics,
     )
-    if resolved.max_tier is EvaluationTier.TIER0:
-        decisions.extend(_skipped_tail(EvaluationTier.TIER1, "tier not configured"))
-        return TieredEvaluationReport(tuple(decisions), True, EvaluationTier.TIER0)
+    if report is not None:
+        return report
 
     perplexity = backend.run_tier1_perplexity()
     tier1_metrics = tuple(
-        _metric_decision(EvaluationTier.TIER1, name, value, thresholds)
-        for name, value in (
+        _metric_decision(EvaluationTier.TIER1, metric, value, thresholds)
+        for metric, value in (
             ("mean_loss", perplexity.mean_loss),
             ("perplexity", perplexity.perplexity),
             ("loss_delta", perplexity.loss_delta),
@@ -375,38 +412,25 @@ def run_tiered_evaluation(
     )
     failure = _threshold_failure(tier1_metrics)
     if failure is not None:
-        decisions.append(
-            TierDecision(
-                EvaluationTier.TIER1,
-                True,
-                False,
-                EscalationAction.REJECT,
-                _tier_failure_reason(failure),
-                tier1_metrics,
-            )
-        )
-        decisions.extend(
-            _skipped_tail(EvaluationTier.TIER2, "candidate rejected by Tier 1")
-        )
-        return TieredEvaluationReport(tuple(decisions), False, EvaluationTier.TIER1)
-    decisions.append(
-        TierDecision(
+        return _reject(
+            decisions,
             EvaluationTier.TIER1,
-            True,
-            True,
-            _next_action(EvaluationTier.TIER1, resolved.max_tier),
-            None,
+            _tier_failure_reason(failure),
             tier1_metrics,
         )
+    report = _record_pass(
+        decisions,
+        EvaluationTier.TIER1,
+        resolved.max_tier,
+        tier1_metrics,
     )
-    if resolved.max_tier is EvaluationTier.TIER1:
-        decisions.extend(_skipped_tail(EvaluationTier.TIER2, "tier not configured"))
-        return TieredEvaluationReport(tuple(decisions), True, EvaluationTier.TIER1)
+    if report is not None:
+        return report
 
     logits = backend.run_tier2_logit_metrics()
     tier2_metrics = tuple(
-        _metric_decision(EvaluationTier.TIER2, name, value, thresholds)
-        for name, value in (
+        _metric_decision(EvaluationTier.TIER2, metric, value, thresholds)
+        for metric, value in (
             ("teacher_to_candidate_kl", logits.mean_teacher_to_candidate_kl),
             ("cosine_similarity", logits.mean_cosine_similarity),
             ("top_k_agreement", logits.mean_top_k_agreement),
@@ -414,75 +438,62 @@ def run_tiered_evaluation(
     )
     failure = _threshold_failure(tier2_metrics)
     if failure is not None:
-        decisions.append(
-            TierDecision(
-                EvaluationTier.TIER2,
-                True,
-                False,
-                EscalationAction.REJECT,
-                _tier_failure_reason(failure),
-                tier2_metrics,
-            )
-        )
-        decisions.extend(
-            _skipped_tail(EvaluationTier.TIER3, "candidate rejected by Tier 2")
-        )
-        return TieredEvaluationReport(tuple(decisions), False, EvaluationTier.TIER2)
-    decisions.append(
-        TierDecision(
+        return _reject(
+            decisions,
             EvaluationTier.TIER2,
-            True,
-            True,
-            _next_action(EvaluationTier.TIER2, resolved.max_tier),
-            None,
+            _tier_failure_reason(failure),
             tier2_metrics,
         )
+    report = _record_pass(
+        decisions,
+        EvaluationTier.TIER2,
+        resolved.max_tier,
+        tier2_metrics,
     )
-    if resolved.max_tier is EvaluationTier.TIER2:
-        decisions.extend(_skipped_tail(EvaluationTier.TIER3, "tier not configured"))
-        return TieredEvaluationReport(tuple(decisions), True, EvaluationTier.TIER2)
+    if report is not None:
+        return report
 
     latency = backend.run_tier3_latency()
-    tier3_reason = None if latency.comparable else latency.reason or "latency comparison invalid"
+    unavailable_reason = (
+        None if latency.comparable else latency.reason or "latency comparison invalid"
+    )
     tier3_metrics = (
         _metric_decision(
             EvaluationTier.TIER3,
             "prefill_speedup_ratio",
             latency.prefill_speedup_ratio,
             thresholds,
-            unavailable_reason=tier3_reason,
+            unavailable_reason=unavailable_reason,
         ),
         _metric_decision(
             EvaluationTier.TIER3,
             "decode_speedup_ratio",
             latency.decode_speedup_ratio,
             thresholds,
-            unavailable_reason=tier3_reason,
+            unavailable_reason=unavailable_reason,
         ),
     )
-    failure = _threshold_failure(tier3_metrics)
-    if not latency.comparable or failure is not None:
-        reason = tier3_reason or _tier_failure_reason(failure)  # type: ignore[arg-type]
-        decisions.append(
-            TierDecision(
-                EvaluationTier.TIER3,
-                True,
-                False,
-                EscalationAction.REJECT,
-                reason,
-                tier3_metrics,
-            )
-        )
-        return TieredEvaluationReport(tuple(decisions), False, EvaluationTier.TIER3)
-
-    decisions.append(
-        TierDecision(
+    if not latency.comparable:
+        return _reject(
+            decisions,
             EvaluationTier.TIER3,
-            True,
-            True,
-            EscalationAction.COMPLETE,
-            None,
+            unavailable_reason or "latency comparison invalid",
             tier3_metrics,
         )
+    failure = _threshold_failure(tier3_metrics)
+    if failure is not None:
+        return _reject(
+            decisions,
+            EvaluationTier.TIER3,
+            _tier_failure_reason(failure),
+            tier3_metrics,
+        )
+    report = _record_pass(
+        decisions,
+        EvaluationTier.TIER3,
+        resolved.max_tier,
+        tier3_metrics,
     )
-    return TieredEvaluationReport(tuple(decisions), True, EvaluationTier.TIER3)
+    if report is None:
+        raise TieredEvaluationError("Tier 3 must terminate configured evaluation")
+    return report
