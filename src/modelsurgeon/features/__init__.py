@@ -16,9 +16,17 @@ from modelsurgeon.features.schema import (
     PrecisionProvenance,
     PrecisionSource,
 )
+from modelsurgeon.features.weight_statistics import (
+    WEIGHT_STATISTICS_EXTRACTOR_VERSION,
+    WeightStatistics,
+    WeightStatisticsError,
+    WeightTensor,
+    extract_weight_statistics,
+)
 
 __all__ = [
     "FEATURE_SCHEMA_VERSION",
+    "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
     "ActivationBatch",
     "ActivationSummaryCollector",
     "ChannelActivationCollector",
@@ -31,4 +39,8 @@ __all__ = [
     "FeatureSampleContext",
     "PrecisionProvenance",
     "PrecisionSource",
+    "WeightStatistics",
+    "WeightStatisticsError",
+    "WeightTensor",
+    "extract_weight_statistics",
 ]
