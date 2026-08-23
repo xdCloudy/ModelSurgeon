@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add prioritized native IQ4_NL and IQ4_XS codecs with nonlinear codebook
+  packing, endian-aware scales, exact-type dispatch, and fail-closed unsupported
+  IQ writes.
 - Add a bounded, read-only memory-mapped GGUF v2/v3 container parser with typed
   metadata, exact tensor ranges, endian detection, and corruption checks.
 - Add stable lazy GGUF tensor handles with tensor-scoped byte reads and complete-block
