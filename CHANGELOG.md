@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded MLP duplicate-channel ranking with weight-cosine candidate screening,
+  activation-correlation confirmation, explicit candidate/confirmation budgets, and
+  deterministic ranking.
 - Add candidate-restricted tensor/output cosine similarities with configurable adjacent,
   explicit, or bounded all-pairs generation, blockwise evaluation, and an explicit
   zero-vector policy that returns zero while recording the degeneracy.
