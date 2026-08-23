@@ -7,10 +7,10 @@ import json
 import os
 import shutil
 import uuid
-from collections.abc import BinaryIO, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Self
+from typing import BinaryIO, Literal, Self
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.store import (
