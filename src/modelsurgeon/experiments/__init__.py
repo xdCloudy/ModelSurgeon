@@ -74,6 +74,13 @@ from modelsurgeon.experiments.schema import (
     StageTiming,
     VersionContext,
 )
+from modelsurgeon.experiments.state_machine import (
+    CandidateRecoveryPlan,
+    CandidateState,
+    CandidateWorkStage,
+    ExperimentStateError,
+    ExperimentStateMachine,
+)
 from modelsurgeon.experiments.store import (
     CandidateTrace,
     ExperimentMetadataStore,
@@ -103,7 +110,10 @@ __all__ = [
     "ArtifactStoreError",
     "CPUInventory",
     "CUDAInventory",
+    "CandidateRecoveryPlan",
+    "CandidateState",
     "CandidateTrace",
+    "CandidateWorkStage",
     "ContentAddressedArtifactStore",
     "DatasetTarget",
     "DerivedCandidateIdentity",
@@ -119,6 +129,8 @@ __all__ = [
     "ExperimentOutcomeKind",
     "ExperimentRecord",
     "ExperimentSchemaError",
+    "ExperimentStateError",
+    "ExperimentStateMachine",
     "ExperimentStoreError",
     "GPUDeviceInventory",
     "HardwareInventory",
