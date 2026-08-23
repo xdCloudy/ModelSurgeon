@@ -54,9 +54,14 @@ def _physical(
     )
 
 
-def _validate(plan, quant_type=GGMLQuantizationType.Q4_K):
+def _validate(
+    plan,
+    quant_type=GGMLQuantizationType.Q4_K,
+    destination_quant_type=None,
+):
     return validate_gguf_quantized_plan(
-        plan, (GGUFQuantizationBinding(TENSOR, quant_type),)
+        plan,
+        (GGUFQuantizationBinding(TENSOR, quant_type, destination_quant_type),),
     )
 
 
@@ -110,3 +115,18 @@ def test_encoded_size_is_recomputed_from_exact_layout() -> None:
     plan = _physical(AxisRemoval(0, tuple(range(256))), new_bytes=1153)
     with pytest.raises(GGUFAlignmentError, match="layout size 1152"):
         _validate(plan)
+
+
+def test_explicit_destination_codec_controls_new_shape_payload_size() -> None:
+    plan = _physical(AxisRemoval(0, tuple(range(256))), new_bytes=2176)
+    validated = _validate(
+        plan,
+        GGMLQuantizationType.Q4_K,
+        GGMLQuantizationType.Q8_0,
+    )
+    assert validated.tensor_edits[0].quant_type is GGMLQuantizationType.Q4_K
+    assert (
+        validated.tensor_edits[0].destination_quant_type
+        is GGMLQuantizationType.Q8_0
+    )
+    assert validated.tensor_edits[0].encoded_size == 2176

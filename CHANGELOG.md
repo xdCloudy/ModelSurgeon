@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Stream changed GGUF blocks through exact original or selected codecs with
+  payload validation, bounded round-trip checks, and quantization error summaries.
 - Selectively read and dequantize only GGUF repack block spans under simultaneous
   encoded, decoded, and peak-working-memory ceilings with touched-range reports.
 - Validate GGUF mutation axes against exact codec blocks, distinguish direct copy,
