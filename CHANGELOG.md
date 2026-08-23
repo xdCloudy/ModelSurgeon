@@ -19,6 +19,8 @@
   licensing/trust, and deterministic hash-ranked selection contracts.
 - Add bounded streaming Hugging Face calibration ingestion, tokenization, and
   canonical atomic manifest caching.
+- Add canonical, duplicate-safe activation hook ownership with rollback and guaranteed
+  capture cleanup across success, exception, and interrupt paths.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
