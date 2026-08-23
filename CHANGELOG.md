@@ -47,6 +47,8 @@
   validation, and quantization error reports.
 - Add a dedicated Q6_K super-block codec with pinned 6-bit packing, subgroup scales,
   endian-aware encoding, range access, and validation.
+- Add the distinct Q5_K super-block codec and explicit Q5_K_S/Q5_K_M whole-file recipe
+  metadata handling without tensor-layout substitution.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
