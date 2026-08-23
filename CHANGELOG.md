@@ -43,6 +43,8 @@
   GGUF codec type with byte-order, field-packing, shape, and checksum validation.
 - Add bounded F32, F16, and BF16 GGUF codecs with odd-count streaming, exact endian
   behavior, and round-to-nearest-even BF16 encoding.
+- Add a bit-exact block-aware Q8_0 codec with bounded range access, endian preservation,
+  validation, and quantization error reports.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
