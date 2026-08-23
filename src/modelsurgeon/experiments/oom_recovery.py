@@ -86,7 +86,9 @@ class OOMRecoveryEvent:
         if self.attempt <= 0 or not self.exception_type:
             raise OOMRecoveryError("OOM recovery events require an attempt and exception type")
         if (self.action is None) != (self.after is None):
-            raise OOMRecoveryError("OOM recovery action and adapted config must be recorded together")
+            raise OOMRecoveryError(
+                "OOM recovery action and adapted config must be recorded together"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
