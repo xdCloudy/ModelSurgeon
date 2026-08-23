@@ -11,7 +11,7 @@ jobs:
     if: ${{ vars.GPU_RUNNER_ENABLED == 'true' }}
     runs-on: [self-hosted, gpu]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev --extra hf --locked
       - run: uv run pytest -m gpu
