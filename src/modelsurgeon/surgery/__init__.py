@@ -26,6 +26,12 @@ from modelsurgeon.surgery.gguf_alignment import (
     propose_aligned_axis_removal,
     validate_gguf_quantized_plan,
 )
+from modelsurgeon.surgery.native_mlp_execute import (
+    NativeGGUFMLPExecutionError,
+    NativeGGUFMLPExecutionLimits,
+    NativeGGUFMLPExecutionResult,
+    execute_native_gguf_mlp_channel_removal,
+)
 from modelsurgeon.surgery.native_mlp_plan import (
     NativeGGUFMLPPlanError,
     NativeGGUFMLPRemovalPlan,
@@ -113,6 +119,9 @@ __all__ = [
     "MutationRunRecord",
     "MutationTargetResolutionError",
     "MutationTransaction",
+    "NativeGGUFMLPExecutionError",
+    "NativeGGUFMLPExecutionLimits",
+    "NativeGGUFMLPExecutionResult",
     "NativeGGUFMLPPlanError",
     "NativeGGUFMLPRemovalPlan",
     "PhysicalMetadataUpdate",
@@ -137,6 +146,7 @@ __all__ = [
     "TransactionState",
     "TransactionalMutation",
     "compile_physical_mutation_plan",
+    "execute_native_gguf_mlp_channel_removal",
     "plan_native_gguf_mlp_channel_removal",
     "propose_aligned_axis_removal",
     "require_safe_transaction",

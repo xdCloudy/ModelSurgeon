@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Execute coupled native quantized GGUF MLP channel removal with bounded encoded
+  copies, one-row selective repacking, exact-codec requantization, resumable
+  transactional output, untouched-tensor hashes, and output-graph validation.
 - Plan coupled native Llama/Qwen GGUF MLP channel removal across gate/up/down
   axes with reconciled shapes, metadata, identities, parameters, and file size.
 - Stream changed GGUF blocks through exact original or selected codecs with
