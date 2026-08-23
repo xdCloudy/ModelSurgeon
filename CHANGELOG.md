@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a finite Gemma GGUF surgery compatibility contract for dense Gemma v1,
+  with Gemma 2/3 failing closed pending their extra normalization and attention rules.
 - Add native and legacy-prefix Mistral GGUF surgery mappings with required
   sliding-window metadata, strict GQA geometry, and complete coupled edit axes.
 - Add explicit dense Qwen2/Qwen3 GGUF surgery mappings and GQA constraints, with
