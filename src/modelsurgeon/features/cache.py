@@ -180,7 +180,11 @@ def _feature_record(raw: object) -> FeatureRecord:
         else:
             if not isinstance(value_raw, list) or not value_raw:
                 raise FeatureCacheError("cached vector feature value is invalid")
-            if any(isinstance(item, bool) or not isinstance(item, (int, float)) for item in value_raw):
+            invalid_value = any(
+                isinstance(item, bool) or not isinstance(item, (int, float))
+                for item in value_raw
+            )
+            if invalid_value:
                 raise FeatureCacheError("cached vector feature values are invalid")
             value = tuple(float(item) for item in value_raw)
         return FeatureRecord(
@@ -196,8 +200,6 @@ def _feature_record(raw: object) -> FeatureRecord:
             metadata=_metadata(raw.get("metadata", {})),
         )
     except (KeyError, TypeError, ValueError) as error:
-        if isinstance(error, FeatureCacheError):
-            raise
         raise FeatureCacheError("invalid cached feature record") from error
 
 
