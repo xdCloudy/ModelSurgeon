@@ -82,6 +82,15 @@ from modelsurgeon.adapters.gguf.intermediate import (
     DiskTensorSpec,
     StaleDiskTensorError,
 )
+from modelsurgeon.adapters.gguf.iq4_codec import (
+    IQ4_CODECS,
+    IQ4_NL_CODEC,
+    IQ4_NL_VALUES,
+    IQ4_XS_CODEC,
+    IQ4_NLCodec,
+    IQ4_XSCodec,
+    resolve_iq_native_write_codec,
+)
 from modelsurgeon.adapters.gguf.iq_support import (
     IQ_SUPPORT_MATRIX,
     IQSupportLevel,
@@ -181,6 +190,10 @@ __all__ = [
     "GGUF_CODEC_CONFORMANCE_VECTORS",
     "GGUF_PY_QUANTS_BLOB",
     "GGUF_RESUME_SCHEMA_VERSION",
+    "IQ4_CODECS",
+    "IQ4_NL_CODEC",
+    "IQ4_NL_VALUES",
+    "IQ4_XS_CODEC",
     "IQ_SUPPORT_MATRIX",
     "Q2_K_CODEC",
     "Q3_K_CODEC",
@@ -253,6 +266,8 @@ __all__ = [
     "GGUFWriteMetadata",
     "GGUFWriteResult",
     "GGUFWriteTensor",
+    "IQ4_NLCodec",
+    "IQ4_XSCodec",
     "IQSupportLevel",
     "IQTypeSupport",
     "MemoryMappedGGUF",
@@ -300,6 +315,7 @@ __all__ = [
     "preflight_gguf_disk",
     "require_iq_native_write_target",
     "resolve_gguf_architecture",
+    "resolve_iq_native_write_codec",
     "resolve_q4_k_recipe",
     "resolve_q5_k_recipe",
     "validate_codec_vector",
