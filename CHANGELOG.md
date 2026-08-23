@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Validate generated GGUFs with the pinned llama.cpp revision using a bounded
+  one-token forward/generation check, captured tool/command provenance, capped logs,
+  and fail-closed timeout or non-zero-exit reporting.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.
