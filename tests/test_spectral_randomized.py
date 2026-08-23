@@ -48,7 +48,11 @@ class FakeTensor:
     def double(self) -> FakeTensor:
         self.calls.append("double")
         return FakeTensor(
-            list(self.values), self.shape, dtype="torch.float64", device=self.device, calls=self.calls
+            list(self.values),
+            self.shape,
+            dtype="torch.float64",
+            device=self.device,
+            calls=self.calls,
         )
 
     def reshape(self, *shape: int) -> FakeTensor:
