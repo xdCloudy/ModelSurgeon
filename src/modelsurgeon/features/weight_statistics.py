@@ -198,7 +198,9 @@ def _host_values(tensor: WeightTensor) -> tuple[tuple[float, ...], tuple[int, ..
         host = detached.cpu().double().reshape(-1)
         raw = host.tolist()
     except (AttributeError, TypeError, ValueError, RuntimeError) as error:
-        raise WeightStatisticsError("weight tensor could not be detached and copied to CPU") from error
+        raise WeightStatisticsError(
+            "weight tensor could not be detached and copied to CPU"
+        ) from error
     if not isinstance(raw, list):
         raise WeightStatisticsError("flattened weight tensor did not produce a value list")
     try:
