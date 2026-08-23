@@ -16,6 +16,13 @@ from modelsurgeon.features.channel_activation import (
     ChannelActivationFeature,
     ChannelActivationSummary,
 )
+from modelsurgeon.features.gradient_features import (
+    GRADIENT_FEATURE_EXTRACTOR_VERSION,
+    GradientFeatureError,
+    GradientFeatureOutcome,
+    GradientFeatures,
+    extract_gradient_features,
+)
 from modelsurgeon.features.schema import (
     FEATURE_SCHEMA_VERSION,
     ErrorProvenance,
@@ -63,6 +70,7 @@ __all__ = [
     "ACTIVATION_COVARIANCE_EXTRACTOR_VERSION",
     "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
+    "GRADIENT_FEATURE_EXTRACTOR_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
     "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
@@ -86,6 +94,9 @@ __all__ = [
     "FeatureKind",
     "FeatureRecord",
     "FeatureSampleContext",
+    "GradientFeatureError",
+    "GradientFeatureOutcome",
+    "GradientFeatures",
     "PrecisionProvenance",
     "PrecisionSource",
     "RandomizedSpectralConfig",
@@ -101,6 +112,7 @@ __all__ = [
     "WeightTensor",
     "evaluate_covariance_accuracy",
     "extract_exact_spectral_features",
+    "extract_gradient_features",
     "extract_randomized_spectral_features",
     "extract_weight_distribution",
     "extract_weight_statistics",
