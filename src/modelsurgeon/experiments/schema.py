@@ -109,7 +109,8 @@ class VersionContext:
     mutation_record_schema_version: int
 
     def __post_init__(self) -> None:
-        if any(not value for value in (self.tool_revision, self.config_digest, self.evaluator_version)):
+        versions = (self.tool_revision, self.config_digest, self.evaluator_version)
+        if any(not value for value in versions):
             raise ExperimentSchemaError("tool, config, and evaluator versions are required")
         if self.feature_schema_version <= 0 or self.mutation_record_schema_version <= 0:
             raise ExperimentSchemaError("referenced schema versions must be positive")
@@ -232,7 +233,8 @@ class QuantizationControl:
         ):
             raise ExperimentSchemaError("quantization control seed must be unsigned 64-bit")
         if self.kind is QuantizationControlKind.NONE:
-            if self.codecs or self.affected_components or self.seed is not None or not self.complete:
+            carries_work = bool(self.codecs or self.affected_components or self.seed is not None)
+            if carries_work or not self.complete:
                 raise ExperimentSchemaError("no-op quantization control cannot carry codec work")
         elif not self.codecs or not self.affected_components or self.seed is None:
             raise ExperimentSchemaError(
