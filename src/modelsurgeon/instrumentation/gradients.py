@@ -128,8 +128,10 @@ class GradientCollector:
 
     @staticmethod
     def _shape(value: object) -> tuple[int, ...]:
+        if not isinstance(value, Iterable):
+            raise GradientCollectorError("gradient shape is not iterable")
         try:
-            shape = tuple(int(item) for item in value)  # type: ignore[union-attr]
+            shape = tuple(int(item) for item in value)
         except (TypeError, ValueError, OverflowError) as error:
             raise GradientCollectorError("gradient shape is invalid") from error
         if any(dimension < 0 for dimension in shape):
