@@ -89,6 +89,14 @@ from modelsurgeon.adapters.gguf.quantization import (
     plan_supported_axes,
     validate_tensor_alignment,
 )
+from modelsurgeon.adapters.gguf.resume import (
+    GGUF_RESUME_SCHEMA_VERSION,
+    GGUFResumeError,
+    GGUFResumeManifest,
+    GGUFResumeTensor,
+    discard_resumable_gguf,
+    write_gguf_resumably,
+)
 from modelsurgeon.adapters.gguf.tensor_reader import (
     GGUFTensorBoundsError,
     GGUFTensorChunk,
@@ -116,6 +124,7 @@ from modelsurgeon.adapters.gguf.writer import (
 __all__ = [
     "DISK_TENSOR_SCHEMA_VERSION",
     "GGUF_ARCHITECTURE_CONTRACTS",
+    "GGUF_RESUME_SCHEMA_VERSION",
     "QUANT_LAYOUTS",
     "AlignmentConstraint",
     "AmbiguousGGUFArchitectureError",
@@ -158,6 +167,9 @@ __all__ = [
     "GGUFParserLimits",
     "GGUFPlannedTensor",
     "GGUFResourceLimitError",
+    "GGUFResumeError",
+    "GGUFResumeManifest",
+    "GGUFResumeTensor",
     "GGUFTensorBoundsError",
     "GGUFTensorChunk",
     "GGUFTensorComponent",
@@ -198,6 +210,7 @@ __all__ = [
     "UnsupportedGGUFVersionError",
     "build_tensor_index",
     "copy_unchanged_gguf_tensor",
+    "discard_resumable_gguf",
     "discover_gguf_components",
     "monitor_gguf_disk",
     "open_gguf",
@@ -207,5 +220,6 @@ __all__ = [
     "preflight_gguf_disk",
     "resolve_gguf_architecture",
     "validate_tensor_alignment",
+    "write_gguf_resumably",
     "write_gguf_transactionally",
 ]

@@ -37,6 +37,8 @@
   per-tensor output checksums.
 - Add checksummed, resumable disk-backed tensor intermediates with fixed chunk memory,
   atomic manifests, stale-artifact recovery, and scoped cleanup.
+- Add tensor-boundary resumable GGUF output with input/plan identity checks, committed
+  prefix verification, partial-range truncation, and no incomplete publication.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
