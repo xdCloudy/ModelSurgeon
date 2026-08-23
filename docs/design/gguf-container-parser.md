@@ -27,3 +27,12 @@ reads must remain inside the tensor and under the configured allocation cap. Blo
 reads and chunk iteration additionally operate on complete exact-codec blocks; each
 chunk reports physical byte and logical element offsets. Returned data is an owned
 bounded `bytes` copy, never a view that can outlive or expose the source mapping.
+
+`discover_gguf_components` resolves `general.architecture` through the explicit
+versioned family contract, requires architecture shape metadata and every structural
+tensor, and reconciles every declared tensor axis against hidden, head, KV-head, and
+MLP sizes. Unknown families, tensors, out-of-range blocks, missing tensors, and shape
+disagreements fail before a graph is returned. Physical tensors become canonical
+parameter nodes with exact dimensions, axis semantics, element counts, codec, and
+storage bytes. Coupling constraints retain the contract's exact physical tensor axes;
+query/output, key/value, and MLP groups therefore remain distinct.
