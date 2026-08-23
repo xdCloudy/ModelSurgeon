@@ -24,6 +24,17 @@ from modelsurgeon.features.spectral_exact import (
     ExactSpectralOutcome,
     extract_exact_spectral_features,
 )
+from modelsurgeon.features.spectral_randomized import (
+    RANDOMIZED_SPECTRAL_ALGORITHM,
+    RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION,
+    RandomizedSpectralConfig,
+    RandomizedSpectralError,
+    RandomizedSpectralFeatures,
+    RandomizedSpectralOutcome,
+    RandomizedWorkspacePlan,
+    extract_randomized_spectral_features,
+    plan_randomized_spectral_workspace,
+)
 from modelsurgeon.features.weight_distribution import (
     WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION,
     WeightDistribution,
@@ -42,6 +53,8 @@ from modelsurgeon.features.weight_statistics import (
 __all__ = [
     "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
+    "RANDOMIZED_SPECTRAL_ALGORITHM",
+    "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
     "ActivationBatch",
@@ -60,6 +73,11 @@ __all__ = [
     "FeatureSampleContext",
     "PrecisionProvenance",
     "PrecisionSource",
+    "RandomizedSpectralConfig",
+    "RandomizedSpectralError",
+    "RandomizedSpectralFeatures",
+    "RandomizedSpectralOutcome",
+    "RandomizedWorkspacePlan",
     "WeightDistribution",
     "WeightDistributionConfig",
     "WeightDistributionError",
@@ -67,6 +85,8 @@ __all__ = [
     "WeightStatisticsError",
     "WeightTensor",
     "extract_exact_spectral_features",
+    "extract_randomized_spectral_features",
     "extract_weight_distribution",
     "extract_weight_statistics",
+    "plan_randomized_spectral_workspace",
 ]
