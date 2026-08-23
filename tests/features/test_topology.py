@@ -20,6 +20,7 @@ def _graph() -> ComponentGraph:
     attention0 = ComponentId.parse("model.layers.0.self_attn")
     q_proj = ComponentId.parse("model.layers.0.self_attn.q_proj")
     k_proj = ComponentId.parse("model.layers.0.self_attn.k_proj")
+    coupled_left, coupled_right = sorted((q_proj, k_proj))
     layer1 = ComponentId.parse("model.layers.1")
     nodes = (
         GraphNode(model, "model"),
@@ -43,7 +44,7 @@ def _graph() -> ComponentGraph:
         GraphEdge(attention0, k_proj, EdgeKind.CHILD),
         GraphEdge(layer1, layers, EdgeKind.PARENT),
         GraphEdge(layers, layer1, EdgeKind.CHILD),
-        GraphEdge(q_proj, k_proj, EdgeKind.COUPLED),
+        GraphEdge(coupled_left, coupled_right, EdgeKind.COUPLED),
     )
     constraints = (
         MutationConstraint(
