@@ -117,8 +117,6 @@ class OOMRecoveryResult[T]:
             raise OOMRecoveryError("OOM recovery must record at least one attempt")
         if self.succeeded == (self.exhausted_kind is not None):
             raise OOMRecoveryError("OOM recovery success/exhaustion fields are inconsistent")
-        if self.succeeded and self.value is None:
-            raise OOMRecoveryError("successful OOM recovery requires an operation value")
         if len(self.cleanup_reports) != self.attempts:
             raise OOMRecoveryError("each OOM recovery attempt must record one cleanup report")
 
@@ -176,16 +174,20 @@ def _halve(value: int, minimum: int) -> int:
     return max(minimum, (value + 1) // 2)
 
 
+def _validate_policy_for_config(config: OOMAttemptConfig, policy: OOMRetryPolicy) -> None:
+    if policy.min_batch_size > config.batch_size:
+        raise OOMRecoveryError("min_batch_size cannot exceed the initial batch size")
+    if policy.min_chunk_size > config.chunk_size:
+        raise OOMRecoveryError("min_chunk_size cannot exceed the initial chunk size")
+
+
 def adapt_oom_config(
     config: OOMAttemptConfig,
     policy: OOMRetryPolicy,
 ) -> tuple[OOMAdaptationAction, OOMAttemptConfig] | None:
     """Choose exactly one deterministic lower-memory adaptation."""
 
-    if policy.min_batch_size > config.batch_size:
-        raise OOMRecoveryError("min_batch_size cannot exceed the initial/current batch size")
-    if policy.min_chunk_size > config.chunk_size:
-        raise OOMRecoveryError("min_chunk_size cannot exceed the initial/current chunk size")
+    _validate_policy_for_config(config, policy)
     if config.batch_size > policy.min_batch_size:
         adapted = OOMAttemptConfig(
             _halve(config.batch_size, policy.min_batch_size),
@@ -255,6 +257,7 @@ def run_with_oom_recovery[T](
         raise ExperimentStateError(
             f"OOM recovery for {stage.value} requires {expected.value} state, found {actual}"
         )
+    _validate_policy_for_config(initial_config, policy)
 
     config = initial_config
     events: list[OOMRecoveryEvent] = []
