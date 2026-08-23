@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add opt-in bounded selected-parameter gradient collection with detached CPU snapshots,
+  explicit missing-gradient reporting, per-gradient size ceilings, and guaranteed
+  gradient cleanup before and after every calibration backward pass.
 - Add fixed-memory activation covariance collection with exact diagonal Welford
   statistics, deterministic rank-bounded Nyström sketches, workspace preflight,
   and small-case approximation-accuracy reporting.
