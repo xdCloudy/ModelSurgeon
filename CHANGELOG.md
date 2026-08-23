@@ -27,6 +27,8 @@
   provenance.
 - Add graph-aligned per-channel and finite token position/class activation features
   with memory bounded by channels and configured buckets.
+- Add hard-ceiling-aware full, tensor, and streaming memory-mode planning with
+  auditable peak RAM, VRAM, and scratch estimates.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
