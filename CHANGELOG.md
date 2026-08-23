@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Selectively read and dequantize only GGUF repack block spans under simultaneous
+  encoded, decoded, and peak-working-memory ceilings with touched-range reports.
 - Validate GGUF mutation axes against exact codec blocks, distinguish direct copy,
   repack, and whole-slice strategies, and expose non-automatic aligned proposals.
 - Compile closed mutation plans into allocation-free physical tensor shape/index

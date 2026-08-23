@@ -38,6 +38,15 @@ from modelsurgeon.surgery.physical_plan import (
     TensorEditIntent,
     compile_physical_mutation_plan,
 )
+from modelsurgeon.surgery.selective_dequant import (
+    DecodedGGUFBlockChunk,
+    DequantizedPrecision,
+    SelectiveDequantizationError,
+    SelectiveDequantizationLimits,
+    SelectiveDequantizationReport,
+    SelectiveGGUFDequantizer,
+    TouchedGGUFBlockRange,
+)
 from modelsurgeon.surgery.serialization import (
     MUTATION_RECORD_SCHEMA_VERSION,
     REDACTED_LOCAL_PATH,
@@ -62,6 +71,8 @@ __all__ = [
     "REDACTED_LOCAL_PATH",
     "AlignedAxisRemovalProposal",
     "AxisRemoval",
+    "DecodedGGUFBlockChunk",
+    "DequantizedPrecision",
     "EncodedBlockRange",
     "GGUFAlignmentError",
     "GGUFQuantizationBinding",
@@ -91,8 +102,13 @@ __all__ = [
     "QuantizedEditStrategy",
     "ResolvedMutationTarget",
     "ResolvedMutationTargets",
+    "SelectiveDequantizationError",
+    "SelectiveDequantizationLimits",
+    "SelectiveDequantizationReport",
+    "SelectiveGGUFDequantizer",
     "TensorAxisTransform",
     "TensorEditIntent",
+    "TouchedGGUFBlockRange",
     "TransactionState",
     "TransactionalMutation",
     "compile_physical_mutation_plan",
