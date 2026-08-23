@@ -9,9 +9,24 @@ import typer
 
 from modelsurgeon.adapters.huggingface import HuggingFaceLoadRequest, load_causal_lm
 from modelsurgeon.graph import walk_named_modules
-from modelsurgeon.logging import configure_logging
+from modelsurgeon.logging import LogFormat, configure_logging
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+
+
+@app.callback()
+def configure_cli_logging(
+    log_level: Annotated[
+        str,
+        typer.Option(help="Logging threshold"),
+    ] = "INFO",
+    log_format: Annotated[
+        LogFormat,
+        typer.Option(help="Human-readable or JSON structured logs"),
+    ] = LogFormat.HUMAN,
+) -> None:
+    """Configure logging only after the CLI is invoked."""
+    configure_logging(level=log_level, output_format=log_format)
 
 
 @app.command()
@@ -28,7 +43,6 @@ def inspect(
     ] = False,
 ) -> None:
     """Load and enumerate a Hugging Face causal language model."""
-    configure_logging()
     loaded = load_causal_lm(
         HuggingFaceLoadRequest(
             model=model,
@@ -53,4 +67,3 @@ def inspect(
 
 if __name__ == "__main__":  # pragma: no cover
     app()
-
