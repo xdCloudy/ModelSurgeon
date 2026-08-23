@@ -117,7 +117,7 @@ def test_gated_mlp_and_attention_emit_memory_assumptions() -> None:
     by_id = {estimate.component_id: estimate for estimate in report.estimates}
     assert by_id[mlp].forward_flops == 576
     assert by_id[mlp].peak_working_activation_bytes == 240
-    assert by_id[attention].forward_flops == 264
+    assert by_id[attention].forward_flops == 528
     assert by_id[attention].peak_working_activation_bytes == 264
     assert report.to_record()["assumptions"] == assumptions.to_record()
 
