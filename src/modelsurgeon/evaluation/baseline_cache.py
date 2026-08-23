@@ -168,7 +168,8 @@ class BaselineCache:
         encoded = _canonical_bytes(payload)
         if len(encoded) > self.max_serialized_bytes:
             raise BaselineCacheError(
-                f"baseline artifact needs {len(encoded)} bytes, budget is {self.max_serialized_bytes}"
+                f"baseline artifact needs {len(encoded)} bytes, "
+                f"budget is {self.max_serialized_bytes}"
             )
         self.root.mkdir(parents=True, exist_ok=True)
         final_path = self.path_for(key)
@@ -185,12 +186,12 @@ class BaselineCache:
                 os.fsync(stream.fileno())
             try:
                 os.link(temporary, final_path)
-            except FileExistsError:
+            except FileExistsError as error:
                 existing = self.load(key)
                 if existing != artifact:
                     raise BaselineCacheError(
                         "concurrent immutable baseline publication disagreed"
-                    )
+                    ) from error
                 return artifact
         finally:
             temporary.unlink(missing_ok=True)
