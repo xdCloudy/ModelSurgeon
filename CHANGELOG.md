@@ -9,6 +9,7 @@
 - Validate graph endpoints, reciprocal edges, forbidden cycles, constraint membership, and complete mutation coupling closures with exact diagnostics.
 - Persist and strictly reload canonical versioned component graphs with required adapter and immutable-model provenance.
 - Pin the native GGUF container/codec specification, low-memory surgery decisions, and independent-reader conformance vector.
+- Define exact GGUF block layouts, axis/divisibility planning, bounded codec operations, validation, error metrics, and no-substitution registry semantics.
 
 All notable changes will be documented here. This project follows Keep a Changelog and semantic versioning once public APIs stabilize.
 
