@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-08-23",
+  "purpose": "optional integration metadata only; unit tests use offline doubles",
+  "weights_committed": false,
+  "offline_fingerprints": {
+    "llama": "64584ab22d2285007fbe51f76233f18cfe2faf416991e871a0184a0a3f6863db",
+    "qwen": "8a6cb450b7e9ea24c95d7908aca809ad46731f42de5ab74f007c5fb8495dd2cd",
+    "mistral": "bb7964da9da0736bb14a738edbaefe033d541f8a124bb4c8adc9594b4c3675c2",
+    "gemma": "8f7d3048a031c6cfdf2ac9259f503ff219ff49773af7102c5e884f5e87fca5dd"
+  },
+  "models": [
+    {
+      "family": "llama",
+      "model_id": "HuggingFaceM4/tiny-random-LlamaForCausalLM",
+      "revision": "d3040b7c81a0a810fa13c6f392f3e304a0e121d5",
+      "model_type": "llama",
+      "architecture": "LlamaForCausalLM"
+    },
+    {
+      "family": "mistral",
+      "model_id": "HuggingFaceM4/tiny-random-MistralForCausalLM",
+      "revision": "687d960c4d20b757867bb3284cf1a55d88e6c348",
+      "model_type": "mistral",
+      "architecture": "MistralForCausalLM"
+    },
+    {
+      "family": "qwen",
+      "model_id": "Jiqing/tiny-random-qwen2",
+      "revision": "969ee18c66962024684058e7859adc0a4420c9eb",
+      "model_type": "qwen2",
+      "architecture": "Qwen2ForCausalLM"
+    },
+    {
+      "family": "gemma",
+      "model_id": "tiny-random/gemma-2",
+      "revision": "ebd61568c424fcc6a4e42a69b2aba7c64447ffc9",
+      "model_type": "gemma2",
+      "architecture": "Gemma2ForCausalLM"
+    }
+  ]
+}
