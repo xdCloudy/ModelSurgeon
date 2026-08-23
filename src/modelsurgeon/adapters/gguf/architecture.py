@@ -63,6 +63,8 @@ class MetadataSemantic(StrEnum):
     FEED_FORWARD_LENGTH = "feed_forward_length"
     HEAD_COUNT = "attention.head_count"
     KV_HEAD_COUNT = "attention.head_count_kv"
+    KEY_LENGTH = "attention.key_length"
+    VALUE_LENGTH = "attention.value_length"
     EXPERT_COUNT = "expert_count"
     EXPERT_USED_COUNT = "expert_used_count"
 
