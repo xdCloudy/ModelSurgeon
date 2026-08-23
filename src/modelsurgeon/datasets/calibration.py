@@ -138,12 +138,8 @@ class CalibrationContract:
     selection: SelectionConfig
     schema_version: Literal[1] = CALIBRATION_SCHEMA_VERSION
 
-    def select(self, candidates: tuple[CalibrationSample, ...]) -> tuple[CalibrationSample, ...]:
-        if len({sample.sample_id for sample in candidates}) != len(candidates):
-            raise ValueError("candidate sample IDs must be unique")
-        if self.selection.sample_count > len(candidates):
-            raise ValueError("selection count exceeds available candidate samples")
-        identity = json.dumps(
+    def _selection_identity(self) -> str:
+        return json.dumps(
             {
                 "dataset": self.dataset.to_record(),
                 "preprocessing": self.preprocessing.to_record(),
@@ -154,10 +150,24 @@ class CalibrationContract:
             sort_keys=True,
             separators=(",", ":"),
         )
+
+    def selection_rank(self, sample_id: str) -> bytes:
+        """Return the stable v1 ranking key for one native sample ID."""
+        if not sample_id:
+            raise ValueError("calibration sample ID is required")
+        return hashlib.sha256(
+            f"{self._selection_identity()}\0{sample_id}".encode()
+        ).digest()
+
+    def select(self, candidates: tuple[CalibrationSample, ...]) -> tuple[CalibrationSample, ...]:
+        if len({sample.sample_id for sample in candidates}) != len(candidates):
+            raise ValueError("candidate sample IDs must be unique")
+        if self.selection.sample_count > len(candidates):
+            raise ValueError("selection count exceeds available candidate samples")
         ranked = sorted(
             candidates,
             key=lambda sample: (
-                hashlib.sha256(f"{identity}\0{sample.sample_id}".encode()).digest(),
+                self.selection_rank(sample.sample_id),
                 sample.sample_id.encode(),
             ),
         )
