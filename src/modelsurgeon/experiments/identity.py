@@ -28,7 +28,9 @@ class PathAlias:
         if not self.name or not self.local_root:
             raise ExperimentIdentityError("path aliases require a name and local root")
         if any(character in self.name for character in "/\\{}"):
-            raise ExperimentIdentityError("path alias names cannot contain path delimiters or braces")
+            raise ExperimentIdentityError(
+                "path alias names cannot contain path delimiters or braces"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,9 +100,12 @@ def _path_match(value: str, alias: PathAlias) -> str | None:
     return None
 
 
+def _alias_sort_key(alias: PathAlias) -> tuple[int, str]:
+    return (-len(_normalize_slashes(alias.local_root)), alias.name)
+
+
 def _canonical_string(value: str, aliases: tuple[PathAlias, ...]) -> str:
-    ranked = sorted(aliases, key=lambda item: (-len(_normalize_slashes(item.local_root)), item.name))
-    for alias in ranked:
+    for alias in sorted(aliases, key=_alias_sort_key):
         replacement = _path_match(value, alias)
         if replacement is not None:
             return replacement
