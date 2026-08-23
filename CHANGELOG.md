@@ -51,6 +51,8 @@
   metadata handling without tensor-layout substitution.
 - Add the distinct Q4_K super-block codec and explicit Q4_K_S/Q4_K_M recipe metadata
   without treating whole-file recipes as tensor types.
+- Add separate Q2_K and Q3_K super-block codecs with non-interchangeable validation,
+  packed scale/high-bit handling, endian-aware deltas, and bounded range access.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
