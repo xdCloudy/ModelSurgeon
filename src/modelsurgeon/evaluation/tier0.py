@@ -74,6 +74,24 @@ class Tier0ValidationResult:
         }
 
 
+def _failure(
+    backend: Tier0ValidationBackend,
+    config: Tier0ValidationConfig,
+    completed: list[Tier0Stage],
+    stage: Tier0Stage,
+    error: Exception,
+) -> Tier0ValidationResult:
+    return Tier0ValidationResult(
+        False,
+        tuple(completed),
+        stage,
+        type(error).__name__,
+        str(error),
+        backend.device,
+        config.max_forward_tokens,
+    )
+
+
 def run_tier0_validation(
     backend: Tier0ValidationBackend,
     config: Tier0ValidationConfig | None = None,
@@ -82,35 +100,32 @@ def run_tier0_validation(
 
     resolved = config or Tier0ValidationConfig()
     completed: list[Tier0Stage] = []
-    model: object | None = None
 
-    operations = (
-        (Tier0Stage.LOAD, lambda: backend.load()),
-        (Tier0Stage.GRAPH, lambda: backend.validate_graph(model)),
-        (Tier0Stage.SHAPES, lambda: backend.validate_shapes(model)),
-        (
-            Tier0Stage.FORWARD,
-            lambda: backend.forward(model, resolved.max_forward_tokens),
-        ),
-    )
-    for stage, operation in operations:
-        try:
-            value = operation()
-            if stage is Tier0Stage.LOAD:
-                model = value
-                if model is None:
-                    raise ValueError("load stage returned no model")
-        except Exception as error:
-            return Tier0ValidationResult(
-                False,
-                tuple(completed),
-                stage,
-                type(error).__name__,
-                str(error),
-                backend.device,
-                resolved.max_forward_tokens,
-            )
-        completed.append(stage)
+    try:
+        model = backend.load()
+        if model is None:
+            raise ValueError("load stage returned no model")
+    except Exception as error:
+        return _failure(backend, resolved, completed, Tier0Stage.LOAD, error)
+    completed.append(Tier0Stage.LOAD)
+
+    try:
+        backend.validate_graph(model)
+    except Exception as error:
+        return _failure(backend, resolved, completed, Tier0Stage.GRAPH, error)
+    completed.append(Tier0Stage.GRAPH)
+
+    try:
+        backend.validate_shapes(model)
+    except Exception as error:
+        return _failure(backend, resolved, completed, Tier0Stage.SHAPES, error)
+    completed.append(Tier0Stage.SHAPES)
+
+    try:
+        backend.forward(model, resolved.max_forward_tokens)
+    except Exception as error:
+        return _failure(backend, resolved, completed, Tier0Stage.FORWARD, error)
+    completed.append(Tier0Stage.FORWARD)
 
     return Tier0ValidationResult(
         True,
