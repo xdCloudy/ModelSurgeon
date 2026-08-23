@@ -58,6 +58,15 @@ from modelsurgeon.adapters.gguf.disk import (
     monitor_gguf_disk,
     preflight_gguf_disk,
 )
+from modelsurgeon.adapters.gguf.intermediate import (
+    DISK_TENSOR_SCHEMA_VERSION,
+    DiskBackedTensor,
+    DiskTensorChunk,
+    DiskTensorError,
+    DiskTensorManifest,
+    DiskTensorSpec,
+    StaleDiskTensorError,
+)
 from modelsurgeon.adapters.gguf.quantization import (
     QUANT_LAYOUTS,
     AlignmentConstraint,
@@ -105,6 +114,7 @@ from modelsurgeon.adapters.gguf.writer import (
 )
 
 __all__ = [
+    "DISK_TENSOR_SCHEMA_VERSION",
     "GGUF_ARCHITECTURE_CONTRACTS",
     "QUANT_LAYOUTS",
     "AlignmentConstraint",
@@ -124,8 +134,13 @@ __all__ = [
     "CorruptGGUFError",
     "CouplingGroup",
     "CouplingKind",
+    "DiskBackedTensor",
     "DiskProbe",
     "DiskProbeFunction",
+    "DiskTensorChunk",
+    "DiskTensorError",
+    "DiskTensorManifest",
+    "DiskTensorSpec",
     "GGMLQuantizationType",
     "GGUFArchitectureContract",
     "GGUFArchitectureError",
@@ -168,6 +183,7 @@ __all__ = [
     "QuantizationError",
     "QuantizationFamily",
     "ResolvedGGUFArchitecture",
+    "StaleDiskTensorError",
     "StaleGGUFTensorHandleError",
     "TensorAxis",
     "TensorAxisTarget",
