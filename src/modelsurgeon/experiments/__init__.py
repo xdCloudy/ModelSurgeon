@@ -56,6 +56,7 @@ from modelsurgeon.experiments.migrations import (
     migration_backup_guidance,
     open_experiment_database,
 )
+from modelsurgeon.experiments.queue import ExperimentWorkQueue, WorkLease, WorkLeaseError
 from modelsurgeon.experiments.schema import (
     EXPERIMENT_SCHEMA_VERSION,
     MUTATION_EXAMPLE_SCHEMA_VERSION,
@@ -132,6 +133,7 @@ __all__ = [
     "ExperimentStateError",
     "ExperimentStateMachine",
     "ExperimentStoreError",
+    "ExperimentWorkQueue",
     "GPUDeviceInventory",
     "HardwareInventory",
     "MemoryInventory",
@@ -165,6 +167,8 @@ __all__ = [
     "StoredRun",
     "StoredStateEvent",
     "VersionContext",
+    "WorkLease",
+    "WorkLeaseError",
     "apply_experiment_migrations",
     "canonical_identity_json",
     "canonicalize_identity_value",
