@@ -17,6 +17,14 @@ from modelsurgeon.graph.schema import (
     GraphNode,
     MutationConstraint,
 )
+from modelsurgeon.graph.validation import (
+    GraphValidationError,
+    GraphValidationReport,
+    GraphValidationRule,
+    GraphViolation,
+    validate_component_graph,
+    validate_graph_records,
+)
 from modelsurgeon.graph.walker import ComponentRecord, walk_named_modules
 
 __all__ = [
@@ -33,7 +41,13 @@ __all__ = [
     "GraphBuildError",
     "GraphEdge",
     "GraphNode",
+    "GraphValidationError",
+    "GraphValidationReport",
+    "GraphValidationRule",
+    "GraphViolation",
     "MutationConstraint",
     "build_component_graph",
+    "validate_component_graph",
+    "validate_graph_records",
     "walk_named_modules",
 ]
