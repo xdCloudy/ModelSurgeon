@@ -14,6 +14,12 @@ from modelsurgeon.surgery.contracts import (
     TransactionState,
     require_safe_transaction,
 )
+from modelsurgeon.surgery.target_resolution import (
+    MutationTargetResolutionError,
+    ResolvedMutationTarget,
+    ResolvedMutationTargets,
+    resolve_mutation_targets,
+)
 
 __all__ = [
     "MUTATION_SCHEMA_VERSION",
@@ -24,8 +30,12 @@ __all__ = [
     "MutationPlan",
     "MutationPrecondition",
     "MutationRequest",
+    "MutationTargetResolutionError",
     "MutationTransaction",
+    "ResolvedMutationTarget",
+    "ResolvedMutationTargets",
     "TransactionState",
     "TransactionalMutation",
     "require_safe_transaction",
+    "resolve_mutation_targets",
 ]
