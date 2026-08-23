@@ -20,3 +20,10 @@ only and is never consulted by unit tests. Any integration test that uses it mus
 explicitly network-enabled, request the pinned revision, and keep downloaded weights
 outside the repository. Revision metadata was checked through the public Hugging Face
 model API on 2026-08-23.
+
+`tests/test_foundation_integration.py` is the golden foundation path. It substitutes
+the offline Llama double at the real loader import boundary, requires CPU-safe loader
+options and immutable revision provenance, performs family detection and discovery,
+builds and validates the complete component graph, and invokes the public CLI twice
+to assert byte-stable JSON records, component IDs, and counts. It never imports Torch
+or contacts Hugging Face.
