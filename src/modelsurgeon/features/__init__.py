@@ -16,6 +16,19 @@ from modelsurgeon.features.channel_activation import (
     ChannelActivationFeature,
     ChannelActivationSummary,
 )
+from modelsurgeon.features.cosine_similarity import (
+    COSINE_SIMILARITY_EXTRACTOR_VERSION,
+    CosineCandidate,
+    CosineCandidateMode,
+    CosineSimilarity,
+    CosineSimilarityConfig,
+    CosineSimilarityError,
+    CosineVector,
+    CosineVectorKind,
+    cosine_similarity_for_candidate,
+    extract_pairwise_cosine_similarities,
+    generate_cosine_candidates,
+)
 from modelsurgeon.features.gradient_features import (
     GRADIENT_FEATURE_EXTRACTOR_VERSION,
     GradientFeatureError,
@@ -68,6 +81,7 @@ from modelsurgeon.features.weight_statistics import (
 
 __all__ = [
     "ACTIVATION_COVARIANCE_EXTRACTOR_VERSION",
+    "COSINE_SIMILARITY_EXTRACTOR_VERSION",
     "EXACT_SPECTRAL_EXTRACTOR_VERSION",
     "FEATURE_SCHEMA_VERSION",
     "GRADIENT_FEATURE_EXTRACTOR_VERSION",
@@ -85,6 +99,13 @@ __all__ = [
     "ChannelActivationConfig",
     "ChannelActivationFeature",
     "ChannelActivationSummary",
+    "CosineCandidate",
+    "CosineCandidateMode",
+    "CosineSimilarity",
+    "CosineSimilarityConfig",
+    "CosineSimilarityError",
+    "CosineVector",
+    "CosineVectorKind",
     "CovarianceAccuracyReport",
     "ErrorProvenance",
     "ExactSpectralConfig",
@@ -110,11 +131,14 @@ __all__ = [
     "WeightStatistics",
     "WeightStatisticsError",
     "WeightTensor",
+    "cosine_similarity_for_candidate",
     "evaluate_covariance_accuracy",
     "extract_exact_spectral_features",
     "extract_gradient_features",
+    "extract_pairwise_cosine_similarities",
     "extract_randomized_spectral_features",
     "extract_weight_distribution",
     "extract_weight_statistics",
+    "generate_cosine_candidates",
     "plan_randomized_spectral_workspace",
 ]
