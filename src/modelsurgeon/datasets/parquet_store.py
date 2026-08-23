@@ -7,7 +7,7 @@ import json
 import os
 import threading
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
@@ -158,15 +158,12 @@ class PyArrowParquetBackend:
 
     def write_rows(self, path: Path, rows: Sequence[Mapping[str, object]]) -> None:
         arrow, parquet = self._modules()
-        table_type = cast(Any, getattr(arrow, "Table"))
-        write_table = cast(Callable[..., object], getattr(parquet, "write_table"))
-        table = table_type.from_pylist([dict(row) for row in rows])
-        write_table(table, path)
+        table = arrow.Table.from_pylist([dict(row) for row in rows])
+        parquet.write_table(table, path)
 
     def read_rows(self, path: Path) -> tuple[dict[str, object], ...]:
         _, parquet = self._modules()
-        read_table = cast(Callable[..., Any], getattr(parquet, "read_table"))
-        table = read_table(path)
+        table = parquet.read_table(path)
         rows = table.to_pylist()
         if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
             raise ParquetStoreError("PyArrow returned malformed Parquet rows")
@@ -338,13 +335,17 @@ class PartitionedParquetStore:
             try:
                 self.backend.write_rows(staging, rows)
                 if not staging.is_file() or staging.is_symlink():
-                    raise ParquetStoreError("Parquet backend did not produce a regular staging file")
+                    raise ParquetStoreError(
+                        "Parquet backend did not produce a regular staging file"
+                    )
                 digest = self._file_sha256(staging)
                 final_name = f"part-{digest}.parquet"
                 final_path = directory / final_name
                 if final_path.exists() or final_path.is_symlink():
                     if not final_path.is_file() or self._file_sha256(final_path) != digest:
-                        raise ParquetStoreError("existing Parquet partition conflicts with its digest")
+                        raise ParquetStoreError(
+                            "existing Parquet partition conflicts with its digest"
+                        )
                 else:
                     try:
                         os.link(staging, final_path)
@@ -362,10 +363,14 @@ class PartitionedParquetStore:
                 existing = {item.relative_path: item for item in manifest.entries}
                 previous = existing.get(relative_path)
                 if previous is not None and previous != entry:
-                    raise ParquetStoreError("Parquet manifest identity conflicts with existing entry")
+                    raise ParquetStoreError(
+                        "Parquet manifest identity conflicts with existing entry"
+                    )
                 existing[relative_path] = entry
-                next_manifest = ParquetManifest(tuple(sorted(existing.values(), key=lambda x: x.relative_path)))
-                self._publish_manifest(next_manifest)
+                sorted_entries = tuple(
+                    sorted(existing.values(), key=lambda item: item.relative_path)
+                )
+                self._publish_manifest(ParquetManifest(sorted_entries))
                 return entry
             finally:
                 staging.unlink(missing_ok=True)
@@ -404,7 +409,9 @@ class PartitionedParquetStore:
     ) -> tuple[dict[str, object], ...]:
         resolved = predicate or PartitionPredicate()
         manifest = self.load_manifest()
-        selected = tuple(entry for entry in manifest.entries if resolved.matches(entry.partition))
+        selected = tuple(
+            entry for entry in manifest.entries if resolved.matches(entry.partition)
+        )
         output: list[dict[str, object]] = []
         for entry in selected:
             path = self.root / Path(*PurePosixPath(entry.relative_path).parts)
