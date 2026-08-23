@@ -26,7 +26,9 @@ class LayerSimilarityConfig:
 
     def __post_init__(self) -> None:
         if self.block_size <= 0 or self.max_pairs <= 0:
-            raise LayerSimilarityError("layer similarity block size and pair limit must be positive")
+            raise LayerSimilarityError(
+                "layer similarity block size and pair limit must be positive"
+            )
 
 
 @dataclass(frozen=True, slots=True)
