@@ -89,6 +89,16 @@ from modelsurgeon.adapters.gguf.tensor_reader import (
     UnknownGGUFTensorError,
     build_tensor_index,
 )
+from modelsurgeon.adapters.gguf.writer import (
+    GGUFOutputLayout,
+    GGUFPlannedTensor,
+    GGUFWriteError,
+    GGUFWriteMetadata,
+    GGUFWriteResult,
+    GGUFWriteTensor,
+    plan_gguf_output,
+    write_gguf_transactionally,
+)
 
 __all__ = [
     "GGUF_ARCHITECTURE_CONTRACTS",
@@ -124,8 +134,10 @@ __all__ = [
     "GGUFFilesystemRequirement",
     "GGUFMetadataEntry",
     "GGUFModelShape",
+    "GGUFOutputLayout",
     "GGUFParseError",
     "GGUFParserLimits",
+    "GGUFPlannedTensor",
     "GGUFResourceLimitError",
     "GGUFTensorBoundsError",
     "GGUFTensorChunk",
@@ -139,6 +151,10 @@ __all__ = [
     "GGUFTensorReader",
     "GGUFTensorShapeError",
     "GGUFValueType",
+    "GGUFWriteError",
+    "GGUFWriteMetadata",
+    "GGUFWriteResult",
+    "GGUFWriteTensor",
     "MemoryMappedGGUF",
     "MetadataSemantic",
     "MissingGGUFMetadataError",
@@ -164,8 +180,10 @@ __all__ = [
     "monitor_gguf_disk",
     "open_gguf",
     "plan_axis_edit",
+    "plan_gguf_output",
     "plan_supported_axes",
     "preflight_gguf_disk",
     "resolve_gguf_architecture",
     "validate_tensor_alignment",
+    "write_gguf_transactionally",
 ]
