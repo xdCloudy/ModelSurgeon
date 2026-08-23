@@ -39,7 +39,9 @@ class TorchCudaMemoryProvider:
         try:
             torch: Any = import_module("torch")
         except Exception as error:
-            raise MemoryTelemetryError("PyTorch is unavailable for CUDA memory telemetry") from error
+            raise MemoryTelemetryError(
+                "PyTorch is unavailable for CUDA memory telemetry"
+            ) from error
         try:
             available = bool(torch.cuda.is_available())
         except Exception as error:
@@ -75,7 +77,9 @@ class MemoryTelemetryConfig:
         if self.sample_interval_seconds <= 0:
             raise MemoryTelemetryError("memory sample interval must be positive")
         if self.max_samples < 2:
-            raise MemoryTelemetryError("memory telemetry requires capacity for at least two samples")
+            raise MemoryTelemetryError(
+                "memory telemetry requires capacity for at least two samples"
+            )
 
 
 @dataclass(frozen=True, slots=True)
