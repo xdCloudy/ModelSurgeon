@@ -36,13 +36,17 @@ class RandomizedSpectralConfig:
 
     def __post_init__(self) -> None:
         if self.target_rank <= 0 or self.oversampling < 0:
-            raise RandomizedSpectralError("target rank must be positive and oversampling non-negative")
+            raise RandomizedSpectralError(
+                "target rank must be positive and oversampling non-negative"
+            )
         if self.power_iterations < 0 or self.power_iterations > 4:
             raise RandomizedSpectralError("power iterations must be between 0 and 4")
         if self.max_workspace_bytes <= 0:
             raise RandomizedSpectralError("workspace budget must be positive")
         if self.compute_dtype != "float64":
-            raise RandomizedSpectralError("randomized spectral extraction currently requires float64")
+            raise RandomizedSpectralError(
+                "randomized spectral extraction currently requires float64"
+            )
         if not self.reconstruction_ranks:
             raise RandomizedSpectralError("at least one reconstruction rank is required")
         if any(rank <= 0 or rank > self.target_rank for rank in self.reconstruction_ranks):
@@ -103,14 +107,20 @@ class RandomizedSpectralFeatures:
         if any(
             not math.isfinite(value) or value < 0.0 for value in self.singular_values
         ):
-            raise RandomizedSpectralError("approximate singular values must be finite and non-negative")
+            raise RandomizedSpectralError(
+                "approximate singular values must be finite and non-negative"
+            )
         if any(
             rank <= 0 or not math.isfinite(error) or not 0.0 <= error <= 1.0 + 1e-12
             for rank, error in self.reconstruction_errors
         ):
-            raise RandomizedSpectralError("reconstruction errors must be finite values in [0, 1]")
+            raise RandomizedSpectralError(
+                "reconstruction errors must be finite values in [0, 1]"
+            )
         if not self.workspace.fits:
-            raise RandomizedSpectralError("completed randomized extraction exceeded its workspace plan")
+            raise RandomizedSpectralError(
+                "completed randomized extraction exceeded its workspace plan"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -245,7 +255,8 @@ def _numpy() -> Any:
         return import_module("numpy")
     except ModuleNotFoundError as error:
         raise RandomizedSpectralError(
-            "randomized spectral extraction requires NumPy; install ModelSurgeon with its HF or dev extra"
+            "randomized spectral extraction requires NumPy; install ModelSurgeon "
+            "with its HF or dev extra"
         ) from error
 
 
@@ -309,7 +320,9 @@ def extract_randomized_spectral_features(
         q, _ = np.linalg.qr(y, mode="reduced")
         del y
         b = q.T @ oriented
-        singular = tuple(float(value) for value in np.linalg.svd(b, compute_uv=False)[:target])
+        singular = tuple(
+            float(value) for value in np.linalg.svd(b, compute_uv=False)[:target]
+        )
     effective_ranks = tuple(rank for rank in resolved.reconstruction_ranks if rank <= target)
     if not effective_ranks:
         effective_ranks = (target,)
