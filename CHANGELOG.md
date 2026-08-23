@@ -11,6 +11,8 @@
 - Add deterministic dependency-free tiny transformer doubles and a revision-pinned,
   weights-free Hugging Face integration fixture manifest.
 - Add a golden offline loader-to-discovery-to-graph-to-CLI integration test.
+- Add a CPU-first hardware/software inventory with optional bounded CUDA, NVIDIA
+  driver, GPU memory, RAM, and disk-capacity probing.
 
 - Add a safe Hugging Face causal LM loader with CPU defaults, explicit dtype/device controls, and resolved-revision provenance.
 - Add deterministic Hugging Face module, parameter, attention-head, KV-head, and MLP-channel discovery.
