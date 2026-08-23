@@ -27,9 +27,13 @@ class HeadSimilarityBudget:
 
     def __post_init__(self) -> None:
         if self.max_workspace_bytes <= 0:
-            raise HeadSimilaritySpikeError("head-similarity workspace budget must be positive")
+            raise HeadSimilaritySpikeError(
+                "head-similarity workspace budget must be positive"
+            )
         if not math.isfinite(self.max_elapsed_seconds) or self.max_elapsed_seconds <= 0.0:
-            raise HeadSimilaritySpikeError("head-similarity time budget must be positive and finite")
+            raise HeadSimilaritySpikeError(
+                "head-similarity time budget must be positive and finite"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,15 +53,17 @@ class HeadPairObservation:
         if not self.left_weight or len(self.left_weight) != len(self.right_weight):
             raise HeadSimilaritySpikeError("head weight vectors must be aligned and non-empty")
         if len(self.left_output) < 4 or len(self.left_output) != len(self.right_output):
-            raise HeadSimilaritySpikeError("head output vectors require four aligned observations")
+            raise HeadSimilaritySpikeError(
+                "head output vectors require four aligned observations"
+            )
         if not self.left_subspace or not self.right_subspace:
             raise HeadSimilaritySpikeError("head subspace bases cannot be empty")
-        basis_width = len(self.left_subspace[0])
-        if basis_width <= 0:
+        width = len(self.left_subspace[0])
+        if width <= 0:
             raise HeadSimilaritySpikeError("head subspace vectors cannot be empty")
-        if any(len(vector) != basis_width for vector in self.left_subspace):
+        if any(len(vector) != width for vector in self.left_subspace):
             raise HeadSimilaritySpikeError("left head subspace vectors must share a width")
-        if any(len(vector) != basis_width for vector in self.right_subspace):
+        if any(len(vector) != width for vector in self.right_subspace):
             raise HeadSimilaritySpikeError("head subspace widths must align")
         values = (
             *self.left_weight,
@@ -178,7 +184,8 @@ def _pearson(left: tuple[float, ...], right: tuple[float, ...]) -> float:
     right_energy = math.fsum(value * value for value in centered_right)
     if left_energy == 0.0 or right_energy == 0.0:
         return 0.0
-    return max(-1.0, min(1.0, numerator / math.sqrt(left_energy * right_energy)))
+    value = numerator / math.sqrt(left_energy * right_energy)
+    return max(-1.0, min(1.0, value))
 
 
 def _spearman(left: tuple[float, ...], right: tuple[float, ...]) -> float:
@@ -191,10 +198,13 @@ def _cosine(left: tuple[float, ...], right: tuple[float, ...]) -> float:
     right_energy = math.fsum(value * value for value in right)
     if left_energy == 0.0 or right_energy == 0.0:
         return 0.0
-    return max(-1.0, min(1.0, dot / math.sqrt(left_energy * right_energy)))
+    value = dot / math.sqrt(left_energy * right_energy)
+    return max(-1.0, min(1.0, value))
 
 
-def _orthonormalize(vectors: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...], ...]:
+def _orthonormalize(
+    vectors: tuple[tuple[float, ...], ...],
+) -> tuple[tuple[float, ...], ...]:
     basis: list[tuple[float, ...]] = []
     for vector in vectors:
         residual = list(vector)
@@ -207,9 +217,8 @@ def _orthonormalize(vectors: tuple[tuple[float, ...], ...]) -> tuple[tuple[float
                 for value, direction in zip(residual, existing, strict=True)
             ]
         norm = math.sqrt(math.fsum(value * value for value in residual))
-        if norm <= 1e-12:
-            continue
-        basis.append(tuple(value / norm for value in residual))
+        if norm > 1e-12:
+            basis.append(tuple(value / norm for value in residual))
     return tuple(basis)
 
 
@@ -243,20 +252,22 @@ def _score(
 
 def _cost(method: HeadSimilarityMethod, probe: HeadSimilarityProbe) -> tuple[int, int]:
     max_weight = max(len(pair.left_weight) for pair in probe.pairs)
-    max_output = max(len(pair.left_output) for pair in probe.pairs)
     max_basis = max(
         len(pair.left_subspace) * len(pair.left_subspace[0])
         + len(pair.right_subspace) * len(pair.right_subspace[0])
         for pair in probe.pairs
     )
     if method is HeadSimilarityMethod.WEIGHT_COSINE:
-        return max_weight * 16, sum(len(pair.left_weight) * 3 for pair in probe.pairs)
+        operations = sum(len(pair.left_weight) * 3 for pair in probe.pairs)
+        return max_weight * 16, operations
     if method is HeadSimilarityMethod.OUTPUT_CORRELATION:
-        return 5 * 8, sum(len(pair.left_output) * 5 for pair in probe.pairs)
-    return max_basis * 24, sum(
+        operations = sum(len(pair.left_output) * 5 for pair in probe.pairs)
+        return 5 * 8, operations
+    operations = sum(
         max_basis * max(1, len(pair.left_subspace) + len(pair.right_subspace))
         for pair in probe.pairs
     )
+    return max_basis * 24, operations
 
 
 def evaluate_head_similarity_probe(
@@ -284,6 +295,10 @@ def evaluate_head_similarity_probe(
     else:
         stability = 1.0
     elapsed = time.perf_counter() - started
+    feasible = (
+        workspace <= budget.max_workspace_bytes
+        and elapsed <= budget.max_elapsed_seconds
+    )
     return HeadSimilarityResult(
         probe.model_name,
         method,
@@ -293,7 +308,23 @@ def evaluate_head_similarity_probe(
         workspace,
         operations,
         elapsed,
-        workspace <= budget.max_workspace_bytes and elapsed <= budget.max_elapsed_seconds,
+        feasible,
+    )
+
+
+def _aggregate(
+    method: HeadSimilarityMethod,
+    results: tuple[HeadSimilarityResult, ...],
+) -> HeadSimilarityAggregate:
+    selected = tuple(item for item in results if item.method is method)
+    return HeadSimilarityAggregate(
+        method,
+        math.fsum(item.predictive_spearman for item in selected) / len(selected),
+        math.fsum(item.ranking_stability for item in selected) / len(selected),
+        max(item.workspace_bytes for item in selected),
+        sum(item.operation_units for item in selected),
+        math.fsum(item.elapsed_seconds for item in selected),
+        all(item.feasible for item in selected),
     )
 
 
@@ -308,7 +339,9 @@ def evaluate_head_similarity_methods(
     if len(probes) < 2:
         raise HeadSimilaritySpikeError("head-similarity spike requires two model probes")
     if not math.isfinite(predictive_tolerance) or predictive_tolerance < 0.0:
-        raise HeadSimilaritySpikeError("predictive tolerance must be finite and non-negative")
+        raise HeadSimilaritySpikeError(
+            "predictive tolerance must be finite and non-negative"
+        )
     resolved = budget or HeadSimilarityBudget()
     methods = tuple(HeadSimilarityMethod)
     results = tuple(
@@ -316,20 +349,7 @@ def evaluate_head_similarity_methods(
         for probe in probes
         for method in methods
     )
-    aggregates: list[HeadSimilarityAggregate] = []
-    for method in methods:
-        selected = tuple(item for item in results if item.method is method)
-        aggregates.append(
-            HeadSimilarityAggregate(
-                method,
-                math.fsum(item.predictive_spearman for item in selected) / len(selected),
-                math.fsum(item.ranking_stability for item in selected) / len(selected),
-                max(item.workspace_bytes for item in selected),
-                sum(item.operation_units for item in selected),
-                math.fsum(item.elapsed_seconds for item in selected),
-                all(item.feasible for item in selected),
-            )
-        )
+    aggregates = tuple(_aggregate(method, results) for method in methods)
     feasible = tuple(item for item in aggregates if item.feasible)
     if not feasible:
         recommendation = None
@@ -361,7 +381,7 @@ def evaluate_head_similarity_methods(
         tuple(probe.model_name for probe in probes),
         resolved,
         results,
-        tuple(aggregates),
+        aggregates,
         recommendation,
         rationale,
     )
@@ -370,12 +390,14 @@ def evaluate_head_similarity_methods(
 def default_head_similarity_probes() -> tuple[HeadSimilarityProbe, HeadSimilarityProbe]:
     """Return two deterministic tiny-head fixtures with known redundancy order."""
 
-    high_left = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
-    high_right = high_left
-    medium_right = (1.0, 1.6, 3.2, 3.4, 5.5, 5.7, 7.4, 7.3)
-    low_right = (1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
+    base = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
+    medium = (1.0, 1.6, 3.2, 3.4, 5.5, 5.7, 7.4, 7.3)
+    low = (1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
 
     def build(name: str, scale: float) -> HeadSimilarityProbe:
+        scaled_base = tuple(scale * value for value in base)
+        scaled_medium = tuple(scale * value for value in medium)
+        scaled_low = tuple(scale * value for value in low)
         return HeadSimilarityProbe(
             name,
             (
@@ -383,8 +405,8 @@ def default_head_similarity_probes() -> tuple[HeadSimilarityProbe, HeadSimilarit
                     "redundant",
                     (1.0, 0.0, 0.0, 0.0),
                     (0.0, 1.0, 0.0, 0.0),
-                    high_left,
-                    tuple(scale * value for value in high_right),
+                    base,
+                    scaled_base,
                     ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)),
                     ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)),
                     0.95,
@@ -393,8 +415,8 @@ def default_head_similarity_probes() -> tuple[HeadSimilarityProbe, HeadSimilarit
                     "related",
                     (1.0, 0.0, 0.0, 0.0),
                     (1.0, 0.0, 0.0, 0.0),
-                    high_left,
-                    tuple(scale * value for value in medium_right),
+                    base,
+                    scaled_medium,
                     ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)),
                     ((1.0, 0.0, 0.0, 0.0), (0.0, 0.7, 0.7, 0.0)),
                     0.6,
@@ -403,8 +425,8 @@ def default_head_similarity_probes() -> tuple[HeadSimilarityProbe, HeadSimilarit
                     "distinct",
                     (1.0, 1.0, 0.0, 0.0),
                     (1.0, 0.0, 1.0, 0.0),
-                    high_left,
-                    tuple(scale * value for value in low_right),
+                    base,
+                    scaled_low,
                     ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)),
                     ((0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0)),
                     0.1,
