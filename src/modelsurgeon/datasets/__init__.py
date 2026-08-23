@@ -1,5 +1,18 @@
 """Mutation datasets, leakage-safe splits, and deterministic calibration contracts."""
 
+from modelsurgeon.datasets.builder import (
+    DATASET_BUILDER_VERSION,
+    DatasetBuildError,
+    DatasetBuildExclusion,
+    DatasetBuildExclusionReason,
+    DeltaTargetPolicy,
+    ExperimentFeatureJoin,
+    FeatureInputRevisionSource,
+    MutationExampleBuildPolicy,
+    MutationExampleBuildReport,
+    build_mutation_example,
+    build_mutation_examples,
+)
 from modelsurgeon.datasets.calibration import (
     CALIBRATION_SCHEMA_VERSION,
     SELECTION_ALGORITHM,
@@ -34,15 +47,24 @@ from modelsurgeon.datasets.parquet_store import (
 
 __all__ = [
     "CALIBRATION_SCHEMA_VERSION",
+    "DATASET_BUILDER_VERSION",
     "PARQUET_MANIFEST_SCHEMA_VERSION",
     "SELECTION_ALGORITHM",
     "CalibrationContract",
     "CalibrationManifest",
     "CalibrationSample",
+    "DatasetBuildError",
+    "DatasetBuildExclusion",
+    "DatasetBuildExclusionReason",
     "DatasetIdentity",
     "DatasetTrust",
+    "DeltaTargetPolicy",
+    "ExperimentFeatureJoin",
+    "FeatureInputRevisionSource",
     "HuggingFaceCalibrationError",
     "HuggingFaceCalibrationRequest",
+    "MutationExampleBuildPolicy",
+    "MutationExampleBuildReport",
     "ParquetBackend",
     "ParquetDependencyError",
     "ParquetManifest",
@@ -57,5 +79,7 @@ __all__ = [
     "SelectionConfig",
     "TokenizedCalibrationSample",
     "TokenizerIdentity",
+    "build_mutation_example",
+    "build_mutation_examples",
     "stream_huggingface_calibration",
 ]
