@@ -6,7 +6,7 @@ import gc
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Any, Protocol, Self
+from typing import Any, Literal, Protocol, Self
 
 from modelsurgeon.instrumentation.memory_telemetry import process_rss_bytes
 
@@ -289,7 +289,7 @@ class ExperimentGPUCleanup:
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: object,
-    ) -> bool:
+    ) -> Literal[False]:
         del exc_type, traceback
         report = self.cleanup()
         if report.failures and exc_value is None:
