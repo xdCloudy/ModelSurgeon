@@ -209,7 +209,9 @@ class StageTelemetrySnapshot:
             raise StageTelemetryError("stage telemetry requires a non-empty stage name")
         for value in (self.wall_seconds, self.cpu_seconds):
             if value < 0 or not _finite(value):
-                raise StageTelemetryError("stage wall/CPU durations must be finite and non-negative")
+                raise StageTelemetryError(
+                    "stage wall/CPU durations must be finite and non-negative"
+                )
         for value in (
             self.peak_rss_bytes,
             self.peak_cuda_allocated_bytes,
@@ -359,5 +361,7 @@ class StageTelemetryRecorder:
             report_callback=persist_report,
         )
         if len(result_box) != 1 or len(stored_box) != 1:
-            raise StageTelemetryError("completed stage did not produce exactly one telemetry snapshot")
+            raise StageTelemetryError(
+                "completed stage did not produce exactly one telemetry snapshot"
+            )
         return StageTelemetryExecution(result_box[0], stored_box[0])
