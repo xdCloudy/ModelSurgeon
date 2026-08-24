@@ -22,6 +22,7 @@ from modelsurgeon.adapters.gguf import (
     plan_supported_axes,
     validate_tensor_alignment,
 )
+from modelsurgeon.adapters.gguf.quantization import LEGACY_STORAGE_LAYOUTS
 
 
 class FakeCodec:
@@ -80,6 +81,20 @@ def test_all_layout_fields_are_contiguous_and_match_pinned_sizes() -> None:
             sum(previous.size for previous in layout.fields[:index])
             for index in range(len(layout.fields))
         ]
+
+
+def test_legacy_layouts_are_index_only_and_not_native_codec_claims() -> None:
+    expected = {
+        GGMLQuantizationType.Q4_0: (32, 18),
+        GGMLQuantizationType.Q4_1: (32, 20),
+        GGMLQuantizationType.Q5_0: (32, 22),
+        GGMLQuantizationType.Q5_1: (32, 24),
+    }
+    assert {
+        quant_type: (layout.block_size, layout.type_size)
+        for quant_type, layout in LEGACY_STORAGE_LAYOUTS.items()
+    } == expected
+    assert not set(LEGACY_STORAGE_LAYOUTS) & set(QUANT_LAYOUTS)
 
 
 def test_quantized_contiguous_axes_report_block_granularity() -> None:

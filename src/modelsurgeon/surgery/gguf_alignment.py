@@ -6,10 +6,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from modelsurgeon.adapters.gguf.quantization import (
+    GGUF_STORAGE_LAYOUTS,
     QUANT_LAYOUTS,
     CodecContractError,
     GGMLQuantizationType,
-    plan_axis_edit,
+    plan_storage_axis_edit,
 )
 from modelsurgeon.graph import ComponentId
 from modelsurgeon.surgery.physical_plan import (
@@ -200,7 +201,7 @@ def _axis_edit(
     axis: int,
     removed: tuple[int, ...],
 ) -> QuantizedAxisEdit:
-    constraint = plan_axis_edit(quant_type, edit.old_shape, axis)
+    constraint = plan_storage_axis_edit(quant_type, edit.old_shape, axis)
     if axis != 0:
         return QuantizedAxisEdit(
             axis,
@@ -256,18 +257,16 @@ def validate_gguf_quantized_plan(
         destination_quant_type = binding_by_component[
             edit.component_id
         ].output_quant_type
-        if quant_type not in _NATIVE_WRITE_TYPES:
+        if quant_type not in GGUF_STORAGE_LAYOUTS:
             raise GGUFAlignmentError(
-                f"{quant_type.value} has no exact native write codec; family substitution "
-                "is forbidden"
+                f"{quant_type.value} has no pinned storage layout"
             )
-        if destination_quant_type not in _NATIVE_WRITE_TYPES:
+        if destination_quant_type not in GGUF_STORAGE_LAYOUTS:
             raise GGUFAlignmentError(
-                f"{destination_quant_type.value} has no exact native write codec; "
-                "family substitution is forbidden"
+                f"{destination_quant_type.value} has no pinned storage layout"
             )
         try:
-            plan_axis_edit(destination_quant_type, edit.new_shape, 0)
+            plan_storage_axis_edit(destination_quant_type, edit.new_shape, 0)
         except CodecContractError as error:
             raise GGUFAlignmentError(
                 f"new shape {edit.new_shape} for {edit.locator!r} is not representable; "
@@ -278,7 +277,22 @@ def validate_gguf_quantized_plan(
             _axis_edit(edit, quant_type, transform.axis, transform.removed_indices)
             for transform in edit.transforms
         )
-        expected_size = plan_axis_edit(
+        uses_storage_only_layout = (
+            quant_type not in _NATIVE_WRITE_TYPES
+            or destination_quant_type not in _NATIVE_WRITE_TYPES
+        )
+        if uses_storage_only_layout and (
+            quant_type is not destination_quant_type
+            or any(
+                item.strategy is QuantizedEditStrategy.REPACK_CONTIGUOUS_AXIS
+                for item in axis_edits
+            )
+        ):
+            raise GGUFAlignmentError(
+                f"{quant_type.value} has no exact native write codec; only unchanged-codec "
+                "whole-slice or complete-block copies are supported"
+            )
+        expected_size = plan_storage_axis_edit(
             destination_quant_type, edit.new_shape, 0
         ).tensor_bytes
         if expected_size != edit.new_storage_bytes:

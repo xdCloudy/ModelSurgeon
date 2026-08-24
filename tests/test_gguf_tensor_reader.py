@@ -26,7 +26,7 @@ def _string(value: str) -> bytes:
     return struct.pack("<Q", len(encoded)) + encoded
 
 
-def _fixture(path: Path, *, payload_seed: int = 0) -> bytes:
+def _fixture(path: Path, *, payload_seed: int = 0, quant_type_id: int = 8) -> bytes:
     metadata = bytearray()
     metadata.extend(_string("general.alignment"))
     metadata.extend(struct.pack("<II", 4, 32))
@@ -35,7 +35,7 @@ def _fixture(path: Path, *, payload_seed: int = 0) -> bytes:
 
     descriptors = bytearray()
     descriptors.extend(_string("quant.weight"))
-    descriptors.extend(struct.pack("<IQIQ", 1, 64, 8, 0))
+    descriptors.extend(struct.pack("<IQIQ", 1, 64, quant_type_id, 0))
     descriptors.extend(_string("dense.weight"))
     descriptors.extend(struct.pack("<IQIQ", 1, 8, 0, 96))
 
@@ -94,6 +94,21 @@ def test_complete_block_chunks_are_bounded_and_cover_tensor_once(tmp_path: Path)
     assert [chunk.block_count for chunk in chunks] == [1, 1]
     assert [chunk.element_offset for chunk in chunks] == [0, 32]
     assert b"".join(chunk.data for chunk in chunks) == payload[:68]
+
+
+def test_storage_only_legacy_tensor_can_be_indexed_and_copied(tmp_path: Path) -> None:
+    path = tmp_path / "legacy.gguf"
+    payload = _fixture(path, quant_type_id=6)
+
+    with open_gguf(path) as source:
+        reader = GGUFTensorReader(source)
+        handle = reader.index.tensor("quant.weight")
+        chunks = tuple(reader.iter_chunks(handle, max_chunk_bytes=22))
+
+    assert handle.encoded_block_bytes == 22
+    assert handle.logical_block_values == 32
+    assert handle.block_count == 2
+    assert b"".join(chunk.data for chunk in chunks) == payload[:44]
 
 
 def test_byte_and_block_reads_cannot_escape_tensor_or_chunk_limit(tmp_path: Path) -> None:

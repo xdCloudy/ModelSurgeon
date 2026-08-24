@@ -1,0 +1,73 @@
+name: GGUF compatibility
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-runtime-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      LLAMA_CPP_REVISION: 95b8e33e16bb9a60de780a70930ebf729db6a90a
+      HF_HOME: ${{ github.workspace }}/.cache/huggingface
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install compatibility dependencies
+        run: pip install -e ".[dev,hf]" sentencepiece
+
+      - name: Exercise native GGUF structural operations
+        run: >-
+          pytest
+          tests/test_gguf_*.py
+          tests/test_native_gguf_*.py
+          tests/test_attention_head_rules.py
+          tests/test_attention_head_execute.py
+          tests/test_selective_gguf_dequant.py
+          tests/test_selective_gguf_requant.py
+
+      - name: Check out pinned llama.cpp
+        run: |
+          git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git .llama.cpp
+          git -C .llama.cpp checkout "$LLAMA_CPP_REVISION"
+
+      - name: Build CPU llama.cpp tools
+        run: |
+          cmake -S .llama.cpp -B .llama.cpp/build -DGGML_CUDA=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build .llama.cpp/build --config Release --target llama-cli llama-quantize -j 2
+
+      - name: Prepare pinned family fixtures
+        run: >-
+          python tools/prepare_gguf_compatibility.py
+          --llama-cpp .llama.cpp
+          --output .compatibility
+          --quantize .llama.cpp/build/bin/llama-quantize
+
+      - name: Run complete family/profile/operation matrix
+        run: >-
+          python tools/run_gguf_compatibility.py
+          --llama-cli .llama.cpp/build/bin/llama-cli
+          --output compatibility-report.json
+          --fixture llama=F16=.compatibility/llama-f16.gguf=HuggingFaceTB/SmolLM2-135M=93efa2f097d58c2a74874c7e644dbc9b0cee75a2
+          --fixture llama=Q4_K_M=.compatibility/llama-q4_k_m.gguf=HuggingFaceTB/SmolLM2-135M=93efa2f097d58c2a74874c7e644dbc9b0cee75a2
+          --fixture mistral=F16=.compatibility/mistral-f16.gguf=HuggingFaceM4/tiny-random-MistralForCausalLM=687d960c4d20b757867bb3284cf1a55d88e6c348
+          --fixture qwen=F16=.compatibility/qwen-f16.gguf=Jiqing/tiny-random-qwen2=969ee18c66962024684058e7859adc0a4420c9eb
+          --fixture gemma=F16=.compatibility/gemma-f16.gguf=tiny-random/gemma-2=ebd61568c424fcc6a4e42a69b2aba7c64447ffc9
+
+      - name: Upload compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gguf-compatibility-report
+          path: compatibility-report.json
+          if-no-files-found: warn

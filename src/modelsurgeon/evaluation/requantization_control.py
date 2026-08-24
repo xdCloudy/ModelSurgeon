@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from modelsurgeon.adapters.gguf import (
     CodecRegistry,
     GGUFTensorReader,
-    plan_axis_edit,
+    plan_storage_axis_edit,
 )
 from modelsurgeon.graph import ComponentId
 from modelsurgeon.surgery.gguf_alignment import (
@@ -142,7 +142,9 @@ def _control_plan(plan: GGUFQuantizedMutationPlan) -> GGUFQuantizedMutationPlan:
                 f"matched control for {edit.component_id} requires the surgery source "
                 "and destination codec to be identical"
             )
-        encoded_size = plan_axis_edit(edit.quant_type, edit.old_shape, 0).tensor_bytes
+        encoded_size = plan_storage_axis_edit(
+            edit.quant_type, edit.old_shape, 0
+        ).tensor_bytes
         edits.append(
             GGUFQuantizedTensorEdit(
                 edit.component_id,

@@ -155,6 +155,8 @@ from modelsurgeon.adapters.gguf.q8_codec import (
     Q8QuantizationReport,
 )
 from modelsurgeon.adapters.gguf.quantization import (
+    GGUF_STORAGE_LAYOUTS,
+    LEGACY_STORAGE_LAYOUTS,
     QUANT_LAYOUTS,
     AlignmentConstraint,
     AxisEditConstraint,
@@ -173,6 +175,7 @@ from modelsurgeon.adapters.gguf.quantization import (
     QuantizationFamily,
     UnsupportedCodecError,
     plan_axis_edit,
+    plan_storage_axis_edit,
     plan_supported_axes,
     validate_tensor_alignment,
 )
@@ -232,11 +235,13 @@ __all__ = [
     "GGUF_CODEC_CONFORMANCE_VECTORS",
     "GGUF_PY_QUANTS_BLOB",
     "GGUF_RESUME_SCHEMA_VERSION",
+    "GGUF_STORAGE_LAYOUTS",
     "IQ4_CODECS",
     "IQ4_NL_CODEC",
     "IQ4_NL_VALUES",
     "IQ4_XS_CODEC",
     "IQ_SUPPORT_MATRIX",
+    "LEGACY_STORAGE_LAYOUTS",
     "LLAMA_GGUF_SURGERY_CONTRACT_VERSION",
     "MISTRAL_GGUF_SURGERY_CONTRACT_VERSION",
     "Q2_K_CODEC",
@@ -383,6 +388,7 @@ __all__ = [
     "open_gguf",
     "plan_axis_edit",
     "plan_gguf_output",
+    "plan_storage_axis_edit",
     "plan_supported_axes",
     "preflight_gguf_disk",
     "require_iq_native_write_target",

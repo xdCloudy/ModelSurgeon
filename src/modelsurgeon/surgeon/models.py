@@ -184,9 +184,7 @@ class LinearSurgeonModel:
             seed=int(config_raw["seed"]),
         )
         resolved_validation = (
-            None
-            if validation_loss is None
-            else float(cast(int | float, validation_loss))
+            None if validation_loss is None else float(cast(int | float, validation_loss))
         )
         return cls(
             tuple(cast(list[str], feature_names)),
@@ -205,12 +203,13 @@ def _mse(
     weights: Sequence[float],
 ) -> float:
     total_weight = math.fsum(weights)
-    return math.fsum(
-        weight * (prediction - target) ** 2
-        for prediction, target, weight in zip(
-            predictions, targets, weights, strict=True
+    return (
+        math.fsum(
+            weight * (prediction - target) ** 2
+            for prediction, target, weight in zip(predictions, targets, weights, strict=True)
         )
-    ) / total_weight
+        / total_weight
+    )
 
 
 def train_linear(
@@ -229,10 +228,7 @@ def train_linear(
         raise SurgeonModelError("training matrix rows have inconsistent widths")
     total_weight = math.fsum(weights)
     mean_y = (
-        math.fsum(
-            target * weight for target, weight in zip(y, weights, strict=True)
-        )
-        / total_weight
+        math.fsum(target * weight for target, weight in zip(y, weights, strict=True)) / total_weight
     )
     coefficients = [0.0] * width
     intercept = mean_y
@@ -243,15 +239,10 @@ def train_linear(
     l1 = config.alpha * config.l1_ratio
     for epoch in range(1, config.max_epochs + 1):
         predictions = [intercept + _dot(coefficients, row) for row in x]
-        errors = [
-            prediction - target
-            for prediction, target in zip(predictions, y, strict=True)
-        ]
+        errors = [prediction - target for prediction, target in zip(predictions, y, strict=True)]
         grad_intercept = (
             2.0
-            * math.fsum(
-                weight * error for weight, error in zip(weights, errors, strict=True)
-            )
+            * math.fsum(weight * error for weight, error in zip(weights, errors, strict=True))
             / total_weight
         )
         gradients = [
@@ -386,9 +377,7 @@ class LogisticSurgeonModel:
         for row in rows:
             if len(row) != len(self.coefficients):
                 raise SurgeonModelError("logistic inference feature width is incompatible")
-        return tuple(
-            _sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows
-        )
+        return tuple(_sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows)
 
     def predict(self, rows: Sequence[Sequence[float]]) -> tuple[bool, ...]:
         return tuple(value >= self.config.threshold for value in self.predict_proba(rows))
@@ -413,9 +402,7 @@ class LogisticSurgeonModel:
             raise SurgeonModelError("persisted logistic model kind/schema is incompatible")
         try:
             feature_names = tuple(cast(list[str], value["feature_names"]))
-            coefficients = tuple(
-                float(item) for item in cast(list[float], value["coefficients"])
-            )
+            coefficients = tuple(float(item) for item in cast(list[float], value["coefficients"]))
             config_raw = cast(dict[str, object], value["config"])
             config = LogisticConfig(
                 alpha=float(cast(float, config_raw["alpha"])),
@@ -427,11 +414,7 @@ class LogisticSurgeonModel:
                 seed=int(cast(int, config_raw["seed"])),
             )
             validation_raw = value.get("validation_log_loss")
-            validation = (
-                None
-                if validation_raw is None
-                else float(cast(float, validation_raw))
-            )
+            validation = None if validation_raw is None else float(cast(float, validation_raw))
             return cls(
                 feature_names,
                 str(value["target_name"]),
@@ -467,17 +450,17 @@ def _log_loss(
 ) -> float:
     epsilon = 1e-15
     total_weight = math.fsum(weights)
-    return -math.fsum(
-        weight
-        * (
-            label * math.log(min(1.0 - epsilon, max(epsilon, probability)))
-            + (1 - label)
-            * math.log(min(1.0 - epsilon, max(epsilon, 1.0 - probability)))
+    return (
+        -math.fsum(
+            weight
+            * (
+                label * math.log(min(1.0 - epsilon, max(epsilon, probability)))
+                + (1 - label) * math.log(min(1.0 - epsilon, max(epsilon, 1.0 - probability)))
+            )
+            for probability, label, weight in zip(probabilities, labels, weights, strict=True)
         )
-        for probability, label, weight in zip(
-            probabilities, labels, weights, strict=True
-        )
-    ) / total_weight
+        / total_weight
+    )
 
 
 def train_logistic(
@@ -492,9 +475,7 @@ def train_logistic(
     labels = _binary_labels(raw_y)
     positives = sum(labels)
     negatives = len(labels) - positives
-    positive_weight = (
-        negatives / positives if config.class_weight == "balanced" else 1.0
-    )
+    positive_weight = negatives / positives if config.class_weight == "balanced" else 1.0
     weights = tuple(
         sample_weight * (positive_weight if label else 1.0)
         for sample_weight, label in zip(sample_weights, labels, strict=True)
@@ -508,24 +489,21 @@ def train_logistic(
     epochs = 0
 
     for epoch in range(1, config.max_epochs + 1):
-        probabilities = [
-            _sigmoid(intercept + _dot(coefficients, row)) for row in x
-        ]
+        probabilities = [_sigmoid(intercept + _dot(coefficients, row)) for row in x]
         residuals = [
-            probability - label
-            for probability, label in zip(probabilities, labels, strict=True)
+            probability - label for probability, label in zip(probabilities, labels, strict=True)
         ]
-        grad_intercept = math.fsum(
-            weight * residual
-            for weight, residual in zip(weights, residuals, strict=True)
-        ) / total_weight
+        grad_intercept = (
+            math.fsum(
+                weight * residual for weight, residual in zip(weights, residuals, strict=True)
+            )
+            / total_weight
+        )
         gradients = [
             (
                 math.fsum(
                     weight * residual * row[index]
-                    for row, residual, weight in zip(
-                        x, residuals, weights, strict=True
-                    )
+                    for row, residual, weight in zip(x, residuals, weights, strict=True)
                 )
                 / total_weight
                 + 2.0 * config.alpha * coefficients[index]
@@ -537,9 +515,7 @@ def train_logistic(
             value - config.learning_rate * gradient
             for value, gradient in zip(coefficients, gradients, strict=True)
         ]
-        probabilities = [
-            _sigmoid(intercept + _dot(coefficients, row)) for row in x
-        ]
+        probabilities = [_sigmoid(intercept + _dot(coefficients, row)) for row in x]
         loss = _log_loss(probabilities, labels, weights) + config.alpha * math.fsum(
             value * value for value in coefficients
         )
@@ -582,15 +558,12 @@ def select_logistic_model(
     if not candidates:
         raise SurgeonModelError("logistic model selection requires configurations")
     models = tuple(
-        train_logistic(train, config=config, validation=validation)
-        for config in candidates
+        train_logistic(train, config=config, validation=validation) for config in candidates
     )
     return min(
         models,
         key=lambda model: (
-            math.inf
-            if model.validation_log_loss is None
-            else model.validation_log_loss,
+            math.inf if model.validation_log_loss is None else model.validation_log_loss,
             model.config.alpha,
         ),
     )
@@ -607,20 +580,14 @@ class LightGBMConfig:
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if (
-            self.num_leaves < 2
-            or self.max_rounds <= 0
-            or self.early_stopping_rounds <= 0
-        ):
+        if self.num_leaves < 2 or self.max_rounds <= 0 or self.early_stopping_rounds <= 0:
             raise SurgeonModelError("LightGBM tree/round limits are invalid")
         if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
             raise SurgeonModelError("LightGBM learning rate must be finite and positive")
         if self.num_threads <= 0 or self.num_threads > 32:
             raise SurgeonModelError("LightGBM num_threads must be within 1..32")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 31:
-            raise SurgeonModelError(
-                "LightGBM seed must fit a non-negative 31-bit integer"
-            )
+            raise SurgeonModelError("LightGBM seed must fit a non-negative 31-bit integer")
 
 
 def _lightgbm_rows(
@@ -796,9 +763,7 @@ def train_lightgbm(
         num_boost_round=config.max_rounds,
         valid_sets=[validating],
         valid_names=["validation"],
-        callbacks=[
-            lightgbm.early_stopping(config.early_stopping_rounds, verbose=False)
-        ],
+        callbacks=[lightgbm.early_stopping(config.early_stopping_rounds, verbose=False)],
     )
     model_string = str(booster.model_to_string(num_iteration=booster.best_iteration))
     reloaded = lightgbm.Booster(model_str=model_string)
@@ -820,9 +785,7 @@ def train_lightgbm(
         not math.isclose(left, right, rel_tol=1e-12, abs_tol=1e-12)
         for left, right in zip(original, restored, strict=True)
     ):
-        raise SurgeonModelError(
-            "reloaded LightGBM model does not reproduce validation predictions"
-        )
+        raise SurgeonModelError("reloaded LightGBM model does not reproduce validation predictions")
     return LightGBMSurgeonModel(
         config.task,
         train.feature_names,
@@ -843,13 +806,12 @@ class MLPConfig:
     batch_size: int = 128
     max_epochs: int = 200
     patience: int = 20
+    dropout: float = 0.0
     device: str = "cpu"
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if not self.hidden_sizes or any(
-            size <= 0 or size > 512 for size in self.hidden_sizes
-        ):
+        if not self.hidden_sizes or any(size <= 0 or size > 512 for size in self.hidden_sizes):
             raise SurgeonModelError("MLP hidden sizes must be within 1..512")
         if sum(self.hidden_sizes) > 1024:
             raise SurgeonModelError("MLP hidden width budget exceeds 1024 units")
@@ -857,6 +819,8 @@ class MLPConfig:
             raise SurgeonModelError("MLP optimizer settings are invalid")
         if self.batch_size <= 0 or self.max_epochs <= 0 or self.patience <= 0:
             raise SurgeonModelError("MLP training limits must be positive")
+        if not math.isfinite(self.dropout) or not 0.0 <= self.dropout < 1.0:
+            raise SurgeonModelError("MLP dropout must be finite and within [0, 1)")
         if self.device not in {"cpu", "cuda"}:
             raise SurgeonModelError("MLP device must be 'cpu' or 'cuda'")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 31:
@@ -878,11 +842,11 @@ class MLPSurgeonModel:
 
     def predict(self, rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
         torch, nn = _torch_modules()
-        model = _build_torch_mlp(nn, len(self.feature_names), self.hidden_sizes)
-        state_bytes = base64.b64decode(self.state_base64.encode("ascii"))
-        state = torch.load(
-            io.BytesIO(state_bytes), map_location="cpu", weights_only=True
+        model = _build_torch_mlp(
+            nn, len(self.feature_names), self.hidden_sizes, dropout=self.config.dropout
         )
+        state_bytes = base64.b64decode(self.state_base64.encode("ascii"))
+        state = torch.load(io.BytesIO(state_bytes), map_location="cpu", weights_only=True)
         model.load_state_dict(state)
         model.eval()
         with torch.no_grad():
@@ -891,6 +855,40 @@ class MLPSurgeonModel:
             if self.task is ModelTask.CLASSIFICATION:
                 output = torch.sigmoid(output)
             return tuple(float(value) for value in output.tolist())
+
+    def predict_stochastic(
+        self,
+        rows: Sequence[Sequence[float]],
+        *,
+        passes: int,
+        seed: int,
+    ) -> tuple[tuple[float, ...], ...]:
+        """Run bounded deterministic Monte Carlo dropout inference on CPU."""
+
+        if self.config.dropout <= 0.0:
+            raise SurgeonModelError("stochastic MLP inference requires configured dropout")
+        if passes < 2 or passes > 10_000:
+            raise SurgeonModelError("stochastic MLP passes must be within 2..10000")
+        if isinstance(seed, bool) or not 0 <= seed < 1 << 31:
+            raise SurgeonModelError("stochastic MLP seed must be a non-negative 31-bit integer")
+        torch, nn = _torch_modules()
+        model = _build_torch_mlp(
+            nn, len(self.feature_names), self.hidden_sizes, dropout=self.config.dropout
+        )
+        state_bytes = base64.b64decode(self.state_base64.encode("ascii"))
+        state = torch.load(io.BytesIO(state_bytes), map_location="cpu", weights_only=True)
+        model.load_state_dict(state)
+        model.train()
+        tensor = torch.tensor([list(row) for row in rows], dtype=torch.float32)
+        torch.manual_seed(seed)
+        outputs: list[tuple[float, ...]] = []
+        with torch.no_grad():
+            for _ in range(passes):
+                output = model(tensor).squeeze(-1)
+                if self.task is ModelTask.CLASSIFICATION:
+                    output = torch.sigmoid(output)
+                outputs.append(tuple(float(value) for value in output.tolist()))
+        return tuple(outputs)
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -910,6 +908,7 @@ class MLPSurgeonModel:
                 "batch_size": self.config.batch_size,
                 "max_epochs": self.config.max_epochs,
                 "patience": self.config.patience,
+                "dropout": self.config.dropout,
                 "device": self.config.device,
                 "seed": self.config.seed,
             },
@@ -918,15 +917,10 @@ class MLPSurgeonModel:
     @classmethod
     def from_record(cls, value: dict[str, object]) -> MLPSurgeonModel:
         try:
-            if (
-                value.get("kind") != "mlp"
-                or value.get("schema_version") != MODEL_SCHEMA_VERSION
-            ):
+            if value.get("kind") != "mlp" or value.get("schema_version") != MODEL_SCHEMA_VERSION:
                 raise SurgeonModelError("persisted MLP kind/schema is incompatible")
             task = ModelTask(str(value["task"]))
-            hidden = tuple(
-                int(item) for item in cast(list[int], value["hidden_sizes"])
-            )
+            hidden = tuple(int(item) for item in cast(list[int], value["hidden_sizes"]))
             config_raw = cast(dict[str, object], value["config"])
             config = MLPConfig(
                 task=task,
@@ -936,6 +930,7 @@ class MLPSurgeonModel:
                 batch_size=int(cast(int, config_raw["batch_size"])),
                 max_epochs=int(cast(int, config_raw["max_epochs"])),
                 patience=int(cast(int, config_raw["patience"])),
+                dropout=float(cast(float, config_raw.get("dropout", 0.0))),
                 device=str(config_raw["device"]),
                 seed=int(cast(int, config_raw["seed"])),
             )
@@ -965,11 +960,15 @@ def _torch_modules() -> tuple[Any, Any]:
     return torch, nn
 
 
-def _build_torch_mlp(nn: Any, width: int, hidden_sizes: Sequence[int]) -> Any:
+def _build_torch_mlp(
+    nn: Any, width: int, hidden_sizes: Sequence[int], *, dropout: float = 0.0
+) -> Any:
     layers: list[Any] = []
     previous = width
     for hidden in hidden_sizes:
         layers.extend((nn.Linear(previous, hidden), nn.ReLU()))
+        if dropout > 0.0:
+            layers.append(nn.Dropout(dropout))
         previous = hidden
     layers.append(nn.Linear(previous, 1))
     return nn.Sequential(*layers)
@@ -996,9 +995,12 @@ def train_mlp(
     train_x, train_y, train_weights = _measured_rows(train)
     val_x, val_y, val_weights = _measured_rows(validation)
     device = torch.device(config.device)
-    model = _build_torch_mlp(nn, len(train.feature_names), config.hidden_sizes).to(
-        device
-    )
+    model = _build_torch_mlp(
+        nn,
+        len(train.feature_names),
+        config.hidden_sizes,
+        dropout=config.dropout,
+    ).to(device)
     parameter_count = sum(int(parameter.numel()) for parameter in model.parameters())
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -1024,9 +1026,7 @@ def train_mlp(
         generator=generator,
         num_workers=0,
     )
-    val_tensor = torch.tensor(
-        [list(row) for row in val_x], dtype=torch.float32, device=device
-    )
+    val_tensor = torch.tensor([list(row) for row in val_x], dtype=torch.float32, device=device)
     val_target = torch.tensor(list(val_y), dtype=torch.float32, device=device)
     val_weight = torch.tensor(list(val_weights), dtype=torch.float32, device=device)
 
@@ -1053,9 +1053,7 @@ def train_mlp(
         with torch.no_grad():
             val_predictions = model(val_tensor).squeeze(-1)
             val_losses = loss_fn(val_predictions, val_target)
-            val_loss = float(
-                (val_losses * val_weight).sum().item() / val_weight.sum().item()
-            )
+            val_loss = float((val_losses * val_weight).sum().item() / val_weight.sum().item())
         epochs = epoch
         if val_loss < best_loss - 1e-10:
             best_loss = val_loss
@@ -1069,14 +1067,8 @@ def train_mlp(
                 break
 
     if best_state is None:
-        raise SurgeonModelError(
-            "MLP training did not produce a finite validation checkpoint"
-        )
-    peak_vram = (
-        int(torch.cuda.max_memory_allocated(device))
-        if config.device == "cuda"
-        else 0
-    )
+        raise SurgeonModelError("MLP training did not produce a finite validation checkpoint")
+    peak_vram = int(torch.cuda.max_memory_allocated(device)) if config.device == "cuda" else 0
     return MLPSurgeonModel(
         config.task,
         train.feature_names,
@@ -1091,10 +1083,7 @@ def train_mlp(
 
 
 type SerializableModel = (
-    LinearSurgeonModel
-    | LogisticSurgeonModel
-    | LightGBMSurgeonModel
-    | MLPSurgeonModel
+    LinearSurgeonModel | LogisticSurgeonModel | LightGBMSurgeonModel | MLPSurgeonModel
 )
 
 

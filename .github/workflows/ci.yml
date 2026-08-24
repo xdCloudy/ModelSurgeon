@@ -53,4 +53,8 @@ jobs:
           python-version: "3.12"
       - run: uv sync --extra dev --locked
       - run: uv pip install 'lightgbm>=4,<5'
-      - run: uv run pytest tests/test_first_surgeon_evidence_lightgbm.py -q
+      - run: >-
+          uv run pytest
+          tests/test_first_surgeon_evidence_lightgbm.py
+          tests/test_feature_attribution.py
+          -q

@@ -14,7 +14,7 @@ from modelsurgeon.adapters.gguf import (
     MetadataSemantic,
     build_llama_gguf_surgery_adapter,
     build_qwen_gguf_surgery_adapter,
-    plan_axis_edit,
+    plan_storage_axis_edit,
     resolve_gguf_architecture,
 )
 from modelsurgeon.graph import (
@@ -52,7 +52,7 @@ class NativeGGUFMLPPlanError(ValueError):
 class NativeGGUFMLPRemovalPlan:
     family: ModelFamily
     architecture: str
-    layer_index: int
+    layer_indices: tuple[int, ...]
     removed_channels: tuple[int, ...]
     coupled_tensor_names: tuple[str, ...]
     physical_plan: PhysicalMutationPlan
@@ -70,7 +70,7 @@ class NativeGGUFMLPRemovalPlan:
         return {
             "family": self.family.value,
             "architecture": self.architecture,
-            "layer_index": self.layer_index,
+            "layer_indices": list(self.layer_indices),
             "removed_channels": list(self.removed_channels),
             "coupled_tensor_names": list(self.coupled_tensor_names),
             "expected_parameter_delta": self.expected_parameter_delta,
@@ -97,17 +97,23 @@ def _validate_family_adapter(discovery: GGUFDiscovery, layer: int) -> None:
     )
 
 
-def plan_native_gguf_mlp_channel_removal(
+def _plan_native_gguf_mlp_channel_removal(
     discovery: GGUFDiscovery,
     *,
-    layer_index: int,
+    layer_indices: tuple[int, ...],
     removed_channels: tuple[int, ...],
 ) -> NativeGGUFMLPRemovalPlan:
     """Compile coupled gate/up/down edits without loading any tensor payload."""
 
-    if layer_index < 0 or layer_index >= discovery.shape.layers:
+    if (
+        not layer_indices
+        or layer_indices != tuple(sorted(set(layer_indices)))
+        or layer_indices[0] < 0
+        or layer_indices[-1] >= discovery.shape.layers
+    ):
         raise NativeGGUFMLPPlanError(
-            f"MLP layer {layer_index} is outside block_count {discovery.shape.layers}"
+            f"MLP layers must be non-empty, canonical, and inside block_count "
+            f"{discovery.shape.layers}"
         )
     if (
         not removed_channels
@@ -121,24 +127,26 @@ def plan_native_gguf_mlp_channel_removal(
     new_feed_forward = discovery.shape.feed_forward_length - len(removed_channels)
     if new_feed_forward <= 0:
         raise NativeGGUFMLPPlanError("MLP channel removal cannot remove the entire width")
-    _validate_family_adapter(discovery, layer_index)
+    for layer_index in layer_indices:
+        _validate_family_adapter(discovery, layer_index)
     architecture = resolve_gguf_architecture(
         discovery.architecture, family=discovery.family
     )
-    group = next(
-        item
-        for item in architecture.coupling_groups(layer_index)
-        if item.kind is CouplingKind.MLP_CHANNEL
-    )
     indexed = {tensor.descriptor.name: tensor for tensor in discovery.tensors}
     selected: list[tuple[GGUFTensorComponent, int]] = []
-    for target in group.targets:
-        try:
-            selected.append((indexed[target.tensor_name], target.axis))
-        except KeyError as error:
-            raise NativeGGUFMLPPlanError(
-                f"MLP coupling requires tensor {target.tensor_name!r}"
-            ) from error
+    for layer_index in layer_indices:
+        group = next(
+            item
+            for item in architecture.coupling_groups(layer_index)
+            if item.kind is CouplingKind.MLP_CHANNEL
+        )
+        for target in group.targets:
+            try:
+                selected.append((indexed[target.tensor_name], target.axis))
+            except KeyError as error:
+                raise NativeGGUFMLPPlanError(
+                    f"MLP coupling requires tensor {target.tensor_name!r}"
+                ) from error
 
     descriptors: list[PhysicalTensorDescriptor] = []
     intents: list[TensorEditIntent] = []
@@ -155,7 +163,7 @@ def plan_native_gguf_mlp_channel_removal(
             )
         new_shape[axis] = new_feed_forward
         try:
-            encoded_size = plan_axis_edit(
+            encoded_size = plan_storage_axis_edit(
                 descriptor.quant_type, tuple(new_shape), 0
             ).tensor_bytes
         except ValueError as error:
@@ -188,24 +196,27 @@ def plan_native_gguf_mlp_channel_removal(
 
     channel_ids = tuple(
         _channel_id(layer_index, index)
+        for layer_index in layer_indices
         for index in range(discovery.shape.feed_forward_length)
     )
     removed_set = set(removed_channels)
     mappings: list[ComponentIdentityMapping] = []
-    removed_before = 0
-    for index, source in enumerate(channel_ids):
-        if index in removed_set:
-            mappings.append(ComponentIdentityMapping(source, (), "MLP channel removed"))
-            removed_before += 1
-        else:
-            channel_target = _channel_id(layer_index, index - removed_before)
-            mappings.append(
-                ComponentIdentityMapping(
-                    source,
-                    (channel_target,),
-                    "MLP channel retained/renumbered",
+    for layer_index in layer_indices:
+        removed_before = 0
+        for index in range(discovery.shape.feed_forward_length):
+            source = _channel_id(layer_index, index)
+            if index in removed_set:
+                mappings.append(ComponentIdentityMapping(source, (), "MLP channel removed"))
+                removed_before += 1
+            else:
+                channel_target = _channel_id(layer_index, index - removed_before)
+                mappings.append(
+                    ComponentIdentityMapping(
+                        source,
+                        (channel_target,),
+                        "MLP channel retained/renumbered",
+                    )
                 )
-            )
     for tensor, _ in selected:
         mappings.append(
             ComponentIdentityMapping(
@@ -217,10 +228,16 @@ def plan_native_gguf_mlp_channel_removal(
     identity_remap = ComponentIdentityRemap.build(tuple(mappings))
     request = MutationRequest(
         MutationKind.REMOVE,
-        tuple(sorted(_channel_id(layer_index, index) for index in removed_channels)),
+        tuple(
+            sorted(
+                _channel_id(layer_index, index)
+                for layer_index in layer_indices
+                for index in removed_channels
+            )
+        ),
         (
             ("family", discovery.family.value),
-            ("layer_index", layer_index),
+            ("layer_indices", ",".join(str(item) for item in layer_indices)),
             ("removed_count", len(removed_channels)),
         ),
     )
@@ -235,7 +252,9 @@ def plan_native_gguf_mlp_channel_removal(
             MutationPrecondition(
                 "feed_forward_length", discovery.shape.feed_forward_length
             ),
-            MutationPrecondition("layer_index", layer_index),
+            MutationPrecondition(
+                "layer_indices", ",".join(str(item) for item in layer_indices)
+            ),
         ),
         MutationDelta(
             parameters=new_parameters - old_parameters,
@@ -260,9 +279,43 @@ def plan_native_gguf_mlp_channel_removal(
     return NativeGGUFMLPRemovalPlan(
         discovery.family,
         discovery.architecture,
-        layer_index,
+        layer_indices,
         removed_channels,
         tensor_names,
         physical,
         quantized,
+    )
+
+
+def plan_native_gguf_mlp_channel_removal(
+    discovery: GGUFDiscovery,
+    *,
+    layer_index: int,
+    removed_channels: tuple[int, ...],
+) -> NativeGGUFMLPRemovalPlan:
+    """Plan a single-layer edit only when GGUF metadata is genuinely layer-local."""
+
+    if discovery.shape.layers != 1:
+        raise NativeGGUFMLPPlanError(
+            "GGUF feed-forward width metadata is model-wide; use coordinated model-wide "
+            "MLP channel removal for multi-layer models"
+        )
+    return _plan_native_gguf_mlp_channel_removal(
+        discovery,
+        layer_indices=(layer_index,),
+        removed_channels=removed_channels,
+    )
+
+
+def plan_native_gguf_model_mlp_channel_removal(
+    discovery: GGUFDiscovery,
+    *,
+    removed_channels: tuple[int, ...],
+) -> NativeGGUFMLPRemovalPlan:
+    """Plan the same coupled channel removal across every transformer layer."""
+
+    return _plan_native_gguf_mlp_channel_removal(
+        discovery,
+        layer_indices=tuple(range(discovery.shape.layers)),
+        removed_channels=removed_channels,
     )

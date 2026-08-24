@@ -164,6 +164,13 @@ def _windows_rss_bytes() -> int | None:
         windll: Any = getattr(ctypes, "windll")  # noqa: B009
         kernel32: Any = windll.kernel32
         psapi: Any = windll.psapi
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        psapi.GetProcessMemoryInfo.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(_ProcessMemoryCounters),
+            ctypes.c_ulong,
+        )
+        psapi.GetProcessMemoryInfo.restype = ctypes.c_int
         counters = _ProcessMemoryCounters()
         counters.cb = ctypes.sizeof(counters)
         handle = kernel32.GetCurrentProcess()
@@ -177,10 +184,13 @@ def _proc_rss_bytes() -> int | None:
     statm = Path("/proc/self/statm")
     if not statm.exists():
         return None
+    sysconf = getattr(os, "sysconf", None)
+    if sysconf is None:
+        return None
     try:
         fields = statm.read_text(encoding="ascii").split()
         resident_pages = int(fields[1])
-        page_size = int(os.sysconf("SC_PAGE_SIZE"))
+        page_size = int(sysconf("SC_PAGE_SIZE"))
     except (IndexError, OSError, ValueError):
         return None
     return resident_pages * page_size

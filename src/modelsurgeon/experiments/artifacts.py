@@ -106,7 +106,11 @@ def _metadata_from_record(value: object) -> ArtifactMetadata:
 
 
 def _fsync_file(path: Path) -> None:
-    with path.open("rb") as stream:
+    # Windows' CRT rejects ``fsync`` on a read-only descriptor with EBADF.
+    # Open the already-written file without truncating it, but with write
+    # access, so the durability barrier has the same semantics on every
+    # supported platform.
+    with path.open("r+b") as stream:
         os.fsync(stream.fileno())
 
 

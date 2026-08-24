@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import IO
 
 from modelsurgeon.adapters.gguf.conformance import GGML_UPSTREAM_REVISION
 
@@ -18,7 +18,8 @@ LLAMA_CPP_VALIDATION_SCHEMA_VERSION = 1
 _VERSION_LOG_BYTES = 4096
 
 _VERSION_REVISION = re.compile(
-    r"version:\s*[^\r\n]*\(\s*`?([0-9a-fA-F]{7,40})`?\s*\)",
+    r"version:\s*[^\r\n]*\(\s*(?:build\s+\d+\s*,\s*commit\s+)?`?"
+    r"([0-9a-fA-F]{7,40})`?\s*\)",
     re.IGNORECASE,
 )
 
@@ -139,9 +140,7 @@ def _resolve_executable(value: str | Path, expected_revision: str) -> Path:
     if candidate.is_absolute() or has_separator:
         resolved = candidate.resolve()
         if not resolved.is_file():
-            raise LlamaCppValidationError(
-                f"llama.cpp executable does not exist: {resolved}"
-            )
+            raise LlamaCppValidationError(f"llama.cpp executable does not exist: {resolved}")
         return resolved
 
     discovered = shutil.which(raw)
@@ -153,7 +152,7 @@ def _resolve_executable(value: str | Path, expected_revision: str) -> Path:
     return Path(discovered).resolve()
 
 
-def _read_bounded_log(stream: BinaryIO, max_bytes: int) -> tuple[str, bool]:
+def _read_bounded_log(stream: IO[bytes], max_bytes: int) -> tuple[str, bool]:
     stream.flush()
     stream.seek(0, os.SEEK_END)
     total = stream.tell()
@@ -225,9 +224,7 @@ def _probe_tool(config: LlamaCppValidationConfig) -> LlamaCppToolProvenance:
         timeout_seconds=min(config.timeout_seconds, 10.0),
         max_log_bytes=max(config.max_log_bytes, _VERSION_LOG_BYTES),
     )
-    output = "\n".join(
-        item for item in (result.stdout.strip(), result.stderr.strip()) if item
-    )
+    output = "\n".join(item for item in (result.stdout.strip(), result.stderr.strip()) if item)
     if result.timed_out:
         raise LlamaCppValidationError("`llama-cli --version` timed out")
     if result.returncode != 0:
@@ -273,6 +270,8 @@ def _validation_command(
         str(config.seed),
         "--temp",
         "0",
+        "--single-turn",
+        "--simple-io",
     )
 
 

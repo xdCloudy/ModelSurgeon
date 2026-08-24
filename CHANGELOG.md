@@ -2,6 +2,83 @@
 
 ## Unreleased
 
+- Publish a generated 108-cell HF/GGUF architecture compatibility matrix with separate
+  verified, experimental, unsupported, and unknown states so untested combinations cannot
+  be presented as supported.
+- Add a schema-versioned, immutable, Apache-2.0 multi-family evaluation ladder from 135M
+  through 7.25B parameters with explicit purpose, consumer-hardware modes, dataset
+  compatibility, access constraints, and a content-addressed ladder identity.
+- Demonstrate deterministic low-memory Q4_K_M MLP surgery across every transformer layer,
+  including copy-only legacy Q5_0 handling, model-wide metadata safety, pinned llama.cpp
+  load/perplexity/generation/throughput evidence, and working Windows RSS telemetry.
+- Add an exhaustive GGUF family/storage-profile/operation compatibility matrix whose support
+  claims require artifact-bound pinned llama.cpp load/forward evidence, with explicit
+  structural-only and unsupported cells plus a scheduled real-fixture regression gate.
+- Add a bounded Llama/Qwen coordinated hidden-dimension feasibility study that inventories
+  global and normalization consumers, computes codec-axis alignment, and emits an explicit
+  no-mutation rejection while rotary/config and weight-tying proofs remain incomplete.
+- Add bounded one-tensor native GGUF low-rank replacement with selective encoded-block decode,
+  explicit NumPy SVD workspace preflight, validated same-codec requantization, separate
+  reconstruction/quantization errors, and unchanged-payload checksum reconciliation.
+- Add native quantized GGUF transformer-layer removal by omitting complete block tensors,
+  canonically renaming following blocks, updating block-count metadata, and checksum-verifying
+  byte-identical bounded direct copies of every retained encoded payload.
+- Add non-overwriting atomic safetensors checkpoint publication with deterministic single or
+  sharded layouts, index/config staging, source-shard integrity checks, bounded tensor/shard
+  sizes, and streamed payload checksum verification before visibility.
+- Add bounded selected-Linear SVD replacement for Hugging Face models using real two-factor
+  modules, with requested/effective rank, reconstruction error, and measured parameter and
+  per-token FLOP reconciliation.
+- Add physical Hugging Face transformer-layer removal with retained-weight identity,
+  canonical and KV-cache execution-index renumbering, exact residual-bypass equivalence,
+  parameter reconciliation, and successful real-model save/reload.
+- Add model-wide physical Hugging Face MHA/GQA head removal with complete-KV-group safety,
+  synchronized Q/K/V/O block resizing, metadata/parameter reconciliation, bit-exact
+  grouped-mask evidence, and successful real-model save/reload.
+- Add model-wide physical Hugging Face gated-MLP channel removal with synchronized gate/up
+  rows and down columns, global configuration/linear metadata updates, exact parameter
+  reconciliation, mask-equivalence evidence, and successful real-model save/reload.
+- Add equal-budget active/random/utility-only learning-curve studies with normalized AULC,
+  seeded bootstrap confidence intervals, dependency-free SVG plots, and explicit negative
+  results when active selection does not beat the strongest baseline.
+- Add auditable surgeon retraining triggers for new-example count, elapsed budget, and drift,
+  plus all-criteria challenger promotion that always retains the incumbent after training
+  failure or missing/insufficient validation evidence.
+- Add durable active-learning evaluation schedules that bind acquisition metadata to
+  resulting experiment and dataset-example IDs and resume partial batches without
+  rerunning or changing selection.
+- Add candidate-boundary active-learning budgets for attempt count, wall time, tier cost,
+  GPU time, and disk use, with explicit observed-versus-reserved failed-attempt charging.
+- Add deterministic explore/exploit acquisition with exact high-value, uncertainty, and
+  diversity fractions, per-selection reasons and conditional propensities, overlap fill,
+  and explicit zero/oversubscribed budget behavior.
+- Add seeded farthest-first diversity selection across normalized numeric, categorical,
+  and topology spaces with observable O(candidate-count) working memory and explicit
+  100,000-candidate/4,096-selection ceilings.
+- Add versioned mutation-equivalence keys with order-insensitive component closures,
+  namespaced adapter-declared equivalence, deterministic pool deduplication, and exclusion
+  of already completed or in-flight work.
+- Add bounded candidate-pool scoring for utility, named outcomes, calibrated safe
+  probability, and uncertainty, with batch-size-stable ordering and explicit quarantine
+  records for incompatible feature schemas.
+- Add canonical graph-valid active-learning pools capped at 100,000 candidates, with cheap
+  mutation-free features, complete revision provenance, bounded append invocations, and
+  digest-verified exact-record resume.
+- Add optional fixed-budget MLP uncertainty comparison for deep ensembles and Monte Carlo
+  dropout, reporting interval calibration and active-selection lift with deterministic,
+  schema-versioned stochastic predictions and backward-compatible dropout configuration.
+- Add a fixed-budget tree-surgeon uncertainty comparison across ensemble, bootstrap, and
+  quantile intervals, reporting coverage, error-ranking utility, CPU/model-memory cost,
+  and schema-versioned uncertainty values for downstream acquisition.
+- Add validation-only Platt and isotonic safe-mutation probability calibration with
+  deterministic selection, versioned serialization, and stored Brier, ECE, and complete
+  reliability-curve evidence for every candidate method.
+- Make large Hugging Face proof campaigns scale by reusing one validated mutation-target
+  graph index and caching vectorized per-layer weight statistics instead of rescanning the
+  component graph and synchronizing individual GPU scalars for every candidate.
+- Make durable artifact and checkpoint publication work on Windows, publish the
+  package's PEP 561 typing marker, and keep platform-specific memory and llama.cpp
+  validation paths strict-type-checkable.
 - Add turnkey `first-surgeon-evidence` LightGBM proof reporting with grouped held-out
   bootstrap metrics, identical-candidate random/magnitude comparisons, immutable-bundle
   inference smoke tests, source revisions, artifact hashes, and bounded training telemetry.
@@ -47,7 +124,18 @@
   float64 accumulation, shape/dtype/device provenance, and explicit empty/non-finite rejection.
 - Validate generated GGUFs with the pinned llama.cpp revision using a bounded
   one-token forward/generation check, captured tool/command provenance, capped logs,
-  and fail-closed timeout or non-zero-exit reporting.
+  fail-closed timeout or non-zero-exit reporting, current official version parsing,
+  and non-interactive CLI termination.
+- Benchmark baseline/candidate GGUF perplexity with pinned llama.cpp under one
+  content-addressed sample and runtime configuration, require matching tokenizer
+  metadata, parse finite structured estimates, and preserve bounded raw failure logs.
+- Benchmark pinned llama.cpp GGUF prompt and generation throughput with phase latency
+  samples, child-process peak RAM/VRAM, explicit warmup/thread/offload/context settings,
+  raw failure logs, and drift-gated comparison ratios.
+- Discover and configure external llama.cpp quantization binaries without bundling,
+  reject missing or revision-drifted tool sets, capture exact invocations and bounded
+  logs, transactionally publish validated outputs, and index legacy mixed-recipe blocks
+  for byte-preserving copy without claiming native codecs.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.

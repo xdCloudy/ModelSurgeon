@@ -188,8 +188,9 @@ class _ChangedTensorSource:
             raise NativeGGUFMLPExecutionError(
                 f"copy limit cannot hold one {self.handle.quant_type.value} block"
             )
+        kept_runs = tuple(_kept_block_runs(blocks_per_row, removed_blocks))
         for row in range(rows):
-            for offset, count in _kept_block_runs(blocks_per_row, removed_blocks):
+            for offset, count in kept_runs:
                 consumed = 0
                 while consumed < count:
                     chunk_blocks = min(max_blocks, count - consumed)

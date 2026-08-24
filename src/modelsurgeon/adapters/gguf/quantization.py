@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import MutableSequence, Sequence
+from collections.abc import Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import reduce
@@ -16,6 +16,10 @@ class GGMLQuantizationType(StrEnum):
     F32 = "F32"
     F16 = "F16"
     BF16 = "BF16"
+    Q4_0 = "Q4_0"
+    Q4_1 = "Q4_1"
+    Q5_0 = "Q5_0"
+    Q5_1 = "Q5_1"
     Q8_0 = "Q8_0"
     Q2_K = "Q2_K"
     Q3_K = "Q3_K"
@@ -36,6 +40,7 @@ class GGMLQuantizationType(StrEnum):
 
 class QuantizationFamily(StrEnum):
     DENSE = "dense"
+    LEGACY = "legacy"
     Q8 = "q8"
     K_QUANT = "k_quant"
     IQ = "iq"
@@ -270,6 +275,42 @@ QUANT_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
     ),
 }
 
+# These pinned layouts are sufficient for GGUF indexing and byte-preserving copy.
+# They are deliberately excluded from QUANT_LAYOUTS because ModelSurgeon does not
+# claim native decode/encode conformance for the legacy formats.
+LEGACY_STORAGE_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
+    GGMLQuantizationType.Q4_0: CodecLayout(
+        GGMLQuantizationType.Q4_0,
+        QuantizationFamily.LEGACY,
+        32,
+        18,
+        _fields(("delta_f16", 2), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q4_1: CodecLayout(
+        GGMLQuantizationType.Q4_1,
+        QuantizationFamily.LEGACY,
+        32,
+        20,
+        _fields(("delta_min_f16x2", 4), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q5_0: CodecLayout(
+        GGMLQuantizationType.Q5_0,
+        QuantizationFamily.LEGACY,
+        32,
+        22,
+        _fields(("delta_f16", 2), ("high_bits", 4), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q5_1: CodecLayout(
+        GGMLQuantizationType.Q5_1,
+        QuantizationFamily.LEGACY,
+        32,
+        24,
+        _fields(("delta_min_f16x2", 4), ("high_bits", 4), ("quants_u4", 16)),
+    ),
+}
+
+GGUF_STORAGE_LAYOUTS = {**QUANT_LAYOUTS, **LEGACY_STORAGE_LAYOUTS}
+
 
 @dataclass(frozen=True, slots=True)
 class AxisEditConstraint:
@@ -318,13 +359,13 @@ def validate_tensor_alignment(
     return AlignmentConstraint(container_alignment, tensor_offset)
 
 
-def plan_axis_edit(
+def _plan_axis_edit(
     quant_type: GGMLQuantizationType,
     shape: tuple[int, ...],
     axis: int,
+    layouts: Mapping[GGMLQuantizationType, CodecLayout],
 ) -> AxisEditConstraint:
-    """Validate storage shape and report exact edit granularity for one axis."""
-    layout = QUANT_LAYOUTS[quant_type]
+    layout = layouts[quant_type]
     if not shape or any(dimension <= 0 for dimension in shape):
         raise CodecContractError("GGUF tensor dimensions must be positive")
     if axis < 0 or axis >= len(shape):
@@ -347,6 +388,24 @@ def plan_axis_edit(
         row_bytes=row_bytes,
         tensor_bytes=tensor_bytes,
     )
+
+
+def plan_axis_edit(
+    quant_type: GGMLQuantizationType,
+    shape: tuple[int, ...],
+    axis: int,
+) -> AxisEditConstraint:
+    """Validate a native-codec shape and report exact edit granularity."""
+    return _plan_axis_edit(quant_type, shape, axis, QUANT_LAYOUTS)
+
+
+def plan_storage_axis_edit(
+    quant_type: GGMLQuantizationType,
+    shape: tuple[int, ...],
+    axis: int,
+) -> AxisEditConstraint:
+    """Plan byte-copy geometry, including layouts without a native float codec."""
+    return _plan_axis_edit(quant_type, shape, axis, GGUF_STORAGE_LAYOUTS)
 
 
 def plan_supported_axes(

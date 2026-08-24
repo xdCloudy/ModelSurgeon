@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -189,6 +190,28 @@ def test_aligned_copy_only_plan_has_an_empty_complete_control() -> None:
             _plan(removed=tuple(range(256))), reader, _registry()
         )
     ) == []
+    assert control.report().complete is True
+    assert control.report().matched_ranges == ()
+    assert reader.reads == []
+
+
+def test_storage_only_copy_plan_never_resolves_a_float_codec() -> None:
+    reader = _Reader((768, 2))
+    plan = _plan(removed=tuple(range(256)))
+    edit = plan.tensor_edits[0]
+    storage_only = replace(
+        plan,
+        tensor_edits=(
+            replace(
+                edit,
+                quant_type=GGMLQuantizationType.Q5_0,
+                destination_quant_type=GGMLQuantizationType.Q5_0,
+            ),
+        ),
+    )
+    control = MatchedGGUFRequantizationControl(seed=1729)
+
+    assert list(control.iter_encoded(storage_only, reader, CodecRegistry())) == []
     assert control.report().complete is True
     assert control.report().matched_ranges == ()
     assert reader.reads == []

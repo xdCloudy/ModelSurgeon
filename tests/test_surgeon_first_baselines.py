@@ -45,9 +45,7 @@ from modelsurgeon.surgeon.targets import (
 from modelsurgeon.surgery.contracts import MutationKind, MutationRequest
 
 
-def _metric(
-    name: str, value: float | None, *, state: str = "measured"
-) -> dict[str, object]:
+def _metric(name: str, value: float | None, *, state: str = "measured") -> dict[str, object]:
     reason = None if state == "measured" else f"{name} unavailable"
     return {
         "name": name,
@@ -63,6 +61,7 @@ def _example(
     *,
     feature: float,
     family: str = "llama",
+    quantization: str | None = None,
     baseline_ppl: float = 10.0,
     post_ppl: float = 10.5,
 ) -> dict[str, object]:
@@ -74,7 +73,7 @@ def _example(
             "revision": "model-rev",
             "family": family,
             "format": "safetensors",
-            "quantization": None,
+            "quantization": quantization,
         },
         "mutation": {
             "plan": {
@@ -113,9 +112,7 @@ def test_targets_define_post_minus_baseline_units_masks_and_safe_labels() -> Non
     assert targets.safe_mutation is True
 
     missing = _example("example-2", feature=1.0)
-    missing["post_metrics"] = [
-        _metric("perplexity", None, state="skipped")
-    ]
+    missing["post_metrics"] = [_metric("perplexity", None, state="skipped")]
     masked = derive_supervised_targets(missing, schema)
     assert not masked.value("perplexity").mask
     assert not masked.safe_mutation_mask
@@ -150,9 +147,7 @@ def _feature(component: ComponentId, name: str, value: float) -> FeatureRecord:
         "float64",
         "test",
         "1",
-        PrecisionProvenance(
-            PrecisionSource.HIGH_PRECISION, "float32", "float64"
-        ),
+        PrecisionProvenance(PrecisionSource.HIGH_PRECISION, "float32", "float64"),
     )
 
 
@@ -161,10 +156,7 @@ def test_random_magnitude_and_heuristic_rankings_are_deterministic_and_traced() 
     first = rank_random(candidates, seed=42, select_count=2)
     repeated = rank_random(candidates, seed=42, select_count=2)
     assert first.to_record() == repeated.to_record()
-    assert all(
-        entry.selection_propensity == pytest.approx(2 / 3)
-        for entry in first.entries
-    )
+    assert all(entry.selection_propensity == pytest.approx(2 / 3) for entry in first.entries)
 
     features: list[FeatureRecord] = []
     for candidate, l1, activation, sensitivity, similarity in zip(
@@ -227,21 +219,48 @@ def test_training_preprocessing_is_fit_only_on_train_and_inference_fails_closed(
     numeric = {item.name: item for item in matrices.preprocessor.numeric}
     assert numeric["weight_mean"].mean == pytest.approx(2.0)
     assert numeric["weight_mean"].scale == pytest.approx(1.0)
-    family = next(
-        item
-        for item in matrices.preprocessor.categorical
-        if item.name == "model_family"
-    )
+    family = next(item for item in matrices.preprocessor.categorical if item.name == "model_family")
     assert "llama" in family.categories
     assert "qwen" not in family.categories
     assert "gemma" not in family.categories
 
     incomplete = dict(_example("inference", feature=2.0))
     incomplete["pre_mutation_features"] = []
-    with pytest.raises(
-        TrainingMatrixError, match="missing required trained features"
-    ):
+    with pytest.raises(TrainingMatrixError, match="missing required trained features"):
         transform_inference_record(incomplete, matrices.preprocessor)
+
+
+def test_quantization_context_changes_bf16_and_q4_inference_rows() -> None:
+    examples = (
+        _example("bf16-a", feature=1.0, quantization="BF16", post_ppl=10.1),
+        _example("q4-a", feature=1.0, quantization="Q4_K_M", post_ppl=11.0),
+        _example("validation", feature=1.0, quantization="BF16", post_ppl=10.1),
+    )
+    matrices = build_training_matrices(
+        examples,
+        {
+            "bf16-a": SplitPartition.TRAIN,
+            "q4-a": SplitPartition.TRAIN,
+            "validation": SplitPartition.VALIDATION,
+        },
+        target_schema=DEFAULT_TARGET_SCHEMA,
+        target_name="perplexity",
+    )
+
+    bf16 = transform_inference_record(examples[0], matrices.preprocessor)
+    q4 = transform_inference_record(examples[1], matrices.preprocessor)
+    names = matrices.preprocessor.output_feature_names
+    assert "num:context_bits_per_weight" in names
+    assert "cat:model_quantization=BF16" in names
+    assert "cat:model_quantization=Q4_K_M" in names
+    assert bf16 != q4
+    model = train_linear(
+        matrices.train,
+        config=LinearConfig(alpha=1e-6, learning_rate=0.01, max_epochs=500),
+        validation=matrices.validation,
+    )
+    predictions = model.predict((bf16, q4))
+    assert predictions[0] != pytest.approx(predictions[1])
 
 
 def test_linear_model_trains_and_registry_round_trips_with_schema_guards(
@@ -267,9 +286,7 @@ def test_linear_model_trains_and_registry_round_trips_with_schema_guards(
     )
     model = train_linear(
         matrices.train,
-        config=LinearConfig(
-            alpha=1e-6, learning_rate=0.01, max_epochs=100
-        ),
+        config=LinearConfig(alpha=1e-6, learning_rate=0.01, max_epochs=100),
         validation=matrices.validation,
     )
     assert isinstance(model, LinearSurgeonModel)
@@ -280,9 +297,7 @@ def test_linear_model_trains_and_registry_round_trips_with_schema_guards(
         model,
         matrices.preprocessor,
         DEFAULT_TARGET_SCHEMA,
-        training_models=(
-            TrainingModelIdentity("tiny/model", "model-rev", "Q4_K_M"),
-        ),
+        training_models=(TrainingModelIdentity("tiny/model", "model-rev", "Q4_K_M"),),
         metrics={"mae": 0.1},
         split_manifest=matrices.split_manifest,
         provenance={"seed": 7, "dataset_revision": "dataset-rev"},

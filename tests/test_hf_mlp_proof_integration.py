@@ -14,6 +14,7 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
 from modelsurgeon.cli.proof import FirstSurgeonProofConfig, run_first_surgeon_proof
 from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.experiments.candidates import CandidateScope
+from modelsurgeon.graph import ComponentId
 
 pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
@@ -109,3 +110,22 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
     assert first.baseline_metrics
     assert first.post_metrics
     assert first.delta_metrics
+
+    gradient_components = tuple(
+        ComponentId.parse(f"model.layers.0.mlp.channel.{channel}") for channel in (0, 1)
+    )
+    gradients = runtime.collect_mlp_channel_gradient_features(
+        tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
+    )
+    assert gradients.token_count == 14
+    assert tuple(component for component, _ in gradients.records) == gradient_components
+    assert all(
+        {feature.name for feature in features}
+        >= {"gradient_l2_norm", "first_order_removal_estimate"}
+        for _, features in gradients.records
+    )
+    assert all(
+        feature.sample_context is not None
+        for _, features in gradients.records
+        for feature in features
+    )

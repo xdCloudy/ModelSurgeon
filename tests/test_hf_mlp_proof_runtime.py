@@ -11,6 +11,7 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
     HuggingFaceMLPProofError,
     _channel_coordinates,
     _DownProjectionChannelMask,
+    _DownProjectionChannelMaskSet,
     _find_module,
     _read_calibration_text,
     _token_chunks,
@@ -166,6 +167,19 @@ def test_down_projection_mask_zeroes_only_selected_channel_and_removes_hook() ->
 
     assert module.hooks == []
     assert module.emit(source).rows == source.rows
+
+
+def test_down_projection_mask_set_uses_one_reversible_hook() -> None:
+    module = _FakeModule()
+    source = _FakeTensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+    with _DownProjectionChannelMaskSet(module, (0, 2), _FakeTorch()):
+        masked = module.emit(source)
+        assert masked.rows == [[0, 2.0, 0], [0, 5.0, 0]]
+        assert source.rows == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        assert len(module.hooks) == 1
+
+    assert module.hooks == []
 
 
 class _Tokenizer:

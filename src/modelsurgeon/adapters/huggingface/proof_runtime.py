@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import math
 import os
+import statistics
 import time
-from collections.abc import Mapping
-from contextlib import AbstractContextManager
+from collections.abc import Mapping, Sequence
+from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError
@@ -55,6 +57,7 @@ from modelsurgeon.experiments.schema import (
     VersionContext,
 )
 from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionKey
+from modelsurgeon.features.gradient_features import GradientFeatures
 from modelsurgeon.features.schema import (
     FEATURE_SCHEMA_VERSION,
     FeatureKind,
@@ -68,6 +71,13 @@ from modelsurgeon.graph import (
     ComponentId,
     ComponentRecordLike,
     build_component_graph,
+)
+from modelsurgeon.instrumentation.memory_telemetry import (
+    MemoryTelemetryConfig,
+    MemoryTelemetryError,
+    MemoryTelemetryReport,
+    TorchCudaMemoryProvider,
+    collect_memory_telemetry,
 )
 from modelsurgeon.surgery.contracts import (
     MutationDelta,
@@ -83,7 +93,7 @@ from modelsurgeon.surgery.serialization import (
     MutationOutcomeStatus,
     MutationProvenance,
 )
-from modelsurgeon.surgery.target_resolution import resolve_mutation_targets
+from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
@@ -127,9 +137,7 @@ class HuggingFaceMLPProofConfig:
         if self.max_tokens < 2:
             raise HuggingFaceMLPProofError("max_tokens must be at least 2")
         if not math.isfinite(self.safe_perplexity_delta) or self.safe_perplexity_delta < 0:
-            raise HuggingFaceMLPProofError(
-                "safe_perplexity_delta must be finite and non-negative"
-            )
+            raise HuggingFaceMLPProofError("safe_perplexity_delta must be finite and non-negative")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 64:
             raise HuggingFaceMLPProofError("seed must be an unsigned 64-bit integer")
 
@@ -162,6 +170,40 @@ class _CandidateMeasurement:
     wall_seconds: float
 
 
+@dataclass(frozen=True, slots=True)
+class MLPChannelSetMeasurement:
+    coordinates: tuple[tuple[int, int], ...]
+    baseline_perplexity: float
+    masked_perplexity: float
+    perplexity_delta: float
+    baseline_median_seconds: float
+    masked_median_seconds: float
+    latency_delta_seconds: float
+    measurement_wall_seconds: float
+    repetitions: int
+    token_count: int
+    quantization_error: float = 0.0
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "coordinates": [
+                {"layer_index": layer, "channel_index": channel}
+                for layer, channel in self.coordinates
+            ],
+            "baseline_perplexity": self.baseline_perplexity,
+            "masked_perplexity": self.masked_perplexity,
+            "perplexity_delta": self.perplexity_delta,
+            "baseline_median_seconds": self.baseline_median_seconds,
+            "masked_median_seconds": self.masked_median_seconds,
+            "latency_delta_seconds": self.latency_delta_seconds,
+            "measurement_wall_seconds": self.measurement_wall_seconds,
+            "repetitions": self.repetitions,
+            "token_count": self.token_count,
+            "quantization_error": self.quantization_error,
+            "quantization_error_reason": "high-precision mask path performs no requantization",
+        }
+
+
 @dataclass(slots=True)
 class _ActivationAccumulator:
     count: int = 0
@@ -171,6 +213,111 @@ class _ActivationAccumulator:
     zero_counts: Any = None
     max_abs: Any = None
     storage_dtype: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _LayerWeightStatistics:
+    count: int
+    combined_dtype: str
+    part_dtypes: tuple[str, str, str]
+    values: Any
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureCollectionCost:
+    wall_seconds: float
+    initial_rss_bytes: int | None
+    peak_rss_bytes: int | None
+    incremental_peak_rss_bytes: int | None
+    initial_cuda_allocated_bytes: int | None
+    peak_cuda_allocated_bytes: int | None
+    incremental_peak_cuda_allocated_bytes: int | None
+    peak_cuda_reserved_bytes: int | None
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "wall_seconds": self.wall_seconds,
+            "initial_rss_bytes": self.initial_rss_bytes,
+            "peak_rss_bytes": self.peak_rss_bytes,
+            "incremental_peak_rss_bytes": self.incremental_peak_rss_bytes,
+            "initial_cuda_allocated_bytes": self.initial_cuda_allocated_bytes,
+            "peak_cuda_allocated_bytes": self.peak_cuda_allocated_bytes,
+            "incremental_peak_cuda_allocated_bytes": (self.incremental_peak_cuda_allocated_bytes),
+            "peak_cuda_reserved_bytes": self.peak_cuda_reserved_bytes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureCollectionCosts:
+    static: FeatureCollectionCost
+    forward_baseline: FeatureCollectionCost
+    activation: FeatureCollectionCost
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "static": self.static.to_record(),
+            "forward_baseline": self.forward_baseline.to_record(),
+            "activation": self.activation.to_record(),
+            "activation_overhead": {
+                "wall_seconds": self.activation.wall_seconds - self.forward_baseline.wall_seconds,
+                "peak_rss_bytes": _difference(
+                    self.activation.peak_rss_bytes,
+                    self.forward_baseline.peak_rss_bytes,
+                ),
+                "peak_cuda_allocated_bytes": _difference(
+                    self.activation.peak_cuda_allocated_bytes,
+                    self.forward_baseline.peak_cuda_allocated_bytes,
+                ),
+                "peak_cuda_reserved_bytes": _difference(
+                    self.activation.peak_cuda_reserved_bytes,
+                    self.forward_baseline.peak_cuda_reserved_bytes,
+                ),
+            },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MLPChannelGradientCollection:
+    records: tuple[tuple[ComponentId, tuple[FeatureRecord, ...]], ...]
+    cost: FeatureCollectionCost
+    token_count: int
+
+    def __post_init__(self) -> None:
+        if self.token_count <= 0 or not self.records:
+            raise HuggingFaceMLPProofError("gradient collection requires records and tokens")
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "token_count": self.token_count,
+            "component_count": len(self.records),
+            "cost": self.cost.to_record(),
+        }
+
+
+def _incremental(peak: int | None, initial: int | None) -> int | None:
+    if peak is None or initial is None:
+        return None
+    return max(0, peak - initial)
+
+
+def _difference(right: int | None, left: int | None) -> int | None:
+    if right is None or left is None:
+        return None
+    return right - left
+
+
+def _feature_collection_cost(report: MemoryTelemetryReport) -> FeatureCollectionCost:
+    initial = report.samples[0]
+    return FeatureCollectionCost(
+        report.samples[-1].elapsed_seconds,
+        initial.rss_bytes,
+        report.peak_rss_bytes,
+        _incremental(report.peak_rss_bytes, initial.rss_bytes),
+        initial.cuda_allocated_bytes,
+        report.peak_cuda_allocated_bytes,
+        _incremental(report.peak_cuda_allocated_bytes, initial.cuda_allocated_bytes),
+        report.peak_cuda_reserved_bytes,
+    )
 
 
 class _NoopSnapshotTarget:
@@ -221,6 +368,47 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         handle = self._handle
         self._handle = None
         handle.remove()
+
+
+class _DownProjectionChannelMaskSet(AbstractContextManager["_DownProjectionChannelMaskSet"]):
+    """Temporarily zero a canonical set of channels with one hook and one clone."""
+
+    def __init__(self, module: Any, channels: tuple[int, ...], torch: Any) -> None:
+        self._module = module
+        self._channels = channels
+        self._torch = torch
+        self._handle: Any = None
+
+    def _hook(self, module: object, inputs: tuple[object, ...]) -> tuple[object, ...]:
+        del module
+        if not inputs:
+            raise HuggingFaceMLPProofError("down projection received no positional input")
+        tensor: Any = inputs[0]
+        if not self._torch.is_tensor(tensor):
+            raise HuggingFaceMLPProofError("down projection input is not a tensor")
+        if tensor.ndim < 1 or self._channels[-1] >= int(tensor.shape[-1]):
+            raise HuggingFaceMLPProofError("MLP channel index exceeds down-projection input width")
+        masked = tensor.clone()
+        for channel in self._channels:
+            masked[..., channel] = 0
+        return (masked, *inputs[1:])
+
+    def __enter__(self) -> Self:
+        if self._handle is not None:
+            raise HuggingFaceMLPProofError("MLP channel mask set is already active")
+        self._handle = self._module.register_forward_pre_hook(self._hook)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc_type, exc_value, traceback
+        if self._handle is not None:
+            self._handle.remove()
+            self._handle = None
 
 
 def _architecture_evidence(config: object) -> ArchitectureEvidence:
@@ -373,24 +561,6 @@ def _scalar(tensor: Any) -> float:
     return value
 
 
-def _tensor_stats(tensor: Any) -> dict[str, float]:
-    values = tensor.detach().float().reshape(-1)
-    if int(values.numel()) <= 0:
-        raise HuggingFaceMLPProofError("cannot summarize an empty weight slice")
-    mean = _scalar(values.mean())
-    abs_mean = _scalar(values.abs().mean())
-    rms = math.sqrt(max(0.0, _scalar(values.square().mean())))
-    std = _scalar(values.std(unbiased=False))
-    maximum = _scalar(values.abs().max())
-    return {
-        "mean": mean,
-        "abs_mean": abs_mean,
-        "rms": rms,
-        "std": std,
-        "max_abs": maximum,
-    }
-
-
 def _high_precision(storage_dtype: str) -> PrecisionProvenance:
     return PrecisionProvenance(
         PrecisionSource.HIGH_PRECISION,
@@ -428,6 +598,7 @@ class HuggingFaceMLPProofRuntime:
             tuple(self._discovery.components()),
         )
         self._component_graph = build_component_graph(graph_records)
+        self._target_resolver = MutationTargetResolver(self._component_graph)
         self._modules = dict(self.model.named_modules())
         self._validate_mlp_layout()
 
@@ -490,6 +661,7 @@ class HuggingFaceMLPProofRuntime:
         self._input_device = self._resolve_input_device()
         self._baseline: _PerplexityMeasurement | None = None
         self._activation_stats: dict[int, _ActivationAccumulator] = {}
+        self._weight_stats: dict[int, _LayerWeightStatistics] = {}
         self._last_measurement: _CandidateMeasurement | None = None
 
     @staticmethod
@@ -711,48 +883,348 @@ class HuggingFaceMLPProofRuntime:
 
     def _feature_records(self, layer: int, channel: int) -> tuple[FeatureRecord, ...]:
         self._ensure_baseline()
-        gate, up, down = self._projection_weights(layer)
-        weight_parts = (gate[channel, :], up[channel, :], down[:, channel])
-        dtypes = (
-            _tensor_dtype(weight_parts[0]),
-            _tensor_dtype(weight_parts[1]),
-            _tensor_dtype(weight_parts[2]),
-        )
-        combined_dtype = dtypes[0] if len(set(dtypes)) == 1 else "mixed"
         component = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
         metadata: tuple[tuple[str, str | int], ...] = (
             ("channel_index", channel),
             ("layer_index", layer),
             ("source_phase", "pre_mutation"),
         )
-        records = self._weight_features(component, weight_parts, dtypes, combined_dtype, metadata)
+        records = self._weight_features(component, layer, channel, metadata)
         records.extend(self._activation_features(component, layer, channel, metadata))
         return tuple(sorted(records, key=lambda item: item.name))
+
+    def measure_feature_collection_costs(self) -> FeatureCollectionCosts:
+        """Measure static summaries and activation capture after model load."""
+
+        cuda = None
+        if str(self._input_device).startswith("cuda"):
+            try:
+                cuda = TorchCudaMemoryProvider(self._input_device)
+            except MemoryTelemetryError:
+                cuda = None
+        telemetry_config = MemoryTelemetryConfig(
+            sampling_enabled=True,
+            sample_interval_seconds=0.005,
+            max_samples=4096,
+        )
+
+        self._weight_stats.clear()
+
+        def collect_static() -> None:
+            for layer in range(self._discovery.shape.layers):
+                self._layer_weight_statistics(layer)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        static_report = collect_memory_telemetry(
+            "hf-static-feature-collection",
+            collect_static,
+            telemetry_config,
+            cuda=cuda,
+        )
+        self._weight_stats.clear()
+        gc.collect()
+
+        # Warm lazy kernels/allocators before the paired no-hook/hook forwards.
+        self._forward_measurement(capture_activations=False)
+        gc.collect()
+
+        def collect_forward_baseline() -> None:
+            self._forward_measurement(capture_activations=False)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        baseline_report = collect_memory_telemetry(
+            "hf-forward-feature-baseline",
+            collect_forward_baseline,
+            telemetry_config,
+            cuda=cuda,
+        )
+        gc.collect()
+
+        def collect_activation() -> None:
+            self._forward_measurement(capture_activations=True)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        activation_report = collect_memory_telemetry(
+            "hf-activation-feature-collection",
+            collect_activation,
+            telemetry_config,
+            cuda=cuda,
+        )
+        return FeatureCollectionCosts(
+            _feature_collection_cost(static_report),
+            _feature_collection_cost(baseline_report),
+            _feature_collection_cost(activation_report),
+        )
+
+    def collect_mlp_channel_gradient_features(
+        self,
+        coordinates: Sequence[tuple[ComponentId, int, int]],
+    ) -> MLPChannelGradientCollection:
+        """Collect one calibration-loss backward and summarize requested channels."""
+
+        if not coordinates or len(coordinates) != len({item[0] for item in coordinates}):
+            raise HuggingFaceMLPProofError(
+                "gradient coordinates must be non-empty with unique components"
+            )
+        by_layer: dict[int, list[tuple[ComponentId, int]]] = {}
+        for component, layer, channel in coordinates:
+            expected = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
+            if component != expected or not 0 <= layer < self._discovery.shape.layers:
+                raise HuggingFaceMLPProofError("gradient coordinate identity is invalid")
+            if not 0 <= channel < self._discovery.shape.intermediate_size:
+                raise HuggingFaceMLPProofError("gradient channel exceeds intermediate width")
+            by_layer.setdefault(layer, []).append((component, channel))
+
+        requested_parameters: list[Any] = []
+        for layer in sorted(by_layer):
+            requested_parameters.extend(self._projection_weights(layer))
+        original_requires_grad = {
+            id(parameter): bool(parameter.requires_grad) for parameter in self.model.parameters()
+        }
+        requested_parameter_ids = {id(item) for item in requested_parameters}
+        for parameter in self.model.parameters():
+            parameter.requires_grad_(id(parameter) in requested_parameter_ids)
+
+        holder: list[tuple[tuple[ComponentId, tuple[FeatureRecord, ...]], ...]] = []
+        token_holder: list[int] = []
+        cuda = None
+        if str(self._input_device).startswith("cuda"):
+            try:
+                cuda = TorchCudaMemoryProvider(self._input_device)
+            except MemoryTelemetryError:
+                cuda = None
+
+        def operation() -> None:
+            self.model.zero_grad(set_to_none=True)
+            total_tokens = 0
+            total_loss: Any = None
+            for chunk in self._chunks:
+                input_ids = self._torch.tensor(
+                    [chunk], dtype=self._torch.long, device=self._input_device
+                )
+                output = self.model(input_ids=input_ids, use_cache=False)
+                logits = output.logits[:, :-1, :].float().contiguous()
+                targets = input_ids[:, 1:].to(logits.device).contiguous()
+                loss = self._torch.nn.functional.cross_entropy(
+                    logits.view(-1, int(logits.shape[-1])),
+                    targets.view(-1),
+                    reduction="mean",
+                )
+                total_loss = loss if total_loss is None else total_loss + loss
+                total_tokens += int(targets.numel())
+            if total_loss is None or total_tokens <= 0:
+                raise HuggingFaceMLPProofError("gradient calibration produced no loss")
+            total_loss.backward()
+
+            output_records: list[tuple[ComponentId, tuple[FeatureRecord, ...]]] = []
+            context = self._feature_sample_context()
+            for layer, layer_coordinates in sorted(by_layer.items()):
+                weights = self._projection_weights(layer)
+                oriented = (
+                    (weights[0], weights[0].grad),
+                    (weights[1], weights[1].grad),
+                    (
+                        weights[2].transpose(0, 1),
+                        None if weights[2].grad is None else weights[2].grad.transpose(0, 1),
+                    ),
+                )
+                gradient_l1 = None
+                gradient_square = None
+                gradient_maximum = None
+                product_sum = None
+                product_abs_sum = None
+                product_square = None
+                storage_dtypes: set[str] = set()
+                source_devices: set[str] = set()
+                element_count = 0
+                for weight, gradient in oriented:
+                    if gradient is None:
+                        raise HuggingFaceMLPProofError(
+                            f"gradient missing for MLP projection in layer {layer}"
+                        )
+                    values = weight.detach().float()
+                    gradients = gradient.detach().float()
+                    products = values * gradients
+                    part_l1 = gradients.abs().sum(dim=1)
+                    part_square = gradients.square().sum(dim=1)
+                    part_maximum = gradients.abs().amax(dim=1)
+                    part_product_sum = products.sum(dim=1)
+                    part_product_abs_sum = products.abs().sum(dim=1)
+                    part_product_square = products.square().sum(dim=1)
+                    gradient_l1 = part_l1 if gradient_l1 is None else gradient_l1 + part_l1
+                    gradient_square = (
+                        part_square if gradient_square is None else gradient_square + part_square
+                    )
+                    gradient_maximum = (
+                        part_maximum
+                        if gradient_maximum is None
+                        else self._torch.maximum(gradient_maximum, part_maximum)
+                    )
+                    product_sum = (
+                        part_product_sum if product_sum is None else product_sum + part_product_sum
+                    )
+                    product_abs_sum = (
+                        part_product_abs_sum
+                        if product_abs_sum is None
+                        else product_abs_sum + part_product_abs_sum
+                    )
+                    product_square = (
+                        part_product_square
+                        if product_square is None
+                        else product_square + part_product_square
+                    )
+                    storage_dtypes.add(_tensor_dtype(gradient))
+                    source_devices.add(str(gradient.device))
+                    element_count += int(values.shape[1])
+                columns = self._torch.stack(
+                    (
+                        gradient_l1,
+                        self._torch.sqrt(self._torch.clamp(gradient_square, min=0.0)),
+                        gradient_maximum,
+                        product_sum,
+                        product_abs_sum,
+                        self._torch.sqrt(self._torch.clamp(product_square, min=0.0)),
+                    ),
+                    dim=1,
+                ).cpu()
+                for component, channel in layer_coordinates:
+                    values = columns[channel]
+                    removal = -_scalar(values[3])
+                    features = GradientFeatures(
+                        component,
+                        1,
+                        element_count,
+                        _tensor_dtype(weights[0]),
+                        str(weights[0].device),
+                        tuple(sorted(storage_dtypes)),
+                        tuple(sorted(source_devices)),
+                        _scalar(values[0]),
+                        _scalar(values[1]),
+                        _scalar(values[2]),
+                        _scalar(values[3]),
+                        _scalar(values[4]),
+                        _scalar(values[5]),
+                        removal,
+                        abs(removal),
+                    ).feature_records(sample_context=context)
+                    output_records.append((component, features))
+            holder.append(tuple(sorted(output_records, key=lambda item: item[0])))
+            token_holder.append(total_tokens)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        try:
+            report = collect_memory_telemetry(
+                "hf-mlp-channel-gradient-collection",
+                operation,
+                MemoryTelemetryConfig(
+                    sampling_enabled=True,
+                    sample_interval_seconds=0.005,
+                    max_samples=4096,
+                ),
+                cuda=cuda,
+            )
+        finally:
+            self.model.zero_grad(set_to_none=True)
+            for parameter in self.model.parameters():
+                parameter.requires_grad_(original_requires_grad[id(parameter)])
+        if len(holder) != 1 or len(token_holder) != 1:
+            raise HuggingFaceMLPProofError("gradient collection did not complete")
+        return MLPChannelGradientCollection(
+            holder[0], _feature_collection_cost(report), token_holder[0]
+        )
+
+    def _layer_weight_statistics(self, layer: int) -> _LayerWeightStatistics:
+        cached = self._weight_stats.get(layer)
+        if cached is not None:
+            return cached
+
+        gate, up, down = self._projection_weights(layer)
+        channel_parts = (
+            gate.detach().float(),
+            up.detach().float(),
+            down.detach().float().transpose(0, 1),
+        )
+        dtypes = (_tensor_dtype(gate), _tensor_dtype(up), _tensor_dtype(down))
+        part_statistics: list[tuple[Any, Any, Any, Any, Any]] = []
+        l1_parts: list[Any] = []
+        l2_parts: list[Any] = []
+        max_parts: list[Any] = []
+        for values in channel_parts:
+            abs_values = values.abs()
+            square_values = values.square()
+            mean = values.mean(dim=1)
+            square_mean = square_values.mean(dim=1)
+            part_statistics.append(
+                (
+                    mean,
+                    abs_values.mean(dim=1),
+                    self._torch.sqrt(self._torch.clamp(square_mean, min=0.0)),
+                    values.std(dim=1, unbiased=False),
+                    abs_values.amax(dim=1),
+                )
+            )
+            l1_parts.append(abs_values.sum(dim=1))
+            l2_parts.append(square_values.sum(dim=1))
+            max_parts.append(abs_values.amax(dim=1))
+
+        l1 = self._torch.stack(l1_parts).sum(dim=0)
+        l2 = self._torch.sqrt(self._torch.clamp(self._torch.stack(l2_parts).sum(dim=0), min=0.0))
+        maximum = self._torch.stack(max_parts).amax(dim=0)
+        columns = [l1, l2, maximum]
+        columns.extend(value for part in part_statistics for value in part)
+        resolved = _LayerWeightStatistics(
+            sum(int(values.shape[1]) for values in channel_parts),
+            dtypes[0] if len(set(dtypes)) == 1 else "mixed",
+            dtypes,
+            self._torch.stack(columns, dim=1).cpu(),
+        )
+        self._weight_stats[layer] = resolved
+        return resolved
 
     def _weight_features(
         self,
         component: ComponentId,
-        parts: tuple[Any, Any, Any],
-        dtypes: tuple[str, str, str],
-        combined_dtype: str,
+        layer: int,
+        channel: int,
         metadata: tuple[tuple[str, str | int], ...],
     ) -> list[FeatureRecord]:
-        count = sum(int(item.numel()) for item in parts)
-        l1 = math.fsum(_scalar(item.detach().float().abs().sum()) for item in parts)
-        l2_sq = math.fsum(_scalar(item.detach().float().square().sum()) for item in parts)
-        maximum = max(_scalar(item.detach().float().abs().max()) for item in parts)
+        statistics = self._layer_weight_statistics(layer)
+        values = statistics.values[channel]
         records = [
-            self._feature(component, name, value, combined_dtype, None, metadata)
+            self._feature(
+                component,
+                name,
+                value,
+                statistics.combined_dtype,
+                None,
+                metadata,
+            )
             for name, value in (
-                ("weight_count", float(count)),
-                ("weight_l1_norm", l1),
-                ("weight_l2_norm", math.sqrt(max(0.0, l2_sq))),
-                ("weight_max_magnitude", maximum),
+                ("weight_count", float(statistics.count)),
+                ("weight_l1_norm", _scalar(values[0])),
+                ("weight_l2_norm", _scalar(values[1])),
+                ("weight_max_magnitude", _scalar(values[2])),
             )
         ]
-        for prefix, tensor, storage_dtype in zip(
-            ("gate_weight", "up_weight", "down_weight"), parts, dtypes, strict=True
+        for part_index, (prefix, storage_dtype) in enumerate(
+            zip(
+                ("gate_weight", "up_weight", "down_weight"),
+                statistics.part_dtypes,
+                strict=True,
+            )
         ):
+            offset = 3 + part_index * 5
+            part_values = (
+                ("mean", _scalar(values[offset])),
+                ("abs_mean", _scalar(values[offset + 1])),
+                ("rms", _scalar(values[offset + 2])),
+                ("std", _scalar(values[offset + 3])),
+                ("max_abs", _scalar(values[offset + 4])),
+            )
             records.extend(
                 self._feature(
                     component,
@@ -762,7 +1234,7 @@ class HuggingFaceMLPProofRuntime:
                     None,
                     metadata,
                 )
-                for suffix, value in _tensor_stats(tensor).items()
+                for suffix, value in part_values
             )
         return records
 
@@ -842,7 +1314,7 @@ class HuggingFaceMLPProofRuntime:
 
     def resolve(self, request: MutationRequest) -> ResolvedExperiment:
         _channel_coordinates(request)
-        resolution = resolve_mutation_targets(request, self._component_graph)
+        resolution = self._target_resolver.resolve(request)
         plan = resolution.to_plan(preconditions=(), expected_delta=MutationDelta())
         return ResolvedExperiment(
             plan,
@@ -890,6 +1362,64 @@ class HuggingFaceMLPProofRuntime:
             elapsed,
         )
         return self._evaluation_report(post, loss_delta, perplexity_delta, accepted)
+
+    def measure_channel_set(
+        self,
+        coordinates: Sequence[tuple[int, int]],
+        *,
+        warmup: int = 1,
+        repetitions: int = 7,
+    ) -> MLPChannelSetMeasurement:
+        """Measure an actual cumulative mask against the unchanged model baseline."""
+
+        canonical = tuple(sorted(set(coordinates)))
+        if not canonical or len(canonical) != len(coordinates) or warmup < 0 or repetitions <= 0:
+            raise HuggingFaceMLPProofError("cumulative mask measurement inputs are invalid")
+        for layer, channel in canonical:
+            if not 0 <= layer < self._discovery.shape.layers or not (
+                0 <= channel < self._discovery.shape.intermediate_size
+            ):
+                raise HuggingFaceMLPProofError("cumulative mask coordinate is out of range")
+        baseline = self._ensure_baseline()
+        started = time.perf_counter()
+
+        def measured_forwards() -> tuple[_PerplexityMeasurement, tuple[float, ...]]:
+            for _ in range(warmup):
+                self._forward_measurement()
+            measurements: list[_PerplexityMeasurement] = []
+            timings: list[float] = []
+            for _ in range(repetitions):
+                forward_started = time.perf_counter()
+                measurements.append(self._forward_measurement())
+                timings.append(time.perf_counter() - forward_started)
+            return measurements[-1], tuple(timings)
+
+        _, baseline_timings = measured_forwards()
+        by_layer: dict[int, list[int]] = {}
+        for layer, channel in canonical:
+            by_layer.setdefault(layer, []).append(channel)
+        with ExitStack() as stack:
+            for layer, channels in sorted(by_layer.items()):
+                stack.enter_context(
+                    _DownProjectionChannelMaskSet(
+                        self._down_projection(layer), tuple(sorted(channels)), self._torch
+                    )
+                )
+            masked, masked_timings = measured_forwards()
+        baseline_latency = statistics.median(baseline_timings)
+        masked_latency = statistics.median(masked_timings)
+        return MLPChannelSetMeasurement(
+            canonical,
+            baseline.perplexity,
+            masked.perplexity,
+            masked.perplexity - baseline.perplexity,
+            baseline_latency,
+            masked_latency,
+            masked_latency - baseline_latency,
+            time.perf_counter() - started,
+            repetitions,
+            masked.token_count,
+        )
 
     def _evaluation_report(
         self,

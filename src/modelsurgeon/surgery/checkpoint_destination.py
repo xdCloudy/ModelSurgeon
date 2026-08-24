@@ -85,7 +85,9 @@ class AtomicCheckpointDestination(AbstractContextManager["AtomicCheckpointDestin
             raise CheckpointDestinationError("checkpoint staging output does not exist")
 
         if self.staging_path.is_file():
-            with self.staging_path.open("rb") as stream:
+            # Windows' CRT requires a writable descriptor for ``fsync``.
+            # The file already exists and r+b preserves its contents.
+            with self.staging_path.open("r+b") as stream:
                 os.fsync(stream.fileno())
             try:
                 os.link(self.staging_path, self.destination)

@@ -1,0 +1,39 @@
+ModelSurgeon evaluates structural edits with deterministic evidence. A baseline and a
+candidate must see the same text, the same tokenizer metadata, the same context window,
+and the same batching parameters. The evaluator records the exact model files, tool
+revision, command line, and bounded logs so a failed experiment remains diagnosable.
+
+Physical model surgery changes tensor shapes or encoded values while preserving the
+surrounding checkpoint contract. A useful benchmark therefore checks more than file
+creation. The runtime must load the generated GGUF, tokenize a content-addressed sample,
+execute its forward passes, and return a finite perplexity estimate. Comparisons are
+rejected when tokenizer metadata differs, because a numerical delta would no longer
+describe only the model mutation.
+
+This small public sample is intentionally stable and contains no downloaded benchmark
+material. It supports smoke and integration evidence; larger research campaigns should
+use a separately pinned dataset revision and publish the corresponding manifest digest.
+Raw standard output and standard error remain part of every result, including timeouts,
+non-zero exits, truncated logs, and output that cannot be parsed.
+
+Reproducible measurements also separate configuration from observation. Thread count,
+microbatch size, logical batch size, context size, warmup policy, processed chunk count,
+and GPU offload layers are configuration. Perplexity, uncertainty, return status, and
+captured diagnostics are observations. Keeping those roles distinct makes it possible
+to compare experiments without silently accepting configuration drift. It also makes a
+same-model control useful: the baseline and candidate estimates should agree when every
+input byte and runtime setting is held constant.
+
+The benchmark is deliberately bounded. Input content is verified before execution,
+model payloads are hashed with a streaming buffer, GGUF tensor bytes remain memory
+mapped, and subprocess logs have an explicit maximum size. A timeout is a recorded
+failure rather than a successful metric. A final estimate must be finite and at least
+one, and uncertainty must be finite and non-negative. These checks turn a command-line
+program into a typed evaluation boundary suitable for downstream experiment reports.
+
+Tokenizer equality is established from the complete tokenizer metadata stored inside
+each GGUF. File names or user-supplied labels are not sufficient because two checkpoints
+can claim the same family while carrying different vocabulary, merge, normalization, or
+special-token settings. Hashing the canonical metadata makes the comparison inexpensive
+to review and fail closed. Structural surgery is expected to copy that metadata exactly;
+if it does not, perplexity cannot isolate the effect of the changed weights or topology.

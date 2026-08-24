@@ -5,6 +5,11 @@ without materializing a full floating-point model. The executor is deliberately
 limited to the coupled Llama and dense Qwen gate, up, and down projections
 accepted by the planner.
 
+GGUF feed-forward-width metadata is model-wide. A single-layer plan is therefore
+valid only for a one-layer model; multi-layer models fail before writing and must
+use the coordinated model-wide planner, which applies the same channel set to the
+gate/up/down tensors in every transformer layer.
+
 ## Execution contract
 
 The executor requires an open read-only `MemoryMappedGGUF`, a
@@ -26,6 +31,10 @@ Each planned axis selects one of three paths:
 - direct-block copy removes complete aligned blocks from each down-projection row;
 - contiguous-axis repack decodes one down-projection row, removes the requested
   values, and immediately requantizes that row with the exact original codec.
+
+Storage-only formats without a native float codec, including legacy Q5_0, are
+accepted only on the first two encoded-copy paths with an unchanged codec. Any
+partial block, repack, or codec substitution still fails closed.
 
 All input reads and output chunks obey explicit encoded-byte ceilings. The
 repack path retains at most one old row, one filtered row, and the bounded codec

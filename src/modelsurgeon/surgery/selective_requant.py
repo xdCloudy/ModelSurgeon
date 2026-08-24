@@ -14,7 +14,10 @@ from modelsurgeon.adapters.gguf.quantization import (
     QuantizationError,
 )
 from modelsurgeon.graph import ComponentId
-from modelsurgeon.surgery.gguf_alignment import GGUFQuantizedMutationPlan
+from modelsurgeon.surgery.gguf_alignment import (
+    GGUFQuantizedMutationPlan,
+    GGUFQuantizedTensorEdit,
+)
 
 
 class SelectiveRequantizationError(ValueError):
@@ -30,11 +33,14 @@ class GGUFRequantizationLimits:
     max_mean_squared_error: float | None = None
 
     def __post_init__(self) -> None:
-        if min(
-            self.max_encoded_chunk_bytes,
-            self.max_validation_values,
-            self.max_working_bytes,
-        ) <= 0:
+        if (
+            min(
+                self.max_encoded_chunk_bytes,
+                self.max_validation_values,
+                self.max_working_bytes,
+            )
+            <= 0
+        ):
             raise SelectiveRequantizationError("requantization limits must be positive")
         for value in (self.max_absolute_error, self.max_mean_squared_error):
             if value is not None and (not math.isfinite(value) or value < 0):
@@ -155,6 +161,30 @@ class SelectiveGGUFRequantizer:
     ) -> Iterator[EncodedChangedGGUFChunk]:
         self._reset()
         edits = {edit.component_id: edit for edit in plan.tensor_edits}
+        yield from self._iter_encoded_edits(edits, changed_chunks, codecs, byte_order)
+
+    def iter_encoded_tensor(
+        self,
+        edit: GGUFQuantizedTensorEdit,
+        changed_chunks: Iterable[ChangedGGUFFloatChunk],
+        codecs: CodecRegistry,
+        *,
+        byte_order: ByteOrder,
+    ) -> Iterator[EncodedChangedGGUFChunk]:
+        """Encode one complete selected tensor without requiring an axis-removal plan."""
+
+        self._reset()
+        yield from self._iter_encoded_edits(
+            {edit.component_id: edit}, changed_chunks, codecs, byte_order
+        )
+
+    def _iter_encoded_edits(
+        self,
+        edits: dict[ComponentId, GGUFQuantizedTensorEdit],
+        changed_chunks: Iterable[ChangedGGUFFloatChunk],
+        codecs: CodecRegistry,
+        byte_order: ByteOrder,
+    ) -> Iterator[EncodedChangedGGUFChunk]:
         last_end: dict[ComponentId, int] = {}
         for changed in changed_chunks:
             try:
@@ -188,8 +218,7 @@ class SelectiveGGUFRequantizer:
             max_blocks = min(
                 self.limits.max_encoded_chunk_bytes // block_bytes,
                 self.limits.max_validation_values // block_values,
-                self.limits.max_working_bytes
-                // (2 * block_bytes + 8 * block_values),
+                self.limits.max_working_bytes // (2 * block_bytes + 8 * block_values),
             )
             if max_blocks <= 0:
                 raise SelectiveRequantizationError(
@@ -203,12 +232,8 @@ class SelectiveGGUFRequantizer:
                 value_end = value_start + block_count * block_values
                 values = changed.values[value_start:value_end]
                 encoded = bytearray(block_count * block_bytes)
-                operation = codec.encode_blocks(
-                    values, memoryview(encoded), byte_order=byte_order
-                )
-                validation = codec.validate_blocks(
-                    memoryview(encoded), byte_order=byte_order
-                )
+                operation = codec.encode_blocks(values, memoryview(encoded), byte_order=byte_order)
+                validation = codec.validate_blocks(memoryview(encoded), byte_order=byte_order)
                 validation.require_valid()
                 if (
                     operation.block_count != block_count

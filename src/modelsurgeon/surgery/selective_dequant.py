@@ -176,6 +176,9 @@ class SelectiveGGUFDequantizer:
     ) -> Iterator[DecodedGGUFBlockChunk]:
         self._reset()
         for edit in plan.tensor_edits:
+            spans = tuple(_decode_spans(edit))
+            if not spans:
+                continue
             codec = codecs.resolve(edit.quant_type)
             handle = reader.index.tensor(
                 next(
@@ -202,7 +205,7 @@ class SelectiveGGUFDequantizer:
                 raise SelectiveDequantizationError(
                     f"configured limits cannot hold one {edit.quant_type.value} block"
                 )
-            for span in _decode_spans(edit):
+            for span in spans:
                 offset = span.block_offset
                 remaining = span.block_count
                 while remaining:

@@ -27,6 +27,7 @@ from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
 from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
+from modelsurgeon.cli.search import search_command
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
@@ -185,6 +186,7 @@ app.command("first-surgeon-hf-proof")(first_surgeon_hf_proof_command)
 app.command("first-surgeon-evidence")(first_surgeon_evidence_command)
 app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
+app.command("search")(search_command)
 
 
 if __name__ == "__main__":  # pragma: no cover

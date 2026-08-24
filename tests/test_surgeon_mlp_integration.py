@@ -103,3 +103,38 @@ def test_real_pytorch_mlp_classifier_returns_probabilities() -> None:
     probabilities = model.predict(validation.values)
     assert len(probabilities) == 2
     assert all(0.0 <= value <= 1.0 for value in probabilities)
+
+
+def test_real_pytorch_mlp_dropout_passes_are_reproducible() -> None:
+    train = _matrix(
+        SplitPartition.TRAIN,
+        "perplexity",
+        ((0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.0)),
+        (0.0, 0.5, 0.5, 1.0),
+    )
+    validation = _matrix(
+        SplitPartition.VALIDATION,
+        "perplexity",
+        ((0.25, 0.25), (0.75, 0.75)),
+        (0.25, 0.75),
+    )
+    model = train_mlp(
+        train,
+        validation,
+        config=MLPConfig(
+            task=ModelTask.REGRESSION,
+            hidden_sizes=(8,),
+            dropout=0.3,
+            learning_rate=0.01,
+            batch_size=4,
+            max_epochs=20,
+            patience=5,
+            seed=13,
+        ),
+    )
+
+    first = model.predict_stochastic(validation.values, passes=4, seed=17)
+    second = model.predict_stochastic(validation.values, passes=4, seed=17)
+
+    assert first == second
+    assert len(set(first)) > 1

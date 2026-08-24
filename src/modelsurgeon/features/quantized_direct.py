@@ -5,15 +5,21 @@ from __future__ import annotations
 import math
 import statistics
 import struct
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, cast
 
 from modelsurgeon.adapters.gguf.quantization import (
     QUANT_LAYOUTS,
     ByteOrder,
     CodecLayout,
     GGMLQuantizationType,
+)
+from modelsurgeon.features.schema import (
+    ErrorProvenance,
+    PrecisionProvenance,
+    PrecisionSource,
 )
 
 DIRECT_QUANTIZED_FEATURE_VERSION = "1"
@@ -124,6 +130,91 @@ class LocalDecodeRequired:
 
 
 type DirectQuantizedFeatureOutcome = DirectQuantizedFeature | LocalDecodeRequired
+
+
+@dataclass(frozen=True, slots=True)
+class EmpiricalQuantizedFeatureErrorModel:
+    """Study-backed error parameters suitable for feature precision provenance."""
+
+    codec: GGMLQuantizationType
+    feature_name: str
+    mean_absolute_error: float
+    mean_relative_absolute_error: float
+    maximum_absolute_error: float
+    spearman_rank_correlation: float
+    sample_count: int
+    study_sha256: str
+
+    @classmethod
+    def from_study_record(
+        cls,
+        codec: GGMLQuantizationType,
+        feature_name: str,
+        record: Mapping[str, object],
+        study_sha256: str,
+    ) -> EmpiricalQuantizedFeatureErrorModel:
+        keys = (
+            "mean_absolute_error",
+            "mean_relative_absolute_error",
+            "maximum_absolute_error",
+            "spearman_rank_correlation",
+        )
+        raw_values = tuple(record.get(key) for key in keys)
+        raw_count = record.get("sample_count")
+        if (
+            any(
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                for value in raw_values
+            )
+            or isinstance(raw_count, bool)
+            or not isinstance(raw_count, int)
+        ):
+            raise DirectQuantizedFeatureError(
+                "empirical quantized feature error model is malformed"
+            )
+        return cls(
+            codec,
+            feature_name,
+            float(cast(int | float, raw_values[0])),
+            float(cast(int | float, raw_values[1])),
+            float(cast(int | float, raw_values[2])),
+            float(cast(int | float, raw_values[3])),
+            raw_count,
+            study_sha256,
+        )
+
+    def __post_init__(self) -> None:
+        numeric = (
+            self.mean_absolute_error,
+            self.mean_relative_absolute_error,
+            self.maximum_absolute_error,
+            self.spearman_rank_correlation,
+        )
+        if (
+            not self.feature_name
+            or any(not math.isfinite(value) for value in numeric)
+            or min(numeric[:3]) < 0.0
+            or not -1.0 <= self.spearman_rank_correlation <= 1.0
+            or self.sample_count <= 0
+            or len(self.study_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in self.study_sha256)
+        ):
+            raise DirectQuantizedFeatureError("empirical quantized feature error model is invalid")
+
+    def precision_provenance(self, *, storage_dtype: str) -> PrecisionProvenance:
+        return PrecisionProvenance(
+            PrecisionSource.LOCALLY_DEQUANTIZED,
+            storage_dtype,
+            "float64",
+            quantization=self.codec.value,
+            codec_version=DIRECT_QUANTIZED_FEATURE_VERSION,
+            error=ErrorProvenance(
+                self.mean_absolute_error,
+                self.mean_relative_absolute_error,
+                "float64",
+                f"matched_tensor_empirical_v1:{self.study_sha256}",
+            ),
+        )
 
 
 _PRIMARY_SCALE_CODECS = frozenset(

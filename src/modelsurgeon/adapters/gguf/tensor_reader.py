@@ -13,7 +13,7 @@ from modelsurgeon.adapters.gguf.container import (
     GGUFTensorDescriptor,
     MemoryMappedGGUF,
 )
-from modelsurgeon.adapters.gguf.quantization import QUANT_LAYOUTS, GGMLQuantizationType
+from modelsurgeon.adapters.gguf.quantization import GGUF_STORAGE_LAYOUTS, GGMLQuantizationType
 
 
 class GGUFTensorReadError(ValueError):
@@ -109,8 +109,8 @@ def build_tensor_index(container: GGUFContainer) -> GGUFTensorIndex:
             dimensions=tensor.dimensions,
             quant_type=tensor.quant_type,
             byte_size=tensor.byte_size,
-            encoded_block_bytes=QUANT_LAYOUTS[tensor.quant_type].type_size,
-            logical_block_values=QUANT_LAYOUTS[tensor.quant_type].block_size,
+            encoded_block_bytes=GGUF_STORAGE_LAYOUTS[tensor.quant_type].type_size,
+            logical_block_values=GGUF_STORAGE_LAYOUTS[tensor.quant_type].block_size,
         )
         for ordinal, tensor in enumerate(container.tensors)
     )

@@ -107,8 +107,36 @@ def test_exact_binding_coverage_and_native_codec_are_required() -> None:
     plan = _physical(AxisRemoval(0, tuple(range(256))), new_bytes=1152)
     with pytest.raises(GGUFAlignmentError, match="exactly cover"):
         validate_gguf_quantized_plan(plan, ())
+    repack = _physical(
+        AxisRemoval(0, tuple(range(0, 512, 2))),
+        old_bytes=4672,
+        new_bytes=2336,
+    )
     with pytest.raises(GGUFAlignmentError, match="no exact native write codec"):
-        _validate(plan, GGMLQuantizationType.Q8_K)
+        _validate(repack, GGMLQuantizationType.Q8_K)
+
+
+def test_storage_only_legacy_codec_allows_copy_only_edits() -> None:
+    outer = _physical(
+        AxisRemoval(1, (1, 3)),
+        old_shape=(32, 8),
+        old_bytes=176,
+        new_bytes=132,
+    )
+    validated = _validate(outer, GGMLQuantizationType.Q5_0)
+    assert (
+        validated.tensor_edits[0].axis_edits[0].strategy
+        is QuantizedEditStrategy.WHOLE_SLICE_COPY
+    )
+
+    partial = _physical(
+        AxisRemoval(0, tuple(range(0, 64, 2))),
+        old_shape=(64, 8),
+        old_bytes=352,
+        new_bytes=176,
+    )
+    with pytest.raises(GGUFAlignmentError, match="only unchanged-codec"):
+        _validate(partial, GGMLQuantizationType.Q5_0)
 
 
 def test_encoded_size_is_recomputed_from_exact_layout() -> None:
