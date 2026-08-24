@@ -2,90 +2,62 @@
 
 # ModelSurgeon
 
-**Learn what a neural network can lose — and measure what it costs.**
+### Learn what a neural network can lose — and measure what it costs.
 
 [![CI](https://github.com/xdCloudy/ModelSurgeon/actions/workflows/ci.yml/badge.svg)](https://github.com/xdCloudy/ModelSurgeon/actions/workflows/ci.yml)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
-[![Status: Pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)](ROADMAP.md)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-F59E0B)](https://github.com/xdCloudy/ModelSurgeon/milestones)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-4C7CBF)](LICENSE)
 
-[Architecture](#architecture) · [Quick start](#quick-start) · [First Surgeon](#first-surgeon) · [Native GGUF](#native-gguf-surgery) · [CLI](#cli) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+**Local-first, evidence-driven structural optimization for Hugging Face and GGUF models.**
+
+[Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
 
 </div>
 
-ModelSurgeon is experimental research software for **learned structural optimization and pruning**. Instead of relying on one hard-coded importance score, it builds a canonical map of model structure, measures static and runtime evidence, runs controlled mutations, learns which edits are likely to be safe, and records enough provenance to reproduce the result.
+ModelSurgeon is experimental research software for learning which parts of a neural network can be removed, measuring the result, and preserving enough evidence to reproduce every decision. It combines canonical model structure, bounded feature collection, reversible experiments, learned surgeon models, constrained search, and transactional physical mutation.
 
-The project is local-first and deliberately targets both high-precision Hugging Face checkpoints and existing quantized GGUF models. The long-term goal is an automated surgeon that can search for smaller or faster models under explicit quality, memory, latency, and hardware constraints.
+It supports two complementary paths:
 
-> [!IMPORTANT]
-> ModelSurgeon is pre-alpha research software. Model surgery can damage checkpoints. Source models are treated as immutable by default, generated outputs are staged separately, and unsupported layouts fail closed rather than being guessed.
+- **Hugging Face / safetensors** for inspection, calibration, masking experiments, learned outcome models, search, and physical tensor surgery.
+- **Native GGUF** for bounded, copy-on-surgery edits to quantized models without materializing a full floating-point checkpoint.
+
+> [!WARNING]
+> ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
 ## Why ModelSurgeon?
 
-| Principle | What it means |
-|---|---|
-| **Learn from experiments** | Mutation outcomes become supervised data for heuristic, linear, tree, and neural surgeon models. |
-| **Reversible first** | Masking, bypass, rollback, and tiered evaluation are preferred before destructive structural edits. |
-| **Quantized models are first-class** | Native GGUF surgery works selectively on affected regions instead of requiring a full floating-point model. |
-| **Evidence over intuition** | Model, dataset, tokenizer, schema, seed, hardware, tool revision, metrics, and resource use travel with results. |
-
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph Inputs["Model inputs"]
-        HF["HF / safetensors"]
-        GG["Quantized GGUF"]
-    end
-
-    HF --> AD["Architecture adapters"]
-    GG --> AD
-
-    AD --> CG["Canonical component graph<br/>IDs · coupling · constraints"]
-    CG --> FE["Feature extraction<br/>weights · activations · gradients · runtime"]
-    FE --> SU["Surgeon models<br/>heuristic · linear · LightGBM · MLP"]
-    SU --> CA["Candidate selection"]
-    CA --> MU["Transactional mutation"]
-
-    MU --> HFM["HF masking / bypass"]
-    MU --> GGM["Native GGUF structural edit"]
-
-    HFM --> EV["Tiered evaluation"]
-    GGM --> EV
-
-    EV -->|reject| RB["Rollback / discard"]
-    EV -->|accept| OUT["New checkpoint / artifact"]
-    EV --> DS["Experiment dataset"]
-    DS --> SU
-```
-
-Both execution paths share the same component identities, mutation contracts, provenance model, evaluation records, and training data.
-
-| Path | Design |
-|---|---|
-| **HF / safetensors** | High-precision inspection, hooks, calibration, masking experiments, learned outcome models, and future physical checkpoint resizing. |
-| **Native GGUF** | mmap inspection, selective decode, graph-valid structural edits, requantization, unchanged-range copying, resumable output, and external validation. |
-
-The GGUF path is designed so ordinary surgery does **not** require a complete floating-point copy of the model in RAM or on disk.
+| Principle | What it means in practice |
+| --- | --- |
+| **Evidence over intuition** | Static, activation, gradient, quality, latency, memory, and hardware evidence travel with each result. |
+| **Learn from experiments** | Mutation outcomes become leakage-audited data for heuristic, linear, tree, and neural surgeon models. |
+| **Reversible before destructive** | Mask, bypass, evaluate, and roll back before publishing a physically modified artifact. |
+| **Quantized models are first-class** | GGUF edits selectively decode affected blocks and copy untouched encoded ranges byte-for-byte. |
+| **Consumer hardware matters** | Work is bounded, streamed, resumable, and tested around a 12 GB GPU / 64 GB RAM workstation. |
 
 ## Project status
 
-Current package version: **`0.0.1` / pre-alpha**.
+Current package version: **`0.0.1` (pre-alpha)**. The v0.5–v0.9 research path has reproducible repository evidence; **v1.0 stabilization is in progress**.
 
-The repository is considerably beyond its original scaffold, but it is not yet a stable end-user optimizer.
+| Area | State | Current capability |
+| --- | --- | --- |
+| Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
+| Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
+| Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
+| Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. |
+| Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
+| Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
+| Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
+| Public/release surface | **In progress** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 
-| Area | Status | Current capability |
-|---|---|---|
-| Model inspection + component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable IDs, graph discovery, coupling and mutation constraints. |
-| Instrumentation + evaluation | **Implemented** | Weight/spectral/activation/gradient/redundancy features, perplexity, latency, memory telemetry, bounded calibration, tiered evaluation. |
-| Transactional mutation lab | **Implemented** | MLP/head/component masking, layer bypass, mutation planning, rollback, provenance, single-mutation execution. |
-| Experiment datasets | **Implemented** | Canonical examples, grouped splits, leakage audits, persistence, resumability, budgets, OOM/retry infrastructure. |
-| Surgeon baselines | **Implemented; empirical proof pending** | Random, magnitude, heuristic, linear, logistic, LightGBM, and small MLP models with immutable bundles. |
-| Native GGUF surgery | **Experimental** | Bounded parser, exact codecs, physical planning, MLP-channel/head edits, copy-on-surgery output, requantization controls. |
-| Physical HF surgery | **In progress** | Planning contracts exist; physical tensor resize/save-reload workflow remains open. |
-| Active learning / cross-model / automated search | **Roadmap** | Planned after the First Surgeon proof and broader validation. |
+Measured evidence currently includes:
 
-The roadmap is dependency-driven rather than strictly sequential, so some native GGUF work has landed ahead of later empirical milestones. See [ROADMAP.md](ROADMAP.md).
+- a leakage-free **3,000-mutation First Surgeon** campaign on SmolLM2-135M;
+- active-learning, uncertainty, transfer, pruning-baseline, and iterative-search studies;
+- real HF and native-GGUF physical mutation and repair runs; and
+- a **134.5M–7.25B** consumer-hardware ladder on Windows with an RTX 3060 12 GB and 64 GB RAM.
+
+The results include negative findings where a learned policy or repair did not beat the declared baseline. Start with the [research index](docs/research/README.md), [First Surgeon evidence](docs/research/v0.5-first-surgeon-evidence.md), and [consumer scale evidence](docs/research/v0.8-consumer-scale-evidence.md).
 
 ## Quick start
 
@@ -94,130 +66,82 @@ The roadmap is dependency-driven rather than strictly sequential, so some native
 - Python **3.12+**
 - [`uv`](https://docs.astral.sh/uv/)
 - optional CUDA-capable PyTorch environment for GPU workflows
-
-Clone and install with Hugging Face support:
+- optional external `llama.cpp` tools for native GGUF validation and benchmarking
 
 ```bash
 git clone https://github.com/xdCloudy/ModelSurgeon.git
 cd ModelSurgeon
 uv sync --extra dev --extra hf --locked
+uv run modelsurgeon --help
 ```
 
-Inspect a Hugging Face causal LM:
+Inspect a Hugging Face causal language model without mutating it:
 
 ```bash
-uv run modelsurgeon inspect <model-id-or-local-path> \
+uv run modelsurgeon inspect HuggingFaceTB/SmolLM2-135M \
   --device-map cpu \
   --dtype auto
 ```
 
-Machine-readable output is available with `--json`.
+Add `--json` for machine-readable model and component records.
 
-```bash
-uv run modelsurgeon --help
-```
+## CLI workflows
 
-## CLI
-
-The current public CLI is intentionally small; deeper GGUF surgery components are still library-level APIs while their end-user workflow stabilizes.
+The public CLI exposes the stable orchestration boundary. Lower-level HF and GGUF surgery APIs remain library-level while their end-user contracts are stabilized for v1.0.
 
 | Command | Purpose |
-|---|---|
-| `inspect` | Load a Hugging Face causal LM and emit canonical model/component records. |
-| `experiment` | Resolve, execute, evaluate, and roll back one transactional mutation through a runtime adapter. |
-| `first-surgeon-proof` | Build a leakage-safe proof dataset through a generic experiment runtime. |
-| `first-surgeon-hf-proof` | Run real Hugging Face MLP-channel masks and create the First Surgeon dataset. |
-| `first-surgeon-evidence` | Train/evaluate the proof LightGBMs and compare them with random/magnitude baselines. |
-| `train-surgeon` | Train and publish a baseline surgeon from canonical mutation examples. |
-| `predict-surgeon` | Score compatible candidates with an immutable persisted surgeon bundle. |
-| `reproduce` | Reconstruct an immutable run recipe, explain environment drift, and compare trusted replay metrics. |
+| --- | --- |
+| `inspect` | Load and enumerate a Hugging Face causal language model. |
+| `experiment` | Resolve, evaluate, and roll back one transactional mutation. |
+| `first-surgeon-proof` | Build a leakage-safe proof dataset through a runtime adapter. |
+| `first-surgeon-hf-proof` | Run real HF MLP-channel masks and create the proof dataset. |
+| `first-surgeon-evidence` | Train proof LightGBMs and publish held-out baseline comparisons. |
+| `train-surgeon` | Train and publish an immutable baseline surgeon bundle. |
+| `predict-surgeon` | Score compatible candidates with a persisted bundle. |
+| `search` | Start or resume one constrained greedy, beam, or uncertainty-aware search decision. |
+| `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
 
-Global logging options:
-
-```text
---log-level LEVEL
---log-format human|json
-```
-
-## First Surgeon
-
-The first empirical target is deliberately narrow:
-
-> **Can static + activation features predict the perplexity impact of masking an individual MLP channel better than magnitude or random ranking?**
-
-The full proof pipeline is already implemented; the remaining milestone work is the real several-thousand-mutation campaign and empirical evidence.
+Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract.
 
 <details>
-<summary><strong>Run the First Surgeon proof</strong></summary>
+<summary><strong>Run the First Surgeon workflow</strong></summary>
 
-### 1. Generate a real mutation dataset
-
-For Hugging Face causal LMs with a standard gated `gate_proj` / `up_proj` / `down_proj` MLP:
+Generate real MLP-channel mutation examples:
 
 ```bash
-uv run modelsurgeon first-surgeon-hf-proof <model-id-or-local-path> ./calibration.txt \
+uv run modelsurgeon first-surgeon-hf-proof \
+  HuggingFaceTB/SmolLM2-135M ./calibration.txt \
   --output ./proof-data \
-  --max-candidates 5000 \
-  --sequence-length 256 \
-  --max-tokens 4096 \
-  --safe-perplexity-delta 0.25 \
+  --max-candidates 3000 \
+  --sequence-length 32 \
+  --max-tokens 64 \
+  --safe-perplexity-delta 0 \
   --seed 42 \
   --split-seed 43 \
   --tool-revision "$(git rev-parse HEAD)"
 ```
 
-This produces:
-
-```text
-proof-data/
-├── examples.jsonl
-├── split.json
-├── leakage.json
-└── campaign.json
-```
-
-The campaign fails rather than publishing a dataset if a split is empty or the leakage audit finds contamination.
-
-### 2. Install the optional LightGBM backend
+Train and compare the held-out LightGBM models:
 
 ```bash
 uv pip install "lightgbm>=4,<5"
-```
-
-### 3. Train and compare the held-out models
-
-```bash
 uv run modelsurgeon first-surgeon-evidence ./proof-data/examples.jsonl \
   --split ./proof-data/split.json \
   --registry ./proof-data/registry \
-  --output ./proof-data/first-surgeon-evidence.json \
-  --safe-perplexity-delta 0.25 \
+  --output ./proof-data/evidence.json \
+  --safe-perplexity-delta 0 \
   --threads 4 \
   --seed 42 \
   --top-n 50 \
   --bootstrap-repetitions 1000
 ```
 
-The evidence report includes held-out grouped metrics, random/magnitude comparisons, immutable artifact digests, source revisions, inference smoke tests, and training resource telemetry.
+The campaign refuses to publish when a split is empty or the leakage audit finds contamination. See the [proof protocol](docs/first-surgeon-proof.md) and [evidence contract](docs/first-surgeon-evidence.md).
 
 </details>
 
-See [docs/first-surgeon-proof.md](docs/first-surgeon-proof.md) for the protocol and acceptance criteria.
-
-## Train a surgeon baseline
-
-`train-surgeon` supports:
-
-```text
-linear
-logistic
-lightgbm-regressor
-lightgbm-classifier
-mlp-regressor
-mlp-classifier
-```
-
-Example:
+<details>
+<summary><strong>Train and use a surgeon bundle</strong></summary>
 
 ```bash
 uv run modelsurgeon train-surgeon ./examples.jsonl \
@@ -227,70 +151,92 @@ uv run modelsurgeon train-surgeon ./examples.jsonl \
   --baseline lightgbm-regressor \
   --threads 4 \
   --seed 42
-```
 
-Then score compatible candidates with the emitted immutable bundle digest:
-
-```bash
 uv run modelsurgeon predict-surgeon ./candidate.json \
   --registry ./artifacts/surgeons \
   --bundle sha256:<digest> \
   --json
 ```
 
-Inference refuses records with missing required features or incompatible preprocessing/schema contracts.
+Supported baselines are `linear`, `logistic`, `lightgbm-regressor`, `lightgbm-classifier`, `mlp-regressor`, and `mlp-classifier`. Inference rejects missing features and incompatible schema or preprocessing contracts.
 
-## Native GGUF surgery
+</details>
 
-GGUF is a first-class analysis and physical-surgery format, not merely an export target.
+<details>
+<summary><strong>Start or resume constrained search</strong></summary>
 
-| Capability | Current support |
-|---|---|
-| Container I/O | Bounded read-only mmap parser for GGUF v2/v3, lazy tensor handles, chunk/range reads. |
-| Dense codecs | F32, F16, BF16, Q8_0, Q6_K, Q5_K, Q4_K, Q3_K, Q2_K. |
-| IQ codecs | Prioritized IQ4 paths with unsupported IQ layouts rejected explicitly. |
-| Architecture mappings | Supported dense Llama, Qwen, Mistral, and finite Gemma variants; unsupported/newer semantics fail closed. |
-| Structural edits | Native quantized MLP-channel and attention-head planning/execution. |
-| Memory model | Full, tensor, and streaming modes with RAM/VRAM/scratch estimates and disk-backed intermediates. |
-| Output | Copy untouched encoded ranges, selectively decode changed blocks, requantize, checksum, resume, and atomically publish. |
-| Controls | Matched no-surgery requantization controls separate quantization loss from surgery loss. |
-| External validation | Pinned `llama.cpp` invocation/provenance is implemented; broader real-artifact acceptance is still being validated. |
+```bash
+uv run modelsurgeon search search.json --dry-run
+uv run modelsurgeon search search.json --state search.sqlite3
+uv run modelsurgeon search search.json --state search.sqlite3 --resume
+```
 
-Unsupported architecture families, MoE layouts, quantization formats, and unsafe mutation geometries are rejected rather than approximated silently.
+Search reserves candidates for an evaluator; predictions never silently become accepted checkpoints. See the [search CLI contract](docs/design/search-cli.md).
 
-For the detailed design, see [ARCHITECTURE.md](ARCHITECTURE.md) and [`docs/design/`](docs/design/).
+</details>
 
-## Safety and reproducibility invariants
+<details>
+<summary><strong>Inspect or replay a persisted run</strong></summary>
 
-- **Never silently reinterpret structure.** Stable component IDs and explicit old-to-new mappings survive physical edits.
-- **Never overwrite a source checkpoint by default.** New outputs stage separately and publish atomically.
-- **Never guess unsupported formats.** Unknown model families, tensor axes, codecs, or constraints fail closed.
-- **Never hide leakage.** Dataset splits are grouped around structural identity rather than randomized row-by-row after generation.
-- **Never hide precision context.** Feature records preserve storage/compute precision and quantization provenance.
-- **Never assume datacenter hardware.** Large operations are bounded, chunked, resumable, and designed around consumer-class memory limits.
+```bash
+uv run modelsurgeon reproduce run_<sha256> \
+  --metadata ./artifacts/experiments.sqlite3 \
+  --artifacts ./artifacts/store \
+  --repository . \
+  --lock ./uv.lock \
+  --dry-run
+```
 
-## Reference hardware
+Execution additionally requires an explicitly trusted local replay adapter. Environment drift, corrupt artifacts, missing metrics, and tolerance failures are reported rather than guessed around. See [reproducing persisted runs](docs/experiments/reproduce-run.md).
 
-The architecture is developed around a consumer-workstation envelope: approximately a **12 GB NVIDIA GPU and 64 GB system RAM**, with CPU-only paths where practical.
+</details>
 
-That is a design target, not a promise that every model or future surgery workflow will fit the same machine.
+## How it fits together
 
-## Repository layout
+```mermaid
+flowchart LR
+    INPUT["HF / safetensors<br/>or quantized GGUF"] --> GRAPH["Canonical graph<br/>identity · coupling · constraints"]
+    GRAPH --> FEATURES["Bounded evidence<br/>static · runtime · activation · gradient"]
+    FEATURES --> SURGEON["Surgeon models<br/>heuristic · linear · tree · neural"]
+    SURGEON --> SEARCH["Constrained search<br/>budget · uncertainty · Pareto state"]
+    SEARCH --> MUTATE["Transactional mutation<br/>mask · bypass · physical edit"]
+    MUTATE --> EVAL["Tiered evaluation<br/>quality · latency · memory · size"]
+    EVAL -->|accept| OUTPUT["Checkpoint + report"]
+    EVAL -->|reject| ROLLBACK["Rollback + retained evidence"]
+    EVAL --> DATA["Experiment dataset"]
+    DATA --> SURGEON
+```
+
+Both model paths share component identities, mutation plans, provenance, evaluation records, and training examples. The GGUF path adds mmap inspection, block-aligned selective decoding, exact-codec requantization, direct copying of unchanged ranges, resumable writes, and external validation.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md), the [architecture compatibility matrix](docs/architecture-compatibility.md), and the [design records](docs/design/).
+
+## Safety and reproducibility
+
+- Source checkpoints are not overwritten by default; new artifacts stage and publish atomically.
+- Unknown architectures, tensor axes, codecs, constraints, or unsafe geometries fail closed.
+- Stable component identities and explicit old-to-new mappings survive physical edits.
+- Dataset splits group structural identities and run a leakage audit before publication.
+- Feature and metric records retain precision, quantization, revision, seed, and hardware context.
+- Large work is preflighted against RAM, VRAM, disk, and scratch budgets, then chunked or streamed.
+- Persisted runs bind content-addressed artifacts to immutable recipes and explicit replay tolerances.
+
+## Repository map
 
 ```text
 src/modelsurgeon/
-├── adapters/         # HF, safetensors, GGUF and architecture boundaries
-├── graph/            # component IDs, topology, coupling and constraints
-├── features/         # static, spectral, activation, gradient and runtime features
-├── instrumentation/  # calibration, hooks and bounded aggregation
-├── surgery/          # mutation contracts, masks, physical edits and rollback
-├── evaluation/       # structural, perplexity, latency and external validation
-├── experiments/      # identity, persistence, budgets, queues and reproducibility
-├── datasets/         # mutation examples, stores, splits and leakage audits
+├── adapters/         # Hugging Face, safetensors, GGUF, architecture boundaries
+├── graph/            # canonical components, topology, coupling, constraints
+├── features/         # static, spectral, activation, gradient, runtime evidence
+├── instrumentation/  # calibration, hooks, bounded aggregation
+├── surgery/          # mutation contracts, masks, physical edits, rollback
+├── evaluation/       # structure, quality, latency, memory, external validation
+├── experiments/      # identity, persistence, budgets, queues, reproducibility
+├── datasets/         # examples, stores, splits, leakage audits
 ├── surgeon/          # heuristic and learned decision models
-├── search/           # candidate/search infrastructure
-├── explain/          # explanation/report infrastructure
-└── cli/              # user-facing workflows
+├── search/           # constrained policies, state, Pareto infrastructure
+├── explain/          # decision summaries and reproducible reports
+└── cli/              # user-facing orchestration
 ```
 
 ## Development
@@ -302,19 +248,18 @@ uv run mypy src
 uv run pytest --cov=modelsurgeon --cov-report=term-missing
 ```
 
-Pull-request CI runs the full quality suite plus real local Transformers First Surgeon and optional LightGBM integration smoke tests.
+Pull-request CI runs linting, strict typing, the CPU test suite, a real local Transformers smoke path, and optional LightGBM integration coverage. GPU, large-model, `llama.cpp`, and long-running evidence workflows are kept separate from the small PR gate.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Security reports follow [SECURITY.md](SECURITY.md).
 
 ## Documentation
 
-- [Architecture](ARCHITECTURE.md)
-- [Roadmap](ROADMAP.md)
-- [Changelog](CHANGELOG.md)
-- [First Surgeon proof protocol](docs/first-surgeon-proof.md)
-- [Design notes / ADRs](docs/design/)
-- [Contributing](CONTRIBUTING.md)
-- [Security](SECURITY.md)
-- [Citation metadata](CITATION.cff)
+- [Architecture](ARCHITECTURE.md) and [compatibility matrix](docs/architecture-compatibility.md)
+- [Roadmap](ROADMAP.md) and [GitHub milestones](https://github.com/xdCloudy/ModelSurgeon/milestones)
+- [Research evidence](docs/research/README.md) and [experiment guides](docs/experiments/README.md)
+- [Design records](docs/design/)
+- [Changelog](CHANGELOG.md) and [citation metadata](CITATION.cff)
 
 ## License
 
-Apache-2.0. Model, dataset, tokenizer, and upstream-tool licenses remain the responsibility of their users.
+ModelSurgeon is licensed under [Apache-2.0](LICENSE). Model, dataset, tokenizer, and upstream-tool licenses remain the responsibility of their users.
