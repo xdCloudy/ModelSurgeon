@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add non-overwriting atomic safetensors checkpoint publication with deterministic single or
+  sharded layouts, index/config staging, source-shard integrity checks, bounded tensor/shard
+  sizes, and streamed payload checksum verification before visibility.
 - Add bounded selected-Linear SVD replacement for Hugging Face models using real two-factor
   modules, with requested/effective rank, reconstruction error, and measured parameter and
   per-token FLOP reconciliation.
