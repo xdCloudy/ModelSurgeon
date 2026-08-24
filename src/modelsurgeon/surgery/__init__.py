@@ -136,6 +136,15 @@ from modelsurgeon.surgery.serialization import (
     MutationRecordError,
     MutationRunRecord,
 )
+from modelsurgeon.surgery.short_finetune import (
+    SHORT_FINETUNE_SCHEMA_VERSION,
+    FineTuneParameterMode,
+    FineTuneStatus,
+    ShortFineTuneConfig,
+    ShortFineTuneError,
+    ShortFineTuneResult,
+    run_short_finetune_repair,
+)
 from modelsurgeon.surgery.target_resolution import (
     MutationTargetResolutionError,
     ResolvedMutationTarget,
@@ -157,6 +166,7 @@ __all__ = [
     "NATIVE_GGUF_LOW_RANK_SCHEMA_VERSION",
     "PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION",
     "REDACTED_LOCAL_PATH",
+    "SHORT_FINETUNE_SCHEMA_VERSION",
     "AlignedAxisRemovalProposal",
     "AttentionHeadEditStrategy",
     "AttentionHeadMode",
@@ -170,6 +180,8 @@ __all__ = [
     "DequantizedPrecision",
     "EncodedBlockRange",
     "EncodedChangedGGUFChunk",
+    "FineTuneParameterMode",
+    "FineTuneStatus",
     "GGUFAlignmentError",
     "GGUFQuantizationBinding",
     "GGUFQuantizedMutationPlan",
@@ -240,6 +252,9 @@ __all__ = [
     "SelectiveGGUFRequantizer",
     "SelectiveRequantizationError",
     "SequenceOutputMaskBackend",
+    "ShortFineTuneConfig",
+    "ShortFineTuneError",
+    "ShortFineTuneResult",
     "TensorAxisTransform",
     "TensorEditIntent",
     "TouchedGGUFBlockRange",
@@ -261,5 +276,6 @@ __all__ = [
     "resolve_mutation_targets",
     "resolve_native_gguf_attention_head_removal_rules",
     "run_bounded_lora_repair",
+    "run_short_finetune_repair",
     "validate_gguf_quantized_plan",
 ]
