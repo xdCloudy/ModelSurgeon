@@ -311,19 +311,30 @@ class _WindowsProcessMemoryCounters(ctypes.Structure):
 def _windows_process_rss(process_id: int) -> int | None:
     try:
         windll: Any = getattr(ctypes, "windll")  # noqa: B009
-        handle = windll.kernel32.OpenProcess(0x0400 | 0x0010, False, process_id)
+        open_process = windll.kernel32.OpenProcess
+        open_process.argtypes = (ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong)
+        open_process.restype = ctypes.c_void_p
+        get_memory = windll.psapi.GetProcessMemoryInfo
+        get_memory.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(_WindowsProcessMemoryCounters),
+            ctypes.c_ulong,
+        )
+        get_memory.restype = ctypes.c_bool
+        close_handle = windll.kernel32.CloseHandle
+        close_handle.argtypes = (ctypes.c_void_p,)
+        close_handle.restype = ctypes.c_bool
+        handle = open_process(0x0400 | 0x0010, False, process_id)
         if not handle:
             return None
         try:
             counters = _WindowsProcessMemoryCounters()
             counters.cb = ctypes.sizeof(counters)
-            ok = windll.psapi.GetProcessMemoryInfo(
-                handle, ctypes.byref(counters), counters.cb
-            )
+            ok = get_memory(handle, ctypes.byref(counters), counters.cb)
             return int(counters.WorkingSetSize) if ok else None
         finally:
-            windll.kernel32.CloseHandle(handle)
-    except (AttributeError, OSError, ValueError):
+            close_handle(handle)
+    except (AttributeError, ctypes.ArgumentError, OSError, ValueError):
         return None
 
 
