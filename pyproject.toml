@@ -58,6 +58,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 "tools/bootstrap_github.py" = ["E501", "RUF001"]
 "tools/audit_github.py" = ["E501"]
 "tools/roadmap_catalog.py" = ["E501", "RUF001"]
+"tools/post_v1_roadmap_catalog.py" = ["E501"]
+"tools/bootstrap_post_v1.py" = ["E501"]
+"tools/audit_post_v1.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -67,6 +70,7 @@ packages = ["modelsurgeon"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers -q"
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
   "gpu: requires a real CUDA device and is excluded from normal CPU CI",
 ]

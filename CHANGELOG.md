@@ -5,6 +5,10 @@
 - Complete the revision-pinned 100M–7.25B consumer-hardware scale study with measured
   analysis, feature, reversible mutation, forward-evaluation, RAM, VRAM, cache-disk,
   placement, and failure evidence plus conservative defaults for a 12 GB GPU host.
+- Extend the dependency-ordered roadmap from v1.1 through v2.0 with implementation-ready
+  competitive benchmarking, physical deployment, hardware-aware, multi-axis, interaction,
+  transfer, repair, rigor, production and autonomous-optimizer milestones plus idempotent
+  GitHub materialization and read-back audit tooling.
 - Publish a generated 108-cell HF/GGUF architecture compatibility matrix with separate
   verified, experimental, unsupported, and unknown states so untested combinations cannot
   be presented as supported.
