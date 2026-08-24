@@ -14,6 +14,16 @@ flowchart LR
   G --> H
   H --> I[v0.9 Automated Optimization]
   I --> J[v1.0 ModelSurgeon]
+  J --> K[v1.1 Competitive Ground Truth]
+  K --> L[v1.2 Physical Deployment Pareto]
+  L --> M[v1.3 Hardware-Aware Surgery]
+  M --> N[v1.4 Multi-Axis Optimization]
+  N --> O[v1.5 State-Dependent Surgeon]
+  O --> P[v1.6 Cross-Model Meta-Surgeon]
+  P --> Q[v1.7 Learned Repair]
+  Q --> R[v1.8 Scientific Rigor]
+  R --> S[v1.9 Production Ecosystem]
+  S --> T[v2.0 Autonomous Optimizer]
 ```
 
 ## v0.1 — Foundation
@@ -54,7 +64,47 @@ Implement constrained multi-objective search across sequences of graph-valid mut
 
 ## v1.0 — ModelSurgeon
 
-Stabilize public schemas and CLI workflows; complete explainability, reports, reproduce/export commands, performance/regression suites, security hardening, release docs and reproducible reference experiments on consumer hardware.
+This is the current unfinished milestone. Stabilize public schemas and CLI workflows; complete explainability, reports, reproduce/export commands, performance/regression suites, security hardening, release docs and reproducible reference experiments on consumer hardware. Post-v1 work remains blocked by its declared open v1.0 prerequisites; it does not replace or imply completion of them.
+
+## v1.1 — Competitive Benchmarking and Ground Truth
+
+Implement strong Wanda, SparseGPT, structured-pruning and quantized baselines behind equal-budget contracts. Exit with reproducible, statistically defensible quality/throughput/memory/size/cost Pareto evidence on physically deployable artifacts. New search algorithms are out of scope.
+
+## v1.2 — Physical Compression and Deployment Pareto Optimization
+
+Make cumulative HF and GGUF surgery physically smaller, reloadable and measurable, with artifact-correctness gates and explicit surgery-versus-quantization loss. Exit with deployment frontiers and retained failure evidence; a learned hardware policy is deferred.
+
+## v1.3 — Hardware-Aware Surgery
+
+Profile target machines and learn measured kernel/alignment/resource costs rather than treating parameter count as deployment benefit. Exit when conditioned decisions improve or honestly fail to improve held-out consumer-hardware frontiers.
+
+## v1.4 — Multi-Axis Architecture Optimization
+
+Represent complete architecture states and search graph-valid combinations of depth, width, heads, MLP channels, rank and precision. Exit with bounded beam/evolutionary/surrogate search and physically validated Pareto candidates; interaction learning belongs to v1.5.
+
+## v1.5 — Interaction-Aware and State-Dependent Surgeon
+
+Collect ordered mutation interactions and condition predictions on cumulative architecture state. Exit when long-sequence studies quantify cumulative regret, violations, rollbacks and evaluation cost against stateless/additive baselines.
+
+## v1.6 — Cross-Model Meta-Surgeon
+
+Define lineage-safe model meta-features, compatibility rules and transfer confidence. Exit with four-family zero/few-shot evidence showing when transferable knowledge saves target evaluations and when target-specific retraining is required.
+
+## v1.7 — Learned Recovery, Distillation and Repair
+
+Predict recoverability and repair cost, then jointly choose surgery, repair and quantization under consumer budgets. Exit with measured no-repair, LoRA, fine-tuning, distillation and oracle comparisons; repair is never assumed to rescue an unsafe mutation.
+
+## v1.8 — Robustness, Security, Validation and Scientific Rigor
+
+Add hostile artifacts, mutation properties, crash consistency, cross-platform numerical validation, leakage controls, signed evidence and clean-environment reproduction. Exit only after independent audit of claims and retained negative/failed cells.
+
+## v1.9 — Production UX, Ecosystem and Large-Scale Optimization
+
+Deliver a resumable `optimize` workflow, worker scheduling, artifact registry, stable plugin/runtime interfaces, an evidence explorer and representative user workflows. Exit with practical local and multi-worker campaigns; autonomous policy selection remains v2.0 work.
+
+## v2.0 — Autonomous Evidence-Driven Model Optimizer
+
+Turn a constrained user objective and hardware profile into an auditable capability space, strategy, mutation/evaluation/repair/quantization workflow and deployable alternatives. Exit with human approval gates, deterministic replay, a competitive reference benchmark, signed release artifacts and a scientific report that clearly separates verified, experimental, unsupported and unknown capabilities.
 
 ## Central critical path
 
@@ -75,9 +125,23 @@ configuration and safety contracts
   -> cross-model/quantization evaluation
   -> constrained iterative search
   -> reproducible v1.0 workflow
+  -> equal-budget competitor ground truth
+  -> physical deployment Pareto evidence
+  -> measured hardware-conditioned cost models
+  -> multi-axis architecture-state search
+  -> interaction-aware cumulative prediction
+  -> cross-family meta-learning
+  -> joint surgery + repair + quantization economics
+  -> hostile-input and signed-evidence audit
+  -> resumable production optimize workflow
+  -> autonomous objective-to-artifact v2.0 release
 ```
 
 ## Scientific questions
 
 The tracked research program asks whether static features predict safe pruning; how much activations and gradients add; whether learned rankings beat magnitude and random baselines; whether predictions transfer across models and families; whether active learning reduces experiments; whether iterative surgery beats one-shot pruning; which quantized features remain reliable; and how surgery loss separates from requantization loss.
+
+Post-v1 research extends those questions without erasing negative results: whether ModelSurgeon is competitive under equal deployment budgets; which physical mutations create real hardware gains; whether cumulative interactions, meta-learning and recoverability estimates generalize; and whether an autonomous policy can produce a better feasible frontier with fewer evaluations while preserving provenance, safety and human control.
+
+The [ModelSurgeon Roadmap Project](https://github.com/users/xdCloudy/projects/2) is the source of truth for individual issue status, priority, effort, risk, phase and native blocker relationships.
 

@@ -86,8 +86,8 @@ def audit() -> dict[str, Any]:
     errors: list[str] = []
     issues = all_issues()
     expected_keys = {spec.key for spec in ISSUES}
-    if set(issues) != expected_keys:
-        errors.append(f"issue key mismatch: missing={sorted(expected_keys-set(issues))} extra={sorted(set(issues)-expected_keys)}")
+    if not expected_keys <= set(issues):
+        errors.append(f"issue key mismatch: missing={sorted(expected_keys-set(issues))}")
     numbers = {key: int(value["number"]) for key, value in issues.items()}
 
     for spec in ISSUES:
@@ -107,7 +107,7 @@ def audit() -> dict[str, Any]:
                 errors.append(f"#{value['number']} body missing blocked-by #{numbers[dependency]}")
 
     with ThreadPoolExecutor(max_workers=8) as executor:
-        native = dict(executor.map(native_dependencies, issues.values()))
+        native = dict(executor.map(native_dependencies, (issues[spec.key] for spec in ISSUES)))
     for spec in ISSUES:
         expected = {numbers[key] for key in spec.dependencies}
         if native[spec.key] != expected:
@@ -115,13 +115,21 @@ def audit() -> dict[str, Any]:
 
     roadmap = project()
     items = project_items(roadmap["id"])
+    state_by_number = {int(value["number"]): value["state"] for value in issues.values()}
+    statuses: dict[str, str] = {}
     for spec in ISSUES:
         number = numbers[spec.key]
         if number not in items:
             errors.append(f"#{number} missing from Project")
             continue
+        status = (
+            "Done" if issues[spec.key]["state"] == "closed"
+            else "Blocked" if any(state_by_number[value] == "open" for value in native[spec.key])
+            else "Ready"
+        )
+        statuses[spec.key] = status
         expected_fields = {
-            "Status": "Blocked" if spec.dependencies else "Ready",
+            "Status": status,
             "Phase": spec.phase,
             "Priority": spec.priority,
             "Work Type": spec.kind,
@@ -146,13 +154,14 @@ def audit() -> dict[str, Any]:
         "errors": errors,
         "repository": f"https://github.com/{REPOSITORY}",
         "project": roadmap["url"],
-        "issues": len(issues),
+        "issues": len(ISSUES),
         "native_dependency_edges": sum(len(value) for value in native.values()),
         "project_items": len(items),
         "milestones": len({value["title"] for value in milestones} & {name for name, _ in MILESTONES}),
         "roadmap_labels": len({value["name"] for value in labels} & set(LABELS)),
-        "ready": sum(1 for spec in ISSUES if not spec.dependencies),
-        "blocked": sum(1 for spec in ISSUES if spec.dependencies),
+        "ready": sum(value == "Ready" for value in statuses.values()),
+        "blocked": sum(value == "Blocked" for value in statuses.values()),
+        "done": sum(value == "Done" for value in statuses.values()),
         "topological_order": str(TOPOLOGY),
     }
     REPORT.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
