@@ -57,6 +57,16 @@ from modelsurgeon.surgery.hidden_dimension_study import (
     HiddenDimensionStudyError,
     evaluate_coordinated_hidden_dimension_surgery,
 )
+from modelsurgeon.surgery.lora_repair import (
+    LORA_REPAIR_SCHEMA_VERSION,
+    LoRAOutputMode,
+    LoRARepairConfig,
+    LoRARepairError,
+    LoRARepairResourceUse,
+    LoRARepairResult,
+    lora_adapter_state_dict,
+    run_bounded_lora_repair,
+)
 from modelsurgeon.surgery.native_layer_execute import (
     NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION,
     NativeGGUFLayerRemovalError,
@@ -140,6 +150,7 @@ from modelsurgeon.surgery.transaction import (
 
 __all__ = [
     "HIDDEN_DIMENSION_STUDY_SCHEMA_VERSION",
+    "LORA_REPAIR_SCHEMA_VERSION",
     "MUTATION_RECORD_SCHEMA_VERSION",
     "MUTATION_SCHEMA_VERSION",
     "NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION",
@@ -170,6 +181,11 @@ __all__ = [
     "HiddenDimensionStudy",
     "HiddenDimensionStudyError",
     "InMemoryMutationTransaction",
+    "LoRAOutputMode",
+    "LoRARepairConfig",
+    "LoRARepairError",
+    "LoRARepairResourceUse",
+    "LoRARepairResult",
     "MaskHookHandle",
     "MaskHookModule",
     "MutationCompatibility",
@@ -236,6 +252,7 @@ __all__ = [
     "execute_native_gguf_low_rank_replacement",
     "execute_native_gguf_mlp_channel_removal",
     "execute_native_gguf_transformer_layer_removal",
+    "lora_adapter_state_dict",
     "plan_native_gguf_mlp_channel_removal",
     "plan_native_gguf_model_mlp_channel_removal",
     "plan_native_gguf_transformer_layer_removal",
@@ -243,5 +260,6 @@ __all__ = [
     "require_safe_transaction",
     "resolve_mutation_targets",
     "resolve_native_gguf_attention_head_removal_rules",
+    "run_bounded_lora_repair",
     "validate_gguf_quantized_plan",
 ]
