@@ -8,4 +8,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v0.6 100,000-candidate pool evidence](v0.6-candidate-pool-evidence.md)
 - [v0.6 100,000-candidate diversity evidence](v0.6-diversity-100k-evidence.md)
 - [v0.6 active-learning sample-efficiency study](v0.6-active-learning-study.md)
+- [v0.7 Hugging Face physical MLP evidence](v0.7-hf-physical-mlp-evidence.md)
 

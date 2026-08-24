@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add model-wide physical Hugging Face gated-MLP channel removal with synchronized gate/up
+  rows and down columns, global configuration/linear metadata updates, exact parameter
+  reconciliation, mask-equivalence evidence, and successful real-model save/reload.
 - Add equal-budget active/random/utility-only learning-curve studies with normalized AULC,
   seeded bootstrap confidence intervals, dependency-free SVG plots, and explicit negative
   results when active selection does not beat the strongest baseline.
