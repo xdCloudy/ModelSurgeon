@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, cast
 
 import typer
 
-from modelsurgeon.datasets.grouped_splits import SplitPartition
+from modelsurgeon.datasets.grouped_splits import (
+    GROUPED_SPLIT_ALGORITHM,
+    GROUPED_SPLIT_VERSION,
+    GroupedSplitManifest,
+    GroupedSplitMode,
+    SplitGroup,
+    SplitPartition,
+    SplitRatios,
+)
 from modelsurgeon.datasets.parquet_store import (
     PartitionedParquetStore,
     PartitionKind,
@@ -120,8 +129,89 @@ def load_surgeon_records(path: Path) -> tuple[Mapping[str, object], ...]:
     )
 
 
-def load_split_assignments(path: Path) -> dict[str, SplitPartition]:
-    """Load inline assignments or a serialized GroupedSplitManifest."""
+def _split_number(value: object, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise SurgeonCommandError(f"{label} must be numeric")
+    result = float(value)
+    if not math.isfinite(result):
+        raise SurgeonCommandError(f"{label} must be finite")
+    return result
+
+
+def _split_strings(value: object, label: str) -> tuple[str, ...]:
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, str) and item for item in value)
+    ):
+        raise SurgeonCommandError(f"{label} must be a non-empty-string list")
+    return tuple(cast(list[str], value))
+
+
+def _grouped_split(value: Mapping[str, object]) -> GroupedSplitManifest:
+    if value.get("version") != GROUPED_SPLIT_VERSION:
+        raise SurgeonCommandError("grouped split version is unsupported")
+    if value.get("algorithm") != GROUPED_SPLIT_ALGORITHM:
+        raise SurgeonCommandError("grouped split algorithm is unsupported")
+    mode_raw = value.get("mode")
+    seed = value.get("seed")
+    ratios_raw = value.get("ratios")
+    groups_raw = value.get("groups")
+    if not isinstance(mode_raw, str):
+        raise SurgeonCommandError("grouped split mode is invalid")
+    if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0 or seed >= 1 << 64:
+        raise SurgeonCommandError("grouped split seed must be unsigned 64-bit")
+    if not isinstance(ratios_raw, Mapping) or not isinstance(groups_raw, list):
+        raise SurgeonCommandError("grouped split ratios/groups are malformed")
+    try:
+        mode = GroupedSplitMode(mode_raw)
+        ratios = SplitRatios(
+            _split_number(ratios_raw["train"], "train split ratio"),
+            _split_number(ratios_raw["validation"], "validation split ratio"),
+            _split_number(ratios_raw["test"], "test split ratio"),
+        )
+    except (KeyError, ValueError) as error:
+        raise SurgeonCommandError("grouped split mode/ratios are invalid") from error
+
+    groups: list[SplitGroup] = []
+    for raw in groups_raw:
+        if not isinstance(raw, Mapping):
+            raise SurgeonCommandError("grouped split entries must be objects")
+        group_id = raw.get("group_id")
+        partition = raw.get("partition")
+        if not isinstance(group_id, str) or not group_id or not isinstance(partition, str):
+            raise SurgeonCommandError("grouped split identity/partition is malformed")
+        try:
+            resolved_partition = SplitPartition(partition)
+        except ValueError as error:
+            raise SurgeonCommandError("grouped split partition is unknown") from error
+        groups.append(
+            SplitGroup(
+                group_id,
+                resolved_partition,
+                tuple(sorted(_split_strings(raw.get("keys"), "grouped split keys"))),
+                tuple(
+                    sorted(
+                        _split_strings(
+                            raw.get("example_ids"),
+                            "grouped split example_ids",
+                        )
+                    )
+                ),
+            )
+        )
+    return GroupedSplitManifest(
+        mode,
+        seed,
+        ratios,
+        tuple(sorted(groups, key=lambda group: group.group_id)),
+    )
+
+
+def load_split_assignments(
+    path: Path,
+) -> GroupedSplitManifest | dict[str, SplitPartition]:
+    """Load inline assignments or preserve a full serialized grouped split manifest."""
 
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -139,34 +229,20 @@ def load_split_assignments(path: Path) -> dict[str, SplitPartition]:
                 raise SurgeonCommandError(
                     "split assignments must map strings to partition strings"
                 )
-            assignments[example_id] = SplitPartition(partition)
-        return assignments
-    groups = value.get("groups")
-    if not isinstance(groups, list):
-        raise SurgeonCommandError(
-            "split JSON must contain either assignments or GroupedSplitManifest groups"
-        )
-    for group in groups:
-        if not isinstance(group, Mapping):
-            raise SurgeonCommandError("split group entries must be objects")
-        partition = group.get("partition")
-        example_ids = group.get("example_ids")
-        if not isinstance(partition, str) or not isinstance(example_ids, list):
-            raise SurgeonCommandError(
-                "split group partition/example_ids are malformed"
-            )
-        resolved = SplitPartition(partition)
-        for example_id in example_ids:
-            if not isinstance(example_id, str) or not example_id:
-                raise SurgeonCommandError(
-                    "split example IDs must be non-empty strings"
-                )
             if example_id in assignments:
+                raise SurgeonCommandError("split assignment IDs must be unique")
+            try:
+                assignments[example_id] = SplitPartition(partition)
+            except ValueError as error:
                 raise SurgeonCommandError(
-                    f"split example {example_id!r} appears in multiple groups"
-                )
-            assignments[example_id] = resolved
-    return assignments
+                    f"unknown split partition {partition!r}"
+                ) from error
+        return assignments
+    if "groups" in value:
+        return _grouped_split(cast(Mapping[str, object], value))
+    raise SurgeonCommandError(
+        "split JSON must contain either assignments or GroupedSplitManifest groups"
+    )
 
 
 def _thresholds(values: Sequence[str]) -> dict[str, float]:
