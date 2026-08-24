@@ -112,7 +112,8 @@
   float64 accumulation, shape/dtype/device provenance, and explicit empty/non-finite rejection.
 - Validate generated GGUFs with the pinned llama.cpp revision using a bounded
   one-token forward/generation check, captured tool/command provenance, capped logs,
-  and fail-closed timeout or non-zero-exit reporting.
+  fail-closed timeout or non-zero-exit reporting, current official version parsing,
+  and non-interactive CLI termination.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.

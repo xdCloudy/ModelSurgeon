@@ -83,7 +83,32 @@ def test_generated_gguf_passes_only_after_pinned_llama_forward(
     assert report.command[9:13] == ("-t", "1", "-ngl", "0")
     assert "--seed" in report.command
     assert "--temp" in report.command
+    assert report.command[-2:] == ("--single-turn", "--simple-io")
     assert json.loads(json.dumps(report.to_record()))["successful"] is True
+
+
+def test_current_official_version_format_is_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = "/opt/llama.cpp/llama-cli"
+    monkeypatch.setattr(llama_cpp.shutil, "which", lambda name: executable)
+
+    def fake_run(command: object, **options: object) -> object:
+        argv = tuple(cast(tuple[str, ...], command))
+        stdout = cast(BinaryIO, options["stdout"])
+        if "--version" in argv:
+            stdout.write(
+                b"version: 0.2.0-dev (build 10597, commit 95b8e33e1)\n"
+                b"built with Clang 22.1.8 for Windows AMD64\n"
+            )
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(llama_cpp.subprocess, "run", fake_run)
+    report = validate_generated_gguf(_model(tmp_path))
+
+    assert report.successful
+    assert report.tool.reported_revision == "95b8e33e1"
 
 
 def test_mismatched_llama_revision_fails_before_model_execution(
