@@ -69,7 +69,12 @@ class HeldOutGroup:
     example_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.key or not self.model_identifiers or not self.model_revisions or not self.example_ids:
+        if (
+            not self.key
+            or not self.model_identifiers
+            or not self.model_revisions
+            or not self.example_ids
+        ):
             raise HeldOutSplitError("held-out groups require key, model provenance, and examples")
         for values in (self.model_identifiers, self.model_revisions, self.example_ids):
             if values != tuple(sorted(set(values))):
@@ -220,7 +225,11 @@ def _seeded_assign(
     config: HeldOutSplitConfig,
 ) -> tuple[HeldOutGroup, ...]:
     if len(groups) < len(tuple(SplitPartition)):
-        noun = "architecture families" if config.mode is HeldOutSplitMode.ARCHITECTURE_FAMILY else "models"
+        noun = (
+            "architecture families"
+            if config.mode is HeldOutSplitMode.ARCHITECTURE_FAMILY
+            else "models"
+        )
         raise HeldOutSplitError(
             f"seeded {config.mode.value} split needs at least 3 distinct {noun} for "
             f"train/validation/test; found {len(groups)}. Add more {noun} or use explicit holdouts."
@@ -236,6 +245,7 @@ def _seeded_assign(
     counts = {partition: 0 for partition in SplitPartition}
     assigned: list[HeldOutGroup] = []
     for group in ordered:
+
         def priority(partition: SplitPartition) -> tuple[float, int]:
             deficit = (targets[partition] - counts[partition]) / targets[partition]
             return deficit, -tuple(SplitPartition).index(partition)
@@ -269,7 +279,8 @@ def _explicit_assign(
     remaining = available - requested
     if not remaining:
         raise HeldOutSplitError(
-            "explicit held-out split leaves no training group; keep at least one model/family unheld"
+            "explicit held-out split leaves no training group; "
+            "keep at least one model/family unheld"
         )
     assigned: list[HeldOutGroup] = []
     validation = set(config.validation_holdouts)
