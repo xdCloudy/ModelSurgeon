@@ -24,6 +24,7 @@ class StaticFeatureStudyError(ValueError):
 class FeatureProfile(StrEnum):
     STATIC_ONLY = "static_only"
     STATIC_ACTIVATION = "static_activation"
+    STATIC_ACTIVATION_GRADIENT = "static_activation_gradient"
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,12 +133,30 @@ def select_feature_profile_records(
         raw_features = record.get("pre_mutation_features")
         if not isinstance(raw_features, list) or not raw_features:
             raise StaticFeatureStudyError("pre_mutation_features must be a non-empty list")
-        if not any(
-            isinstance(raw, Mapping) and raw.get("sample_context") is not None
+        activation_present = any(
+            isinstance(raw, Mapping)
+            and raw.get("sample_context") is not None
+            and raw.get("extractor") != "gradient_features"
             for raw in raw_features
-        ):
+        )
+        if not activation_present:
             raise StaticFeatureStudyError("static-plus-activation profile requires activations")
-        output.append(record)
+        gradient_present = any(
+            isinstance(raw, Mapping) and raw.get("extractor") == "gradient_features"
+            for raw in raw_features
+        )
+        if profile is FeatureProfile.STATIC_ACTIVATION_GRADIENT and not gradient_present:
+            raise StaticFeatureStudyError("gradient feature profile requires gradients")
+        selected_features = [
+            raw
+            for raw in raw_features
+            if profile is FeatureProfile.STATIC_ACTIVATION_GRADIENT
+            or not isinstance(raw, Mapping)
+            or raw.get("extractor") != "gradient_features"
+        ]
+        filtered = dict(record)
+        filtered["pre_mutation_features"] = selected_features
+        output.append(filtered)
     return tuple(output)
 
 

@@ -14,6 +14,9 @@ from modelsurgeon.datasets.grouped_splits import (
 from modelsurgeon.evaluation.activation_feature_study import (
     run_activation_feature_ablation,
 )
+from modelsurgeon.evaluation.gradient_feature_study import (
+    run_gradient_feature_ablation,
+)
 from modelsurgeon.evaluation.static_feature_study import (
     StaticFeatureStudyConfig,
     StaticFeatureStudyError,
@@ -68,6 +71,22 @@ def _example(index: int, delta: float) -> dict[str, object]:
         "post_metrics": [_metric(10.0 + delta)],
         "versions": {"feature_schema_version": 1},
     }
+
+
+def _gradient_example(index: int, delta: float) -> dict[str, object]:
+    record = _example(index, delta)
+    features = record["pre_mutation_features"]
+    assert isinstance(features, list)
+    features.append(
+        {
+            "name": "first_order_removal_magnitude",
+            "kind": "scalar",
+            "value": delta * 3.0,
+            "extractor": "gradient_features",
+            "sample_context": {"sample_ids": ["calibration"]},
+        }
+    )
+    return record
 
 
 def _split() -> GroupedSplitManifest:
@@ -150,6 +169,24 @@ def test_activation_ablation_is_paired_on_identical_heldout_rows() -> None:
         "rmse_reduction",
     }
     assert all(gain.bootstrap_repetitions > 0 for gain in result.gains)
+
+
+def test_gradient_ablation_excludes_gradients_from_its_paired_baseline() -> None:
+    pytest.importorskip("lightgbm")
+    deltas = (0.05, 0.75, 0.10, 0.90) * 4
+    result = run_gradient_feature_ablation(
+        tuple(_gradient_example(index, delta) for index, delta in enumerate(deltas)),
+        _split(),
+        StaticFeatureStudyConfig(
+            top_n=2,
+            threads=1,
+            bootstrap_repetitions=20,
+        ),
+    )
+
+    assert "first_order_removal_magnitude" not in result.static_activation.feature_names
+    assert "first_order_removal_magnitude" in (result.static_activation_gradient.feature_names)
+    assert result.static_activation.test_labels == (result.static_activation_gradient.test_labels)
 
 
 def test_static_study_rejects_invalid_protocol() -> None:

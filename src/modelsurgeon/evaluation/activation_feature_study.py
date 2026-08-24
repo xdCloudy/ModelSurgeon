@@ -94,7 +94,7 @@ def _indexes(values: Sequence[float], indexes: Sequence[int]) -> tuple[float, ..
     return tuple(values[index] for index in indexes)
 
 
-def _paired_gains(
+def paired_feature_gains(
     static: StaticFeatureStudyResult,
     activation: StaticFeatureStudyResult,
     config: StaticFeatureStudyConfig,
@@ -199,5 +199,5 @@ def run_activation_feature_ablation(
     return ActivationFeatureAblationResult(
         static,
         activation,
-        _paired_gains(static, activation, resolved),
+        paired_feature_gains(static, activation, resolved),
     )

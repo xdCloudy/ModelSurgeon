@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from modelsurgeon.features.schema import (
     FeatureKind,
     FeatureRecord,
+    FeatureSampleContext,
     PrecisionProvenance,
     PrecisionSource,
 )
@@ -92,7 +93,9 @@ class GradientFeatures:
             "compute_dtype": self.compute_dtype,
         }
 
-    def feature_records(self) -> tuple[FeatureRecord, ...]:
+    def feature_records(
+        self, *, sample_context: FeatureSampleContext | None = None
+    ) -> tuple[FeatureRecord, ...]:
         precision = PrecisionProvenance(
             PrecisionSource.HIGH_PRECISION,
             self.weight_storage_dtype,
@@ -126,6 +129,7 @@ class GradientFeatures:
                 "gradient_features",
                 GRADIENT_FEATURE_EXTRACTOR_VERSION,
                 precision,
+                sample_context,
                 metadata=metadata,
             )
             for name, value in values

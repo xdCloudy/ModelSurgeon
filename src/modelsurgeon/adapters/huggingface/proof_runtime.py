@@ -7,7 +7,7 @@ import hashlib
 import math
 import os
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from importlib import import_module
@@ -56,6 +56,7 @@ from modelsurgeon.experiments.schema import (
     VersionContext,
 )
 from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionKey
+from modelsurgeon.features.gradient_features import GradientFeatures
 from modelsurgeon.features.schema import (
     FEATURE_SCHEMA_VERSION,
     FeatureKind,
@@ -237,6 +238,24 @@ class FeatureCollectionCosts:
                     self.forward_baseline.peak_cuda_reserved_bytes,
                 ),
             },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MLPChannelGradientCollection:
+    records: tuple[tuple[ComponentId, tuple[FeatureRecord, ...]], ...]
+    cost: FeatureCollectionCost
+    token_count: int
+
+    def __post_init__(self) -> None:
+        if self.token_count <= 0 or not self.records:
+            raise HuggingFaceMLPProofError("gradient collection requires records and tokens")
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "token_count": self.token_count,
+            "component_count": len(self.records),
+            "cost": self.cost.to_record(),
         }
 
 
@@ -862,6 +881,184 @@ class HuggingFaceMLPProofRuntime:
             _feature_collection_cost(static_report),
             _feature_collection_cost(baseline_report),
             _feature_collection_cost(activation_report),
+        )
+
+    def collect_mlp_channel_gradient_features(
+        self,
+        coordinates: Sequence[tuple[ComponentId, int, int]],
+    ) -> MLPChannelGradientCollection:
+        """Collect one calibration-loss backward and summarize requested channels."""
+
+        if not coordinates or len(coordinates) != len({item[0] for item in coordinates}):
+            raise HuggingFaceMLPProofError(
+                "gradient coordinates must be non-empty with unique components"
+            )
+        by_layer: dict[int, list[tuple[ComponentId, int]]] = {}
+        for component, layer, channel in coordinates:
+            expected = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
+            if component != expected or not 0 <= layer < self._discovery.shape.layers:
+                raise HuggingFaceMLPProofError("gradient coordinate identity is invalid")
+            if not 0 <= channel < self._discovery.shape.intermediate_size:
+                raise HuggingFaceMLPProofError("gradient channel exceeds intermediate width")
+            by_layer.setdefault(layer, []).append((component, channel))
+
+        requested_parameters: list[Any] = []
+        for layer in sorted(by_layer):
+            requested_parameters.extend(self._projection_weights(layer))
+        original_requires_grad = {
+            id(parameter): bool(parameter.requires_grad) for parameter in self.model.parameters()
+        }
+        requested_parameter_ids = {id(item) for item in requested_parameters}
+        for parameter in self.model.parameters():
+            parameter.requires_grad_(id(parameter) in requested_parameter_ids)
+
+        holder: list[tuple[tuple[ComponentId, tuple[FeatureRecord, ...]], ...]] = []
+        token_holder: list[int] = []
+        cuda = None
+        if str(self._input_device).startswith("cuda"):
+            try:
+                cuda = TorchCudaMemoryProvider(self._input_device)
+            except MemoryTelemetryError:
+                cuda = None
+
+        def operation() -> None:
+            self.model.zero_grad(set_to_none=True)
+            total_tokens = 0
+            total_loss: Any = None
+            for chunk in self._chunks:
+                input_ids = self._torch.tensor(
+                    [chunk], dtype=self._torch.long, device=self._input_device
+                )
+                output = self.model(input_ids=input_ids, use_cache=False)
+                logits = output.logits[:, :-1, :].float().contiguous()
+                targets = input_ids[:, 1:].to(logits.device).contiguous()
+                loss = self._torch.nn.functional.cross_entropy(
+                    logits.view(-1, int(logits.shape[-1])),
+                    targets.view(-1),
+                    reduction="mean",
+                )
+                total_loss = loss if total_loss is None else total_loss + loss
+                total_tokens += int(targets.numel())
+            if total_loss is None or total_tokens <= 0:
+                raise HuggingFaceMLPProofError("gradient calibration produced no loss")
+            total_loss.backward()
+
+            output_records: list[tuple[ComponentId, tuple[FeatureRecord, ...]]] = []
+            context = self._feature_sample_context()
+            for layer, layer_coordinates in sorted(by_layer.items()):
+                weights = self._projection_weights(layer)
+                oriented = (
+                    (weights[0], weights[0].grad),
+                    (weights[1], weights[1].grad),
+                    (
+                        weights[2].transpose(0, 1),
+                        None if weights[2].grad is None else weights[2].grad.transpose(0, 1),
+                    ),
+                )
+                gradient_l1 = None
+                gradient_square = None
+                gradient_maximum = None
+                product_sum = None
+                product_abs_sum = None
+                product_square = None
+                storage_dtypes: set[str] = set()
+                source_devices: set[str] = set()
+                element_count = 0
+                for weight, gradient in oriented:
+                    if gradient is None:
+                        raise HuggingFaceMLPProofError(
+                            f"gradient missing for MLP projection in layer {layer}"
+                        )
+                    values = weight.detach().float()
+                    gradients = gradient.detach().float()
+                    products = values * gradients
+                    part_l1 = gradients.abs().sum(dim=1)
+                    part_square = gradients.square().sum(dim=1)
+                    part_maximum = gradients.abs().amax(dim=1)
+                    part_product_sum = products.sum(dim=1)
+                    part_product_abs_sum = products.abs().sum(dim=1)
+                    part_product_square = products.square().sum(dim=1)
+                    gradient_l1 = part_l1 if gradient_l1 is None else gradient_l1 + part_l1
+                    gradient_square = (
+                        part_square if gradient_square is None else gradient_square + part_square
+                    )
+                    gradient_maximum = (
+                        part_maximum
+                        if gradient_maximum is None
+                        else self._torch.maximum(gradient_maximum, part_maximum)
+                    )
+                    product_sum = (
+                        part_product_sum if product_sum is None else product_sum + part_product_sum
+                    )
+                    product_abs_sum = (
+                        part_product_abs_sum
+                        if product_abs_sum is None
+                        else product_abs_sum + part_product_abs_sum
+                    )
+                    product_square = (
+                        part_product_square
+                        if product_square is None
+                        else product_square + part_product_square
+                    )
+                    storage_dtypes.add(_tensor_dtype(gradient))
+                    source_devices.add(str(gradient.device))
+                    element_count += int(values.shape[1])
+                columns = self._torch.stack(
+                    (
+                        gradient_l1,
+                        self._torch.sqrt(self._torch.clamp(gradient_square, min=0.0)),
+                        gradient_maximum,
+                        product_sum,
+                        product_abs_sum,
+                        self._torch.sqrt(self._torch.clamp(product_square, min=0.0)),
+                    ),
+                    dim=1,
+                ).cpu()
+                for component, channel in layer_coordinates:
+                    values = columns[channel]
+                    removal = -_scalar(values[3])
+                    features = GradientFeatures(
+                        component,
+                        1,
+                        element_count,
+                        _tensor_dtype(weights[0]),
+                        str(weights[0].device),
+                        tuple(sorted(storage_dtypes)),
+                        tuple(sorted(source_devices)),
+                        _scalar(values[0]),
+                        _scalar(values[1]),
+                        _scalar(values[2]),
+                        _scalar(values[3]),
+                        _scalar(values[4]),
+                        _scalar(values[5]),
+                        removal,
+                        abs(removal),
+                    ).feature_records(sample_context=context)
+                    output_records.append((component, features))
+            holder.append(tuple(sorted(output_records, key=lambda item: item[0])))
+            token_holder.append(total_tokens)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        try:
+            report = collect_memory_telemetry(
+                "hf-mlp-channel-gradient-collection",
+                operation,
+                MemoryTelemetryConfig(
+                    sampling_enabled=True,
+                    sample_interval_seconds=0.005,
+                    max_samples=4096,
+                ),
+                cuda=cuda,
+            )
+        finally:
+            self.model.zero_grad(set_to_none=True)
+            for parameter in self.model.parameters():
+                parameter.requires_grad_(original_requires_grad[id(parameter)])
+        if len(holder) != 1 or len(token_holder) != 1:
+            raise HuggingFaceMLPProofError("gradient collection did not complete")
+        return MLPChannelGradientCollection(
+            holder[0], _feature_collection_cost(report), token_holder[0]
         )
 
     def _layer_weight_statistics(self, layer: int) -> _LayerWeightStatistics:
