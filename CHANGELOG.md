@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a schema-versioned, immutable, Apache-2.0 multi-family evaluation ladder from 135M
+  through 7.25B parameters with explicit purpose, consumer-hardware modes, dataset
+  compatibility, access constraints, and a content-addressed ladder identity.
 - Demonstrate deterministic low-memory Q4_K_M MLP surgery across every transformer layer,
   including copy-only legacy Q5_0 handling, model-wide metadata safety, pinned llama.cpp
   load/perplexity/generation/throughput evidence, and working Windows RSS telemetry.
