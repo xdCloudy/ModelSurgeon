@@ -4,6 +4,50 @@ Milestone `v0.5 — First Surgeon` separates implementation from the empirical p
 implementation can land without a large training run; the proof issue remains open until a real
 mutation dataset has been trained and evaluated.
 
+## Generate the proof dataset
+
+The generic campaign orchestration is available through `first-surgeon-proof`. It enumerates
+canonical mask candidates, obtains pre-mutation feature partitions before each mutation, executes
+each candidate through the existing transactional single-mutation runner, builds canonical mutation
+examples, creates a held-out-component split, runs the leakage audit, and writes training-ready
+records.
+
+```bash
+modelsurgeon first-surgeon-proof \
+  --runtime your_runtime_module:create_runtime \
+  --output ./proof-data \
+  --max-candidates 5000 \
+  --seed 42 \
+  --split-seed 43
+```
+
+The output directory contains:
+
+- `examples.jsonl` — canonical supervised mutation examples;
+- `split.json` — grouped component-level train/validation/test assignments;
+- `leakage.json` — the mandatory leakage audit;
+- `campaign.json` — candidate enumeration and dataset-build provenance.
+
+The command fails rather than publishing a dataset if any split partition is empty or the leakage
+audit reports a finding.
+
+### Runtime boundary
+
+A proof runtime uses the normal `SingleMutationExperimentRuntime` contract and adds four pieces of
+model-specific evidence through `FirstSurgeonProofRuntime`:
+
+- `component_graph` — the canonical graph used for candidate enumeration;
+- `run_id` — the stable campaign run identity;
+- `pre_mutation_feature_partitions(candidate)` — static and activation feature partitions captured
+  before applying the candidate mutation;
+- `experiment_record(candidate, result)` — the canonical experiment metadata/metrics bound to the
+  rolled-back single-mutation result.
+
+This deliberately keeps model/framework-specific tensor hooks outside the generic campaign layer.
+For a real Hugging Face proof, the runtime must provide genuine PyTorch masking, model-forward,
+tokenization/perplexity, and activation-feature adapters; the generic orchestrator does not emulate
+those boundaries.
+
 ## Required dataset
 
 Use a leakage-safe campaign dataset containing at least several thousand mask examples from a
@@ -14,8 +58,8 @@ small model. Each example must contain:
 - the exact model identifier, immutable revision, format, and quantization;
 - a grouped split manifest whose test components do not occur in train or validation.
 
-Do not create a row-level random split after examples are generated. Reuse the repository's grouped
-split machinery so component groups cannot leak across partitions.
+Do not create a row-level random split after examples are generated. `first-surgeon-proof` uses the
+repository's grouped split machinery so component groups cannot leak across partitions.
 
 ## Environment
 
@@ -32,8 +76,8 @@ Record the exact LightGBM version in the proof issue together with the ModelSurg
 ## Train delta-perplexity regressor
 
 ```bash
-modelsurgeon train-surgeon ./dataset \
-  --split ./split.json \
+modelsurgeon train-surgeon ./proof-data/examples.jsonl \
+  --split ./proof-data/split.json \
   --registry ./artifacts/surgeons \
   --target perplexity \
   --baseline lightgbm-regressor \
@@ -52,8 +96,8 @@ and run provenance.
 Choose safety limits before reading test results. Example only:
 
 ```bash
-modelsurgeon train-surgeon ./dataset \
-  --split ./split.json \
+modelsurgeon train-surgeon ./proof-data/examples.jsonl \
+  --split ./proof-data/split.json \
   --registry ./artifacts/surgeons \
   --target safe_mutation \
   --safe-threshold perplexity=0.25 \
