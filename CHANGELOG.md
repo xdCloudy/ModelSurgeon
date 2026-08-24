@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded selected-Linear SVD replacement for Hugging Face models using real two-factor
+  modules, with requested/effective rank, reconstruction error, and measured parameter and
+  per-token FLOP reconciliation.
 - Add physical Hugging Face transformer-layer removal with retained-weight identity,
   canonical and KV-cache execution-index renumbering, exact residual-bypass equivalence,
   parameter reconciliation, and successful real-model save/reload.

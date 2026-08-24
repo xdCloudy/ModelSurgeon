@@ -19,6 +19,13 @@ from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceRevisionError,
     load_causal_lm,
 )
+from modelsurgeon.adapters.huggingface.low_rank import (
+    HF_LOW_RANK_SCHEMA_VERSION,
+    HuggingFaceLowRankError,
+    LowRankReplacement,
+    LowRankReplacementReport,
+    replace_huggingface_linears_low_rank,
+)
 from modelsurgeon.adapters.huggingface.physical_attention import (
     HF_PHYSICAL_ATTENTION_SCHEMA_VERSION,
     HuggingFaceAttentionRemovalResult,
@@ -40,6 +47,7 @@ from modelsurgeon.adapters.huggingface.physical_mlp import (
 )
 
 __all__ = [
+    "HF_LOW_RANK_SCHEMA_VERSION",
     "HF_PHYSICAL_ATTENTION_SCHEMA_VERSION",
     "HF_PHYSICAL_LAYER_SCHEMA_VERSION",
     "HF_PHYSICAL_MLP_SCHEMA_VERSION",
@@ -53,6 +61,7 @@ __all__ = [
     "HuggingFaceLoadProvenance",
     "HuggingFaceLoadRequest",
     "HuggingFaceLoadResult",
+    "HuggingFaceLowRankError",
     "HuggingFaceMLPLayerResize",
     "HuggingFaceMLPRemovalResult",
     "HuggingFaceModelError",
@@ -61,6 +70,8 @@ __all__ = [
     "HuggingFacePhysicalLayerError",
     "HuggingFacePhysicalMLPError",
     "HuggingFaceRevisionError",
+    "LowRankReplacement",
+    "LowRankReplacementReport",
     "ParameterReconciliationError",
     "TransformerShape",
     "discover_huggingface_components",
@@ -68,4 +79,5 @@ __all__ = [
     "remove_huggingface_attention_heads",
     "remove_huggingface_mlp_channels",
     "remove_huggingface_transformer_layers",
+    "replace_huggingface_linears_low_rank",
 ]
