@@ -73,6 +73,14 @@ from .mlp_uncertainty import (
     estimate_mlp_uncertainty,
     run_mlp_uncertainty_study,
 )
+from .scheduler import (
+    ACTIVE_SCHEDULE_SCHEMA_VERSION,
+    ActiveEvaluationSchedule,
+    ActiveScheduleError,
+    ActiveScheduleStore,
+    ScheduledEvaluation,
+    ScheduledEvaluationState,
+)
 from .tree_uncertainty import (
     TREE_UNCERTAINTY_SCHEMA_VERSION,
     TreeMethodEvidence,
@@ -93,6 +101,7 @@ from .tree_uncertainty_lightgbm import (
 
 __all__ = [
     "ACQUISITION_POLICY_SCHEMA_VERSION",
+    "ACTIVE_SCHEDULE_SCHEMA_VERSION",
     "CANDIDATE_EQUIVALENCE_SCHEMA_VERSION",
     "CANDIDATE_POOL_SCHEMA_VERSION",
     "CANDIDATE_SCORING_SCHEMA_VERSION",
@@ -108,6 +117,9 @@ __all__ = [
     "AcquisitionPolicyError",
     "AcquisitionReason",
     "AcquisitionReport",
+    "ActiveEvaluationSchedule",
+    "ActiveScheduleError",
+    "ActiveScheduleStore",
     "AdapterEquivalenceDeclarations",
     "BudgetDecision",
     "BudgetReservation",
@@ -142,6 +154,8 @@ __all__ = [
     "MLPUncertaintyStudy",
     "MLPUncertaintyValue",
     "QuarantinedCandidate",
+    "ScheduledEvaluation",
+    "ScheduledEvaluationState",
     "ScoringCandidate",
     "TreeMethodEvidence",
     "TreePredictionInterval",

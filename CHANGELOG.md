@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add durable active-learning evaluation schedules that bind acquisition metadata to
+  resulting experiment and dataset-example IDs and resume partial batches without
+  rerunning or changing selection.
 - Add candidate-boundary active-learning budgets for attempt count, wall time, tier cost,
   GPU time, and disk use, with explicit observed-versus-reserved failed-attempt charging.
 - Add deterministic explore/exploit acquisition with exact high-value, uncertainty, and
