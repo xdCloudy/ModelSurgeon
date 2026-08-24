@@ -138,7 +138,7 @@ def _validate_join(
         raise FirstSurgeonProofError(
             f"candidate {candidate.candidate_id} experiment record changed the mutation request"
         )
-    if record.mutation_id != candidate.mutation_id:
+    if record.mutation.mutation_id != candidate.mutation_id:
         raise FirstSurgeonProofError(
             f"candidate {candidate.candidate_id} experiment record changed mutation identity"
         )
