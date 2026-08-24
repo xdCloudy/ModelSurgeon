@@ -7,7 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-EXPERIMENT_DB_SCHEMA_VERSION = 4
+EXPERIMENT_DB_SCHEMA_VERSION = 5
 
 
 class ExperimentMigrationError(RuntimeError):
@@ -227,6 +227,43 @@ MIGRATIONS: tuple[ExperimentMigration, ...] = (
             (
                 "CREATE INDEX experiment_campaign_status_outcome_idx "
                 "ON experiment_campaign_status(outcome)"
+            ),
+        ),
+    ),
+    ExperimentMigration(
+        5,
+        "append-only stage resource telemetry",
+        (
+            """
+            CREATE TABLE experiment_stage_telemetry (
+                telemetry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                candidate_id TEXT NOT NULL
+                    REFERENCES experiment_candidates(candidate_id) ON DELETE CASCADE,
+                stage TEXT NOT NULL,
+                attempt INTEGER NOT NULL CHECK(attempt >= 0),
+                version TEXT NOT NULL,
+                state TEXT NOT NULL CHECK(state IN ('complete', 'partial')),
+                wall_seconds REAL NOT NULL CHECK(wall_seconds >= 0),
+                cpu_seconds REAL NOT NULL CHECK(cpu_seconds >= 0),
+                tokens INTEGER CHECK(tokens >= 0),
+                candidates INTEGER CHECK(candidates >= 0),
+                peak_rss_bytes INTEGER CHECK(peak_rss_bytes >= 0),
+                peak_cuda_allocated_bytes INTEGER CHECK(peak_cuda_allocated_bytes >= 0),
+                peak_cuda_reserved_bytes INTEGER CHECK(peak_cuda_reserved_bytes >= 0),
+                io_read_bytes INTEGER CHECK(io_read_bytes >= 0),
+                io_write_bytes INTEGER CHECK(io_write_bytes >= 0),
+                hardware_context_id TEXT NOT NULL,
+                hardware_context_json TEXT NOT NULL,
+                UNIQUE (candidate_id, stage, attempt)
+            )
+            """.strip(),
+            (
+                "CREATE INDEX experiment_stage_telemetry_candidate_idx "
+                "ON experiment_stage_telemetry(candidate_id, stage, attempt)"
+            ),
+            (
+                "CREATE INDEX experiment_stage_telemetry_hardware_idx "
+                "ON experiment_stage_telemetry(hardware_context_id, stage)"
             ),
         ),
     ),

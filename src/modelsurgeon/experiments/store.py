@@ -18,6 +18,7 @@ from modelsurgeon.experiments.identity import (
     derive_candidate_identity,
 )
 from modelsurgeon.experiments.migrations import open_experiment_database
+from modelsurgeon.experiments.runtime_telemetry import StageTelemetrySnapshot
 from modelsurgeon.experiments.schema import ExperimentRecord, MetricObservation
 
 
@@ -102,6 +103,48 @@ class StoredMetric:
     unit: str | None
     reason: str | None
     precision: dict[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
+class StoredStageTelemetry:
+    telemetry_id: int
+    candidate_id: str
+    stage: str
+    attempt: int
+    version: str
+    state: str
+    wall_seconds: float
+    cpu_seconds: float
+    tokens: int | None
+    candidates: int | None
+    peak_rss_bytes: int | None
+    peak_cuda_allocated_bytes: int | None
+    peak_cuda_reserved_bytes: int | None
+    io_read_bytes: int | None
+    io_write_bytes: int | None
+    hardware_context_id: str
+    hardware_context: dict[str, object]
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "telemetry_id": self.telemetry_id,
+            "candidate_id": self.candidate_id,
+            "stage": self.stage,
+            "attempt": self.attempt,
+            "version": self.version,
+            "state": self.state,
+            "wall_seconds": self.wall_seconds,
+            "cpu_seconds": self.cpu_seconds,
+            "tokens": self.tokens,
+            "candidates": self.candidates,
+            "peak_rss_bytes": self.peak_rss_bytes,
+            "peak_cuda_allocated_bytes": self.peak_cuda_allocated_bytes,
+            "peak_cuda_reserved_bytes": self.peak_cuda_reserved_bytes,
+            "io_read_bytes": self.io_read_bytes,
+            "io_write_bytes": self.io_write_bytes,
+            "hardware_context_id": self.hardware_context_id,
+            "hardware": self.hardware_context,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -508,6 +551,86 @@ class ExperimentMetadataStore:
             event_id = int(cursor.lastrowid)
         return StoredStateEvent(event_id, candidate_id, sequence, state, detail)
 
+    def append_stage_telemetry(
+        self,
+        candidate_id: str,
+        telemetry: StageTelemetrySnapshot,
+    ) -> StoredStageTelemetry:
+        """Append one immutable stage attempt, preserving partial attempts across resume."""
+
+        hardware_json = _json(telemetry.hardware.to_record())
+        with self._write() as connection:
+            if connection.execute(
+                "SELECT 1 FROM experiment_candidates WHERE candidate_id = ?",
+                (candidate_id,),
+            ).fetchone() is None:
+                raise ExperimentStoreError(
+                    f"stage telemetry points to unknown candidate {candidate_id}"
+                )
+            row = connection.execute(
+                """
+                SELECT COALESCE(MAX(attempt), -1) + 1
+                FROM experiment_stage_telemetry
+                WHERE candidate_id = ? AND stage = ?
+                """,
+                (candidate_id, telemetry.stage),
+            ).fetchone()
+            if row is None:
+                raise ExperimentStoreError("failed to derive the next telemetry attempt")
+            attempt = int(row[0])
+            values: tuple[object, ...] = (
+                candidate_id,
+                telemetry.stage,
+                attempt,
+                telemetry.version,
+                telemetry.state.value,
+                telemetry.wall_seconds,
+                telemetry.cpu_seconds,
+                telemetry.throughput.tokens,
+                telemetry.throughput.candidates,
+                telemetry.peak_rss_bytes,
+                telemetry.peak_cuda_allocated_bytes,
+                telemetry.peak_cuda_reserved_bytes,
+                telemetry.io_read_bytes,
+                telemetry.io_write_bytes,
+                telemetry.hardware.context_id,
+                hardware_json,
+            )
+            cursor = connection.execute(
+                """
+                INSERT INTO experiment_stage_telemetry(
+                    candidate_id, stage, attempt, version, state, wall_seconds,
+                    cpu_seconds, tokens, candidates, peak_rss_bytes,
+                    peak_cuda_allocated_bytes, peak_cuda_reserved_bytes,
+                    io_read_bytes, io_write_bytes, hardware_context_id,
+                    hardware_context_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            if cursor.lastrowid is None:
+                raise ExperimentStoreError("SQLite did not return a stage telemetry ID")
+            telemetry_id = int(cursor.lastrowid)
+        return StoredStageTelemetry(
+            telemetry_id,
+            candidate_id,
+            telemetry.stage,
+            attempt,
+            telemetry.version,
+            telemetry.state.value,
+            telemetry.wall_seconds,
+            telemetry.cpu_seconds,
+            telemetry.throughput.tokens,
+            telemetry.throughput.candidates,
+            telemetry.peak_rss_bytes,
+            telemetry.peak_cuda_allocated_bytes,
+            telemetry.peak_cuda_reserved_bytes,
+            telemetry.io_read_bytes,
+            telemetry.io_write_bytes,
+            telemetry.hardware.context_id,
+            _json_object(hardware_json),
+        )
+
     def add_artifact_reference(
         self,
         candidate_id: str,
@@ -670,6 +793,73 @@ class ExperimentMetadataStore:
                 else _json_object(str(row["precision_json"])),
             )
             for row in rows
+        )
+
+    def list_stage_telemetry(
+        self,
+        candidate_id: str,
+        *,
+        stage: str | None = None,
+    ) -> tuple[StoredStageTelemetry, ...]:
+        query = """
+            SELECT telemetry_id, candidate_id, stage, attempt, version, state,
+                   wall_seconds, cpu_seconds, tokens, candidates, peak_rss_bytes,
+                   peak_cuda_allocated_bytes, peak_cuda_reserved_bytes,
+                   io_read_bytes, io_write_bytes, hardware_context_id,
+                   hardware_context_json
+            FROM experiment_stage_telemetry
+            WHERE candidate_id = ?
+        """
+        parameters: tuple[object, ...]
+        if stage is None:
+            query += " ORDER BY stage, attempt"
+            parameters = (candidate_id,)
+        else:
+            if not stage:
+                raise ExperimentStoreError("telemetry stage filter cannot be blank")
+            query += " AND stage = ? ORDER BY attempt"
+            parameters = (candidate_id, stage)
+        with self.reader() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return tuple(self._stored_stage_telemetry(row) for row in rows)
+
+    def latest_stage_telemetry(
+        self,
+        candidate_id: str,
+    ) -> tuple[StoredStageTelemetry, ...]:
+        latest: dict[str, StoredStageTelemetry] = {}
+        for item in self.list_stage_telemetry(candidate_id):
+            latest[item.stage] = item
+        return tuple(latest[stage] for stage in sorted(latest))
+
+    @staticmethod
+    def _stored_stage_telemetry(row: sqlite3.Row) -> StoredStageTelemetry:
+        return StoredStageTelemetry(
+            int(row["telemetry_id"]),
+            str(row["candidate_id"]),
+            str(row["stage"]),
+            int(row["attempt"]),
+            str(row["version"]),
+            str(row["state"]),
+            float(row["wall_seconds"]),
+            float(row["cpu_seconds"]),
+            None if row["tokens"] is None else int(row["tokens"]),
+            None if row["candidates"] is None else int(row["candidates"]),
+            None if row["peak_rss_bytes"] is None else int(row["peak_rss_bytes"]),
+            (
+                None
+                if row["peak_cuda_allocated_bytes"] is None
+                else int(row["peak_cuda_allocated_bytes"])
+            ),
+            (
+                None
+                if row["peak_cuda_reserved_bytes"] is None
+                else int(row["peak_cuda_reserved_bytes"])
+            ),
+            None if row["io_read_bytes"] is None else int(row["io_read_bytes"]),
+            None if row["io_write_bytes"] is None else int(row["io_write_bytes"]),
+            str(row["hardware_context_id"]),
+            _json_object(str(row["hardware_context_json"])),
         )
 
     def list_artifact_references(

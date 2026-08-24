@@ -214,8 +214,14 @@ def collect_memory_telemetry(
     *,
     cuda: CudaMemoryProvider | None = None,
     monotonic: Callable[[], float] = time.monotonic,
+    report_callback: Callable[[MemoryTelemetryReport], None] | None = None,
 ) -> MemoryTelemetryReport:
-    """Execute one operation while collecting bounded memory telemetry with guaranteed cleanup."""
+    """Execute one operation while collecting bounded memory telemetry with guaranteed cleanup.
+
+    ``report_callback`` receives the final bounded report from the ``finally`` path, so callers
+    can persist partial telemetry even when ``operation`` raises. The original exception is then
+    re-raised unchanged.
+    """
 
     if not operation_name:
         raise MemoryTelemetryError("memory telemetry operation name is required")
@@ -228,6 +234,7 @@ def collect_memory_telemetry(
     samples_lock = threading.Lock()
     stop = threading.Event()
     sampler: threading.Thread | None = None
+    report: MemoryTelemetryReport | None = None
 
     if resolved.sampling_enabled:
 
@@ -256,20 +263,31 @@ def collect_memory_telemetry(
         with samples_lock:
             if len(samples) < resolved.max_samples:
                 samples.append(_sample(started, cuda, monotonic))
+            snapshot = tuple(samples)
+        rss_values = tuple(
+            sample.rss_bytes for sample in snapshot if sample.rss_bytes is not None
+        )
+        peak_rss = max(rss_values) if rss_values else None
+        report = MemoryTelemetryReport(
+            version=MEMORY_TELEMETRY_VERSION,
+            operation=operation_name,
+            sampling_enabled=resolved.sampling_enabled,
+            sample_interval_seconds=(
+                resolved.sample_interval_seconds if resolved.sampling_enabled else None
+            ),
+            samples=snapshot,
+            peak_rss_bytes=peak_rss,
+            peak_cuda_allocated_bytes=(
+                None if cuda is None else cuda.max_allocated_bytes()
+            ),
+            peak_cuda_reserved_bytes=(
+                None if cuda is None else cuda.max_reserved_bytes()
+            ),
+            cuda_available=cuda is not None,
+        )
+        if report_callback is not None:
+            report_callback(report)
 
-    snapshot = tuple(samples)
-    rss_values = tuple(sample.rss_bytes for sample in snapshot if sample.rss_bytes is not None)
-    peak_rss = max(rss_values) if rss_values else None
-    return MemoryTelemetryReport(
-        version=MEMORY_TELEMETRY_VERSION,
-        operation=operation_name,
-        sampling_enabled=resolved.sampling_enabled,
-        sample_interval_seconds=(
-            resolved.sample_interval_seconds if resolved.sampling_enabled else None
-        ),
-        samples=snapshot,
-        peak_rss_bytes=peak_rss,
-        peak_cuda_allocated_bytes=None if cuda is None else cuda.max_allocated_bytes(),
-        peak_cuda_reserved_bytes=None if cuda is None else cuda.max_reserved_bytes(),
-        cuda_available=cuda is not None,
-    )
+    if report is None:
+        raise MemoryTelemetryError("memory telemetry report was not finalized")
+    return report
