@@ -14,7 +14,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from modelsurgeon.adapters import ArchitectureEvidence, detect_model_family
 from modelsurgeon.adapters.huggingface.discovery import discover_huggingface_components
@@ -63,7 +63,12 @@ from modelsurgeon.features.schema import (
     PrecisionProvenance,
     PrecisionSource,
 )
-from modelsurgeon.graph import ComponentGraph, ComponentId, build_component_graph
+from modelsurgeon.graph import (
+    ComponentGraph,
+    ComponentId,
+    ComponentRecordLike,
+    build_component_graph,
+)
 from modelsurgeon.surgery.contracts import (
     MutationDelta,
     MutationKind,
@@ -189,7 +194,7 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         del module
         if not inputs:
             raise HuggingFaceMLPProofError("down projection received no positional input")
-        tensor = inputs[0]
+        tensor: Any = inputs[0]
         if not self._torch.is_tensor(tensor):
             raise HuggingFaceMLPProofError("down projection input is not a tensor")
         if tensor.ndim < 1 or self._channel_index >= int(tensor.shape[-1]):
@@ -418,7 +423,11 @@ class HuggingFaceMLPProofRuntime:
         self.model.eval()
         family = detect_model_family(_architecture_evidence(self.model.config))
         self._discovery = discover_huggingface_components(self.model, family.family)
-        self._component_graph = build_component_graph(tuple(self._discovery.components()))
+        graph_records = cast(
+            tuple[ComponentRecordLike, ...],
+            tuple(self._discovery.components()),
+        )
+        self._component_graph = build_component_graph(graph_records)
         self._modules = dict(self.model.named_modules())
         self._validate_mlp_layout()
 
@@ -602,7 +611,7 @@ class HuggingFaceMLPProofRuntime:
             del module
             if not inputs or not self._torch.is_tensor(inputs[0]):
                 raise HuggingFaceMLPProofError("down projection activation input is not a tensor")
-            tensor = inputs[0]
+            tensor: Any = inputs[0]
             if tensor.ndim < 1:
                 raise HuggingFaceMLPProofError("down projection activation has no channel axis")
             flat = tensor.detach().float().reshape(-1, int(tensor.shape[-1]))
@@ -704,17 +713,17 @@ class HuggingFaceMLPProofRuntime:
         self._ensure_baseline()
         gate, up, down = self._projection_weights(layer)
         weight_parts = (gate[channel, :], up[channel, :], down[:, channel])
-        dtypes = tuple(_tensor_dtype(item) for item in weight_parts)
+        dtypes = (
+            _tensor_dtype(weight_parts[0]),
+            _tensor_dtype(weight_parts[1]),
+            _tensor_dtype(weight_parts[2]),
+        )
         combined_dtype = dtypes[0] if len(set(dtypes)) == 1 else "mixed"
         component = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
-        metadata = tuple(
-            sorted(
-                (
-                    ("source_phase", "pre_mutation"),
-                    ("layer_index", layer),
-                    ("channel_index", channel),
-                )
-            )
+        metadata: tuple[tuple[str, str | int], ...] = (
+            ("channel_index", channel),
+            ("layer_index", layer),
+            ("source_phase", "pre_mutation"),
         )
         records = self._weight_features(component, weight_parts, dtypes, combined_dtype, metadata)
         records.extend(self._activation_features(component, layer, channel, metadata))
