@@ -39,6 +39,13 @@ from .policies import (
     SearchPolicyState,
     SearchSelection,
 )
+from .resume import (
+    PendingSearchEvaluation,
+    SearchBudgetSnapshot,
+    SearchResumeSnapshot,
+    SearchResumeStore,
+    SearchRngState,
+)
 from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
@@ -62,12 +69,17 @@ __all__ = [
     "ParetoArchiveEntry",
     "ParetoCandidate",
     "ParetoObjectiveValue",
+    "PendingSearchEvaluation",
     "PredictedSearchCandidate",
+    "SearchBudgetSnapshot",
     "SearchDecision",
     "SearchPolicy",
     "SearchPolicyConfig",
     "SearchPolicyKind",
     "SearchPolicyState",
+    "SearchResumeSnapshot",
+    "SearchResumeStore",
+    "SearchRngState",
     "SearchSelection",
     "SequenceMutationPlan",
     "conservatively_dominates",
