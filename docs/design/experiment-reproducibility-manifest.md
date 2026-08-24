@@ -1,6 +1,6 @@
 # Experiment reproducibility manifest
 
-Every persisted experiment run can publish one immutable `ReproducibilityManifest` as a content-addressed artifact with role `reproducibility_manifest`.
+Every persisted experiment run can publish one immutable `ReproducibilityManifest` as a content-addressed artifact with role `reproducibility_manifest`. Schema v2 adds the complete canonical resolved configuration, exact command argument vector, and optional per-metric absolute/relative tolerances required for executable replay. A digest without its source configuration is not considered reconstructable.
 
 ## Captured evidence
 
@@ -14,6 +14,9 @@ The schema records the run, experiment, and attempt identities together with:
 - tool/evaluator and referenced schema versions;
 - the full hardware/software inventory, including Python, optional PyTorch, CUDA runtime/driver/device evidence, CPU, RAM, disk, and OS details; and
 - a SHA-256 digest of the dependency lock file such as `uv.lock`.
+- the complete resolved configuration whose canonical SHA-256 must equal `versions.config_digest`;
+- the exact original command argument vector; and
+- canonical `phase:name` tolerances that may reference only measured run metrics.
 
 The manifest ID is a SHA-256 identity over the canonical immutable evidence. Status fields are derived and do not affect identity.
 
@@ -34,6 +37,12 @@ A missing optional runtime such as PyTorch or CUDA is recorded as absent by the 
 `publish_reproducibility_manifest()` verifies that the supplied `PersistedExperiment` and stored candidate belong to the manifest run before publication. It then writes canonical JSON through the existing content-addressed artifact store and records the immutable digest in the experiment metadata store.
 
 Repeated publication of the same manifest reuses the same artifact and reference. A manifest cannot be attached to a different run.
+
+## Replay boundary
+
+`modelsurgeon reproduce RUN_ID --dry-run` verifies the content-addressed payload, its manifest identity, metadata linkage, resolved-config digest, exact source commit and clean worktree, lock digest, model/dataset identity, and stable hardware/software identity. It displays exact inputs and command even when mismatches prevent execution.
+
+Normal replay requires an operator-selected trusted `module:factory` adapter. Stored command text is never executed directly. The adapter returns phase-qualified metrics, which are compared with the original stored metrics using the manifest's declared tolerances. Missing or unexpected metrics fail, and the canonical result links back to the original run, candidate, and manifest.
 
 ## Collection helpers
 

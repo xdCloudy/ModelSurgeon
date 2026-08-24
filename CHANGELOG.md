@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `modelsurgeon reproduce RUN_ID` with schema-v2 resolved recipes, exact-command dry
+  runs, content-addressed integrity and environment checks, trusted replay adapters, and
+  original-linked tolerance comparisons for reproduced metrics.
 - Complete the revision-pinned 100M–7.25B consumer-hardware scale study with measured
   analysis, feature, reversible mutation, forward-evaluation, RAM, VRAM, cache-disk,
   placement, and failure evidence plus conservative defaults for a 12 GB GPU host.

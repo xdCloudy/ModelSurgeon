@@ -130,6 +130,7 @@ The current public CLI is intentionally small; deeper GGUF surgery components ar
 | `first-surgeon-evidence` | Train/evaluate the proof LightGBMs and compare them with random/magnitude baselines. |
 | `train-surgeon` | Train and publish a baseline surgeon from canonical mutation examples. |
 | `predict-surgeon` | Score compatible candidates with an immutable persisted surgeon bundle. |
+| `reproduce` | Reconstruct an immutable run recipe, explain environment drift, and compare trusted replay metrics. |
 
 Global logging options:
 
