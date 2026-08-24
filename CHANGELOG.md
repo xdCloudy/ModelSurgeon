@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add deterministic explore/exploit acquisition with exact high-value, uncertainty, and
+  diversity fractions, per-selection reasons and conditional propensities, overlap fill,
+  and explicit zero/oversubscribed budget behavior.
 - Add seeded farthest-first diversity selection across normalized numeric, categorical,
   and topology spaces with observable O(candidate-count) working memory and explicit
   100,000-candidate/4,096-selection ceilings.

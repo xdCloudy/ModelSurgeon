@@ -1,5 +1,15 @@
 """Bounded active-learning selection and scheduling contracts."""
 
+from .acquisition import (
+    ACQUISITION_POLICY_SCHEMA_VERSION,
+    AcquiredCandidate,
+    AcquisitionCandidate,
+    AcquisitionPolicyConfig,
+    AcquisitionPolicyError,
+    AcquisitionReason,
+    AcquisitionReport,
+    acquire_candidates,
+)
 from .candidate_deduplication import (
     CANDIDATE_EQUIVALENCE_SCHEMA_VERSION,
     AdapterEquivalenceDeclarations,
@@ -71,6 +81,7 @@ from .tree_uncertainty_lightgbm import (
 )
 
 __all__ = [
+    "ACQUISITION_POLICY_SCHEMA_VERSION",
     "CANDIDATE_EQUIVALENCE_SCHEMA_VERSION",
     "CANDIDATE_POOL_SCHEMA_VERSION",
     "CANDIDATE_SCORING_SCHEMA_VERSION",
@@ -79,6 +90,12 @@ __all__ = [
     "MAX_DIVERSITY_CANDIDATES",
     "MLP_UNCERTAINTY_SCHEMA_VERSION",
     "TREE_UNCERTAINTY_SCHEMA_VERSION",
+    "AcquiredCandidate",
+    "AcquisitionCandidate",
+    "AcquisitionPolicyConfig",
+    "AcquisitionPolicyError",
+    "AcquisitionReason",
+    "AcquisitionReport",
     "AdapterEquivalenceDeclarations",
     "CandidateDeduplicationError",
     "CandidateDeduplicationReport",
@@ -113,6 +130,7 @@ __all__ = [
     "TreeUncertaintyMethod",
     "TreeUncertaintyScore",
     "TreeUncertaintyStudy",
+    "acquire_candidates",
     "candidate_equivalence_key",
     "cheap_candidate_features",
     "compare_mlp_uncertainty",
