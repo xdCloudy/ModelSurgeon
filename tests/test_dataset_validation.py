@@ -37,7 +37,12 @@ from modelsurgeon.features.schema import (
     PrecisionSource,
 )
 from modelsurgeon.graph import ComponentId
-from modelsurgeon.surgery.contracts import MutationDelta, MutationKind, MutationPlan, MutationRequest
+from modelsurgeon.surgery.contracts import (
+    MutationDelta,
+    MutationKind,
+    MutationPlan,
+    MutationRequest,
+)
 from modelsurgeon.surgery.serialization import (
     MutationOutcome,
     MutationOutcomeStatus,
