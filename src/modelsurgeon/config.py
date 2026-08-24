@@ -119,6 +119,17 @@ class ObjectiveConfig(StrictConfigModel):
         return value
 
 
+class ConstraintConfig(StrictConfigModel):
+    """Hard search constraints with explicit units and baseline semantics."""
+
+    min_quality_retention_ratio: float = Field(default=0.98, ge=0.0, le=1.0)
+    max_perplexity_delta: float | None = Field(default=None, ge=0.0)
+    min_latency_gain_ratio: float | None = Field(default=None, ge=0.0)
+    max_ram_bytes: int | None = Field(default=None, gt=0)
+    max_vram_bytes: int | None = Field(default=None, gt=0)
+    max_disk_bytes: int | None = Field(default=None, gt=0)
+
+
 class HardwareConfig(StrictConfigModel):
     """Resource ceilings used by loaders and experiment workers."""
 
@@ -152,6 +163,7 @@ class Settings(BaseSettings):
     model: ModelConfig = Field(default_factory=ModelConfig)
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
     features: FeatureConfig = Field(default_factory=FeatureConfig)
+    constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
@@ -169,4 +181,3 @@ class Settings(BaseSettings):
             separators=(",", ":"),
             sort_keys=True,
         )
-
