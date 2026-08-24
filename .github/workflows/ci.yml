@@ -35,7 +35,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --extra dev --extra hf --locked
-      - run: uv run pytest tests/test_hf_mlp_proof_integration.py -q
+      - run: >-
+          uv run pytest
+          tests/test_hf_mlp_proof_integration.py
+          tests/test_surgeon_mlp_integration.py
+          -q
 
   lightgbm-smoke:
     runs-on: ubuntu-latest
