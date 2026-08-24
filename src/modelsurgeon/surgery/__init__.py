@@ -38,6 +38,17 @@ from modelsurgeon.surgery.contracts import (
     TransactionState,
     require_safe_transaction,
 )
+from modelsurgeon.surgery.distillation_repair import (
+    DISTILLATION_REPAIR_SCHEMA_VERSION,
+    DistillationRepairConfig,
+    DistillationRepairError,
+    DistillationRepairResult,
+    DistillationResourceUse,
+    DistillationStatus,
+    TeacherLogitSource,
+    TokenizerSignature,
+    run_distillation_repair,
+)
 from modelsurgeon.surgery.gguf_alignment import (
     AlignedAxisRemovalProposal,
     EncodedBlockRange,
@@ -158,6 +169,7 @@ from modelsurgeon.surgery.transaction import (
 )
 
 __all__ = [
+    "DISTILLATION_REPAIR_SCHEMA_VERSION",
     "HIDDEN_DIMENSION_STUDY_SCHEMA_VERSION",
     "LORA_REPAIR_SCHEMA_VERSION",
     "MUTATION_RECORD_SCHEMA_VERSION",
@@ -178,6 +190,11 @@ __all__ = [
     "ComponentOutputMask",
     "DecodedGGUFBlockChunk",
     "DequantizedPrecision",
+    "DistillationRepairConfig",
+    "DistillationRepairError",
+    "DistillationRepairResult",
+    "DistillationResourceUse",
+    "DistillationStatus",
     "EncodedBlockRange",
     "EncodedChangedGGUFChunk",
     "FineTuneParameterMode",
@@ -255,8 +272,10 @@ __all__ = [
     "ShortFineTuneConfig",
     "ShortFineTuneError",
     "ShortFineTuneResult",
+    "TeacherLogitSource",
     "TensorAxisTransform",
     "TensorEditIntent",
+    "TokenizerSignature",
     "TouchedGGUFBlockRange",
     "TouchedGGUFOutputRange",
     "TransactionState",
@@ -276,6 +295,7 @@ __all__ = [
     "resolve_mutation_targets",
     "resolve_native_gguf_attention_head_removal_rules",
     "run_bounded_lora_repair",
+    "run_distillation_repair",
     "run_short_finetune_repair",
     "validate_gguf_quantized_plan",
 ]

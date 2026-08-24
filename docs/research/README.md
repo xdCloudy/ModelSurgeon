@@ -15,4 +15,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v0.8 permissive model ladder](v0.8-model-ladder.md)
 - [v0.9 bounded LoRA repair evidence](v0.9-lora-repair-evidence.md)
 - [v0.9 short fine-tuning repair evidence](v0.9-short-finetune-evidence.md)
+- [v0.9 logit-distillation repair evidence](v0.9-distillation-repair-evidence.md)
 
