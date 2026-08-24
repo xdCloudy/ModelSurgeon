@@ -471,7 +471,7 @@ def _features(
         name = _string(feature.get("name"))
         extractor = _string(feature.get("extractor"))
         extractor_version = _string(feature.get("extractor_version"))
-        if None in (name, extractor, extractor_version):
+        if name is None or extractor is None or extractor_version is None:
             _add(
                 issues,
                 DatasetValidationRule.SCHEMA,
