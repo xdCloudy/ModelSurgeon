@@ -152,7 +152,15 @@ def _model_and_dataset(
     model = _mapping(record.get("model"))
     dataset = _mapping(record.get("dataset"))
     if model is None:
-        _add(issues, DatasetValidationRule.SCHEMA, index, example_id, "model", "expected_object", "model must be an object")
+        _add(
+            issues,
+            DatasetValidationRule.SCHEMA,
+            index,
+            example_id,
+            "model",
+            "expected_object",
+            "model must be an object",
+        )
     else:
         for field in ("identifier", "revision", "family", "format"):
             if _string(model.get(field)) is None:
