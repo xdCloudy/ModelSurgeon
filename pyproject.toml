@@ -67,3 +67,6 @@ packages = ["modelsurgeon"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers -q"
 testpaths = ["tests"]
+markers = [
+  "gpu: requires a real CUDA device and is excluded from normal CPU CI",
+]

@@ -2,17 +2,23 @@ name: GPU integration
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/modelsurgeon/experiments/gpu_cleanup.py"
+      - "tests/test_gpu_cleanup*.py"
+      - "pyproject.toml"
+      - ".github/workflows/gpu-integration.yml"
 
 permissions:
   contents: read
 
 jobs:
   gpu-tests:
-    if: ${{ vars.GPU_RUNNER_ENABLED == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (vars.GPU_RUNNER_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, gpu]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --extra dev --extra hf --locked
-      - run: uv run pytest -m gpu
-
+      - run: uv run pytest tests/test_gpu_cleanup_cuda.py -m gpu -vv
