@@ -14,7 +14,7 @@ from modelsurgeon.cli.proof_evidence import (
     load_grouped_proof_split,
 )
 from modelsurgeon.datasets.grouped_splits import SplitPartition
-from modelsurgeon.surgeon.ranking import RankingResult, RankedCandidate
+from modelsurgeon.surgeon.ranking import RankedCandidate, RankingResult
 
 
 def _split_record() -> dict[str, object]:
