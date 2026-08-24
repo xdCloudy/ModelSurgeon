@@ -35,4 +35,22 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --extra dev --extra hf --locked
-      - run: uv run pytest tests/test_hf_mlp_proof_integration.py -q
+      - run: >-
+          uv run pytest
+          tests/test_hf_mlp_proof_integration.py
+          tests/test_surgeon_mlp_integration.py
+          -q
+
+  lightgbm-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv pip install 'lightgbm>=4,<5'
+      - run: uv run pytest tests/test_first_surgeon_evidence_lightgbm.py -q

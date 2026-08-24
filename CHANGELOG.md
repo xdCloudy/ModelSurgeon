@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add turnkey `first-surgeon-evidence` LightGBM proof reporting with grouped held-out
+  bootstrap metrics, identical-candidate random/magnitude comparisons, immutable-bundle
+  inference smoke tests, source revisions, artifact hashes, and bounded training telemetry.
+- Add production Hugging Face MLP-channel proof execution with exact intermediate-channel
+  masking, activation/static feature capture, causal-LM perplexity measurement, and a real
+  local-Transformers CI smoke path.
+- Preserve grouped split identities and resolved model/schema versions across `train-surgeon`
+  and `predict-surgeon`, and make LightGBM 4.x consume validated NumPy matrices with stable
+  backend feature names while retaining the semantic preprocessing schema.
 - Add explicit device-capability mixed-precision decisions for FP32/FP16/BF16/autocast,
   with recorded compute/accumulation dtypes, fail-closed or explicit FP32 fallback,
   and metric precision binding that rejects silent dtype/autocast drift.
