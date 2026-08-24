@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add explicit device-capability mixed-precision decisions for FP32/FP16/BF16/autocast,
+  with recorded compute/accumulation dtypes, fail-closed or explicit FP32 fallback,
+  and metric precision binding that rejects silent dtype/autocast drift.
 - Add manifest-bound adaptive calibration batching with exact sample-boundary resume,
   whole-sample token/memory ceilings, measured RAM/VRAM model updates, and explicit
   memory-exhaustion backoff without sample reordering or skipping.
