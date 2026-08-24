@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Complete the revision-pinned 100M–7.25B consumer-hardware scale study with measured
+  analysis, feature, reversible mutation, forward-evaluation, RAM, VRAM, cache-disk,
+  placement, and failure evidence plus conservative defaults for a 12 GB GPU host.
 - Publish a generated 108-cell HF/GGUF architecture compatibility matrix with separate
   verified, experimental, unsupported, and unknown states so untested combinations cannot
   be presented as supported.
