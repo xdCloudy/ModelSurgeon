@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add auditable surgeon retraining triggers for new-example count, elapsed budget, and drift,
+  plus all-criteria challenger promotion that always retains the incumbent after training
+  failure or missing/insufficient validation evidence.
 - Add durable active-learning evaluation schedules that bind acquisition metadata to
   resulting experiment and dataset-example IDs and resume partial batches without
   rerunning or changing selection.
