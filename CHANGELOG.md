@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add append-only per-stage runtime telemetry with partial interrupt retention, wall/CPU
+  timing, token/candidate throughput, peak RAM/VRAM, process I/O bytes, stable hardware
+  normalization contexts, and experiment database schema v5 persistence.
 - Add bounded MLP duplicate-channel ranking with weight-cosine candidate screening,
   activation-correlation confirmation, explicit candidate/confirmation budgets, and
   deterministic ranking.
