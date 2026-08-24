@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add candidate-boundary active-learning budgets for attempt count, wall time, tier cost,
+  GPU time, and disk use, with explicit observed-versus-reserved failed-attempt charging.
 - Add deterministic explore/exploit acquisition with exact high-value, uncertainty, and
   diversity fractions, per-selection reasons and conditional propensities, overlap fill,
   and explicit zero/oversubscribed budget behavior.
