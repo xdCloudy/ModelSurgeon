@@ -8,6 +8,7 @@ import json
 import math
 import random
 from collections.abc import Iterable, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
@@ -33,7 +34,11 @@ class ModelTask(StrEnum):
 
 def _measured_rows(
     matrix: SurgeonMatrix,
-) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
+) -> tuple[
+    tuple[tuple[float, ...], ...],
+    tuple[float, ...],
+    tuple[float, ...],
+]:
     x: list[tuple[float, ...]] = []
     y: list[float] = []
     weights: list[float] = []
@@ -96,6 +101,9 @@ class LinearConfig:
             "tolerance": self.tolerance,
             "seed": self.seed,
         }
+
+
+DEFAULT_LINEAR_CONFIG: Final[LinearConfig] = LinearConfig()
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,7 +214,7 @@ def _mse(
 def train_linear(
     train: SurgeonMatrix,
     *,
-    config: LinearConfig = LinearConfig(),
+    config: LinearConfig = DEFAULT_LINEAR_CONFIG,
     validation: SurgeonMatrix | None = None,
 ) -> LinearSurgeonModel:
     """Train ridge/elastic-net regression by deterministic proximal gradient descent."""
@@ -350,6 +358,9 @@ class LogisticConfig:
         }
 
 
+DEFAULT_LOGISTIC_CONFIG: Final[LogisticConfig] = LogisticConfig()
+
+
 @dataclass(frozen=True, slots=True)
 class LogisticSurgeonModel:
     feature_names: tuple[str, ...]
@@ -455,7 +466,7 @@ def _log_loss(
 def train_logistic(
     train: SurgeonMatrix,
     *,
-    config: LogisticConfig = LogisticConfig(),
+    config: LogisticConfig = DEFAULT_LOGISTIC_CONFIG,
     validation: SurgeonMatrix | None = None,
 ) -> LogisticSurgeonModel:
     """Train a class-weighted deterministic L2 logistic baseline."""
@@ -908,10 +919,8 @@ def train_mlp(
     torch.manual_seed(config.seed)
     if bool(torch.cuda.is_available()):
         torch.cuda.manual_seed_all(config.seed)
-    try:
+    with suppress(AttributeError):
         torch.use_deterministic_algorithms(True, warn_only=True)
-    except AttributeError:
-        pass
 
     train_x, train_y, train_weights = _measured_rows(train)
     val_x, val_y, val_weights = _measured_rows(validation)
