@@ -207,19 +207,19 @@ class StageTelemetrySnapshot:
             raise StageTelemetryError(f"unsupported stage telemetry version {self.version}")
         if not self.stage:
             raise StageTelemetryError("stage telemetry requires a non-empty stage name")
-        for value in (self.wall_seconds, self.cpu_seconds):
-            if value < 0 or not _finite(value):
+        for duration in (self.wall_seconds, self.cpu_seconds):
+            if duration < 0 or not _finite(duration):
                 raise StageTelemetryError(
                     "stage wall/CPU durations must be finite and non-negative"
                 )
-        for value in (
+        for counter in (
             self.peak_rss_bytes,
             self.peak_cuda_allocated_bytes,
             self.peak_cuda_reserved_bytes,
             self.io_read_bytes,
             self.io_write_bytes,
         ):
-            if value is not None and value < 0:
+            if counter is not None and counter < 0:
                 raise StageTelemetryError("stage resource counters cannot be negative")
         if not self.hardware.cuda_available and (
             self.peak_cuda_allocated_bytes is not None
