@@ -16,6 +16,10 @@ class GGMLQuantizationType(StrEnum):
     F32 = "F32"
     F16 = "F16"
     BF16 = "BF16"
+    Q4_0 = "Q4_0"
+    Q4_1 = "Q4_1"
+    Q5_0 = "Q5_0"
+    Q5_1 = "Q5_1"
     Q8_0 = "Q8_0"
     Q2_K = "Q2_K"
     Q3_K = "Q3_K"
@@ -36,6 +40,7 @@ class GGMLQuantizationType(StrEnum):
 
 class QuantizationFamily(StrEnum):
     DENSE = "dense"
+    LEGACY = "legacy"
     Q8 = "q8"
     K_QUANT = "k_quant"
     IQ = "iq"
@@ -269,6 +274,42 @@ QUANT_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
         _fields(("grid_indexes", 32), ("high_bits", 16), ("scales", 8)),
     ),
 }
+
+# These pinned layouts are sufficient for GGUF indexing and byte-preserving copy.
+# They are deliberately excluded from QUANT_LAYOUTS because ModelSurgeon does not
+# claim native decode/encode conformance for the legacy formats.
+LEGACY_STORAGE_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
+    GGMLQuantizationType.Q4_0: CodecLayout(
+        GGMLQuantizationType.Q4_0,
+        QuantizationFamily.LEGACY,
+        32,
+        18,
+        _fields(("delta_f16", 2), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q4_1: CodecLayout(
+        GGMLQuantizationType.Q4_1,
+        QuantizationFamily.LEGACY,
+        32,
+        20,
+        _fields(("delta_min_f16x2", 4), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q5_0: CodecLayout(
+        GGMLQuantizationType.Q5_0,
+        QuantizationFamily.LEGACY,
+        32,
+        22,
+        _fields(("delta_f16", 2), ("high_bits", 4), ("quants_u4", 16)),
+    ),
+    GGMLQuantizationType.Q5_1: CodecLayout(
+        GGMLQuantizationType.Q5_1,
+        QuantizationFamily.LEGACY,
+        32,
+        24,
+        _fields(("delta_min_f16x2", 4), ("high_bits", 4), ("quants_u4", 16)),
+    ),
+}
+
+GGUF_STORAGE_LAYOUTS = {**QUANT_LAYOUTS, **LEGACY_STORAGE_LAYOUTS}
 
 
 @dataclass(frozen=True, slots=True)

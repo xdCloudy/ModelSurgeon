@@ -14,7 +14,7 @@ from types import TracebackType
 from typing import cast
 
 from modelsurgeon.adapters.gguf.quantization import (
-    QUANT_LAYOUTS,
+    GGUF_STORAGE_LAYOUTS,
     ByteOrder,
     CodecContractError,
     GGMLQuantizationType,
@@ -26,6 +26,10 @@ _DEFAULT_ALIGNMENT = 32
 GGML_TYPE_IDS = {
     0: GGMLQuantizationType.F32,
     1: GGMLQuantizationType.F16,
+    2: GGMLQuantizationType.Q4_0,
+    3: GGMLQuantizationType.Q4_1,
+    6: GGMLQuantizationType.Q5_0,
+    7: GGMLQuantizationType.Q5_1,
     8: GGMLQuantizationType.Q8_0,
     10: GGMLQuantizationType.Q2_K,
     11: GGMLQuantizationType.Q3_K,
@@ -260,7 +264,7 @@ def _align(offset: int, alignment: int) -> int:
 def gguf_tensor_byte_size(
     quant_type: GGMLQuantizationType, dimensions: tuple[int, ...]
 ) -> int:
-    layout = QUANT_LAYOUTS[quant_type]
+    layout = GGUF_STORAGE_LAYOUTS[quant_type]
     if not dimensions or any(dimension <= 0 for dimension in dimensions):
         raise CorruptGGUFError("GGUF tensor dimensions must be positive")
     if dimensions[0] % layout.block_size:
@@ -480,7 +484,7 @@ class MemoryMappedGGUF:
                 )
 
         if any(
-            QUANT_LAYOUTS[tensor.quant_type].family is not QuantizationFamily.DENSE
+            GGUF_STORAGE_LAYOUTS[tensor.quant_type].family is not QuantizationFamily.DENSE
             for tensor in tensors
         ):
             quantization_version = next(

@@ -120,6 +120,10 @@
 - Benchmark pinned llama.cpp GGUF prompt and generation throughput with phase latency
   samples, child-process peak RAM/VRAM, explicit warmup/thread/offload/context settings,
   raw failure logs, and drift-gated comparison ratios.
+- Discover and configure external llama.cpp quantization binaries without bundling,
+  reject missing or revision-drifted tool sets, capture exact invocations and bounded
+  logs, transactionally publish validated outputs, and index legacy mixed-recipe blocks
+  for byte-preserving copy without claiming native codecs.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.

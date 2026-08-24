@@ -129,6 +129,35 @@ def test_indexes_typed_metadata_and_tensor_ranges_without_payload_objects(tmp_pa
         assert reader.raw_bytes(tensor.data_offset, 2) == b"\0\0"
 
 
+@pytest.mark.parametrize(
+    ("type_id", "quant_type", "byte_size"),
+    [
+        (2, GGMLQuantizationType.Q4_0, 18),
+        (3, GGMLQuantizationType.Q4_1, 20),
+        (6, GGMLQuantizationType.Q5_0, 22),
+        (7, GGMLQuantizationType.Q5_1, 24),
+    ],
+)
+def test_indexes_legacy_mixed_recipe_tensors_for_byte_preserving_copy(
+    tmp_path: Path,
+    type_id: int,
+    quant_type: GGMLQuantizationType,
+    byte_size: int,
+) -> None:
+    path = tmp_path / f"legacy-{type_id}.gguf"
+    _write_gguf(
+        path,
+        metadata=(("general.quantization_version", GGUFValueType.UINT32, 2, None),),
+        tensors=(("weight", (32,), type_id, 0),),
+        payload_size=byte_size,
+    )
+
+    with open_gguf(path) as reader:
+        tensor = reader.container.tensors[0]
+        assert tensor.quant_type is quant_type
+        assert tensor.byte_size == byte_size
+
+
 def test_v2_and_byte_swapped_v3_are_detected(tmp_path: Path) -> None:
     v2 = tmp_path / "v2.gguf"
     big = tmp_path / "big-v3.gguf"
