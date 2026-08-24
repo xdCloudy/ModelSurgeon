@@ -30,7 +30,7 @@ hf = [
   "accelerate>=1.0,<2",
   "safetensors>=0.4,<1",
   "torch>=2.4,<3",
-  "transformers>=4.45,<5",
+  "transformers>=4.45,<6",
 ]
 dev = [
   "gguf>=0.17,<1",
