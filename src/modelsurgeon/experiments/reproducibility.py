@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from modelsurgeon.experiments.artifacts import (
     ContentAddressedArtifactStore,
     PublishedArtifactReference,
 )
 from modelsurgeon.experiments.hardware import HardwareInventory
-from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.experiments.identity import (
+    canonical_identity_json,
+    canonicalize_identity_value,
+)
 from modelsurgeon.experiments.schema import (
     DatasetTarget,
     ExperimentRecord,
@@ -25,7 +30,7 @@ from modelsurgeon.experiments.schema import (
 )
 from modelsurgeon.experiments.store import ExperimentMetadataStore, PersistedExperiment
 
-REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION: Literal[1] = 1
+REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION: Literal[2] = 2
 REPRODUCIBILITY_ARTIFACT_ROLE = "reproducibility_manifest"
 LOCK_DIGEST_ALGORITHM = "sha256"
 
@@ -45,6 +50,33 @@ class ReproducibilityIssueCode(StrEnum):
     MISSING_TOOL_REVISION = "missing_tool_revision"
     MISSING_EVALUATOR_REVISION = "missing_evaluator_revision"
     MISSING_LOCK_DIGEST = "missing_lock_digest"
+
+
+@dataclass(frozen=True, slots=True)
+class MetricTolerance:
+    """Allowed absolute and relative drift for one phase-qualified metric."""
+
+    metric: str
+    absolute: float = 0.0
+    relative: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not self.metric or ":" not in self.metric:
+            raise ReproducibilityError(
+                "metric tolerance names must use phase:name syntax"
+            )
+        if any(
+            not math.isfinite(value) or value < 0
+            for value in (self.absolute, self.relative)
+        ):
+            raise ReproducibilityError("metric tolerances must be finite and non-negative")
+
+    def to_record(self) -> dict[str, str | float]:
+        return {
+            "metric": self.metric,
+            "absolute": self.absolute,
+            "relative": self.relative,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +151,10 @@ class ReproducibilityManifest:
     seeds: SeedContext
     hardware: HardwareInventory
     lock: LockDigest
-    schema_version: Literal[1] = REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION
+    resolved_config: Mapping[str, object]
+    command: tuple[str, ...]
+    metric_tolerances: tuple[MetricTolerance, ...] = ()
+    schema_version: Literal[2] = REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         if self.schema_version != REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION:
@@ -128,6 +163,21 @@ class ReproducibilityManifest:
             )
         if not self.run_id or not self.experiment_id or not self.attempt_id:
             raise ReproducibilityError("manifest requires run, experiment, and attempt identities")
+        if not self.resolved_config:
+            raise ReproducibilityError("manifest requires the complete resolved configuration")
+        canonical_config = canonical_identity_json(self.resolved_config)
+        config_digest = hashlib.sha256(canonical_config.encode("utf-8")).hexdigest()
+        if config_digest != self.versions.config_digest:
+            raise ReproducibilityError(
+                "resolved configuration does not match the recorded config digest"
+            )
+        if not self.command or any(not item for item in self.command):
+            raise ReproducibilityError("manifest requires an exact non-empty command")
+        tolerance_names = tuple(item.metric for item in self.metric_tolerances)
+        if tolerance_names != tuple(sorted(set(tolerance_names))):
+            raise ReproducibilityError(
+                "metric tolerances must use unique canonical metric names"
+            )
 
     @property
     def issues(self) -> tuple[ReproducibilityIssue, ...]:
@@ -226,6 +276,9 @@ class ReproducibilityManifest:
             "seeds": self.seeds.to_record(),
             "hardware": self.hardware.to_record(),
             "lock": self.lock.to_record(),
+            "resolved_config": canonicalize_identity_value(self.resolved_config),
+            "command": list(self.command),
+            "metric_tolerances": [item.to_record() for item in self.metric_tolerances],
         }
 
     @property
@@ -250,8 +303,34 @@ def capture_reproducibility_manifest(
     *,
     git: GitRevision,
     lock: LockDigest,
+    resolved_config: Mapping[str, object],
+    command: tuple[str, ...],
+    metric_tolerances: tuple[MetricTolerance, ...] = (),
 ) -> ReproducibilityManifest:
     """Freeze all reproducibility evidence already associated with one run."""
+
+    measured_metrics = {
+        f"{phase}:{metric.name}"
+        for phase, metrics in (
+            ("baseline", record.baseline_metrics),
+            ("post", record.post_metrics),
+            ("delta", record.delta_metrics),
+        )
+        for metric in metrics
+        if metric.value is not None
+    }
+    unknown_tolerances = {
+        item.metric for item in metric_tolerances
+    } - measured_metrics
+    if unknown_tolerances:
+        raise ReproducibilityError(
+            "metric tolerances reference unmeasured metrics: "
+            f"{sorted(unknown_tolerances)}"
+        )
+    canonical_config = cast(
+        dict[str, object],
+        canonicalize_identity_value(resolved_config),
+    )
 
     return ReproducibilityManifest(
         record.run_id,
@@ -264,6 +343,9 @@ def capture_reproducibility_manifest(
         record.seeds,
         record.hardware,
         lock,
+        canonical_config,
+        command,
+        metric_tolerances,
     )
 
 
@@ -343,4 +425,38 @@ def load_reproducibility_manifest(payload: str) -> dict[str, object]:
         raise ReproducibilityError("reproducibility manifest is not valid JSON") from error
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise ReproducibilityError("reproducibility manifest root must be an object")
+    expected = {
+        "schema_version",
+        "run_id",
+        "experiment_id",
+        "attempt_id",
+        "git",
+        "model",
+        "dataset",
+        "versions",
+        "seeds",
+        "hardware",
+        "lock",
+        "resolved_config",
+        "command",
+        "metric_tolerances",
+        "manifest_id",
+        "reproducible",
+        "issues",
+    }
+    if set(value) != expected:
+        raise ReproducibilityError(
+            "reproducibility manifest has missing or unknown fields"
+        )
+    if value["schema_version"] != REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION:
+        raise ReproducibilityError("reproducibility manifest schema is unsupported")
+    manifest_id = value["manifest_id"]
+    if not isinstance(manifest_id, str) or not manifest_id.startswith("repro_"):
+        raise ReproducibilityError("reproducibility manifest identity is invalid")
+    identity = {key: value[key] for key in expected - {"manifest_id", "reproducible", "issues"}}
+    expected_id = "repro_" + hashlib.sha256(
+        canonical_identity_json(identity).encode("utf-8")
+    ).hexdigest()
+    if manifest_id != expected_id:
+        raise ReproducibilityError("reproducibility manifest identity does not match content")
     return value

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -31,10 +32,13 @@ from modelsurgeon.experiments.reproducibility import (
     REPRODUCIBILITY_ARTIFACT_ROLE,
     GitRevision,
     LockDigest,
+    MetricTolerance,
     ReproducibilityError,
     ReproducibilityIssueCode,
+    ReproducibilityManifest,
     capture_reproducibility_manifest,
     digest_lock_file,
+    load_reproducibility_manifest,
     publish_reproducibility_manifest,
 )
 from modelsurgeon.graph import ComponentId
@@ -114,8 +118,23 @@ def _lock() -> LockDigest:
     return LockDigest("uv.lock", "b" * 64)
 
 
+def _manifest(
+    record: ExperimentRecord | None = None,
+    *,
+    git: GitRevision | None = None,
+    lock: LockDigest | None = None,
+) -> ReproducibilityManifest:
+    return capture_reproducibility_manifest(
+        record or _record(),
+        git=git or _git(),
+        lock=lock or _lock(),
+        resolved_config={"batch": 4},
+        command=("modelsurgeon", "experiment", "mutation.json"),
+    )
+
+
 def test_complete_manifest_is_reproducible_and_canonical() -> None:
-    manifest = capture_reproducibility_manifest(_record(), git=_git(), lock=_lock())
+    manifest = _manifest()
 
     assert manifest.reproducible
     assert manifest.issues == ()
@@ -131,11 +150,13 @@ def test_complete_manifest_is_reproducible_and_canonical() -> None:
     assert record["hardware"] == _hardware().to_record()
     assert record["seeds"] == {"experiment_seed": 11, "data_seed": 22, "mutation_seed": 33}
     assert manifest.canonical_json() == manifest.canonical_json()
+    assert record["resolved_config"] == {"batch": 4}
+    assert record["command"] == ["modelsurgeon", "experiment", "mutation.json"]
+    assert load_reproducibility_manifest(manifest.canonical_json()) == record
 
 
 def test_missing_git_or_lock_and_dirty_tree_block_reproducible_status() -> None:
-    manifest = capture_reproducibility_manifest(
-        _record(),
+    manifest = _manifest(
         git=GitRevision(None, False),
         lock=LockDigest("uv.lock", None),
     )
@@ -152,7 +173,7 @@ def test_missing_git_or_lock_and_dirty_tree_block_reproducible_status() -> None:
 
 
 def test_dirty_worktree_blocks_reproduction_even_with_exact_commit() -> None:
-    manifest = capture_reproducibility_manifest(_record(), git=_git(clean=False), lock=_lock())
+    manifest = _manifest(git=_git(clean=False))
     assert not manifest.reproducible
     assert tuple(item.code for item in manifest.issues) == (
         ReproducibilityIssueCode.DIRTY_GIT_WORKTREE,
@@ -186,13 +207,38 @@ def test_git_and_lock_identity_validation_fail_closed() -> None:
         LockDigest("uv.lock", "xyz")
     with pytest.raises(ReproducibilityError, match="non-empty name"):
         LockDigest("", "b" * 64)
+    with pytest.raises(ReproducibilityError, match="unmeasured metrics"):
+        capture_reproducibility_manifest(
+            _record(),
+            git=_git(),
+            lock=_lock(),
+            resolved_config={"batch": 4},
+            command=("modelsurgeon", "experiment"),
+            metric_tolerances=(MetricTolerance("delta:not-recorded", absolute=1.0),),
+        )
+    with pytest.raises(ReproducibilityError, match="config digest"):
+        capture_reproducibility_manifest(
+            _record(),
+            git=_git(),
+            lock=_lock(),
+            resolved_config={"batch": 5},
+            command=("modelsurgeon", "experiment"),
+        )
+
+
+def test_manifest_loader_rejects_content_tampering() -> None:
+    payload = json.loads(_manifest().canonical_json())
+    payload["command"] = ["malicious", "replacement"]
+
+    with pytest.raises(ReproducibilityError, match="identity does not match"):
+        load_reproducibility_manifest(json.dumps(payload))
 
 
 def test_manifest_publication_is_immutable_and_linked_to_persisted_run(
     tmp_path: Path,
 ) -> None:
     record = _record()
-    manifest = capture_reproducibility_manifest(record, git=_git(), lock=_lock())
+    manifest = _manifest(record)
     artifact_store = ContentAddressedArtifactStore(tmp_path / "artifacts")
     with ExperimentMetadataStore(tmp_path / "metadata.sqlite3") as metadata_store:
         persisted = metadata_store.persist_experiment(record)
@@ -222,7 +268,7 @@ def test_manifest_publication_is_immutable_and_linked_to_persisted_run(
 
 def test_manifest_cannot_be_linked_to_a_different_persisted_run(tmp_path: Path) -> None:
     record = _record()
-    manifest = capture_reproducibility_manifest(record, git=_git(), lock=_lock())
+    manifest = _manifest(record)
     artifact_store = ContentAddressedArtifactStore(tmp_path / "artifacts")
     with ExperimentMetadataStore(tmp_path / "metadata.sqlite3") as metadata_store:
         persisted = metadata_store.persist_experiment(record)

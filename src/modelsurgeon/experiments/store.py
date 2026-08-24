@@ -744,6 +744,31 @@ class ExperimentMetadataStore:
             int(row["candidate_order"]),
         )
 
+    def list_run_candidates(self, run_id: str) -> tuple[StoredCandidate, ...]:
+        """Return the canonical candidate sequence belonging to one run."""
+
+        with self.reader() as connection:
+            rows = connection.execute(
+                """
+                SELECT candidate_id, run_id, mutation_id, affected_components_json,
+                       candidate_order
+                FROM experiment_candidates
+                WHERE run_id = ?
+                ORDER BY candidate_order, candidate_id
+                """,
+                (run_id,),
+            ).fetchall()
+        return tuple(
+            StoredCandidate(
+                str(row["candidate_id"]),
+                str(row["run_id"]),
+                str(row["mutation_id"]),
+                _json_string_tuple(str(row["affected_components_json"])),
+                int(row["candidate_order"]),
+            )
+            for row in rows
+        )
+
     def list_states(self, candidate_id: str) -> tuple[StoredStateEvent, ...]:
         with self.reader() as connection:
             rows = connection.execute(
