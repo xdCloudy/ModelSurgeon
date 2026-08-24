@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
+from modelsurgeon.datasets.validation import validate_mutation_dataset
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.schema import MutationExampleRecord
 from modelsurgeon.graph import ComponentId
 from modelsurgeon.surgery.contracts import MutationPrimitive
-from modelsurgeon.datasets.validation import validate_mutation_dataset
 
 GROUPED_SPLIT_VERSION = "1"
 GROUPED_SPLIT_ALGORITHM = "connected-groups-greedy-v1"
@@ -58,7 +58,7 @@ class SplitRatios:
 class GroupedSplitConfig:
     mode: GroupedSplitMode
     seed: int
-    ratios: SplitRatios = SplitRatios()
+    ratios: SplitRatios = field(default_factory=SplitRatios)
 
     def __post_init__(self) -> None:
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 64:
