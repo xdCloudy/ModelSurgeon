@@ -9,6 +9,13 @@ from .constraints import (
     OptimizationConstraint,
     constraints_from_config,
 )
+from .lineage import (
+    AcceptedCheckpoint,
+    CheckpointLineageStore,
+    LineageDecision,
+    LineageDecisionKind,
+    MeasuredConstraintEvidence,
+)
 from .objectives import (
     ObjectiveObservation,
     ObjectiveScore,
@@ -35,11 +42,16 @@ from .policies import (
 from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
+    "AcceptedCheckpoint",
     "BaselineReference",
+    "CheckpointLineageStore",
     "ConstraintEvaluation",
     "ConstraintMetric",
     "ConstraintObservation",
     "ConstraintSet",
+    "LineageDecision",
+    "LineageDecisionKind",
+    "MeasuredConstraintEvidence",
     "MutationSequenceState",
     "ObjectiveObservation",
     "ObjectiveScore",
