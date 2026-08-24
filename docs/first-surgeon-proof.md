@@ -6,11 +6,50 @@ mutation dataset has been trained and evaluated.
 
 ## Generate the proof dataset
 
-The generic campaign orchestration is available through `first-surgeon-proof`. It enumerates
-canonical mask candidates, obtains pre-mutation feature partitions before each mutation, executes
-each candidate through the existing transactional single-mutation runner, builds canonical mutation
-examples, creates a held-out-component split, runs the leakage audit, and writes training-ready
-records.
+### Turnkey Hugging Face MLP-channel proof
+
+For supported Hugging Face causal LMs with the standard gated `gate_proj` / `up_proj` /
+`down_proj` MLP layout, use the production PyTorch runtime directly. It masks the selected
+intermediate channel at the `down_proj` input, captures pre-mutation channel activations during the
+baseline pass, computes channel weight statistics, measures token-weighted causal-LM perplexity,
+and always removes the temporary hook after evaluation.
+
+Install the optional HF runtime first:
+
+```bash
+uv sync --extra dev --extra hf --locked
+```
+
+Prepare a UTF-8 calibration corpus and run several thousand independently addressable MLP-channel
+masks. Record the exact ModelSurgeon revision in the campaign provenance:
+
+```bash
+modelsurgeon first-surgeon-hf-proof <model-id-or-local-path> ./calibration.txt \
+  --output ./proof-data \
+  --max-candidates 5000 \
+  --sequence-length 256 \
+  --max-tokens 4096 \
+  --safe-perplexity-delta 0.25 \
+  --seed 42 \
+  --split-seed 43 \
+  --tool-revision "$(git rev-parse HEAD)"
+```
+
+For Hub models, the runtime records the resolved immutable model/tokenizer revision returned by
+Transformers. Local calibration text is content-addressed with SHA-256. The command refuses model
+layouts whose MLP projection dimensions do not match the declared intermediate width.
+
+The proof runtime currently restricts this empirical campaign to **MLP-channel masks**. That is
+intentional: a small transformer exposes thousands of independent channel candidates without
+pretending that attention-head or physical structural surgery is implemented when it is not.
+
+### Generic runtime entry point
+
+The generic campaign orchestration remains available through `first-surgeon-proof` for another
+adapter/runtime. It enumerates canonical mask candidates, obtains pre-mutation feature partitions
+before each mutation, executes each candidate through the existing transactional single-mutation
+runner, builds canonical mutation examples, creates a held-out-component split, runs the leakage
+audit, and writes training-ready records.
 
 ```bash
 modelsurgeon first-surgeon-proof \
@@ -33,8 +72,8 @@ audit reports a finding.
 
 ### Runtime boundary
 
-A proof runtime uses the normal `SingleMutationExperimentRuntime` contract and adds four pieces of
-model-specific evidence through `FirstSurgeonProofRuntime`:
+A generic proof runtime uses the normal `SingleMutationExperimentRuntime` contract and adds four
+pieces of model-specific evidence through `FirstSurgeonProofRuntime`:
 
 - `component_graph` — the canonical graph used for candidate enumeration;
 - `run_id` — the stable campaign run identity;
@@ -43,10 +82,9 @@ model-specific evidence through `FirstSurgeonProofRuntime`:
 - `experiment_record(candidate, result)` — the canonical experiment metadata/metrics bound to the
   rolled-back single-mutation result.
 
-This deliberately keeps model/framework-specific tensor hooks outside the generic campaign layer.
-For a real Hugging Face proof, the runtime must provide genuine PyTorch masking, model-forward,
-tokenization/perplexity, and activation-feature adapters; the generic orchestrator does not emulate
-those boundaries.
+This keeps model/framework-specific tensor hooks outside the generic campaign layer. The built-in
+Hugging Face runtime supplies those boundaries with real PyTorch hooks and causal-LM forwards; the
+generic orchestrator does not emulate them.
 
 ## Required dataset
 
@@ -58,13 +96,14 @@ small model. Each example must contain:
 - the exact model identifier, immutable revision, format, and quantization;
 - a grouped split manifest whose test components do not occur in train or validation.
 
-Do not create a row-level random split after examples are generated. `first-surgeon-proof` uses the
-repository's grouped split machinery so component groups cannot leak across partitions.
+Do not create a row-level random split after examples are generated. `first-surgeon-proof` and
+`first-surgeon-hf-proof` use the repository's grouped split machinery so component groups cannot
+leak across partitions.
 
-## Environment
+## Training environment
 
 The base package deliberately does not make LightGBM a mandatory dependency. Install it only in the
-environment used for the proof run:
+environment used for the proof training run:
 
 ```bash
 uv sync --all-extras --locked
@@ -89,7 +128,8 @@ modelsurgeon train-surgeon ./proof-data/examples.jsonl \
 The command fits preprocessing on train only, uses validation for early stopping, evaluates the
 held-out test split only after model selection, and publishes an immutable model bundle containing
 the preprocessing schema, target schema, split manifest, metrics, model revisions, quantization,
-and run provenance.
+and run provenance. Regression metrics include grouped-bootstrap confidence intervals when test
+groups are available.
 
 ## Train safe-mutation classifier
 
@@ -109,7 +149,9 @@ modelsurgeon train-surgeon ./proof-data/examples.jsonl \
 ```
 
 If another safety metric is part of the policy, add another `--safe-threshold metric=value`. Missing
-required observations are masked rather than silently treated as safe or unsafe.
+required observations are masked rather than silently treated as safe or unsafe. Classification
+metrics include ROC-AUC, PR-AUC, precision/recall at the declared top-N, calibration error, and
+grouped-bootstrap confidence intervals where mathematically defined.
 
 ## Baseline comparison
 

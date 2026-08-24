@@ -25,6 +25,7 @@ from modelsurgeon.cli.experiment import (
 )
 from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.cli.proof import first_surgeon_proof_command
+from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
@@ -179,6 +180,7 @@ def experiment(
 
 
 app.command("first-surgeon-proof")(first_surgeon_proof_command)
+app.command("first-surgeon-hf-proof")(first_surgeon_hf_proof_command)
 app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
 
