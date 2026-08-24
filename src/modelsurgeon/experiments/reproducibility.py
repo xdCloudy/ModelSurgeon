@@ -76,11 +76,14 @@ class LockDigest:
             raise ReproducibilityError("dependency lock identity requires a non-empty name")
         if self.algorithm != LOCK_DIGEST_ALGORITHM:
             raise ReproducibilityError(f"unsupported dependency lock digest {self.algorithm!r}")
-        if self.hexadecimal is not None:
-            if len(self.hexadecimal) != 64 or any(
-                character not in "0123456789abcdef" for character in self.hexadecimal
-            ):
-                raise ReproducibilityError("lock SHA-256 must be 64 lowercase hexadecimal characters")
+        invalid_hexadecimal = self.hexadecimal is not None and (
+            len(self.hexadecimal) != 64
+            or any(character not in "0123456789abcdef" for character in self.hexadecimal)
+        )
+        if invalid_hexadecimal:
+            raise ReproducibilityError(
+                "lock SHA-256 must be 64 lowercase hexadecimal characters"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
