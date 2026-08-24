@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a fixed-budget tree-surgeon uncertainty comparison across ensemble, bootstrap, and
+  quantile intervals, reporting coverage, error-ranking utility, CPU/model-memory cost,
+  and schema-versioned uncertainty values for downstream acquisition.
 - Add validation-only Platt and isotonic safe-mutation probability calibration with
   deterministic selection, versioned serialization, and stored Brier, ECE, and complete
   reliability-curve evidence for every candidate method.
