@@ -5,6 +5,9 @@
 - Add `modelsurgeon reproduce RUN_ID` with schema-v2 resolved recipes, exact-command dry
   runs, content-addressed integrity and environment checks, trusted replay adapters, and
   original-linked tolerance comparisons for reproduced metrics.
+- Add hardware-bound CPU RAM, CUDA VRAM, runtime, process-I/O, and GGUF-streaming
+  regression budgets with a small pull-request lane, separate consumer CPU/GPU workflows,
+  canonical reports, strict alert decisions, and measured RTX 3060 workstation evidence.
 - Complete the revision-pinned 100M–7.25B consumer-hardware scale study with measured
   analysis, feature, reversible mutation, forward-evaluation, RAM, VRAM, cache-disk,
   placement, and failure evidence plus conservative defaults for a 12 GB GPU host.

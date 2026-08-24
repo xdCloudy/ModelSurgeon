@@ -74,6 +74,12 @@ def _windows_io_counters() -> ProcessIOCounters | None:
     try:
         windll: Any = getattr(ctypes, "windll")  # noqa: B009
         kernel32: Any = windll.kernel32
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.GetProcessIoCounters.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(_WindowsIOCounters),
+        )
+        kernel32.GetProcessIoCounters.restype = ctypes.c_int
         counters = _WindowsIOCounters()
         handle = kernel32.GetCurrentProcess()
         ok = kernel32.GetProcessIoCounters(handle, ctypes.byref(counters))
