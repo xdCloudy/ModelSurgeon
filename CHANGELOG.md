@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add manifest-bound adaptive calibration batching with exact sample-boundary resume,
+  whole-sample token/memory ceilings, measured RAM/VRAM model updates, and explicit
+  memory-exhaustion backoff without sample reordering or skipping.
 - Add append-only per-stage runtime telemetry with partial interrupt retention, wall/CPU
   timing, token/candidate throughput, peak RAM/VRAM, process I/O bytes, stable hardware
   normalization contexts, and experiment database schema v5 persistence.
