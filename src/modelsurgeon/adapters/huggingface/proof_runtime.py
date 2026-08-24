@@ -6,11 +6,14 @@ import hashlib
 import math
 import os
 import time
+from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from importlib import import_module
-from importlib.metadata import PackageNotFoundError, version as package_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Self
 
 from modelsurgeon.adapters import ArchitectureEvidence, detect_model_family
@@ -28,8 +31,8 @@ from modelsurgeon.evaluation.tiered import (
     MetricDecision,
     ThresholdComparator,
     TierDecision,
-    TierThreshold,
     TieredEvaluationReport,
+    TierThreshold,
 )
 from modelsurgeon.experiments.candidates import CandidateScope, MutationCandidate
 from modelsurgeon.experiments.hardware import collect_hardware_inventory
@@ -205,7 +208,7 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        traceback: object,
+        traceback: TracebackType | None,
     ) -> None:
         del exc_type, exc_value, traceback
         if self._handle is None:
@@ -267,10 +270,17 @@ def _token_chunks(
     ):
         raise HuggingFaceMLPProofError("tokenizer returned unsupported input_ids")
     bounded = token_ids[:max_tokens]
+    return _nontrivial_chunks(bounded, sequence_length)
+
+
+def _nontrivial_chunks(
+    token_ids: list[int],
+    sequence_length: int,
+) -> tuple[tuple[int, ...], ...]:
     chunks = tuple(
-        tuple(bounded[start : start + sequence_length])
-        for start in range(0, len(bounded), sequence_length)
-        if len(bounded[start : start + sequence_length]) >= 2
+        tuple(token_ids[start : start + sequence_length])
+        for start in range(0, len(token_ids), sequence_length)
+        if len(token_ids[start : start + sequence_length]) >= 2
     )
     if not chunks:
         raise HuggingFaceMLPProofError("calibration text produced fewer than two usable tokens")
@@ -294,7 +304,7 @@ def _tokenizer_revision(
     model_revision: str,
 ) -> str:
     init_kwargs = getattr(tokenizer, "init_kwargs", None)
-    if isinstance(init_kwargs, dict):
+    if isinstance(init_kwargs, Mapping):
         commit = init_kwargs.get("_commit_hash")
         if isinstance(commit, str) and commit.strip():
             return commit
@@ -310,7 +320,7 @@ def _tokenizer_revision(
     )
 
 
-def _find_module(modules: dict[str, Any], suffix: str) -> Any:
+def _find_module(modules: Mapping[str, Any], suffix: str) -> Any:
     exact = modules.get(suffix)
     if exact is not None:
         return exact
@@ -406,7 +416,6 @@ class HuggingFaceMLPProofRuntime:
         )
         self.model = loaded.model
         self.model.eval()
-        self._model_provenance = loaded.provenance
         family = detect_model_family(_architecture_evidence(self.model.config))
         self._discovery = discover_huggingface_components(self.model, family.family)
         self._component_graph = build_component_graph(tuple(self._discovery.components()))
@@ -414,14 +423,14 @@ class HuggingFaceMLPProofRuntime:
         self._validate_mlp_layout()
 
         tokenizer_source = config.tokenizer or config.model
-        tokenizer_requested_revision = config.tokenizer_revision
-        if tokenizer_requested_revision is None and tokenizer_source == config.model:
-            tokenizer_requested_revision = loaded.provenance.resolved_revision
-        self._tokenizer = self._load_tokenizer(tokenizer_source, tokenizer_requested_revision)
+        requested_tokenizer_revision = config.tokenizer_revision
+        if requested_tokenizer_revision is None and tokenizer_source == config.model:
+            requested_tokenizer_revision = loaded.provenance.resolved_revision
+        self._tokenizer = self._load_tokenizer(tokenizer_source, requested_tokenizer_revision)
         resolved_tokenizer_revision = _tokenizer_revision(
             self._tokenizer,
             source=tokenizer_source,
-            requested=tokenizer_requested_revision,
+            requested=requested_tokenizer_revision,
             model_source=config.model,
             model_revision=loaded.provenance.resolved_revision,
         )
@@ -431,7 +440,7 @@ class HuggingFaceMLPProofRuntime:
             add_special_tokens=False,
             return_attention_mask=False,
         )
-        if not isinstance(encoded, dict) or "input_ids" not in encoded:
+        if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
             raise HuggingFaceMLPProofError("tokenizer did not return an input_ids mapping")
         self._chunks = _token_chunks(
             encoded["input_ids"],
@@ -439,24 +448,10 @@ class HuggingFaceMLPProofRuntime:
             max_tokens=config.max_tokens,
         )
         self._sample_ids = _sample_ids(self._chunks)
-        manifest_payload = {
-            "calibration_revision": text_revision,
-            "tokenizer": tokenizer_source,
-            "tokenizer_revision": resolved_tokenizer_revision,
-            "sequence_length": config.sequence_length,
-            "max_tokens": config.max_tokens,
-            "samples": self._sample_ids,
-        }
-        manifest_digest = hashlib.sha256(
-            canonical_identity_json(manifest_payload).encode("utf-8")
-        ).hexdigest()
-        self._dataset = DatasetTarget(
-            identifier=f"local-text:{config.calibration_text.name}",
-            revision=text_revision,
-            split="calibration",
-            manifest_id=f"manifest_{manifest_digest}",
-            tokenizer=tokenizer_source,
-            tokenizer_revision=resolved_tokenizer_revision,
+        self._dataset = self._dataset_target(
+            text_revision,
+            tokenizer_source,
+            resolved_tokenizer_revision,
         )
         self._model_target = ModelTarget(
             identifier=config.model,
@@ -467,21 +462,12 @@ class HuggingFaceMLPProofRuntime:
             quantization=None,
         )
         self._tool_revision = _tool_revision(config.tool_revision)
-        self._seed_context = SeedContext(config.seed, config.seed, config.seed)
         identity = derive_experiment_identity(
             ExperimentIdentitySpec(
                 model=self._model_target,
                 dataset=self._dataset,
-                resolved_config={
-                    "runtime_version": HF_MLP_PROOF_RUNTIME_VERSION,
-                    "sequence_length": config.sequence_length,
-                    "max_tokens": config.max_tokens,
-                    "safe_perplexity_delta": config.safe_perplexity_delta,
-                    "device_map": config.device_map,
-                    "dtype": config.dtype.value,
-                    "trust_remote_code": config.trust_remote_code,
-                },
-                seeds=self._seed_context,
+                resolved_config=self._identity_config(),
+                seeds=SeedContext(config.seed, config.seed, config.seed),
                 tool_revision=self._tool_revision,
                 evaluator_version=HF_MLP_EVALUATOR_VERSION,
                 feature_schema_version=FEATURE_SCHEMA_VERSION,
@@ -508,8 +494,7 @@ class HuggingFaceMLPProofRuntime:
 
     def _load_tokenizer(self, source: str, revision: str | None) -> Any:
         try:
-            transformers = import_module("transformers")
-            auto_tokenizer = transformers.AutoTokenizer
+            auto_tokenizer = import_module("transformers").AutoTokenizer
         except (AttributeError, ImportError) as error:
             raise HuggingFaceDependencyError(
                 "Hugging Face proof runtime requires `uv sync --extra hf`"
@@ -522,7 +507,46 @@ class HuggingFaceMLPProofRuntime:
                 local_files_only=self.config.local_files_only,
             )
         except Exception as error:
-            raise HuggingFaceMLPProofError(f"failed to load tokenizer {source!r}: {error}") from error
+            raise HuggingFaceMLPProofError(
+                f"failed to load tokenizer {source!r}: {error}"
+            ) from error
+
+    def _identity_config(self) -> dict[str, object]:
+        return {
+            "runtime_version": HF_MLP_PROOF_RUNTIME_VERSION,
+            "sequence_length": self.config.sequence_length,
+            "max_tokens": self.config.max_tokens,
+            "safe_perplexity_delta": self.config.safe_perplexity_delta,
+            "device_map": self.config.device_map,
+            "dtype": self.config.dtype.value,
+            "trust_remote_code": self.config.trust_remote_code,
+        }
+
+    def _dataset_target(
+        self,
+        text_revision: str,
+        tokenizer_source: str,
+        tokenizer_revision: str,
+    ) -> DatasetTarget:
+        manifest_payload = {
+            "calibration_revision": text_revision,
+            "tokenizer": tokenizer_source,
+            "tokenizer_revision": tokenizer_revision,
+            "sequence_length": self.config.sequence_length,
+            "max_tokens": self.config.max_tokens,
+            "samples": self._sample_ids,
+        }
+        digest = hashlib.sha256(
+            canonical_identity_json(manifest_payload).encode("utf-8")
+        ).hexdigest()
+        return DatasetTarget(
+            identifier=f"local-text:{self.config.calibration_text.name}",
+            revision=text_revision,
+            split="calibration",
+            manifest_id=f"manifest_{digest}",
+            tokenizer=tokenizer_source,
+            tokenizer_revision=tokenizer_revision,
+        )
 
     @property
     def component_graph(self) -> ComponentGraph:
@@ -533,22 +557,19 @@ class HuggingFaceMLPProofRuntime:
         return self._run_id
 
     def _validate_mlp_layout(self) -> None:
+        width = self._discovery.shape.intermediate_size
         for layer in range(self._discovery.shape.layers):
-            gate = _find_module(self._modules, f"model.layers.{layer}.mlp.gate_proj")
-            up = _find_module(self._modules, f"model.layers.{layer}.mlp.up_proj")
-            down = _find_module(self._modules, f"model.layers.{layer}.mlp.down_proj")
-            for label, module in (("gate_proj", gate), ("up_proj", up), ("down_proj", down)):
-                weight = getattr(module, "weight", None)
-                if weight is None or not self._torch.is_tensor(weight) or weight.ndim != 2:
+            gate, up, down = self._projection_weights(layer)
+            for label, weight in (("gate_proj", gate), ("up_proj", up), ("down_proj", down)):
+                if not self._torch.is_tensor(weight) or weight.ndim != 2:
                     raise HuggingFaceMLPProofError(
                         f"layer {layer} {label} must expose a rank-2 tensor weight"
                     )
-            width = self._discovery.shape.intermediate_size
-            if int(gate.weight.shape[0]) != width or int(up.weight.shape[0]) != width:
+            if int(gate.shape[0]) != width or int(up.shape[0]) != width:
                 raise HuggingFaceMLPProofError(
                     f"layer {layer} gate/up output width disagrees with intermediate_size"
                 )
-            if int(down.weight.shape[1]) != width:
+            if int(down.shape[1]) != width:
                 raise HuggingFaceMLPProofError(
                     f"layer {layer} down-projection input width disagrees with intermediate_size"
                 )
@@ -567,10 +588,14 @@ class HuggingFaceMLPProofRuntime:
         return _find_module(self._modules, f"model.layers.{layer}.mlp.down_proj")
 
     def _projection_weights(self, layer: int) -> tuple[Any, Any, Any]:
-        gate = _find_module(self._modules, f"model.layers.{layer}.mlp.gate_proj").weight
-        up = _find_module(self._modules, f"model.layers.{layer}.mlp.up_proj").weight
-        down = self._down_projection(layer).weight
-        return gate, up, down
+        gate = _find_module(self._modules, f"model.layers.{layer}.mlp.gate_proj")
+        up = _find_module(self._modules, f"model.layers.{layer}.mlp.up_proj")
+        down = self._down_projection(layer)
+        for label, module in (("gate_proj", gate), ("up_proj", up), ("down_proj", down)):
+            weight = getattr(module, "weight", None)
+            if weight is None:
+                raise HuggingFaceMLPProofError(f"{label} does not expose a weight tensor")
+        return gate.weight, up.weight, down.weight
 
     def _activation_hook(self, layer: int) -> Any:
         def capture(module: object, inputs: tuple[object, ...]) -> None:
@@ -582,7 +607,9 @@ class HuggingFaceMLPProofRuntime:
                 raise HuggingFaceMLPProofError("down projection activation has no channel axis")
             flat = tensor.detach().float().reshape(-1, int(tensor.shape[-1]))
             if int(flat.shape[-1]) != self._discovery.shape.intermediate_size:
-                raise HuggingFaceMLPProofError("captured activation width disagrees with model config")
+                raise HuggingFaceMLPProofError(
+                    "captured activation width disagrees with model config"
+                )
             state = self._activation_stats.setdefault(layer, _ActivationAccumulator())
             sums = flat.sum(dim=0).cpu()
             abs_sums = flat.abs().sum(dim=0).cpu()
@@ -629,9 +656,11 @@ class HuggingFaceMLPProofRuntime:
                     output = self.model(input_ids=input_ids, use_cache=False)
                     logits = getattr(output, "logits", None)
                     if logits is None or not self._torch.is_tensor(logits) or logits.ndim != 3:
-                        raise HuggingFaceMLPProofError("causal LM forward did not return rank-3 logits")
+                        raise HuggingFaceMLPProofError(
+                            "causal LM forward did not return rank-3 logits"
+                        )
                     shifted_logits = logits[:, :-1, :].float().contiguous()
-                    shifted_targets = input_ids[:, 1:].contiguous()
+                    shifted_targets = input_ids[:, 1:].to(shifted_logits.device).contiguous()
                     nll = self._torch.nn.functional.cross_entropy(
                         shifted_logits.view(-1, int(shifted_logits.shape[-1])),
                         shifted_targets.view(-1),
@@ -655,7 +684,9 @@ class HuggingFaceMLPProofRuntime:
         if self._baseline is None:
             self._baseline = self._forward_measurement(capture_activations=True)
             if len(self._activation_stats) != self._discovery.shape.layers:
-                raise HuggingFaceMLPProofError("baseline activation capture missed one or more layers")
+                raise HuggingFaceMLPProofError(
+                    "baseline activation capture missed one or more layers"
+                )
         return self._baseline
 
     def _feature_sample_context(self) -> FeatureSampleContext:
@@ -672,12 +703,9 @@ class HuggingFaceMLPProofRuntime:
     def _feature_records(self, layer: int, channel: int) -> tuple[FeatureRecord, ...]:
         self._ensure_baseline()
         gate, up, down = self._projection_weights(layer)
-        gate_slice = gate[channel, :]
-        up_slice = up[channel, :]
-        down_slice = down[:, channel]
-        weight_parts = (gate_slice, up_slice, down_slice)
-        storage_dtypes = tuple(_tensor_dtype(item) for item in weight_parts)
-        combined_storage = storage_dtypes[0] if len(set(storage_dtypes)) == 1 else "mixed"
+        weight_parts = (gate[channel, :], up[channel, :], down[:, channel])
+        dtypes = tuple(_tensor_dtype(item) for item in weight_parts)
+        combined_dtype = dtypes[0] if len(set(dtypes)) == 1 else "mixed"
         component = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
         metadata = tuple(
             sorted(
@@ -688,92 +716,101 @@ class HuggingFaceMLPProofRuntime:
                 )
             )
         )
-        records: list[FeatureRecord] = []
+        records = self._weight_features(component, weight_parts, dtypes, combined_dtype, metadata)
+        records.extend(self._activation_features(component, layer, channel, metadata))
+        return tuple(sorted(records, key=lambda item: item.name))
 
-        weight_count = sum(int(item.numel()) for item in weight_parts)
-        weight_l1 = math.fsum(_scalar(item.detach().float().abs().sum()) for item in weight_parts)
-        weight_l2_sq = math.fsum(
-            _scalar(item.detach().float().square().sum()) for item in weight_parts
-        )
-        weight_max = max(_scalar(item.detach().float().abs().max()) for item in weight_parts)
-        for name, value in (
-            ("weight_count", float(weight_count)),
-            ("weight_l1_norm", weight_l1),
-            ("weight_l2_norm", math.sqrt(max(0.0, weight_l2_sq))),
-            ("weight_max_magnitude", weight_max),
+    def _weight_features(
+        self,
+        component: ComponentId,
+        parts: tuple[Any, Any, Any],
+        dtypes: tuple[str, str, str],
+        combined_dtype: str,
+        metadata: tuple[tuple[str, str | int], ...],
+    ) -> list[FeatureRecord]:
+        count = sum(int(item.numel()) for item in parts)
+        l1 = math.fsum(_scalar(item.detach().float().abs().sum()) for item in parts)
+        l2_sq = math.fsum(_scalar(item.detach().float().square().sum()) for item in parts)
+        maximum = max(_scalar(item.detach().float().abs().max()) for item in parts)
+        records = [
+            self._feature(component, name, value, combined_dtype, None, metadata)
+            for name, value in (
+                ("weight_count", float(count)),
+                ("weight_l1_norm", l1),
+                ("weight_l2_norm", math.sqrt(max(0.0, l2_sq))),
+                ("weight_max_magnitude", maximum),
+            )
+        ]
+        for prefix, tensor, storage_dtype in zip(
+            ("gate_weight", "up_weight", "down_weight"), parts, dtypes, strict=True
         ):
-            records.append(
-                FeatureRecord(
+            records.extend(
+                self._feature(
                     component,
-                    name,
-                    FeatureKind.SCALAR,
-                    float(value),
-                    "float64",
-                    HF_MLP_FEATURE_EXTRACTOR,
-                    HF_MLP_FEATURE_EXTRACTOR_VERSION,
-                    _high_precision(combined_storage),
+                    f"{prefix}_{suffix}",
+                    value,
+                    storage_dtype,
                     None,
                     metadata,
                 )
+                for suffix, value in _tensor_stats(tensor).items()
             )
+        return records
 
-        for prefix, tensor, storage_dtype in zip(
-            ("gate_weight", "up_weight", "down_weight"),
-            weight_parts,
-            storage_dtypes,
-            strict=True,
-        ):
-            for suffix, value in _tensor_stats(tensor).items():
-                records.append(
-                    FeatureRecord(
-                        component,
-                        f"{prefix}_{suffix}",
-                        FeatureKind.SCALAR,
-                        float(value),
-                        "float64",
-                        HF_MLP_FEATURE_EXTRACTOR,
-                        HF_MLP_FEATURE_EXTRACTOR_VERSION,
-                        _high_precision(storage_dtype),
-                        None,
-                        metadata,
-                    )
-                )
-
+    def _activation_features(
+        self,
+        component: ComponentId,
+        layer: int,
+        channel: int,
+        metadata: tuple[tuple[str, str | int], ...],
+    ) -> list[FeatureRecord]:
         state = self._activation_stats.get(layer)
         if state is None or state.count <= 0 or state.sums is None:
             raise HuggingFaceMLPProofError(f"activation statistics are missing for layer {layer}")
         mean = _scalar(state.sums[channel]) / state.count
-        abs_mean = _scalar(state.abs_sums[channel]) / state.count
         square_mean = _scalar(state.square_sums[channel]) / state.count
-        rms = math.sqrt(max(0.0, square_mean))
-        std = math.sqrt(max(0.0, square_mean - mean * mean))
-        zero_fraction = _scalar(state.zero_counts[channel]) / state.count
-        maximum = _scalar(state.max_abs[channel])
-        activation_precision = _high_precision(state.storage_dtype or "unknown")
-        sample_context = self._feature_sample_context()
-        for name, value in (
+        values = (
             ("activation_mean", mean),
-            ("activation_abs_mean", abs_mean),
-            ("activation_rms", rms),
-            ("activation_std", std),
-            ("activation_zero_fraction", zero_fraction),
-            ("activation_max_abs", maximum),
-        ):
-            records.append(
-                FeatureRecord(
-                    component,
-                    name,
-                    FeatureKind.SCALAR,
-                    float(value),
-                    "float64",
-                    HF_MLP_FEATURE_EXTRACTOR,
-                    HF_MLP_FEATURE_EXTRACTOR_VERSION,
-                    activation_precision,
-                    sample_context,
-                    metadata,
-                )
+            ("activation_abs_mean", _scalar(state.abs_sums[channel]) / state.count),
+            ("activation_rms", math.sqrt(max(0.0, square_mean))),
+            ("activation_std", math.sqrt(max(0.0, square_mean - mean * mean))),
+            ("activation_zero_fraction", _scalar(state.zero_counts[channel]) / state.count),
+            ("activation_max_abs", _scalar(state.max_abs[channel])),
+        )
+        context = self._feature_sample_context()
+        return [
+            self._feature(
+                component,
+                name,
+                value,
+                state.storage_dtype or "unknown",
+                context,
+                metadata,
             )
-        return tuple(sorted(records, key=lambda item: item.name))
+            for name, value in values
+        ]
+
+    @staticmethod
+    def _feature(
+        component: ComponentId,
+        name: str,
+        value: float,
+        storage_dtype: str,
+        context: FeatureSampleContext | None,
+        metadata: tuple[tuple[str, str | int], ...],
+    ) -> FeatureRecord:
+        return FeatureRecord(
+            component,
+            name,
+            FeatureKind.SCALAR,
+            float(value),
+            "float64",
+            HF_MLP_FEATURE_EXTRACTOR,
+            HF_MLP_FEATURE_EXTRACTOR_VERSION,
+            _high_precision(storage_dtype),
+            context,
+            metadata,
+        )
 
     def pre_mutation_feature_partitions(
         self,
@@ -797,7 +834,7 @@ class HuggingFaceMLPProofRuntime:
     def resolve(self, request: MutationRequest) -> ResolvedExperiment:
         _channel_coordinates(request)
         resolution = resolve_mutation_targets(request, self._component_graph)
-        plan = MutationPlan(request, resolution.affected_components, (), MutationDelta())
+        plan = resolution.to_plan(preconditions=(), expected_delta=MutationDelta())
         return ResolvedExperiment(
             plan,
             MutationProvenance(
@@ -825,11 +862,7 @@ class HuggingFaceMLPProofRuntime:
     ) -> AbstractContextManager[object]:
         require_safe_transaction(transaction)
         layer, channel = _channel_coordinates(plan.request)
-        return _DownProjectionChannelMask(
-            self._down_projection(layer),
-            channel,
-            self._torch,
-        )
+        return _DownProjectionChannelMask(self._down_projection(layer), channel, self._torch)
 
     def evaluate(self, plan: MutationPlan) -> TieredEvaluationReport:
         baseline = self._ensure_baseline()
@@ -838,13 +871,30 @@ class HuggingFaceMLPProofRuntime:
         elapsed = time.perf_counter() - started
         loss_delta = post.mean_loss - baseline.mean_loss
         perplexity_delta = post.perplexity - baseline.perplexity
+        accepted = perplexity_delta <= self.config.safe_perplexity_delta
+        self._last_measurement = _CandidateMeasurement(
+            plan.request.mutation_id,
+            post,
+            loss_delta,
+            perplexity_delta,
+            accepted,
+            elapsed,
+        )
+        return self._evaluation_report(post, loss_delta, perplexity_delta, accepted)
+
+    def _evaluation_report(
+        self,
+        post: _PerplexityMeasurement,
+        loss_delta: float,
+        perplexity_delta: float,
+        accepted: bool,
+    ) -> TieredEvaluationReport:
         threshold = TierThreshold(
             EvaluationTier.TIER1,
             "perplexity_delta",
             ThresholdComparator.MAXIMUM,
             self.config.safe_perplexity_delta,
         )
-        accepted = perplexity_delta <= self.config.safe_perplexity_delta
         tier0_metrics = (
             MetricDecision(EvaluationTier.TIER0, "load_shape_forward_pass", 1.0, None, None),
             MetricDecision(EvaluationTier.TIER0, "numerics_pass", 1.0, None, None),
@@ -861,6 +911,12 @@ class HuggingFaceMLPProofRuntime:
                 accepted,
             ),
         )
+        reason = None
+        if not accepted:
+            reason = (
+                f"perplexity_delta={perplexity_delta:.12g} exceeds maximum "
+                f"{self.config.safe_perplexity_delta:.12g}"
+            )
         decisions = [
             TierDecision(
                 EvaluationTier.TIER0,
@@ -875,35 +931,16 @@ class HuggingFaceMLPProofRuntime:
                 True,
                 accepted,
                 EscalationAction.COMPLETE if accepted else EscalationAction.REJECT,
-                (
-                    None
-                    if accepted
-                    else (
-                        f"perplexity_delta={perplexity_delta:.12g} exceeds maximum "
-                        f"{self.config.safe_perplexity_delta:.12g}"
-                    )
-                ),
+                reason,
                 tier1_metrics,
             ),
         ]
         tail_reason = "tier not configured" if accepted else "candidate rejected by Tier 1"
-        for tier in (EvaluationTier.TIER2, EvaluationTier.TIER3):
-            decisions.append(
-                TierDecision(tier, False, None, EscalationAction.SKIP, tail_reason, ())
-            )
-        self._last_measurement = _CandidateMeasurement(
-            plan.request.mutation_id,
-            post,
-            loss_delta,
-            perplexity_delta,
-            accepted,
-            elapsed,
+        decisions.extend(
+            TierDecision(tier, False, None, EscalationAction.SKIP, tail_reason, ())
+            for tier in (EvaluationTier.TIER2, EvaluationTier.TIER3)
         )
-        return TieredEvaluationReport(
-            tuple(decisions),
-            accepted,
-            EvaluationTier.TIER1,
-        )
+        return TieredEvaluationReport(tuple(decisions), accepted, EvaluationTier.TIER1)
 
     def rolled_back_outcome(
         self,
@@ -930,30 +967,11 @@ class HuggingFaceMLPProofRuntime:
                 "candidate experiment record requested without matching evaluation evidence"
             )
         if result.run_record.mutation_id != candidate.mutation_id:
-            raise HuggingFaceMLPProofError("experiment result mutation identity does not match candidate")
-        baseline = self._ensure_baseline()
-        baseline_metrics = (
-            _metric("loss", baseline.mean_loss, "loss"),
-            _metric("perplexity", baseline.perplexity, "perplexity"),
-        )
-        post_metrics = (
-            _metric("loss", measurement.post.mean_loss, "loss"),
-            _metric("perplexity", measurement.post.perplexity, "perplexity"),
-        )
-        delta_metrics = (
-            _metric("loss", measurement.loss_delta, "loss"),
-            _metric("perplexity", measurement.perplexity_delta, "perplexity"),
-        )
-        if measurement.accepted:
-            outcome = ExperimentOutcome(ExperimentOutcomeKind.SUCCEEDED)
-        else:
-            outcome = ExperimentOutcome(
-                ExperimentOutcomeKind.REJECTED,
-                (
-                    f"perplexity delta {measurement.perplexity_delta:.12g} exceeds "
-                    f"{self.config.safe_perplexity_delta:.12g}"
-                ),
+            raise HuggingFaceMLPProofError(
+                "experiment result mutation identity does not match candidate"
             )
+        baseline = self._ensure_baseline()
+        outcome = self._experiment_outcome(measurement)
         mutation_seed = int(candidate.mutation_id[:16], 16)
         return ExperimentRecord(
             run_id=self._run_id,
@@ -963,9 +981,18 @@ class HuggingFaceMLPProofRuntime:
             dataset=self._dataset,
             components=result.run_record.plan.affected_components,
             mutation=result.run_record,
-            baseline_metrics=baseline_metrics,
-            post_metrics=post_metrics,
-            delta_metrics=delta_metrics,
+            baseline_metrics=(
+                _metric("loss", baseline.mean_loss, "loss"),
+                _metric("perplexity", baseline.perplexity, "perplexity"),
+            ),
+            post_metrics=(
+                _metric("loss", measurement.post.mean_loss, "loss"),
+                _metric("perplexity", measurement.post.perplexity, "perplexity"),
+            ),
+            delta_metrics=(
+                _metric("loss", measurement.loss_delta, "loss"),
+                _metric("perplexity", measurement.perplexity_delta, "perplexity"),
+            ),
             outcome=outcome,
             hardware=self._hardware,
             versions=VersionContext(
@@ -983,5 +1010,16 @@ class HuggingFaceMLPProofRuntime:
                     tokens=measurement.post.token_count,
                     candidates=1,
                 ),
+            ),
+        )
+
+    def _experiment_outcome(self, measurement: _CandidateMeasurement) -> ExperimentOutcome:
+        if measurement.accepted:
+            return ExperimentOutcome(ExperimentOutcomeKind.SUCCEEDED)
+        return ExperimentOutcome(
+            ExperimentOutcomeKind.REJECTED,
+            (
+                f"perplexity delta {measurement.perplexity_delta:.12g} exceeds "
+                f"{self.config.safe_perplexity_delta:.12g}"
             ),
         )
