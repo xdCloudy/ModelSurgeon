@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add model-wide physical Hugging Face MHA/GQA head removal with complete-KV-group safety,
+  synchronized Q/K/V/O block resizing, metadata/parameter reconciliation, bit-exact
+  grouped-mask evidence, and successful real-model save/reload.
 - Add model-wide physical Hugging Face gated-MLP channel removal with synchronized gate/up
   rows and down columns, global configuration/linear metadata updates, exact parameter
   reconciliation, mask-equivalence evidence, and successful real-model save/reload.
