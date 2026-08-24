@@ -11,9 +11,9 @@ import typer
 
 from modelsurgeon.datasets.grouped_splits import SplitPartition
 from modelsurgeon.datasets.parquet_store import (
+    PartitionedParquetStore,
     PartitionKind,
     PartitionPredicate,
-    PartitionedParquetStore,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.surgeon.matrix import (
