@@ -137,6 +137,8 @@ def run_cross_model_transfer(
     sources: Sequence[TransferDataset],
     target: TransferDataset,
     config: StaticFeatureStudyConfig | None = None,
+    *,
+    require_represented_family: bool = True,
 ) -> CrossModelTransferResult:
     """Train only on source models and evaluate an unseen represented-family model."""
 
@@ -147,7 +149,9 @@ def run_cross_model_transfer(
     target_identity = _identity(target.records)
     if target_identity in source_identities:
         raise StaticFeatureStudyError("target model must be completely unseen in sources")
-    if target_identity[2] not in {identity[2] for identity in source_identities}:
+    if require_represented_family and target_identity[2] not in {
+        identity[2] for identity in source_identities
+    }:
         raise StaticFeatureStudyError("Q5 target family must be represented in sources")
 
     selected_source: list[Mapping[str, object]] = []

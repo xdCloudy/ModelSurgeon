@@ -14,6 +14,11 @@ from modelsurgeon.datasets.grouped_splits import (
 from modelsurgeon.evaluation.activation_feature_study import (
     run_activation_feature_ablation,
 )
+from modelsurgeon.evaluation.cross_family_transfer import (
+    TransferExperiment,
+    TransferProtocol,
+    run_cross_family_transfer_study,
+)
 from modelsurgeon.evaluation.cross_model_transfer import (
     TransferDataset,
     run_cross_model_transfer,
@@ -328,6 +333,63 @@ def test_q5_transfer_rejects_target_leakage_and_unrepresented_family() -> None:
     target = _transfer_dataset("target", "synthetic/target", "mamba")
     with pytest.raises(StaticFeatureStudyError, match="family must be represented"):
         run_cross_model_transfer((source,), target)
+
+
+def test_q6_compares_protocols_and_records_schema_failures() -> None:
+    pytest.importorskip("lightgbm")
+    llama_a = _transfer_dataset("llama-a", "synthetic/llama-a", "llama")
+    llama_b = _transfer_dataset("llama-b", "synthetic/llama-b", "llama")
+    qwen = _transfer_dataset("qwen", "synthetic/qwen", "qwen")
+    result = run_cross_family_transfer_study(
+        (
+            TransferExperiment(TransferProtocol.SINGLE_FAMILY, (llama_a,), llama_b),
+            TransferExperiment(TransferProtocol.MULTI_FAMILY, (llama_a, qwen), llama_b),
+            TransferExperiment(TransferProtocol.HELD_OUT_FAMILY, (llama_a, llama_b), qwen),
+        ),
+        StaticFeatureStudyConfig(top_n=2, threads=1, bootstrap_repetitions=20),
+    )
+
+    assert [outcome.status for outcome in result.outcomes] == [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+    ]
+    assert result.multi_family_improvement is not None
+    assert set(result.multi_family_improvement) == {
+        "auc_gain",
+        "calibration_error_reduction",
+        "precision_at_top_n_gain",
+        "mae_reduction",
+        "rmse_reduction",
+    }
+
+
+def test_q6_retains_inference_schema_failure_as_an_outcome() -> None:
+    pytest.importorskip("lightgbm")
+    source = _transfer_dataset("source", "synthetic/source", "llama")
+    target = _transfer_dataset("target", "synthetic/target", "qwen")
+    features = target.records[-1]["pre_mutation_features"]
+    assert isinstance(features, list)
+    target.records[-1]["pre_mutation_features"] = [
+        item for item in features if item["name"] != "weight_l2_norm"
+    ]
+
+    result = run_cross_family_transfer_study(
+        (
+            TransferExperiment(
+                TransferProtocol.HELD_OUT_FAMILY,
+                (source,),
+                target,
+            ),
+        ),
+        StaticFeatureStudyConfig(top_n=2, threads=1, bootstrap_repetitions=20),
+    )
+
+    outcome = result.outcomes[0]
+    assert outcome.status == "failed"
+    assert outcome.failure_kind == "TrainingMatrixError"
+    assert outcome.failure_detail is not None
+    assert "missing required trained features" in outcome.failure_detail
 
 
 def test_static_study_rejects_invalid_protocol() -> None:
