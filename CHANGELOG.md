@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a bounded Llama/Qwen coordinated hidden-dimension feasibility study that inventories
+  global and normalization consumers, computes codec-axis alignment, and emits an explicit
+  no-mutation rejection while rotary/config and weight-tying proofs remain incomplete.
 - Add bounded one-tensor native GGUF low-rank replacement with selective encoded-block decode,
   explicit NumPy SVD workspace preflight, validated same-codec requantization, separate
   reconstruction/quantization errors, and unchanged-payload checksum reconciliation.

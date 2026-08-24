@@ -50,6 +50,13 @@ from modelsurgeon.surgery.gguf_alignment import (
     propose_aligned_axis_removal,
     validate_gguf_quantized_plan,
 )
+from modelsurgeon.surgery.hidden_dimension_study import (
+    HIDDEN_DIMENSION_STUDY_SCHEMA_VERSION,
+    HiddenDimensionFamilyAssessment,
+    HiddenDimensionStudy,
+    HiddenDimensionStudyError,
+    evaluate_coordinated_hidden_dimension_surgery,
+)
 from modelsurgeon.surgery.native_layer_execute import (
     NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION,
     NativeGGUFLayerRemovalError,
@@ -131,6 +138,7 @@ from modelsurgeon.surgery.transaction import (
 )
 
 __all__ = [
+    "HIDDEN_DIMENSION_STUDY_SCHEMA_VERSION",
     "MUTATION_RECORD_SCHEMA_VERSION",
     "MUTATION_SCHEMA_VERSION",
     "NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION",
@@ -157,6 +165,9 @@ __all__ = [
     "GGUFRequantizationErrorSummary",
     "GGUFRequantizationLimits",
     "GGUFRequantizationReport",
+    "HiddenDimensionFamilyAssessment",
+    "HiddenDimensionStudy",
+    "HiddenDimensionStudyError",
     "InMemoryMutationTransaction",
     "MaskHookHandle",
     "MaskHookModule",
@@ -219,6 +230,7 @@ __all__ = [
     "TransactionState",
     "TransactionalMutation",
     "compile_physical_mutation_plan",
+    "evaluate_coordinated_hidden_dimension_surgery",
     "execute_native_gguf_attention_head_removal",
     "execute_native_gguf_low_rank_replacement",
     "execute_native_gguf_mlp_channel_removal",
