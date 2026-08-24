@@ -164,6 +164,13 @@ def _windows_rss_bytes() -> int | None:
         windll: Any = getattr(ctypes, "windll")  # noqa: B009
         kernel32: Any = windll.kernel32
         psapi: Any = windll.psapi
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        psapi.GetProcessMemoryInfo.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(_ProcessMemoryCounters),
+            ctypes.c_ulong,
+        )
+        psapi.GetProcessMemoryInfo.restype = ctypes.c_int
         counters = _ProcessMemoryCounters()
         counters.cb = ctypes.sizeof(counters)
         handle = kernel32.GetCurrentProcess()

@@ -175,6 +175,7 @@ from modelsurgeon.adapters.gguf.quantization import (
     QuantizationFamily,
     UnsupportedCodecError,
     plan_axis_edit,
+    plan_storage_axis_edit,
     plan_supported_axes,
     validate_tensor_alignment,
 )
@@ -387,6 +388,7 @@ __all__ = [
     "open_gguf",
     "plan_axis_edit",
     "plan_gguf_output",
+    "plan_storage_axis_edit",
     "plan_supported_axes",
     "preflight_gguf_disk",
     "require_iq_native_write_target",

@@ -23,25 +23,31 @@ from modelsurgeon.surgery import (
     NativeGGUFMLPPlanError,
     QuantizedEditStrategy,
     plan_native_gguf_mlp_channel_removal,
+    plan_native_gguf_model_mlp_channel_removal,
 )
 
 
-def _discovery(family: ModelFamily) -> GGUFDiscovery:
+def _discovery(family: ModelFamily, *, layers: int = 1) -> GGUFDiscovery:
     architecture_name = "llama" if family is ModelFamily.LLAMA else "qwen2"
     architecture = resolve_gguf_architecture(architecture_name, family=family)
-    shapes = (
+    shapes = [
         ("token_embd.weight", (256, 1024), GGMLQuantizationType.F32),
         ("output_norm.weight", (256,), GGMLQuantizationType.F32),
-        ("blk.0.attn_norm.weight", (256,), GGMLQuantizationType.F32),
-        ("blk.0.ffn_norm.weight", (256,), GGMLQuantizationType.F32),
-        ("blk.0.attn_q.weight", (256, 256), GGMLQuantizationType.F32),
-        ("blk.0.attn_k.weight", (256, 128), GGMLQuantizationType.F32),
-        ("blk.0.attn_v.weight", (256, 128), GGMLQuantizationType.F32),
-        ("blk.0.attn_output.weight", (256, 256), GGMLQuantizationType.F32),
-        ("blk.0.ffn_gate.weight", (256, 512), GGMLQuantizationType.Q4_K),
-        ("blk.0.ffn_up.weight", (256, 512), GGMLQuantizationType.Q4_K),
-        ("blk.0.ffn_down.weight", (512, 256), GGMLQuantizationType.Q4_K),
-    )
+    ]
+    for layer in range(layers):
+        shapes.extend(
+            (
+                (f"blk.{layer}.attn_norm.weight", (256,), GGMLQuantizationType.F32),
+                (f"blk.{layer}.ffn_norm.weight", (256,), GGMLQuantizationType.F32),
+                (f"blk.{layer}.attn_q.weight", (256, 256), GGMLQuantizationType.F32),
+                (f"blk.{layer}.attn_k.weight", (256, 128), GGMLQuantizationType.F32),
+                (f"blk.{layer}.attn_v.weight", (256, 128), GGMLQuantizationType.F32),
+                (f"blk.{layer}.attn_output.weight", (256, 256), GGMLQuantizationType.F32),
+                (f"blk.{layer}.ffn_gate.weight", (256, 512), GGMLQuantizationType.Q4_K),
+                (f"blk.{layer}.ffn_up.weight", (256, 512), GGMLQuantizationType.Q4_K),
+                (f"blk.{layer}.ffn_down.weight", (512, 256), GGMLQuantizationType.Q4_K),
+            )
+        )
     tensors: list[GGUFTensorComponent] = []
     offset = 0
     for ordinal, (name, shape, quant_type) in enumerate(shapes):
@@ -68,7 +74,7 @@ def _discovery(family: ModelFamily) -> GGUFDiscovery:
         family,
         architecture_name,
         1,
-        GGUFModelShape(1, 256, 512, 8, 4),
+        GGUFModelShape(layers, 256, 512, 8, 4),
         tuple(tensors),
         sum(tensor.element_count for tensor in tensors),
         sum(tensor.descriptor.byte_size for tensor in tensors),
@@ -148,3 +154,23 @@ def test_noncanonical_and_block_unrepresentable_channel_sets_fail_before_load() 
         plan_native_gguf_mlp_channel_removal(
             discovery, layer_index=0, removed_channels=(0,)
         )
+
+
+def test_model_wide_plan_updates_every_layer_and_single_layer_fails_closed() -> None:
+    discovery = _discovery(ModelFamily.LLAMA, layers=2)
+    with pytest.raises(NativeGGUFMLPPlanError, match="model-wide"):
+        plan_native_gguf_mlp_channel_removal(
+            discovery,
+            layer_index=0,
+            removed_channels=tuple(range(256)),
+        )
+
+    plan = plan_native_gguf_model_mlp_channel_removal(
+        discovery,
+        removed_channels=tuple(range(256)),
+    )
+
+    assert plan.layer_indices == (0, 1)
+    assert len(plan.coupled_tensor_names) == 6
+    assert plan.expected_parameter_delta == -(2 * 256 * 256 * 3)
+    assert plan.physical_plan.metadata_updates[0].value == 256

@@ -83,6 +83,7 @@ from modelsurgeon.surgery.native_mlp_plan import (
     NativeGGUFMLPPlanError,
     NativeGGUFMLPRemovalPlan,
     plan_native_gguf_mlp_channel_removal,
+    plan_native_gguf_model_mlp_channel_removal,
 )
 from modelsurgeon.surgery.physical_plan import (
     PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION,
@@ -236,6 +237,7 @@ __all__ = [
     "execute_native_gguf_mlp_channel_removal",
     "execute_native_gguf_transformer_layer_removal",
     "plan_native_gguf_mlp_channel_removal",
+    "plan_native_gguf_model_mlp_channel_removal",
     "plan_native_gguf_transformer_layer_removal",
     "propose_aligned_axis_removal",
     "require_safe_transaction",

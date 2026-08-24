@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Demonstrate deterministic low-memory Q4_K_M MLP surgery across every transformer layer,
+  including copy-only legacy Q5_0 handling, model-wide metadata safety, pinned llama.cpp
+  load/perplexity/generation/throughput evidence, and working Windows RSS telemetry.
 - Add an exhaustive GGUF family/storage-profile/operation compatibility matrix whose support
   claims require artifact-bound pinned llama.cpp load/forward evidence, with explicit
   structural-only and unsupported cells plus a scheduled real-fixture regression gate.
