@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add validation-only Platt and isotonic safe-mutation probability calibration with
+  deterministic selection, versioned serialization, and stored Brier, ECE, and complete
+  reliability-curve evidence for every candidate method.
 - Make large Hugging Face proof campaigns scale by reusing one validated mutation-target
   graph index and caching vectorized per-layer weight statistics instead of rescanning the
   component graph and synchronizing individual GPU scalars for every candidate.
