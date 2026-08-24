@@ -1,12 +1,18 @@
+import math
 import struct
 
 import pytest
 
 from modelsurgeon.adapters.gguf.quantization import ByteOrder, GGMLQuantizationType
+from modelsurgeon.evaluation.quantized_feature_reliability import (
+    QuantizedTensorSample,
+    run_quantized_feature_reliability,
+)
 from modelsurgeon.features.quantized_direct import (
     BytesEncodedBlockSource,
     DirectQuantizedFeature,
     DirectQuantizedFeatureName,
+    EmpiricalQuantizedFeatureErrorModel,
     LocalDecodeRequired,
     extract_direct_quantized_feature,
 )
@@ -115,3 +121,47 @@ def test_unvalidated_codec_primary_scale_requires_decode() -> None:
     )
 
     assert isinstance(outcome, LocalDecodeRequired)
+
+
+def test_quantized_reliability_study_compares_all_target_codecs() -> None:
+    samples = tuple(
+        QuantizedTensorSample(
+            "model-a" if index < 2 else "model-b",
+            f"tensor-{index}",
+            tuple(math.sin(offset / 17.0 + index) * 0.2 for offset in range(256)),
+        )
+        for index in range(3)
+    )
+
+    result = run_quantized_feature_reliability(samples)
+
+    assert result.model_count == 2
+    assert {item["codec"] for item in result.codecs} == {
+        "Q4_K",
+        "Q5_K",
+        "Q6_K",
+        "Q8_0",
+    }
+    assert all(
+        set(item["decoded_feature_error_models"])
+        == {
+            "weight_mean",
+            "weight_variance",
+            "weight_abs_mean",
+            "weight_rms",
+            "sparsity",
+        }
+        for item in result.codecs
+    )
+    q4 = next(item for item in result.codecs if item["codec"] == "Q4_K")
+    raw_models = q4["decoded_feature_error_models"]
+    assert isinstance(raw_models, dict)
+    model = EmpiricalQuantizedFeatureErrorModel.from_study_record(
+        GGMLQuantizationType.Q4_K,
+        "weight_rms",
+        raw_models["weight_rms"],
+        "a" * 64,
+    )
+    provenance = model.precision_provenance(storage_dtype="Q4_K")
+    assert provenance.error is not None
+    assert provenance.error.absolute_error == model.mean_absolute_error
