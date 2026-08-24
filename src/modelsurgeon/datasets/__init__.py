@@ -44,10 +44,19 @@ from modelsurgeon.datasets.parquet_store import (
     PartitionPredicate,
     PyArrowParquetBackend,
 )
+from modelsurgeon.datasets.validation import (
+    DATASET_VALIDATOR_VERSION,
+    DatasetValidationConfig,
+    DatasetValidationIssue,
+    DatasetValidationReport,
+    DatasetValidationRule,
+    validate_mutation_dataset,
+)
 
 __all__ = [
     "CALIBRATION_SCHEMA_VERSION",
     "DATASET_BUILDER_VERSION",
+    "DATASET_VALIDATOR_VERSION",
     "PARQUET_MANIFEST_SCHEMA_VERSION",
     "SELECTION_ALGORITHM",
     "CalibrationContract",
@@ -58,6 +67,10 @@ __all__ = [
     "DatasetBuildExclusionReason",
     "DatasetIdentity",
     "DatasetTrust",
+    "DatasetValidationConfig",
+    "DatasetValidationIssue",
+    "DatasetValidationReport",
+    "DatasetValidationRule",
     "DeltaTargetPolicy",
     "ExperimentFeatureJoin",
     "FeatureInputRevisionSource",
@@ -82,4 +95,5 @@ __all__ = [
     "build_mutation_example",
     "build_mutation_examples",
     "stream_huggingface_calibration",
+    "validate_mutation_dataset",
 ]
