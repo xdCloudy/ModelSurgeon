@@ -100,10 +100,13 @@ class SurgeonPreprocessor:
     @property
     def output_feature_names(self) -> tuple[str, ...]:
         names: list[str] = []
-        for item in self.numeric:
-            names.extend((f"num:{item.name}", f"missing:{item.name}"))
-        for item in self.categorical:
-            names.extend(f"cat:{item.name}={category}" for category in item.categories)
+        for numeric_item in self.numeric:
+            names.extend((f"num:{numeric_item.name}", f"missing:{numeric_item.name}"))
+        for categorical_item in self.categorical:
+            names.extend(
+                f"cat:{categorical_item.name}={category}"
+                for category in categorical_item.categories
+            )
         return tuple(names)
 
     def to_record(self) -> dict[str, object]:
@@ -461,15 +464,23 @@ def transform_row(
     numeric = dict(row.numeric)
     categorical = dict(row.categorical)
     output: list[float] = []
-    for item in preprocessor.numeric:
-        missing = item.name not in numeric
-        value = item.mean if missing else numeric[item.name]
-        output.extend(((value - item.mean) / item.scale, 1.0 if missing else 0.0))
-    for item in preprocessor.categorical:
-        value = categorical.get(item.name, _UNKNOWN_CATEGORY)
-        if value not in item.categories:
-            value = _UNKNOWN_CATEGORY
-        output.extend(1.0 if value == category else 0.0 for category in item.categories)
+    for numeric_item in preprocessor.numeric:
+        missing = numeric_item.name not in numeric
+        numeric_value = numeric_item.mean if missing else numeric[numeric_item.name]
+        output.extend(
+            (
+                (numeric_value - numeric_item.mean) / numeric_item.scale,
+                1.0 if missing else 0.0,
+            )
+        )
+    for categorical_item in preprocessor.categorical:
+        categorical_value = categorical.get(categorical_item.name, _UNKNOWN_CATEGORY)
+        if categorical_value not in categorical_item.categories:
+            categorical_value = _UNKNOWN_CATEGORY
+        output.extend(
+            1.0 if categorical_value == category else 0.0
+            for category in categorical_item.categories
+        )
     return tuple(output)
 
 
