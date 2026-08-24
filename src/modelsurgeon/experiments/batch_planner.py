@@ -140,7 +140,9 @@ class CalibrationBatchObservation:
     def __post_init__(self) -> None:
         CalibrationBatchCursor(self.manifest_digest, self.start_index)
         if self.end_index <= self.start_index:
-            raise CalibrationBatchPlanningError("batch observation requires a non-empty sample range")
+            raise CalibrationBatchPlanningError(
+                "batch observation requires a non-empty sample range"
+            )
         if isinstance(self.token_count, bool) or self.token_count <= 0:
             raise CalibrationBatchPlanningError("batch observation requires a positive token count")
         for label, baseline, peak in (
@@ -151,9 +153,7 @@ class CalibrationBatchObservation:
                 raise CalibrationBatchPlanningError(
                     f"{label} telemetry requires both baseline and peak bytes"
                 )
-            if baseline is not None and (
-                baseline < 0 or peak is None or peak < baseline
-            ):
+            if baseline is not None and (baseline < 0 or peak is None or peak < baseline):
                 raise CalibrationBatchPlanningError(
                     f"{label} telemetry peak must be at least its non-negative baseline"
                 )
@@ -188,7 +188,9 @@ class CalibrationBatch:
         if self.token_count <= 0:
             raise CalibrationBatchPlanningError("calibration batch token count must be positive")
         if self.estimated_ram_bytes < 0 or self.estimated_vram_bytes < 0:
-            raise CalibrationBatchPlanningError("calibration batch memory estimates cannot be negative")
+            raise CalibrationBatchPlanningError(
+                "calibration batch memory estimates cannot be negative"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -223,9 +225,7 @@ class CalibrationBatchPlan:
         if self.effective_max_batch_size <= 0:
             raise CalibrationBatchPlanningError("effective batch size must be positive")
         expected_next = (
-            self.cursor.next_sample_index
-            if self.batch is None
-            else self.batch.end_index
+            self.cursor.next_sample_index if self.batch is None else self.batch.end_index
         )
         if self.next_cursor.next_sample_index != expected_next:
             raise CalibrationBatchPlanningError("batch plan next cursor is not an exact boundary")
@@ -344,6 +344,10 @@ def _effective_batch_size(
     maximum = config.max_batch_size
     if observations and observations[-1].exhausted_resource is not None:
         failed_size = observations[-1].sample_count
+        if failed_size <= config.min_batch_size:
+            raise CalibrationBatchPlanningError(
+                "memory exhaustion occurred at the configured minimum batch size"
+            )
         maximum = min(maximum, max(config.min_batch_size, failed_size // 2))
     return max(config.min_batch_size, maximum)
 
@@ -363,6 +367,41 @@ def _fits_resources(
     except ResourceBudgetExceeded:
         return False
     return True
+
+
+def _validate_observations(
+    samples: Sequence[TokenizedCalibrationSampleLike],
+    cursor: CalibrationBatchCursor,
+    observations: Sequence[CalibrationBatchObservation],
+    manifest_digest: str,
+) -> None:
+    for index, observation in enumerate(observations):
+        if observation.manifest_digest != manifest_digest:
+            raise CalibrationBatchPlanningError(
+                "batch telemetry belongs to a different calibration manifest"
+            )
+        if observation.end_index > len(samples):
+            raise CalibrationBatchPlanningError(
+                "batch telemetry sample range exceeds the calibration manifest"
+            )
+        expected_tokens = sum(
+            len(sample.input_ids)
+            for sample in samples[observation.start_index : observation.end_index]
+        )
+        if observation.token_count != expected_tokens:
+            raise CalibrationBatchPlanningError(
+                "batch telemetry token count does not match its manifest sample range"
+            )
+        already_completed = observation.end_index <= cursor.next_sample_index
+        latest_failed_here = (
+            index == len(observations) - 1
+            and observation.exhausted_resource is not None
+            and observation.start_index == cursor.next_sample_index
+        )
+        if not already_completed and not latest_failed_here:
+            raise CalibrationBatchPlanningError(
+                "batch telemetry is ahead of the resume cursor without a current failed batch"
+            )
 
 
 class CalibrationBatchPlanner:
@@ -391,11 +430,7 @@ class CalibrationBatchPlanner:
             )
         if resolved_cursor.next_sample_index > len(samples):
             raise CalibrationBatchPlanningError("resume cursor is beyond the calibration manifest")
-        for observation in observations:
-            if observation.end_index > len(samples):
-                raise CalibrationBatchPlanningError(
-                    "batch telemetry sample range exceeds the calibration manifest"
-                )
+        _validate_observations(samples, resolved_cursor, observations, manifest_digest)
         adapted_model = adapt_calibration_memory_model(
             self.config.memory_model,
             observations,
