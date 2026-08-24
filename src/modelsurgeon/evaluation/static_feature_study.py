@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Final, cast
 
 from modelsurgeon.datasets.grouped_splits import GroupedSplitManifest
@@ -18,6 +19,11 @@ STATIC_FEATURE_STUDY_VERSION: Final[str] = "1"
 
 class StaticFeatureStudyError(ValueError):
     """Raised when records cannot support a leakage-safe static-only study."""
+
+
+class FeatureProfile(StrEnum):
+    STATIC_ONLY = "static_only"
+    STATIC_ACTIVATION = "static_activation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,15 +57,21 @@ class StaticFeatureStudyResult:
     train_count: int
     validation_count: int
     test_count: int
-    static_feature_names: tuple[str, ...]
+    feature_names: tuple[str, ...]
     classifier: MetricReport
     regressor: MetricReport
+    feature_profile: FeatureProfile = FeatureProfile.STATIC_ONLY
+    test_labels: tuple[int, ...] = ()
+    test_targets: tuple[float, ...] = ()
+    test_classifier_predictions: tuple[float, ...] = ()
+    test_regressor_predictions: tuple[float, ...] = ()
+    test_group_ids: tuple[str, ...] = ()
     version: str = STATIC_FEATURE_STUDY_VERSION
 
     def to_record(self) -> dict[str, object]:
         return {
             "version": self.version,
-            "feature_profile": "static_only",
+            "feature_profile": self.feature_profile.value,
             "model": {
                 "identifier": self.model_identifier,
                 "revision": self.model_revision,
@@ -71,7 +83,7 @@ class StaticFeatureStudyResult:
                 "validation": self.validation_count,
                 "test": self.test_count,
             },
-            "static_feature_names": list(self.static_feature_names),
+            "feature_names": list(self.feature_names),
             "classifier": self.classifier.to_record(),
             "regressor": self.regressor.to_record(),
         }
@@ -105,6 +117,30 @@ def select_static_records(
     return tuple(_static_record(record) for record in records)
 
 
+def select_feature_profile_records(
+    records: Sequence[Mapping[str, object]],
+    profile: FeatureProfile,
+) -> tuple[Mapping[str, object], ...]:
+    """Select a persisted feature profile without changing examples or labels."""
+
+    if profile is FeatureProfile.STATIC_ONLY:
+        return select_static_records(records)
+    if not records:
+        raise StaticFeatureStudyError("feature study requires records")
+    output: list[Mapping[str, object]] = []
+    for record in records:
+        raw_features = record.get("pre_mutation_features")
+        if not isinstance(raw_features, list) or not raw_features:
+            raise StaticFeatureStudyError("pre_mutation_features must be a non-empty list")
+        if not any(
+            isinstance(raw, Mapping) and raw.get("sample_context") is not None
+            for raw in raw_features
+        ):
+            raise StaticFeatureStudyError("static-plus-activation profile requires activations")
+        output.append(record)
+    return tuple(output)
+
+
 def _identity(records: Sequence[Mapping[str, object]]) -> tuple[str, str, str]:
     identities: set[tuple[str, str, str]] = set()
     for record in records:
@@ -134,29 +170,30 @@ def _require_labels(matrices: TrainingMatrices, *, classification: bool) -> None
             raise StaticFeatureStudyError("classification training split requires both classes")
 
 
-def run_static_feature_study(
+def run_feature_profile_study(
     records: Sequence[Mapping[str, object]],
     split: GroupedSplitManifest,
+    profile: FeatureProfile,
     config: StaticFeatureStudyConfig | None = None,
 ) -> StaticFeatureStudyResult:
-    """Fit static-only LightGBMs and evaluate one held-out target model."""
+    """Fit one feature-profile pair of LightGBMs on a held-out target model."""
 
     if config is None:
         config = StaticFeatureStudyConfig()
     identity = _identity(records)
-    static_records = select_static_records(records)
+    selected_records = select_feature_profile_records(records, profile)
     target_schema = schema_with_thresholds(
         {"perplexity": config.safe_perplexity_delta},
         base=DEFAULT_TARGET_SCHEMA,
     )
     classifier_matrices = build_training_matrices(
-        static_records,
+        selected_records,
         split,
         target_schema=target_schema,
         target_name="safe_mutation",
     )
     regressor_matrices = build_training_matrices(
-        static_records,
+        selected_records,
         split,
         target_schema=target_schema,
         target_name="perplexity",
@@ -210,11 +247,27 @@ def run_static_feature_study(
         identity[0],
         identity[1],
         identity[2],
-        len(static_records),
+        len(selected_records),
         len(classifier_matrices.train.example_ids),
         len(classifier_matrices.validation.example_ids),
         len(classifier_matrices.test.example_ids),
         tuple(item.name for item in classifier_matrices.preprocessor.numeric),
         classifier_report,
         regressor_report,
+        profile,
+        labels,
+        tuple(regressor_matrices.test.target_values),
+        classifier_predictions,
+        regressor_predictions,
+        tuple(classifier_matrices.test.group_ids),
     )
+
+
+def run_static_feature_study(
+    records: Sequence[Mapping[str, object]],
+    split: GroupedSplitManifest,
+    config: StaticFeatureStudyConfig | None = None,
+) -> StaticFeatureStudyResult:
+    """Fit static-only LightGBMs and evaluate one held-out target model."""
+
+    return run_feature_profile_study(records, split, FeatureProfile.STATIC_ONLY, config)

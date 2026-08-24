@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import math
 import os
@@ -68,6 +69,13 @@ from modelsurgeon.graph import (
     ComponentId,
     ComponentRecordLike,
     build_component_graph,
+)
+from modelsurgeon.instrumentation.memory_telemetry import (
+    MemoryTelemetryConfig,
+    MemoryTelemetryError,
+    MemoryTelemetryReport,
+    TorchCudaMemoryProvider,
+    collect_memory_telemetry,
 )
 from modelsurgeon.surgery.contracts import (
     MutationDelta,
@@ -177,6 +185,85 @@ class _LayerWeightStatistics:
     combined_dtype: str
     part_dtypes: tuple[str, str, str]
     values: Any
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureCollectionCost:
+    wall_seconds: float
+    initial_rss_bytes: int | None
+    peak_rss_bytes: int | None
+    incremental_peak_rss_bytes: int | None
+    initial_cuda_allocated_bytes: int | None
+    peak_cuda_allocated_bytes: int | None
+    incremental_peak_cuda_allocated_bytes: int | None
+    peak_cuda_reserved_bytes: int | None
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "wall_seconds": self.wall_seconds,
+            "initial_rss_bytes": self.initial_rss_bytes,
+            "peak_rss_bytes": self.peak_rss_bytes,
+            "incremental_peak_rss_bytes": self.incremental_peak_rss_bytes,
+            "initial_cuda_allocated_bytes": self.initial_cuda_allocated_bytes,
+            "peak_cuda_allocated_bytes": self.peak_cuda_allocated_bytes,
+            "incremental_peak_cuda_allocated_bytes": (self.incremental_peak_cuda_allocated_bytes),
+            "peak_cuda_reserved_bytes": self.peak_cuda_reserved_bytes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureCollectionCosts:
+    static: FeatureCollectionCost
+    forward_baseline: FeatureCollectionCost
+    activation: FeatureCollectionCost
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "static": self.static.to_record(),
+            "forward_baseline": self.forward_baseline.to_record(),
+            "activation": self.activation.to_record(),
+            "activation_overhead": {
+                "wall_seconds": self.activation.wall_seconds - self.forward_baseline.wall_seconds,
+                "peak_rss_bytes": _difference(
+                    self.activation.peak_rss_bytes,
+                    self.forward_baseline.peak_rss_bytes,
+                ),
+                "peak_cuda_allocated_bytes": _difference(
+                    self.activation.peak_cuda_allocated_bytes,
+                    self.forward_baseline.peak_cuda_allocated_bytes,
+                ),
+                "peak_cuda_reserved_bytes": _difference(
+                    self.activation.peak_cuda_reserved_bytes,
+                    self.forward_baseline.peak_cuda_reserved_bytes,
+                ),
+            },
+        }
+
+
+def _incremental(peak: int | None, initial: int | None) -> int | None:
+    if peak is None or initial is None:
+        return None
+    return max(0, peak - initial)
+
+
+def _difference(right: int | None, left: int | None) -> int | None:
+    if right is None or left is None:
+        return None
+    return right - left
+
+
+def _feature_collection_cost(report: MemoryTelemetryReport) -> FeatureCollectionCost:
+    initial = report.samples[0]
+    return FeatureCollectionCost(
+        report.samples[-1].elapsed_seconds,
+        initial.rss_bytes,
+        report.peak_rss_bytes,
+        _incremental(report.peak_rss_bytes, initial.rss_bytes),
+        initial.cuda_allocated_bytes,
+        report.peak_cuda_allocated_bytes,
+        _incremental(report.peak_cuda_allocated_bytes, initial.cuda_allocated_bytes),
+        report.peak_cuda_reserved_bytes,
+    )
 
 
 class _NoopSnapshotTarget:
@@ -710,6 +797,72 @@ class HuggingFaceMLPProofRuntime:
         records = self._weight_features(component, layer, channel, metadata)
         records.extend(self._activation_features(component, layer, channel, metadata))
         return tuple(sorted(records, key=lambda item: item.name))
+
+    def measure_feature_collection_costs(self) -> FeatureCollectionCosts:
+        """Measure static summaries and activation capture after model load."""
+
+        cuda = None
+        if str(self._input_device).startswith("cuda"):
+            try:
+                cuda = TorchCudaMemoryProvider(self._input_device)
+            except MemoryTelemetryError:
+                cuda = None
+        telemetry_config = MemoryTelemetryConfig(
+            sampling_enabled=True,
+            sample_interval_seconds=0.005,
+            max_samples=4096,
+        )
+
+        self._weight_stats.clear()
+
+        def collect_static() -> None:
+            for layer in range(self._discovery.shape.layers):
+                self._layer_weight_statistics(layer)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        static_report = collect_memory_telemetry(
+            "hf-static-feature-collection",
+            collect_static,
+            telemetry_config,
+            cuda=cuda,
+        )
+        self._weight_stats.clear()
+        gc.collect()
+
+        # Warm lazy kernels/allocators before the paired no-hook/hook forwards.
+        self._forward_measurement(capture_activations=False)
+        gc.collect()
+
+        def collect_forward_baseline() -> None:
+            self._forward_measurement(capture_activations=False)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        baseline_report = collect_memory_telemetry(
+            "hf-forward-feature-baseline",
+            collect_forward_baseline,
+            telemetry_config,
+            cuda=cuda,
+        )
+        gc.collect()
+
+        def collect_activation() -> None:
+            self._forward_measurement(capture_activations=True)
+            if cuda is not None:
+                self._torch.cuda.synchronize(self._input_device)
+
+        activation_report = collect_memory_telemetry(
+            "hf-activation-feature-collection",
+            collect_activation,
+            telemetry_config,
+            cuda=cuda,
+        )
+        return FeatureCollectionCosts(
+            _feature_collection_cost(static_report),
+            _feature_collection_cost(baseline_report),
+            _feature_collection_cost(activation_report),
+        )
 
     def _layer_weight_statistics(self, layer: int) -> _LayerWeightStatistics:
         cached = self._weight_stats.get(layer)

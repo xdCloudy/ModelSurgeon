@@ -11,6 +11,9 @@ from modelsurgeon.datasets.grouped_splits import (
     SplitPartition,
     SplitRatios,
 )
+from modelsurgeon.evaluation.activation_feature_study import (
+    run_activation_feature_ablation,
+)
 from modelsurgeon.evaluation.static_feature_study import (
     StaticFeatureStudyConfig,
     StaticFeatureStudyError,
@@ -115,11 +118,38 @@ def test_static_study_trains_both_tasks_and_reports_intervals() -> None:
         ),
     )
 
-    assert result.static_feature_names == ("weight_l2_norm",)
+    assert result.feature_names == ("weight_l2_norm",)
     assert result.classifier.metric("auc").value is not None
     assert result.classifier.metric("precision_at_2").confidence_low is not None
     assert result.regressor.metric("mae").value is not None
     assert result.regressor.metric("rmse").confidence_high is not None
+
+
+def test_activation_ablation_is_paired_on_identical_heldout_rows() -> None:
+    pytest.importorskip("lightgbm")
+    deltas = (0.05, 0.75, 0.10, 0.90) * 4
+    result = run_activation_feature_ablation(
+        tuple(_example(index, delta) for index, delta in enumerate(deltas)),
+        _split(),
+        StaticFeatureStudyConfig(
+            top_n=2,
+            threads=1,
+            bootstrap_repetitions=20,
+        ),
+    )
+
+    assert result.static.test_group_ids == result.static_activation.test_group_ids
+    assert result.static_activation.feature_names == (
+        "activation_rms",
+        "weight_l2_norm",
+    )
+    assert {gain.name for gain in result.gains} == {
+        "auc_gain",
+        "mae_reduction",
+        "precision_at_2_gain",
+        "rmse_reduction",
+    }
+    assert all(gain.bootstrap_repetitions > 0 for gain in result.gains)
 
 
 def test_static_study_rejects_invalid_protocol() -> None:
