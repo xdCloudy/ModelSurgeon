@@ -16,6 +16,13 @@ from .objectives import (
     ObjectiveTerm,
     objectives_from_config,
 )
+from .pareto import (
+    ParetoArchive,
+    ParetoArchiveEntry,
+    ParetoCandidate,
+    ParetoObjectiveValue,
+    conservatively_dominates,
+)
 
 __all__ = [
     "BaselineReference",
@@ -28,6 +35,11 @@ __all__ = [
     "ObjectiveSet",
     "ObjectiveTerm",
     "OptimizationConstraint",
+    "ParetoArchive",
+    "ParetoArchiveEntry",
+    "ParetoCandidate",
+    "ParetoObjectiveValue",
+    "conservatively_dominates",
     "constraints_from_config",
     "objectives_from_config",
 ]
