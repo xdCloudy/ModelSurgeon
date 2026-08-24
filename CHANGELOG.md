@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded one-tensor native GGUF low-rank replacement with selective encoded-block decode,
+  explicit NumPy SVD workspace preflight, validated same-codec requantization, separate
+  reconstruction/quantization errors, and unchanged-payload checksum reconciliation.
 - Add native quantized GGUF transformer-layer removal by omitting complete block tensors,
   canonically renaming following blocks, updating block-count metadata, and checksum-verifying
   byte-identical bounded direct copies of every retained encoded payload.

@@ -59,6 +59,13 @@ from modelsurgeon.surgery.native_layer_execute import (
     execute_native_gguf_transformer_layer_removal,
     plan_native_gguf_transformer_layer_removal,
 )
+from modelsurgeon.surgery.native_low_rank_execute import (
+    NATIVE_GGUF_LOW_RANK_SCHEMA_VERSION,
+    NativeGGUFLowRankError,
+    NativeGGUFLowRankLimits,
+    NativeGGUFLowRankResult,
+    execute_native_gguf_low_rank_replacement,
+)
 from modelsurgeon.surgery.native_mlp_execute import (
     NativeGGUFMLPExecutionError,
     NativeGGUFMLPExecutionLimits,
@@ -127,6 +134,7 @@ __all__ = [
     "MUTATION_RECORD_SCHEMA_VERSION",
     "MUTATION_SCHEMA_VERSION",
     "NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION",
+    "NATIVE_GGUF_LOW_RANK_SCHEMA_VERSION",
     "PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION",
     "REDACTED_LOCAL_PATH",
     "AlignedAxisRemovalProposal",
@@ -177,6 +185,9 @@ __all__ = [
     "NativeGGUFLayerRemovalError",
     "NativeGGUFLayerRemovalPlan",
     "NativeGGUFLayerRemovalResult",
+    "NativeGGUFLowRankError",
+    "NativeGGUFLowRankLimits",
+    "NativeGGUFLowRankResult",
     "NativeGGUFMLPExecutionError",
     "NativeGGUFMLPExecutionLimits",
     "NativeGGUFMLPExecutionResult",
@@ -209,6 +220,7 @@ __all__ = [
     "TransactionalMutation",
     "compile_physical_mutation_plan",
     "execute_native_gguf_attention_head_removal",
+    "execute_native_gguf_low_rank_replacement",
     "execute_native_gguf_mlp_channel_removal",
     "execute_native_gguf_transformer_layer_removal",
     "plan_native_gguf_mlp_channel_removal",
