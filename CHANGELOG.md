@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an exhaustive GGUF family/storage-profile/operation compatibility matrix whose support
+  claims require artifact-bound pinned llama.cpp load/forward evidence, with explicit
+  structural-only and unsupported cells plus a scheduled real-fixture regression gate.
 - Add a bounded Llama/Qwen coordinated hidden-dimension feasibility study that inventories
   global and normalization consumers, computes codec-axis alignment, and emits an explicit
   no-mutation rejection while rotary/config and weight-tying proofs remain incomplete.
