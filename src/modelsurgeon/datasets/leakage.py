@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TypeAlias
 
 from modelsurgeon.datasets.grouped_splits import GroupedSplitManifest, SplitPartition
 from modelsurgeon.datasets.heldout_splits import HeldOutSplitManifest
@@ -16,7 +16,7 @@ from modelsurgeon.features.schema import FeatureRecord
 from modelsurgeon.surgery.contracts import MutationPrimitive
 
 LEAKAGE_AUDIT_VERSION = "1"
-SplitManifest: TypeAlias = GroupedSplitManifest | HeldOutSplitManifest
+type SplitManifest = GroupedSplitManifest | HeldOutSplitManifest
 
 
 class DatasetLeakageError(ValueError):
@@ -247,7 +247,7 @@ def _candidate_near_key(example: MutationExampleRecord) -> str:
 def _cross_partition_groups(
     examples: tuple[MutationExampleRecord, ...],
     partitions: dict[str, SplitPartition],
-    key_fn,
+    key_fn: Callable[[MutationExampleRecord], str],
 ) -> dict[str, tuple[str, ...]]:
     grouped: dict[str, list[str]] = {}
     for example in examples:
