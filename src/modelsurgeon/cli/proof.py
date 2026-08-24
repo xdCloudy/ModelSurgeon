@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Protocol, cast, runtime_checkable
+from typing import Annotated, Protocol, runtime_checkable
 
 import typer
 
@@ -77,7 +76,7 @@ class FirstSurgeonProofConfig:
     split_seed: int = 1
     max_candidates: int | None = None
     scopes: tuple[CandidateScope, ...] = tuple(CandidateScope)
-    ratios: SplitRatios = SplitRatios()
+    ratios: SplitRatios = field(default_factory=SplitRatios)
 
     def __post_init__(self) -> None:
         for label, value in (("seed", self.seed), ("split_seed", self.split_seed)):
