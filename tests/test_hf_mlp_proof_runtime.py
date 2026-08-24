@@ -10,6 +10,7 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
     HuggingFaceMLPProofConfig,
     HuggingFaceMLPProofError,
     _channel_coordinates,
+    _DownProjectionChannelMask,
     _find_module,
     _read_calibration_text,
     _token_chunks,
@@ -87,10 +88,84 @@ def test_channel_request_must_match_scope_and_target() -> None:
 
 def test_module_resolution_requires_one_unambiguous_suffix() -> None:
     sentinel = object()
-    assert _find_module({"model.layers.0.mlp.down_proj": sentinel}, "model.layers.0.mlp.down_proj") is sentinel
-    assert _find_module({"prefix.model.layers.0.mlp.down_proj": sentinel}, "model.layers.0.mlp.down_proj") is sentinel
+    assert (
+        _find_module(
+            {"model.layers.0.mlp.down_proj": sentinel},
+            "model.layers.0.mlp.down_proj",
+        )
+        is sentinel
+    )
+    assert (
+        _find_module(
+            {"prefix.model.layers.0.mlp.down_proj": sentinel},
+            "model.layers.0.mlp.down_proj",
+        )
+        is sentinel
+    )
     with pytest.raises(HuggingFaceMLPProofError, match="exactly one"):
         _find_module({}, "model.layers.0.mlp.down_proj")
+
+
+class _FakeTensor:
+    def __init__(self, rows: list[list[float]]) -> None:
+        self.rows = [list(row) for row in rows]
+        self.ndim = 2
+        self.shape = (len(rows), len(rows[0]))
+
+    def clone(self) -> _FakeTensor:
+        return _FakeTensor(self.rows)
+
+    def __setitem__(self, key: tuple[object, int], value: float) -> None:
+        leading, column = key
+        assert leading is Ellipsis
+        for row in self.rows:
+            row[column] = value
+
+
+class _FakeTorch:
+    @staticmethod
+    def is_tensor(value: object) -> bool:
+        return isinstance(value, _FakeTensor)
+
+
+class _FakeHandle:
+    def __init__(self, module: _FakeModule, hook: object) -> None:
+        self.module = module
+        self.hook = hook
+
+    def remove(self) -> None:
+        self.module.hooks.remove(self.hook)
+
+
+class _FakeModule:
+    def __init__(self) -> None:
+        self.hooks: list[object] = []
+
+    def register_forward_pre_hook(self, hook: object) -> _FakeHandle:
+        self.hooks.append(hook)
+        return _FakeHandle(self, hook)
+
+    def emit(self, tensor: _FakeTensor) -> _FakeTensor:
+        inputs: tuple[object, ...] = (tensor,)
+        for hook in tuple(self.hooks):
+            inputs = hook(self, inputs)  # type: ignore[operator]
+        result = inputs[0]
+        assert isinstance(result, _FakeTensor)
+        return result
+
+
+def test_down_projection_mask_zeroes_only_selected_channel_and_removes_hook() -> None:
+    module = _FakeModule()
+    source = _FakeTensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+    with _DownProjectionChannelMask(module, 1, _FakeTorch()):
+        masked = module.emit(source)
+        assert masked.rows == [[1.0, 0, 3.0], [4.0, 0, 6.0]]
+        assert source.rows == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        assert len(module.hooks) == 1
+
+    assert module.hooks == []
+    assert module.emit(source).rows == source.rows
 
 
 class _Tokenizer:
