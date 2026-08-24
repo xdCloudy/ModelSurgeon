@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from modelsurgeon.datasets import CalibrationSample, TokenizedCalibrationSample
 from modelsurgeon.experiments import (
-    CPUInventory,
-    CUDAInventory,
     CalibrationBatchCursor,
     CalibrationBatchMemoryModel,
     CalibrationBatchObservation,
     CalibrationBatchPlanner,
     CalibrationBatchPlannerConfig,
     CalibrationBatchPlanningError,
+    CPUInventory,
+    CUDAInventory,
     DiskInventory,
     HardwareInventory,
     MemoryInventory,
@@ -132,7 +130,7 @@ def test_measured_memory_raises_model_and_shrinks_next_batch() -> None:
     assert second.batch.estimated_ram_bytes == 80
 
 
-def test_memory_exhaustion_halves_effective_batch_cap() -> None:
+def test_memory_exhaustion_retries_same_boundary_with_half_batch_cap() -> None:
     samples = _samples((1,) * 16)
     planner = _planner(max_batch_size=8)
     first = planner.plan_next(samples)
@@ -148,13 +146,14 @@ def test_memory_exhaustion_halves_effective_batch_cap() -> None:
 
     resumed = planner.plan_next(
         samples,
-        cursor=first.next_cursor,
+        cursor=first.cursor,
         observations=(observation,),
     )
 
     assert resumed.effective_max_batch_size == 4
     assert resumed.batch is not None
-    assert len(resumed.batch.sample_ids) == 4
+    assert resumed.batch.start_index == first.batch.start_index
+    assert resumed.batch.sample_ids == ("sample-0", "sample-1", "sample-2", "sample-3")
 
 
 def test_resume_cursor_preserves_exact_sample_sequence_and_completion() -> None:
@@ -215,5 +214,35 @@ def test_stale_telemetry_manifest_is_rejected() -> None:
         _planner().plan_next(
             samples,
             cursor=CalibrationBatchCursor(digest, 1),
+            observations=(observation,),
+        )
+
+
+def test_telemetry_must_match_manifest_range_token_count() -> None:
+    samples = _samples((2, 3, 1))
+    digest = calibration_manifest_digest(samples)
+    observation = CalibrationBatchObservation(digest, 0, 1, 3)
+    with pytest.raises(CalibrationBatchPlanningError, match="token count does not match"):
+        _planner().plan_next(
+            samples,
+            cursor=CalibrationBatchCursor(digest, 1),
+            observations=(observation,),
+        )
+
+
+def test_exhaustion_at_minimum_batch_size_fails_explicitly() -> None:
+    samples = _samples((1, 1))
+    digest = calibration_manifest_digest(samples)
+    observation = CalibrationBatchObservation(
+        digest,
+        0,
+        1,
+        1,
+        exhausted_resource=ResourceKind.RAM,
+    )
+    with pytest.raises(CalibrationBatchPlanningError, match="minimum batch size"):
+        _planner(min_batch_size=1).plan_next(
+            samples,
+            cursor=CalibrationBatchCursor(digest, 0),
             observations=(observation,),
         )
