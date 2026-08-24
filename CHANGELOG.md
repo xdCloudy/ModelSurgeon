@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Publish a generated 108-cell HF/GGUF architecture compatibility matrix with separate
+  verified, experimental, unsupported, and unknown states so untested combinations cannot
+  be presented as supported.
 - Add a schema-versioned, immutable, Apache-2.0 multi-family evaluation ladder from 135M
   through 7.25B parameters with explicit purpose, consumer-hardware modes, dataset
   compatibility, access constraints, and a content-addressed ladder identity.
