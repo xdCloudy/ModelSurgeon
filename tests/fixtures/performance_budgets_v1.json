@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "pr-cpu": {
+      "lane": "pr_cpu",
+      "fixture_id": "pr-cpu-v1",
+      "min_repetitions": 3,
+      "reference_hardware": {
+        "os_name": "Ubuntu (GitHub-hosted)",
+        "cpu_architecture": "x86_64",
+        "runner_image": "ubuntu-latest",
+        "context_policy": "record every actual context; thresholds include cross-runner headroom"
+      },
+      "budgets": [
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"cpu_seconds","unit":"seconds","direction":"maximum","baseline":0.05,"relative_tolerance":4.0,"absolute_tolerance":1.0},
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"peak_rss_bytes","unit":"bytes","direction":"maximum","baseline":157286400,"relative_tolerance":0.5,"absolute_tolerance":536870912},
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"wall_seconds","unit":"seconds","direction":"maximum","baseline":0.05,"relative_tolerance":4.0,"absolute_tolerance":1.0},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"io_write_bytes","unit":"bytes","direction":"maximum","baseline":9437184,"relative_tolerance":1.0,"absolute_tolerance":16777216},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"peak_rss_bytes","unit":"bytes","direction":"maximum","baseline":178257920,"relative_tolerance":0.5,"absolute_tolerance":536870912},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"wall_seconds","unit":"seconds","direction":"maximum","baseline":0.15,"relative_tolerance":3.0,"absolute_tolerance":3.0},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"work_items_per_second","unit":"bytes_per_second","direction":"minimum","baseline":20971520,"relative_tolerance":0.75,"absolute_tolerance":0.0}
+      ]
+    },
+    "consumer-cpu": {
+      "lane": "large_cpu",
+      "fixture_id": "consumer-cpu-v1",
+      "min_repetitions": 3,
+      "reference_hardware": {
+        "os_name": "Windows",
+        "cpu_architecture": "AMD64",
+        "cpu_processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cores": 20,
+        "memory_total_bytes": 68422938624,
+        "cuda_available": true,
+        "cuda_devices": [{"name":"NVIDIA GeForce RTX 3060","total_memory_bytes":12884377600,"compute_capability":"8.6"}],
+        "runner": "self-hosted performance"
+      },
+      "budgets": [
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"cpu_seconds","unit":"seconds","direction":"maximum","baseline":0.02,"relative_tolerance":2.0,"absolute_tolerance":0.1},
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"peak_rss_bytes","unit":"bytes","direction":"maximum","baseline":570000000,"relative_tolerance":0.15,"absolute_tolerance":134217728},
+        {"case_id":"cpu_canonical_hash","stage":"cpu","metric":"wall_seconds","unit":"seconds","direction":"maximum","baseline":0.03,"relative_tolerance":2.0,"absolute_tolerance":0.1},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"io_write_bytes","unit":"bytes","direction":"maximum","baseline":67109088,"relative_tolerance":0.05,"absolute_tolerance":1048576},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"peak_rss_bytes","unit":"bytes","direction":"maximum","baseline":570000000,"relative_tolerance":0.15,"absolute_tolerance":134217728},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"wall_seconds","unit":"seconds","direction":"maximum","baseline":0.11,"relative_tolerance":2.0,"absolute_tolerance":0.25},
+        {"case_id":"gguf_stream_write","stage":"gguf_streaming","metric":"work_items_per_second","unit":"bytes_per_second","direction":"minimum","baseline":600000000,"relative_tolerance":0.75,"absolute_tolerance":0.0}
+      ]
+    },
+    "consumer-gpu": {
+      "lane": "gpu",
+      "fixture_id": "consumer-gpu-v1",
+      "min_repetitions": 5,
+      "reference_hardware": {
+        "os_name": "Windows",
+        "cpu_architecture": "AMD64",
+        "cpu_processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+        "logical_cores": 20,
+        "memory_total_bytes": 68422938624,
+        "cuda_available": true,
+        "cuda_devices": [{"name":"NVIDIA GeForce RTX 3060","total_memory_bytes":12884377600,"compute_capability":"8.6"}],
+        "runner": "self-hosted GPU performance"
+      },
+      "budgets": [
+        {"case_id":"cuda_matmul","stage":"cuda","metric":"peak_rss_bytes","unit":"bytes","direction":"maximum","baseline":800000000,"relative_tolerance":0.25,"absolute_tolerance":268435456},
+        {"case_id":"cuda_matmul","stage":"cuda","metric":"peak_vram_allocated_bytes","unit":"bytes","direction":"maximum","baseline":23068672,"relative_tolerance":0.5,"absolute_tolerance":33554432},
+        {"case_id":"cuda_matmul","stage":"cuda","metric":"peak_vram_reserved_bytes","unit":"bytes","direction":"maximum","baseline":41943040,"relative_tolerance":0.5,"absolute_tolerance":67108864},
+        {"case_id":"cuda_matmul","stage":"cuda","metric":"wall_seconds","unit":"seconds","direction":"maximum","baseline":0.003,"relative_tolerance":2.0,"absolute_tolerance":0.02}
+      ]
+    }
+  }
+}

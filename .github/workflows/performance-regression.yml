@@ -1,0 +1,70 @@
+name: Consumer performance regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Consumer performance lane to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - cpu
+          - gpu
+  schedule:
+    - cron: "31 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  consumer-cpu:
+    if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.profile == 'all' || inputs.profile == 'cpu')) || (github.event_name == 'schedule' && vars.PERFORMANCE_CPU_RUNNER_ENABLED == 'true') }}
+    runs-on: [self-hosted, performance, cpu]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - name: Run consumer CPU and GGUF regression fixtures
+        run: >-
+          uv run python tools/run_performance_regressions.py
+          --profile consumer-cpu
+          --output performance-consumer-cpu.json
+      - name: Upload hardware-bound CPU report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-consumer-cpu
+          path: performance-consumer-cpu.json
+          if-no-files-found: warn
+
+  consumer-gpu:
+    if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.profile == 'all' || inputs.profile == 'gpu')) || (github.event_name == 'schedule' && vars.PERFORMANCE_GPU_RUNNER_ENABLED == 'true') }}
+    runs-on: [self-hosted, performance, gpu]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --extra hf --locked
+      - name: Run consumer CUDA regression fixture
+        run: >-
+          uv run python tools/run_performance_regressions.py
+          --profile consumer-gpu
+          --output performance-consumer-gpu.json
+      - name: Upload hardware-bound GPU report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-consumer-gpu
+          path: performance-consumer-gpu.json
+          if-no-files-found: warn
