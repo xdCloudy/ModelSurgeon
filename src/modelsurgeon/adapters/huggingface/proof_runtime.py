@@ -6,9 +6,10 @@ import gc
 import hashlib
 import math
 import os
+import statistics
 import time
 from collections.abc import Mapping, Sequence
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError
@@ -167,6 +168,40 @@ class _CandidateMeasurement:
     perplexity_delta: float
     accepted: bool
     wall_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class MLPChannelSetMeasurement:
+    coordinates: tuple[tuple[int, int], ...]
+    baseline_perplexity: float
+    masked_perplexity: float
+    perplexity_delta: float
+    baseline_median_seconds: float
+    masked_median_seconds: float
+    latency_delta_seconds: float
+    measurement_wall_seconds: float
+    repetitions: int
+    token_count: int
+    quantization_error: float = 0.0
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "coordinates": [
+                {"layer_index": layer, "channel_index": channel}
+                for layer, channel in self.coordinates
+            ],
+            "baseline_perplexity": self.baseline_perplexity,
+            "masked_perplexity": self.masked_perplexity,
+            "perplexity_delta": self.perplexity_delta,
+            "baseline_median_seconds": self.baseline_median_seconds,
+            "masked_median_seconds": self.masked_median_seconds,
+            "latency_delta_seconds": self.latency_delta_seconds,
+            "measurement_wall_seconds": self.measurement_wall_seconds,
+            "repetitions": self.repetitions,
+            "token_count": self.token_count,
+            "quantization_error": self.quantization_error,
+            "quantization_error_reason": "high-precision mask path performs no requantization",
+        }
 
 
 @dataclass(slots=True)
@@ -333,6 +368,47 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         handle = self._handle
         self._handle = None
         handle.remove()
+
+
+class _DownProjectionChannelMaskSet(AbstractContextManager["_DownProjectionChannelMaskSet"]):
+    """Temporarily zero a canonical set of channels with one hook and one clone."""
+
+    def __init__(self, module: Any, channels: tuple[int, ...], torch: Any) -> None:
+        self._module = module
+        self._channels = channels
+        self._torch = torch
+        self._handle: Any = None
+
+    def _hook(self, module: object, inputs: tuple[object, ...]) -> tuple[object, ...]:
+        del module
+        if not inputs:
+            raise HuggingFaceMLPProofError("down projection received no positional input")
+        tensor: Any = inputs[0]
+        if not self._torch.is_tensor(tensor):
+            raise HuggingFaceMLPProofError("down projection input is not a tensor")
+        if tensor.ndim < 1 or self._channels[-1] >= int(tensor.shape[-1]):
+            raise HuggingFaceMLPProofError("MLP channel index exceeds down-projection input width")
+        masked = tensor.clone()
+        for channel in self._channels:
+            masked[..., channel] = 0
+        return (masked, *inputs[1:])
+
+    def __enter__(self) -> Self:
+        if self._handle is not None:
+            raise HuggingFaceMLPProofError("MLP channel mask set is already active")
+        self._handle = self._module.register_forward_pre_hook(self._hook)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc_type, exc_value, traceback
+        if self._handle is not None:
+            self._handle.remove()
+            self._handle = None
 
 
 def _architecture_evidence(config: object) -> ArchitectureEvidence:
@@ -1286,6 +1362,64 @@ class HuggingFaceMLPProofRuntime:
             elapsed,
         )
         return self._evaluation_report(post, loss_delta, perplexity_delta, accepted)
+
+    def measure_channel_set(
+        self,
+        coordinates: Sequence[tuple[int, int]],
+        *,
+        warmup: int = 1,
+        repetitions: int = 7,
+    ) -> MLPChannelSetMeasurement:
+        """Measure an actual cumulative mask against the unchanged model baseline."""
+
+        canonical = tuple(sorted(set(coordinates)))
+        if not canonical or len(canonical) != len(coordinates) or warmup < 0 or repetitions <= 0:
+            raise HuggingFaceMLPProofError("cumulative mask measurement inputs are invalid")
+        for layer, channel in canonical:
+            if not 0 <= layer < self._discovery.shape.layers or not (
+                0 <= channel < self._discovery.shape.intermediate_size
+            ):
+                raise HuggingFaceMLPProofError("cumulative mask coordinate is out of range")
+        baseline = self._ensure_baseline()
+        started = time.perf_counter()
+
+        def measured_forwards() -> tuple[_PerplexityMeasurement, tuple[float, ...]]:
+            for _ in range(warmup):
+                self._forward_measurement()
+            measurements: list[_PerplexityMeasurement] = []
+            timings: list[float] = []
+            for _ in range(repetitions):
+                forward_started = time.perf_counter()
+                measurements.append(self._forward_measurement())
+                timings.append(time.perf_counter() - forward_started)
+            return measurements[-1], tuple(timings)
+
+        _, baseline_timings = measured_forwards()
+        by_layer: dict[int, list[int]] = {}
+        for layer, channel in canonical:
+            by_layer.setdefault(layer, []).append(channel)
+        with ExitStack() as stack:
+            for layer, channels in sorted(by_layer.items()):
+                stack.enter_context(
+                    _DownProjectionChannelMaskSet(
+                        self._down_projection(layer), tuple(sorted(channels)), self._torch
+                    )
+                )
+            masked, masked_timings = measured_forwards()
+        baseline_latency = statistics.median(baseline_timings)
+        masked_latency = statistics.median(masked_timings)
+        return MLPChannelSetMeasurement(
+            canonical,
+            baseline.perplexity,
+            masked.perplexity,
+            masked.perplexity - baseline.perplexity,
+            baseline_latency,
+            masked_latency,
+            masked_latency - baseline_latency,
+            time.perf_counter() - started,
+            repetitions,
+            masked.token_count,
+        )
 
     def _evaluation_report(
         self,

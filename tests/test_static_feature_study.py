@@ -26,6 +26,7 @@ from modelsurgeon.evaluation.cross_model_transfer import (
 from modelsurgeon.evaluation.gradient_feature_study import (
     run_gradient_feature_ablation,
 )
+from modelsurgeon.evaluation.matched_pruning_study import run_matched_pruning_selection
 from modelsurgeon.evaluation.multi_model_active_learning import (
     MultiModelActiveLearningConfig,
     run_model_active_learning_study,
@@ -86,6 +87,7 @@ def _example(index: int, delta: float) -> dict[str, object]:
         ],
         "baseline_metrics": [_metric(10.0)],
         "post_metrics": [_metric(10.0 + delta)],
+        "delta_metrics": [_metric(delta)],
         "versions": {"feature_schema_version": 1},
     }
 
@@ -163,6 +165,16 @@ def _transfer_dataset(prefix: str, identifier: str, family: str) -> TransferData
         model["identifier"] = identifier
         model["revision"] = f"{prefix}-revision"
         model["family"] = family
+        mutation = record["mutation"]
+        assert isinstance(mutation, dict)
+        plan = mutation["plan"]
+        assert isinstance(plan, dict)
+        request = plan["request"]
+        assert isinstance(request, dict)
+        parameters = request["parameters"]
+        assert isinstance(parameters, dict)
+        parameters["layer_index"] = index // 4
+        parameters["channel_index"] = index
         records.append(record)
         partition = (
             SplitPartition.TRAIN
@@ -426,6 +438,29 @@ def test_q7_replays_paired_active_and_random_acquisition() -> None:
         "mean_experiment_reduction",
         "mean_gpu_hour_reduction",
     }
+
+
+def test_q8_selection_matches_budget_and_retrains_after_revelation() -> None:
+    pytest.importorskip("lightgbm")
+    dataset = _transfer_dataset("pruning", "synthetic/pruning", "llama")
+    result = run_matched_pruning_selection(
+        dataset.records,
+        dataset.split,
+        budget=2,
+        config=StaticFeatureStudyConfig(
+            top_n=2,
+            threads=1,
+            bootstrap_repetitions=20,
+            safe_perplexity_delta=0.25,
+        ),
+    )
+
+    assert len(result.one_shot) == len(result.iterative) == result.budget == 2
+    assert result.parameters_per_channel == 8
+    assert len({item.example_id for item in result.iterative}) == 2
+    assert result.one_shot_training_seconds > 0.0
+    assert result.iterative_training_seconds > 0.0
+    assert result.iterative_revealed_evaluation_seconds > 0.0
 
 
 def test_static_study_rejects_invalid_protocol() -> None:
