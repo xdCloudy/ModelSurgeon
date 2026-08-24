@@ -23,6 +23,15 @@ from .pareto import (
     ParetoObjectiveValue,
     conservatively_dominates,
 )
+from .policies import (
+    PredictedSearchCandidate,
+    SearchDecision,
+    SearchPolicy,
+    SearchPolicyConfig,
+    SearchPolicyKind,
+    SearchPolicyState,
+    SearchSelection,
+)
 from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
@@ -41,6 +50,13 @@ __all__ = [
     "ParetoArchiveEntry",
     "ParetoCandidate",
     "ParetoObjectiveValue",
+    "PredictedSearchCandidate",
+    "SearchDecision",
+    "SearchPolicy",
+    "SearchPolicyConfig",
+    "SearchPolicyKind",
+    "SearchPolicyState",
+    "SearchSelection",
     "SequenceMutationPlan",
     "conservatively_dominates",
     "constraints_from_config",
