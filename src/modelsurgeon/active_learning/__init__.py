@@ -10,6 +10,15 @@ from .candidate_pool import (
     cheap_candidate_features,
     write_candidate_pool,
 )
+from .candidate_scoring import (
+    CANDIDATE_SCORING_SCHEMA_VERSION,
+    CandidateScore,
+    CandidateScoringError,
+    CandidateScoringReport,
+    QuarantinedCandidate,
+    ScoringCandidate,
+    score_candidate_pool,
+)
 from .mlp_uncertainty import (
     MLP_UNCERTAINTY_SCHEMA_VERSION,
     MLPMethodEvidence,
@@ -44,12 +53,16 @@ from .tree_uncertainty_lightgbm import (
 
 __all__ = [
     "CANDIDATE_POOL_SCHEMA_VERSION",
+    "CANDIDATE_SCORING_SCHEMA_VERSION",
     "MAX_CANDIDATE_POOL_SIZE",
     "MLP_UNCERTAINTY_SCHEMA_VERSION",
     "TREE_UNCERTAINTY_SCHEMA_VERSION",
     "CandidatePoolError",
     "CandidatePoolManifest",
     "CandidatePoolProvenance",
+    "CandidateScore",
+    "CandidateScoringError",
+    "CandidateScoringReport",
     "CheapCandidateFeatures",
     "LightGBMTreeUncertaintyConfig",
     "MLPMethodEvidence",
@@ -60,6 +73,8 @@ __all__ = [
     "MLPUncertaintyScore",
     "MLPUncertaintyStudy",
     "MLPUncertaintyValue",
+    "QuarantinedCandidate",
+    "ScoringCandidate",
     "TreeMethodEvidence",
     "TreePredictionInterval",
     "TreeUncertaintyBudget",
@@ -75,5 +90,6 @@ __all__ = [
     "estimate_mlp_uncertainty",
     "run_lightgbm_tree_uncertainty_study",
     "run_mlp_uncertainty_study",
+    "score_candidate_pool",
     "write_candidate_pool",
 ]

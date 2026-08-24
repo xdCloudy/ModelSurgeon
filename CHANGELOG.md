@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded candidate-pool scoring for utility, named outcomes, calibrated safe
+  probability, and uncertainty, with batch-size-stable ordering and explicit quarantine
+  records for incompatible feature schemas.
 - Add canonical graph-valid active-learning pools capped at 100,000 candidates, with cheap
   mutation-free features, complete revision provenance, bounded append invocations, and
   digest-verified exact-record resume.
