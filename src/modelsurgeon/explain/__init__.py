@@ -20,10 +20,22 @@ from modelsurgeon.explain.decision_summary import (
     QuantizationContext,
     generate_mutation_decision_summary,
 )
+from modelsurgeon.explain.reporting import (
+    REPORT_SCHEMA_VERSION,
+    GeneratedReport,
+    ReportFailure,
+    ReportGenerationError,
+    ReportInput,
+    ReportLink,
+    ReportPlot,
+    ReportRedaction,
+    generate_report,
+)
 
 __all__ = [
     "ATTRIBUTION_SCHEMA_VERSION",
     "DECISION_SUMMARY_SCHEMA_VERSION",
+    "REPORT_SCHEMA_VERSION",
     "AttributionError",
     "AttributionReport",
     "AttributionResult",
@@ -33,9 +45,17 @@ __all__ = [
     "ExpectedDeltaSummary",
     "FeatureContribution",
     "FeatureProvenance",
+    "GeneratedReport",
     "MutationDecisionSummary",
     "PredictionAttribution",
     "QuantizationContext",
+    "ReportFailure",
+    "ReportGenerationError",
+    "ReportInput",
+    "ReportLink",
+    "ReportPlot",
+    "ReportRedaction",
     "attribute_predictions",
     "generate_mutation_decision_summary",
+    "generate_report",
 ]
