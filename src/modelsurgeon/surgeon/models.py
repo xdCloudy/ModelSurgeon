@@ -14,6 +14,8 @@ from enum import StrEnum
 from importlib import import_module
 from typing import Any, Final, cast
 
+import numpy as np
+
 from .matrix import SurgeonMatrix
 
 MODEL_SCHEMA_VERSION: Final[int] = 1
@@ -241,10 +243,15 @@ def train_linear(
     l1 = config.alpha * config.l1_ratio
     for epoch in range(1, config.max_epochs + 1):
         predictions = [intercept + _dot(coefficients, row) for row in x]
-        errors = [prediction - target for prediction, target in zip(predictions, y, strict=True)]
+        errors = [
+            prediction - target
+            for prediction, target in zip(predictions, y, strict=True)
+        ]
         grad_intercept = (
             2.0
-            * math.fsum(weight * error for weight, error in zip(weights, errors, strict=True))
+            * math.fsum(
+                weight * error for weight, error in zip(weights, errors, strict=True)
+            )
             / total_weight
         )
         gradients = [
@@ -272,9 +279,11 @@ def train_linear(
             coefficients[index] = updated
 
         predictions = [intercept + _dot(coefficients, row) for row in x]
-        loss = _mse(predictions, y, weights) + l2 * math.fsum(
-            value * value for value in coefficients
-        ) + l1 * math.fsum(abs(value) for value in coefficients)
+        loss = (
+            _mse(predictions, y, weights)
+            + l2 * math.fsum(value * value for value in coefficients)
+            + l1 * math.fsum(abs(value) for value in coefficients)
+        )
         epochs = epoch
         if abs(previous - loss) <= config.tolerance:
             break
@@ -377,7 +386,9 @@ class LogisticSurgeonModel:
         for row in rows:
             if len(row) != len(self.coefficients):
                 raise SurgeonModelError("logistic inference feature width is incompatible")
-        return tuple(_sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows)
+        return tuple(
+            _sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows
+        )
 
     def predict(self, rows: Sequence[Sequence[float]]) -> tuple[bool, ...]:
         return tuple(value >= self.config.threshold for value in self.predict_proba(rows))
@@ -402,7 +413,9 @@ class LogisticSurgeonModel:
             raise SurgeonModelError("persisted logistic model kind/schema is incompatible")
         try:
             feature_names = tuple(cast(list[str], value["feature_names"]))
-            coefficients = tuple(float(item) for item in cast(list[float], value["coefficients"]))
+            coefficients = tuple(
+                float(item) for item in cast(list[float], value["coefficients"])
+            )
             config_raw = cast(dict[str, object], value["config"])
             config = LogisticConfig(
                 alpha=float(cast(float, config_raw["alpha"])),
@@ -414,7 +427,11 @@ class LogisticSurgeonModel:
                 seed=int(cast(int, config_raw["seed"])),
             )
             validation_raw = value.get("validation_log_loss")
-            validation = None if validation_raw is None else float(cast(float, validation_raw))
+            validation = (
+                None
+                if validation_raw is None
+                else float(cast(float, validation_raw))
+            )
             return cls(
                 feature_names,
                 str(value["target_name"]),
@@ -590,14 +607,45 @@ class LightGBMConfig:
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if self.num_leaves < 2 or self.max_rounds <= 0 or self.early_stopping_rounds <= 0:
+        if (
+            self.num_leaves < 2
+            or self.max_rounds <= 0
+            or self.early_stopping_rounds <= 0
+        ):
             raise SurgeonModelError("LightGBM tree/round limits are invalid")
         if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
             raise SurgeonModelError("LightGBM learning rate must be finite and positive")
         if self.num_threads <= 0 or self.num_threads > 32:
             raise SurgeonModelError("LightGBM num_threads must be within 1..32")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 31:
-            raise SurgeonModelError("LightGBM seed must fit a non-negative 31-bit integer")
+            raise SurgeonModelError(
+                "LightGBM seed must fit a non-negative 31-bit integer"
+            )
+
+
+def _lightgbm_rows(
+    rows: Sequence[Sequence[float]],
+    *,
+    width: int,
+) -> Any:
+    if width <= 0:
+        raise SurgeonModelError("LightGBM requires at least one input feature")
+    if not rows:
+        return np.empty((0, width), dtype=np.float64)
+    matrix = np.asarray(rows, dtype=np.float64)
+    if matrix.ndim != 2 or int(matrix.shape[1]) != width:
+        raise SurgeonModelError("LightGBM input rows have incompatible feature width")
+    if not bool(np.isfinite(matrix).all()):
+        raise SurgeonModelError("LightGBM input rows must be finite")
+    return matrix
+
+
+def _lightgbm_feature_names(width: int) -> list[str]:
+    # The public preprocessing schema deliberately uses readable names such as
+    # `num:weight_l1_norm` and `cat:model_family=llama`. LightGBM's model-string
+    # format rejects several punctuation characters, so keep stable backend-only
+    # names while preserving the semantic schema on LightGBMSurgeonModel.
+    return [f"feature_{index}" for index in range(width)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -612,9 +660,12 @@ class LightGBMSurgeonModel:
     schema_version: int = MODEL_SCHEMA_VERSION
 
     def predict(self, rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
+        if not rows:
+            return ()
         lightgbm = _lightgbm()
         booster = lightgbm.Booster(model_str=self.model_string)
-        raw = booster.predict([list(row) for row in rows], num_iteration=self.best_iteration)
+        matrix = _lightgbm_rows(rows, width=len(self.feature_names))
+        raw = booster.predict(matrix, num_iteration=self.best_iteration)
         return tuple(float(value) for value in raw)
 
     def to_record(self) -> dict[str, object]:
@@ -689,6 +740,13 @@ def train_lightgbm(
     lightgbm = _lightgbm()
     x, y, weights = _measured_rows(train)
     val_x, val_y, val_weights = _measured_rows(validation)
+    width = len(train.feature_names)
+    if validation.feature_names != train.feature_names:
+        raise SurgeonModelError("LightGBM train/validation feature schemas differ")
+    train_matrix = _lightgbm_rows(x, width=width)
+    validation_matrix = _lightgbm_rows(val_x, width=width)
+    backend_feature_names = _lightgbm_feature_names(width)
+
     positive_weight = 1.0
     objective = "regression"
     metric = "l2"
@@ -718,18 +776,18 @@ def train_lightgbm(
         params["scale_pos_weight"] = positive_weight
 
     training = lightgbm.Dataset(
-        [list(row) for row in x],
+        train_matrix,
         label=list(y),
         weight=list(weights),
-        feature_name=list(train.feature_names),
+        feature_name=backend_feature_names,
         free_raw_data=False,
     )
     validating = lightgbm.Dataset(
-        [list(row) for row in val_x],
+        validation_matrix,
         label=list(val_y),
         weight=list(val_weights),
         reference=training,
-        feature_name=list(train.feature_names),
+        feature_name=backend_feature_names,
         free_raw_data=False,
     )
     booster = lightgbm.train(
@@ -747,20 +805,24 @@ def train_lightgbm(
     original = tuple(
         float(value)
         for value in booster.predict(
-            [list(row) for row in val_x], num_iteration=booster.best_iteration
+            validation_matrix,
+            num_iteration=booster.best_iteration,
         )
     )
     restored = tuple(
         float(value)
         for value in reloaded.predict(
-            [list(row) for row in val_x], num_iteration=booster.best_iteration
+            validation_matrix,
+            num_iteration=booster.best_iteration,
         )
     )
     if len(original) != len(restored) or any(
         not math.isclose(left, right, rel_tol=1e-12, abs_tol=1e-12)
         for left, right in zip(original, restored, strict=True)
     ):
-        raise SurgeonModelError("reloaded LightGBM model does not reproduce validation predictions")
+        raise SurgeonModelError(
+            "reloaded LightGBM model does not reproduce validation predictions"
+        )
     return LightGBMSurgeonModel(
         config.task,
         train.feature_names,
@@ -785,7 +847,9 @@ class MLPConfig:
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if not self.hidden_sizes or any(size <= 0 or size > 512 for size in self.hidden_sizes):
+        if not self.hidden_sizes or any(
+            size <= 0 or size > 512 for size in self.hidden_sizes
+        ):
             raise SurgeonModelError("MLP hidden sizes must be within 1..512")
         if sum(self.hidden_sizes) > 1024:
             raise SurgeonModelError("MLP hidden width budget exceeds 1024 units")
@@ -816,7 +880,9 @@ class MLPSurgeonModel:
         torch, nn = _torch_modules()
         model = _build_torch_mlp(nn, len(self.feature_names), self.hidden_sizes)
         state_bytes = base64.b64decode(self.state_base64.encode("ascii"))
-        state = torch.load(io.BytesIO(state_bytes), map_location="cpu", weights_only=True)
+        state = torch.load(
+            io.BytesIO(state_bytes), map_location="cpu", weights_only=True
+        )
         model.load_state_dict(state)
         model.eval()
         with torch.no_grad():
@@ -852,10 +918,15 @@ class MLPSurgeonModel:
     @classmethod
     def from_record(cls, value: dict[str, object]) -> MLPSurgeonModel:
         try:
-            if value.get("kind") != "mlp" or value.get("schema_version") != MODEL_SCHEMA_VERSION:
+            if (
+                value.get("kind") != "mlp"
+                or value.get("schema_version") != MODEL_SCHEMA_VERSION
+            ):
                 raise SurgeonModelError("persisted MLP kind/schema is incompatible")
             task = ModelTask(str(value["task"]))
-            hidden = tuple(int(item) for item in cast(list[int], value["hidden_sizes"]))
+            hidden = tuple(
+                int(item) for item in cast(list[int], value["hidden_sizes"])
+            )
             config_raw = cast(dict[str, object], value["config"])
             config = MLPConfig(
                 task=task,
@@ -925,7 +996,9 @@ def train_mlp(
     train_x, train_y, train_weights = _measured_rows(train)
     val_x, val_y, val_weights = _measured_rows(validation)
     device = torch.device(config.device)
-    model = _build_torch_mlp(nn, len(train.feature_names), config.hidden_sizes).to(device)
+    model = _build_torch_mlp(nn, len(train.feature_names), config.hidden_sizes).to(
+        device
+    )
     parameter_count = sum(int(parameter.numel()) for parameter in model.parameters())
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -951,7 +1024,9 @@ def train_mlp(
         generator=generator,
         num_workers=0,
     )
-    val_tensor = torch.tensor([list(row) for row in val_x], dtype=torch.float32, device=device)
+    val_tensor = torch.tensor(
+        [list(row) for row in val_x], dtype=torch.float32, device=device
+    )
     val_target = torch.tensor(list(val_y), dtype=torch.float32, device=device)
     val_weight = torch.tensor(list(val_weights), dtype=torch.float32, device=device)
 
@@ -978,7 +1053,9 @@ def train_mlp(
         with torch.no_grad():
             val_predictions = model(val_tensor).squeeze(-1)
             val_losses = loss_fn(val_predictions, val_target)
-            val_loss = float((val_losses * val_weight).sum().item() / val_weight.sum().item())
+            val_loss = float(
+                (val_losses * val_weight).sum().item() / val_weight.sum().item()
+            )
         epochs = epoch
         if val_loss < best_loss - 1e-10:
             best_loss = val_loss
@@ -992,9 +1069,13 @@ def train_mlp(
                 break
 
     if best_state is None:
-        raise SurgeonModelError("MLP training did not produce a finite validation checkpoint")
+        raise SurgeonModelError(
+            "MLP training did not produce a finite validation checkpoint"
+        )
     peak_vram = (
-        int(torch.cuda.max_memory_allocated(device)) if config.device == "cuda" else 0
+        int(torch.cuda.max_memory_allocated(device))
+        if config.device == "cuda"
+        else 0
     )
     return MLPSurgeonModel(
         config.task,
