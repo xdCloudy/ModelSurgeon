@@ -159,7 +159,12 @@ def _grouped_split(value: Mapping[str, object]) -> GroupedSplitManifest:
     groups_raw = value.get("groups")
     if not isinstance(mode_raw, str):
         raise SurgeonCommandError("grouped split mode is invalid")
-    if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0 or seed >= 1 << 64:
+    if (
+        not isinstance(seed, int)
+        or isinstance(seed, bool)
+        or seed < 0
+        or seed >= 1 << 64
+    ):
         raise SurgeonCommandError("grouped split seed must be unsigned 64-bit")
     if not isinstance(ratios_raw, Mapping) or not isinstance(groups_raw, list):
         raise SurgeonCommandError("grouped split ratios/groups are malformed")
@@ -179,7 +184,11 @@ def _grouped_split(value: Mapping[str, object]) -> GroupedSplitManifest:
             raise SurgeonCommandError("grouped split entries must be objects")
         group_id = raw.get("group_id")
         partition = raw.get("partition")
-        if not isinstance(group_id, str) or not group_id or not isinstance(partition, str):
+        if (
+            not isinstance(group_id, str)
+            or not group_id
+            or not isinstance(partition, str)
+        ):
             raise SurgeonCommandError("grouped split identity/partition is malformed")
         try:
             resolved_partition = SplitPartition(partition)
@@ -317,6 +326,20 @@ def _measured_test(
 
 def _metric_mapping(report: MetricReport) -> dict[str, float | None]:
     return {metric.name: metric.value for metric in report.metrics}
+
+
+def _split_group_counts(
+    matrices: object,
+) -> dict[str, int]:
+    resolved = cast(AnyTrainingMatrices, matrices)
+    return {
+        "train": len(set(resolved.train.group_ids)),
+        "validation": len(set(resolved.validation.group_ids)),
+        "test": len(set(resolved.test.group_ids)),
+    }
+
+
+type AnyTrainingMatrices = object
 
 
 def train_surgeon_command(
@@ -468,11 +491,12 @@ def train_surgeon_command(
                 seed=seed,
             )
 
+        training_models = _training_models(records)
         published = SurgeonModelRegistry(str(registry)).publish(
             model,
             matrices.preprocessor,
             target_schema,
-            training_models=_training_models(records),
+            training_models=training_models,
             metrics=_metric_mapping(report),
             split_manifest=matrices.split_manifest,
             provenance={
@@ -490,17 +514,24 @@ def train_surgeon_command(
             "artifact_size_bytes": published.metadata.size_bytes,
             "baseline": baseline,
             "target": target,
+            "training_models": [item.to_record() for item in training_models],
             "source_feature_schema_version": (
                 matrices.preprocessor.source_feature_schema_version
             ),
             "target_schema_version": matrices.preprocessor.target_schema_version,
-            "feature_count": len(
-                matrices.preprocessor.output_feature_names
-            ),
+            "feature_count": len(matrices.preprocessor.output_feature_names),
+            "split_manifest_version": matrices.split_manifest.get("version"),
+            "split_algorithm": matrices.split_manifest.get("algorithm"),
+            "split_mode": matrices.split_manifest.get("mode"),
             "split_counts": {
                 "train": len(matrices.train.example_ids),
                 "validation": len(matrices.validation.example_ids),
                 "test": len(matrices.test.example_ids),
+            },
+            "split_group_counts": {
+                "train": len(set(matrices.train.group_ids)),
+                "validation": len(set(matrices.validation.group_ids)),
+                "test": len(set(matrices.test.group_ids)),
             },
             "metrics": report.to_record(),
         }
@@ -511,6 +542,11 @@ def train_surgeon_command(
                 f"surgeon {baseline} target={target} artifact={result['artifact_digest']} "
                 f"features={result['feature_count']}"
             )
+            for identity in training_models:
+                typer.echo(
+                    f"model={identity.identifier}@{identity.revision} "
+                    f"quantization={identity.quantization or 'none'}"
+                )
             for metric in report.metrics:
                 value = (
                     "undefined"
@@ -551,6 +587,9 @@ def predict_surgeon_command(
             for record in records
         )
         predictions = _predict_values(loaded.model, rows)
+        training_models = [
+            item.to_record() for item in loaded.card.training_models
+        ]
         for record, prediction in zip(records, predictions, strict=True):
             example_id = record.get("example_id")
             mutation_id = record.get("mutation_id")
@@ -561,13 +600,20 @@ def predict_surgeon_command(
                 "target": loaded.card.target_name,
                 "prediction": prediction,
                 "artifact_digest": str(loaded.artifact.metadata.digest),
+                "model_kind": loaded.card.model_kind,
+                "training_models": training_models,
+                "source_feature_schema_version": (
+                    loaded.preprocessor.source_feature_schema_version
+                ),
+                "target_schema_version": loaded.preprocessor.target_schema_version,
             }
             if output_json:
                 typer.echo(canonical_identity_json(payload))
             else:
                 typer.echo(
                     f"{example_id or mutation_id}: "
-                    f"{loaded.card.target_name}={prediction:.8g}"
+                    f"{loaded.card.target_name}={prediction:.8g} "
+                    f"artifact={loaded.artifact.metadata.digest}"
                 )
     except (OSError, ValueError) as error:
         typer.echo(f"predict-surgeon error: {error}", err=True)
