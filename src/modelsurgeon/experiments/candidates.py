@@ -13,10 +13,11 @@ from modelsurgeon.graph import ComponentGraph, ComponentId, GraphNode
 from modelsurgeon.surgery.contracts import MutationKind, MutationPrimitive, MutationRequest
 from modelsurgeon.surgery.target_resolution import (
     MutationTargetResolutionError,
-    resolve_mutation_targets,
+    MutationTargetResolver,
 )
 
 CANDIDATE_ENUMERATOR_VERSION = "1"
+MAX_ENUMERATED_CANDIDATES = 100_000
 
 
 class CandidateEnumerationError(ValueError):
@@ -94,6 +95,8 @@ class CandidateEnumeratorConfig:
             isinstance(self.max_candidates, bool) or self.max_candidates <= 0
         ):
             raise CandidateEnumerationError("max_candidates must be positive when set")
+        if self.max_candidates is not None and self.max_candidates > MAX_ENUMERATED_CANDIDATES:
+            raise CandidateEnumerationError("max_candidates cannot exceed 100000")
 
 
 @dataclass(frozen=True, slots=True)
@@ -335,6 +338,7 @@ def enumerate_mutation_candidates(
     if not run_id.startswith("run_"):
         raise CandidateEnumerationError("candidate enumeration requires a canonical run ID")
     canonical = ComponentGraph.build(graph.nodes, graph.edges, graph.constraints)
+    resolver = MutationTargetResolver(canonical)
     exclusions: Counter[str] = Counter()
     selected: list[_RankedCandidate] = []
     eligible_count = 0
@@ -367,7 +371,7 @@ def enumerate_mutation_candidates(
     candidates: list[MutationCandidate] = []
     for preliminary in _selected_candidates(selected):
         try:
-            resolution = resolve_mutation_targets(preliminary.request, canonical)
+            resolution = resolver.resolve(preliminary.request)
         except MutationTargetResolutionError:
             exclusions[f"planner-rejected:{preliminary.scope.value}"] += 1
             continue

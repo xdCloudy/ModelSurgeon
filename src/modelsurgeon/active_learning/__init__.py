@@ -1,5 +1,15 @@
 """Bounded active-learning selection and scheduling contracts."""
 
+from .candidate_pool import (
+    CANDIDATE_POOL_SCHEMA_VERSION,
+    MAX_CANDIDATE_POOL_SIZE,
+    CandidatePoolError,
+    CandidatePoolManifest,
+    CandidatePoolProvenance,
+    CheapCandidateFeatures,
+    cheap_candidate_features,
+    write_candidate_pool,
+)
 from .mlp_uncertainty import (
     MLP_UNCERTAINTY_SCHEMA_VERSION,
     MLPMethodEvidence,
@@ -33,8 +43,14 @@ from .tree_uncertainty_lightgbm import (
 )
 
 __all__ = [
+    "CANDIDATE_POOL_SCHEMA_VERSION",
+    "MAX_CANDIDATE_POOL_SIZE",
     "MLP_UNCERTAINTY_SCHEMA_VERSION",
     "TREE_UNCERTAINTY_SCHEMA_VERSION",
+    "CandidatePoolError",
+    "CandidatePoolManifest",
+    "CandidatePoolProvenance",
+    "CheapCandidateFeatures",
     "LightGBMTreeUncertaintyConfig",
     "MLPMethodEvidence",
     "MLPUncertaintyBudget",
@@ -51,6 +67,7 @@ __all__ = [
     "TreeUncertaintyMethod",
     "TreeUncertaintyScore",
     "TreeUncertaintyStudy",
+    "cheap_candidate_features",
     "compare_mlp_uncertainty",
     "compare_tree_uncertainty",
     "estimate_from_members",
@@ -58,4 +75,5 @@ __all__ = [
     "estimate_mlp_uncertainty",
     "run_lightgbm_tree_uncertainty_study",
     "run_mlp_uncertainty_study",
+    "write_candidate_pool",
 ]

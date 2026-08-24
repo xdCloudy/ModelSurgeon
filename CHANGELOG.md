@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add canonical graph-valid active-learning pools capped at 100,000 candidates, with cheap
+  mutation-free features, complete revision provenance, bounded append invocations, and
+  digest-verified exact-record resume.
 - Add optional fixed-budget MLP uncertainty comparison for deep ensembles and Monte Carlo
   dropout, reporting interval calibration and active-selection lift with deterministic,
   schema-versioned stochastic predictions and backward-compatible dropout configuration.
