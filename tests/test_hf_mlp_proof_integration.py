@@ -6,10 +6,6 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("torch")
-tokenizers = pytest.importorskip("tokenizers")
-transformers = pytest.importorskip("transformers")
-
 from modelsurgeon.adapters.huggingface.loader import HuggingFaceDType
 from modelsurgeon.adapters.huggingface.proof_runtime import (
     HuggingFaceMLPProofConfig,
@@ -18,6 +14,10 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
 from modelsurgeon.cli.proof import FirstSurgeonProofConfig, run_first_surgeon_proof
 from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.experiments.candidates import CandidateScope
+
+pytest.importorskip("torch")
+tokenizers = pytest.importorskip("tokenizers")
+transformers = pytest.importorskip("transformers")
 
 
 def _write_tiny_llama(path: Path) -> None:
