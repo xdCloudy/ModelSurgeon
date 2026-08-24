@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -16,7 +17,7 @@ from modelsurgeon.adapters.huggingface.loader import (
     load_causal_lm,
 )
 from modelsurgeon.evaluation.model_ladder import PERMISSIVE_MODEL_LADDER
-from modelsurgeon.evaluation.scale_study import choose_scale_default
+from modelsurgeon.evaluation.scale_study import choose_scale_default, evenly_spaced_indices
 from modelsurgeon.experiments.hardware import collect_hardware_inventory
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.instrumentation.memory_telemetry import (
@@ -88,6 +89,18 @@ def _first_matrix(model: object) -> tuple[str, Any]:
     return candidates[0]
 
 
+def _placement(model: object) -> dict[str, object]:
+    raw = getattr(model, "hf_device_map", None)
+    if not isinstance(raw, dict):
+        device = str(next(model.parameters()).device)  # type: ignore[attr-defined]
+        return {"devices": [device], "module_counts": {device: 1}}
+    counts: dict[str, int] = {}
+    for device in raw.values():
+        normalized = f"cuda:{device}" if isinstance(device, int) else str(device)
+        counts[normalized] = counts.get(normalized, 0) + 1
+    return {"devices": sorted(counts), "module_counts": dict(sorted(counts.items()))}
+
+
 def _run_target(target: Any, accelerator_bytes: int | None) -> dict[str, object]:
     import torch
     from huggingface_hub import snapshot_download
@@ -109,6 +122,15 @@ def _run_target(target: Any, accelerator_bytes: int | None) -> dict[str, object]
                 target.identifier,
                 revision=target.revision,
                 local_files_only=True,
+                ignore_patterns=(
+                    "*.bin",
+                    "*.gguf",
+                    "*.h5",
+                    "*.msgpack",
+                    "*.onnx",
+                    "consolidated.safetensors",
+                    "original/*",
+                ),
             )
         )
     except Exception as error:
@@ -137,8 +159,8 @@ def _run_target(target: Any, accelerator_bytes: int | None) -> dict[str, object]
             ),
             cuda=cuda,
         )
-        stages.append(load_measurement)
         model = loaded.model
+        stages.append({**load_measurement, "result": {"placement": _placement(model)}})
 
         def analyze() -> dict[str, object]:
             named = tuple(model.named_parameters())
@@ -157,7 +179,11 @@ def _run_target(target: Any, accelerator_bytes: int | None) -> dict[str, object]
         def features() -> dict[str, object]:
             flat = tensor.detach().reshape(-1)
             count = min(65_536, flat.numel())
-            indexes = torch.linspace(0, flat.numel() - 1, steps=count, device=flat.device).long()
+            indexes = torch.tensor(
+                evenly_spaced_indices(flat.numel(), count),
+                device=flat.device,
+                dtype=torch.int64,
+            )
             sample = flat[indexes].float()
             return {
                 "tensor": tensor_name,
@@ -245,7 +271,7 @@ def main() -> None:
     if unknown:
         raise ValueError(f"unknown ladder rungs: {sorted(unknown)}")
 
-    hardware = collect_hardware_inventory(args.output.parent)
+    hardware = collect_hardware_inventory(Path(os.environ.get("HF_HUB_CACHE", args.output.parent)))
     accelerator_bytes = max(
         (
             device.total_memory_bytes

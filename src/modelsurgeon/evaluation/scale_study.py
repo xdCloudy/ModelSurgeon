@@ -9,6 +9,18 @@ class ScaleStudyError(ValueError):
     """Raised when scale-study measurements or hardware inputs are invalid."""
 
 
+def evenly_spaced_indices(length: int, count: int) -> tuple[int, ...]:
+    """Return exact, in-bounds sample positions without floating-point rounding."""
+
+    if length <= 0:
+        raise ScaleStudyError("sample length must be positive")
+    if count <= 0 or count > length:
+        raise ScaleStudyError("sample count must be positive and no greater than length")
+    if count == 1:
+        return (0,)
+    return tuple(index * (length - 1) // (count - 1) for index in range(count))
+
+
 @dataclass(frozen=True, slots=True)
 class ScaleDefault:
     execution_device: str
