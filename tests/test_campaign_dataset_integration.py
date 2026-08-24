@@ -378,6 +378,7 @@ def test_interrupted_resume_produces_same_validated_dataset_as_uninterrupted(
             candidates,
             uninterrupted_worker,
             config,
+            clock_ns=ManualClock(0),
         ).run()
         assert uninterrupted.progress.succeeded == 3
         uninterrupted_dataset = _dataset_pipeline(
