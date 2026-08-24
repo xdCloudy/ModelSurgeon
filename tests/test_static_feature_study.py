@@ -26,6 +26,10 @@ from modelsurgeon.evaluation.cross_model_transfer import (
 from modelsurgeon.evaluation.gradient_feature_study import (
     run_gradient_feature_ablation,
 )
+from modelsurgeon.evaluation.multi_model_active_learning import (
+    MultiModelActiveLearningConfig,
+    run_model_active_learning_study,
+)
 from modelsurgeon.evaluation.pruning_baseline_study import (
     PruningBaselineStudyConfig,
     run_pruning_baseline_study,
@@ -88,6 +92,7 @@ def _example(index: int, delta: float) -> dict[str, object]:
 
 def _gradient_example(index: int, delta: float) -> dict[str, object]:
     record = _example(index, delta)
+    record["timings"] = [{"stage": "evaluate", "wall_seconds": 0.1 + index / 1000.0}]
     features = record["pre_mutation_features"]
     assert isinstance(features, list)
     features.append(
@@ -390,6 +395,37 @@ def test_q6_retains_inference_schema_failure_as_an_outcome() -> None:
     assert outcome.failure_kind == "TrainingMatrixError"
     assert outcome.failure_detail is not None
     assert "missing required trained features" in outcome.failure_detail
+
+
+def test_q7_replays_paired_active_and_random_acquisition() -> None:
+    pytest.importorskip("lightgbm")
+    dataset = _transfer_dataset("active", "synthetic/active", "llama")
+    result = run_model_active_learning_study(
+        dataset.records,
+        dataset.split,
+        MultiModelActiveLearningConfig(
+            budgets=(4, 8),
+            seeds=(3, 5),
+            target_auc=0.6,
+            safe_perplexity_delta=0.25,
+            threads=1,
+        ),
+    )
+
+    assert len(result.curves) == 4
+    assert all([point.experiments for point in curve.points] == [4, 8] for curve in result.curves)
+    assert all(
+        point.cumulative_gpu_hours > 0.0 for curve in result.curves for point in curve.points
+    )
+    assert set(result.comparison) == {
+        "active_mean_aulc",
+        "random_mean_aulc",
+        "active_target_reaches",
+        "random_target_reaches",
+        "paired_target_reaches",
+        "mean_experiment_reduction",
+        "mean_gpu_hour_reduction",
+    }
 
 
 def test_static_study_rejects_invalid_protocol() -> None:
