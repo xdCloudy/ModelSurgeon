@@ -21,6 +21,7 @@ from modelsurgeon.surgery import (
     MutationTargetResolutionError,
     resolve_mutation_targets,
 )
+from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 
 A = ComponentId.parse("model.a")
 B = ComponentId.parse("model.b")
@@ -63,9 +64,7 @@ def test_overlapping_constraints_resolve_transitive_closure_with_reasons() -> No
 
 
 def test_resolved_closure_builds_complete_base_mutation_plan() -> None:
-    resolved = resolve_mutation_targets(
-        MutationRequest(MutationKind.MASK, (B,)), _graph()
-    )
+    resolved = resolve_mutation_targets(MutationRequest(MutationKind.MASK, (B,)), _graph())
     plan = resolved.to_plan(
         preconditions=(MutationPrecondition("revision", "abc"),),
         expected_delta=MutationDelta(memory_bytes=-10),
@@ -77,9 +76,7 @@ def test_resolved_closure_builds_complete_base_mutation_plan() -> None:
 def test_unknown_target_fails_before_planning() -> None:
     unknown = ComponentId.parse("model.unknown")
     with pytest.raises(MutationTargetResolutionError, match=r"model\.unknown"):
-        resolve_mutation_targets(
-            MutationRequest(MutationKind.REMOVE, (unknown,)), _graph()
-        )
+        resolve_mutation_targets(MutationRequest(MutationKind.REMOVE, (unknown,)), _graph())
 
 
 def test_invalid_incomplete_constraint_graph_is_rejected() -> None:
@@ -99,3 +96,14 @@ def test_unconstrained_coupled_edge_is_still_closed() -> None:
     resolved = resolve_mutation_targets(MutationRequest(MutationKind.REMOVE, (B,)), graph)
     assert resolved.affected_components == (A, B)
     assert any(reason.startswith("coupled:") for reason in resolved.targets[0].reasons)
+
+
+def test_indexed_resolver_reuses_one_validated_graph_for_multiple_requests() -> None:
+    resolver = MutationTargetResolver(_graph())
+
+    assert resolver.resolve(MutationRequest(MutationKind.REMOVE, (A,))).affected_components == (
+        A,
+        B,
+        C,
+    )
+    assert resolver.resolve(MutationRequest(MutationKind.MASK, (D,))).affected_components == (D,)

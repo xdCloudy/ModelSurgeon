@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Make large Hugging Face proof campaigns scale by reusing one validated mutation-target
+  graph index and caching vectorized per-layer weight statistics instead of rescanning the
+  component graph and synchronizing individual GPU scalars for every candidate.
 - Make durable artifact and checkpoint publication work on Windows, publish the
   package's PEP 561 typing marker, and keep platform-specific memory and llama.cpp
   validation paths strict-type-checkable.

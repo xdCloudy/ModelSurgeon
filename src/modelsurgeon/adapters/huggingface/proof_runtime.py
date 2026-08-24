@@ -83,7 +83,7 @@ from modelsurgeon.surgery.serialization import (
     MutationOutcomeStatus,
     MutationProvenance,
 )
-from modelsurgeon.surgery.target_resolution import resolve_mutation_targets
+from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
@@ -127,9 +127,7 @@ class HuggingFaceMLPProofConfig:
         if self.max_tokens < 2:
             raise HuggingFaceMLPProofError("max_tokens must be at least 2")
         if not math.isfinite(self.safe_perplexity_delta) or self.safe_perplexity_delta < 0:
-            raise HuggingFaceMLPProofError(
-                "safe_perplexity_delta must be finite and non-negative"
-            )
+            raise HuggingFaceMLPProofError("safe_perplexity_delta must be finite and non-negative")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 64:
             raise HuggingFaceMLPProofError("seed must be an unsigned 64-bit integer")
 
@@ -171,6 +169,14 @@ class _ActivationAccumulator:
     zero_counts: Any = None
     max_abs: Any = None
     storage_dtype: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _LayerWeightStatistics:
+    count: int
+    combined_dtype: str
+    part_dtypes: tuple[str, str, str]
+    values: Any
 
 
 class _NoopSnapshotTarget:
@@ -373,24 +379,6 @@ def _scalar(tensor: Any) -> float:
     return value
 
 
-def _tensor_stats(tensor: Any) -> dict[str, float]:
-    values = tensor.detach().float().reshape(-1)
-    if int(values.numel()) <= 0:
-        raise HuggingFaceMLPProofError("cannot summarize an empty weight slice")
-    mean = _scalar(values.mean())
-    abs_mean = _scalar(values.abs().mean())
-    rms = math.sqrt(max(0.0, _scalar(values.square().mean())))
-    std = _scalar(values.std(unbiased=False))
-    maximum = _scalar(values.abs().max())
-    return {
-        "mean": mean,
-        "abs_mean": abs_mean,
-        "rms": rms,
-        "std": std,
-        "max_abs": maximum,
-    }
-
-
 def _high_precision(storage_dtype: str) -> PrecisionProvenance:
     return PrecisionProvenance(
         PrecisionSource.HIGH_PRECISION,
@@ -428,6 +416,7 @@ class HuggingFaceMLPProofRuntime:
             tuple(self._discovery.components()),
         )
         self._component_graph = build_component_graph(graph_records)
+        self._target_resolver = MutationTargetResolver(self._component_graph)
         self._modules = dict(self.model.named_modules())
         self._validate_mlp_layout()
 
@@ -490,6 +479,7 @@ class HuggingFaceMLPProofRuntime:
         self._input_device = self._resolve_input_device()
         self._baseline: _PerplexityMeasurement | None = None
         self._activation_stats: dict[int, _ActivationAccumulator] = {}
+        self._weight_stats: dict[int, _LayerWeightStatistics] = {}
         self._last_measurement: _CandidateMeasurement | None = None
 
     @staticmethod
@@ -711,48 +701,104 @@ class HuggingFaceMLPProofRuntime:
 
     def _feature_records(self, layer: int, channel: int) -> tuple[FeatureRecord, ...]:
         self._ensure_baseline()
-        gate, up, down = self._projection_weights(layer)
-        weight_parts = (gate[channel, :], up[channel, :], down[:, channel])
-        dtypes = (
-            _tensor_dtype(weight_parts[0]),
-            _tensor_dtype(weight_parts[1]),
-            _tensor_dtype(weight_parts[2]),
-        )
-        combined_dtype = dtypes[0] if len(set(dtypes)) == 1 else "mixed"
         component = ComponentId.parse(f"model.layers.{layer}.mlp.channel.{channel}")
         metadata: tuple[tuple[str, str | int], ...] = (
             ("channel_index", channel),
             ("layer_index", layer),
             ("source_phase", "pre_mutation"),
         )
-        records = self._weight_features(component, weight_parts, dtypes, combined_dtype, metadata)
+        records = self._weight_features(component, layer, channel, metadata)
         records.extend(self._activation_features(component, layer, channel, metadata))
         return tuple(sorted(records, key=lambda item: item.name))
+
+    def _layer_weight_statistics(self, layer: int) -> _LayerWeightStatistics:
+        cached = self._weight_stats.get(layer)
+        if cached is not None:
+            return cached
+
+        gate, up, down = self._projection_weights(layer)
+        channel_parts = (
+            gate.detach().float(),
+            up.detach().float(),
+            down.detach().float().transpose(0, 1),
+        )
+        dtypes = (_tensor_dtype(gate), _tensor_dtype(up), _tensor_dtype(down))
+        part_statistics: list[tuple[Any, Any, Any, Any, Any]] = []
+        l1_parts: list[Any] = []
+        l2_parts: list[Any] = []
+        max_parts: list[Any] = []
+        for values in channel_parts:
+            abs_values = values.abs()
+            square_values = values.square()
+            mean = values.mean(dim=1)
+            square_mean = square_values.mean(dim=1)
+            part_statistics.append(
+                (
+                    mean,
+                    abs_values.mean(dim=1),
+                    self._torch.sqrt(self._torch.clamp(square_mean, min=0.0)),
+                    values.std(dim=1, unbiased=False),
+                    abs_values.amax(dim=1),
+                )
+            )
+            l1_parts.append(abs_values.sum(dim=1))
+            l2_parts.append(square_values.sum(dim=1))
+            max_parts.append(abs_values.amax(dim=1))
+
+        l1 = self._torch.stack(l1_parts).sum(dim=0)
+        l2 = self._torch.sqrt(self._torch.clamp(self._torch.stack(l2_parts).sum(dim=0), min=0.0))
+        maximum = self._torch.stack(max_parts).amax(dim=0)
+        columns = [l1, l2, maximum]
+        columns.extend(value for part in part_statistics for value in part)
+        resolved = _LayerWeightStatistics(
+            sum(int(values.shape[1]) for values in channel_parts),
+            dtypes[0] if len(set(dtypes)) == 1 else "mixed",
+            dtypes,
+            self._torch.stack(columns, dim=1).cpu(),
+        )
+        self._weight_stats[layer] = resolved
+        return resolved
 
     def _weight_features(
         self,
         component: ComponentId,
-        parts: tuple[Any, Any, Any],
-        dtypes: tuple[str, str, str],
-        combined_dtype: str,
+        layer: int,
+        channel: int,
         metadata: tuple[tuple[str, str | int], ...],
     ) -> list[FeatureRecord]:
-        count = sum(int(item.numel()) for item in parts)
-        l1 = math.fsum(_scalar(item.detach().float().abs().sum()) for item in parts)
-        l2_sq = math.fsum(_scalar(item.detach().float().square().sum()) for item in parts)
-        maximum = max(_scalar(item.detach().float().abs().max()) for item in parts)
+        statistics = self._layer_weight_statistics(layer)
+        values = statistics.values[channel]
         records = [
-            self._feature(component, name, value, combined_dtype, None, metadata)
+            self._feature(
+                component,
+                name,
+                value,
+                statistics.combined_dtype,
+                None,
+                metadata,
+            )
             for name, value in (
-                ("weight_count", float(count)),
-                ("weight_l1_norm", l1),
-                ("weight_l2_norm", math.sqrt(max(0.0, l2_sq))),
-                ("weight_max_magnitude", maximum),
+                ("weight_count", float(statistics.count)),
+                ("weight_l1_norm", _scalar(values[0])),
+                ("weight_l2_norm", _scalar(values[1])),
+                ("weight_max_magnitude", _scalar(values[2])),
             )
         ]
-        for prefix, tensor, storage_dtype in zip(
-            ("gate_weight", "up_weight", "down_weight"), parts, dtypes, strict=True
+        for part_index, (prefix, storage_dtype) in enumerate(
+            zip(
+                ("gate_weight", "up_weight", "down_weight"),
+                statistics.part_dtypes,
+                strict=True,
+            )
         ):
+            offset = 3 + part_index * 5
+            part_values = (
+                ("mean", _scalar(values[offset])),
+                ("abs_mean", _scalar(values[offset + 1])),
+                ("rms", _scalar(values[offset + 2])),
+                ("std", _scalar(values[offset + 3])),
+                ("max_abs", _scalar(values[offset + 4])),
+            )
             records.extend(
                 self._feature(
                     component,
@@ -762,7 +808,7 @@ class HuggingFaceMLPProofRuntime:
                     None,
                     metadata,
                 )
-                for suffix, value in _tensor_stats(tensor).items()
+                for suffix, value in part_values
             )
         return records
 
@@ -842,7 +888,7 @@ class HuggingFaceMLPProofRuntime:
 
     def resolve(self, request: MutationRequest) -> ResolvedExperiment:
         _channel_coordinates(request)
-        resolution = resolve_mutation_targets(request, self._component_graph)
+        resolution = self._target_resolver.resolve(request)
         plan = resolution.to_plan(preconditions=(), expected_delta=MutationDelta())
         return ResolvedExperiment(
             plan,
