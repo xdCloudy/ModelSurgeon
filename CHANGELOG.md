@@ -114,6 +114,9 @@
   one-token forward/generation check, captured tool/command provenance, capped logs,
   fail-closed timeout or non-zero-exit reporting, current official version parsing,
   and non-interactive CLI termination.
+- Benchmark baseline/candidate GGUF perplexity with pinned llama.cpp under one
+  content-addressed sample and runtime configuration, require matching tokenizer
+  metadata, parse finite structured estimates, and preserve bounded raw failure logs.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.
