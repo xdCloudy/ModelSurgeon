@@ -289,7 +289,7 @@ def _record_view(
         raise TargetBuildError("mutation example record baseline_metrics must be a list of records")
     if not isinstance(post, list) or not all(isinstance(item, Mapping) for item in post):
         raise TargetBuildError("mutation example record post_metrics must be a list of records")
-    return example_id, baseline, post  # type: ignore[return-value]
+    return example_id, baseline, post
 
 
 def derive_supervised_targets(
