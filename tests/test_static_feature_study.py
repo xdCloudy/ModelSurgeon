@@ -17,6 +17,10 @@ from modelsurgeon.evaluation.activation_feature_study import (
 from modelsurgeon.evaluation.gradient_feature_study import (
     run_gradient_feature_ablation,
 )
+from modelsurgeon.evaluation.pruning_baseline_study import (
+    PruningBaselineStudyConfig,
+    run_pruning_baseline_study,
+)
 from modelsurgeon.evaluation.static_feature_study import (
     StaticFeatureStudyConfig,
     StaticFeatureStudyError,
@@ -85,6 +89,22 @@ def _gradient_example(index: int, delta: float) -> dict[str, object]:
             "extractor": "gradient_features",
             "sample_context": {"sample_ids": ["calibration"]},
         }
+    )
+    features.extend(
+        (
+            {
+                "name": "weight_count",
+                "kind": "scalar",
+                "value": 8.0,
+                "sample_context": None,
+            },
+            {
+                "name": "weight_l1_norm",
+                "kind": "scalar",
+                "value": delta * 8.0,
+                "sample_context": None,
+            },
+        )
     )
     return record
 
@@ -187,6 +207,43 @@ def test_gradient_ablation_excludes_gradients_from_its_paired_baseline() -> None
     assert "first_order_removal_magnitude" not in result.static_activation.feature_names
     assert "first_order_removal_magnitude" in (result.static_activation_gradient.feature_names)
     assert result.static_activation.test_labels == (result.static_activation_gradient.test_labels)
+
+
+def test_q4_baselines_use_equal_budgets_and_paired_seeds() -> None:
+    pytest.importorskip("lightgbm")
+    deltas = (0.05, 0.75, 0.10, 0.90) * 4
+    result = run_pruning_baseline_study(
+        tuple(_gradient_example(index, delta) for index, delta in enumerate(deltas)),
+        _split(),
+        PruningBaselineStudyConfig(
+            selection_budget=2,
+            seeds=(3, 5, 7),
+            bootstrap_repetitions=20,
+            threads=1,
+            safe_perplexity_delta=0.25,
+        ),
+    )
+
+    assert result.pool_size == 4
+    assert result.selection_budget == 2
+    assert result.parameters_per_channel == 8
+    assert {method.method for method in result.methods} == {
+        "learned_gradient_lightgbm",
+        "magnitude_mean_absolute",
+        "seeded_random",
+    }
+    assert all(
+        len(selection.selected_example_ids) == 2
+        for method in result.methods
+        for selection in method.selections
+    )
+    assert all(len(method.selections) == 3 for method in result.methods)
+    assert {gain.name for gain in result.paired_gains} == {
+        "constraint_violation_reduction_vs_magnitude",
+        "constraint_violation_reduction_vs_random",
+        "mean_perplexity_delta_reduction_vs_magnitude",
+        "mean_perplexity_delta_reduction_vs_random",
+    }
 
 
 def test_static_study_rejects_invalid_protocol() -> None:

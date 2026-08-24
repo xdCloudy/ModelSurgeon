@@ -67,6 +67,7 @@ class StaticFeatureStudyResult:
     test_classifier_predictions: tuple[float, ...] = ()
     test_regressor_predictions: tuple[float, ...] = ()
     test_group_ids: tuple[str, ...] = ()
+    test_example_ids: tuple[str, ...] = ()
     version: str = STATIC_FEATURE_STUDY_VERSION
 
     def to_record(self) -> dict[str, object]:
@@ -279,6 +280,7 @@ def run_feature_profile_study(
         classifier_predictions,
         regressor_predictions,
         tuple(classifier_matrices.test.group_ids),
+        tuple(classifier_matrices.test.example_ids),
     )
 
 

@@ -103,6 +103,7 @@ def paired_feature_gains(
         static.test_labels != activation.test_labels
         or static.test_targets != activation.test_targets
         or static.test_group_ids != activation.test_group_ids
+        or static.test_example_ids != activation.test_example_ids
     ):
         raise StaticFeatureStudyError("paired feature profiles must share held-out rows")
     labels = static.test_labels
