@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 from modelsurgeon.experiments import (
+    ContentAddressedArtifactStore,
     CPUInventory,
     CUDAInventory,
-    ContentAddressedArtifactStore,
     DatasetTarget,
     DiskInventory,
     ExperimentIdentitySpec,
