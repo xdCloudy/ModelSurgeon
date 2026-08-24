@@ -35,6 +35,9 @@ from modelsurgeon.evaluation.pruning_baseline_study import (
     PruningBaselineStudyConfig,
     run_pruning_baseline_study,
 )
+from modelsurgeon.evaluation.quantization_context_study import (
+    run_quantization_context_ablation,
+)
 from modelsurgeon.evaluation.static_feature_study import (
     StaticFeatureStudyConfig,
     StaticFeatureStudyError,
@@ -461,6 +464,30 @@ def test_q8_selection_matches_budget_and_retrains_after_revelation() -> None:
     assert result.one_shot_training_seconds > 0.0
     assert result.iterative_training_seconds > 0.0
     assert result.iterative_revealed_evaluation_seconds > 0.0
+
+
+def test_quantization_context_ablation_uses_identical_heldout_rows() -> None:
+    pytest.importorskip("lightgbm")
+    dataset = _transfer_dataset("context", "synthetic/context", "llama")
+    for record in dataset.records:
+        model = record["model"]
+        assert isinstance(model, dict)
+        model["quantization"] = "Q4_K_M"
+    result = run_quantization_context_ablation(
+        dataset.records,
+        dataset.split,
+        StaticFeatureStudyConfig(
+            top_n=2,
+            threads=1,
+            bootstrap_repetitions=20,
+            safe_perplexity_delta=0.25,
+        ),
+    )
+
+    assert "context_bits_per_weight" not in result.context_blind.feature_names
+    assert "context_bits_per_weight" in result.context_aware.feature_names
+    assert result.context_blind.test_example_ids == result.context_aware.test_example_ids
+    assert len(result.gains) == 4
 
 
 def test_static_study_rejects_invalid_protocol() -> None:

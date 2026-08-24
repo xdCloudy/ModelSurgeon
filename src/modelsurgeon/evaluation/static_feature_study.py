@@ -195,6 +195,8 @@ def run_feature_profile_study(
     split: GroupedSplitManifest,
     profile: FeatureProfile,
     config: StaticFeatureStudyConfig | None = None,
+    *,
+    include_context: bool = True,
 ) -> StaticFeatureStudyResult:
     """Fit one feature-profile pair of LightGBMs on a held-out target model."""
 
@@ -211,12 +213,14 @@ def run_feature_profile_study(
         split,
         target_schema=target_schema,
         target_name="safe_mutation",
+        include_context=include_context,
     )
     regressor_matrices = build_training_matrices(
         selected_records,
         split,
         target_schema=target_schema,
         target_name="perplexity",
+        include_context=include_context,
     )
     _require_labels(classifier_matrices, classification=True)
     _require_labels(regressor_matrices, classification=False)

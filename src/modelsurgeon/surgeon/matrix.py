@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final, cast
 
+from modelsurgeon.adapters.gguf.quantization import QUANT_LAYOUTS, GGMLQuantizationType
 from modelsurgeon.datasets.grouped_splits import GroupedSplitManifest, SplitPartition
 from modelsurgeon.experiments.schema import MutationExampleRecord
 from modelsurgeon.features.schema import FeatureKind, FeatureRecord
@@ -115,8 +116,7 @@ class SurgeonPreprocessor:
             "source_feature_schema_version": self.source_feature_schema_version,
             "target_schema_version": self.target_schema_version,
             "numeric": [
-                {"name": item.name, "mean": item.mean, "scale": item.scale}
-                for item in self.numeric
+                {"name": item.name, "mean": item.mean, "scale": item.scale} for item in self.numeric
             ],
             "categorical": [
                 {"name": item.name, "categories": list(item.categories)}
@@ -168,9 +168,7 @@ class SurgeonPreprocessor:
                 or not all(isinstance(item, str) for item in categories)
             ):
                 raise TrainingMatrixError("persisted categorical preprocessor fields are invalid")
-            categorical.append(
-                CategoricalPreprocessor(name, tuple(cast(list[str], categories)))
-            )
+            categorical.append(CategoricalPreprocessor(name, tuple(cast(list[str], categories))))
         return cls(tuple(numeric), tuple(categorical), source, target)
 
 
@@ -246,8 +244,7 @@ def _partition_map(
         {
             "version": "inline-1",
             "assignments": {
-                example_id: partition.value
-                for example_id, partition in sorted(partitions.items())
+                example_id: partition.value for example_id, partition in sorted(partitions.items())
             },
         },
     )
@@ -290,10 +287,7 @@ def _numeric_from_feature_records(features: Sequence[FeatureRecord]) -> dict[str
                 raise TrainingMatrixError("vector feature unexpectedly contains a scalar")
             for index, value in enumerate(feature.value):
                 grouped[f"{feature.name}[{index}]"].append(value)
-    return {
-        name: math.fsum(values) / len(values)
-        for name, values in sorted(grouped.items())
-    }
+    return {name: math.fsum(values) / len(values) for name, values in sorted(grouped.items())}
 
 
 def _numeric_from_feature_dicts(raw: object) -> dict[str, float]:
@@ -327,13 +321,10 @@ def _numeric_from_feature_dicts(raw: object) -> dict[str, float]:
                 grouped[f"{name}[{index}]"].append(numeric)
         else:
             raise TrainingMatrixError(f"feature {name!r} has unknown kind {kind!r}")
-    return {
-        name: math.fsum(values) / len(values)
-        for name, values in sorted(grouped.items())
-    }
+    return {name: math.fsum(values) / len(values) for name, values in sorted(grouped.items())}
 
 
-def _categorical(record: Mapping[str, object]) -> dict[str, str]:
+def _categorical(record: Mapping[str, object], *, include_context: bool = True) -> dict[str, str]:
     model = record.get("model")
     mutation = record.get("mutation")
     if not isinstance(model, Mapping) or not isinstance(mutation, Mapping):
@@ -358,13 +349,135 @@ def _categorical(record: Mapping[str, object]) -> dict[str, str]:
         raw_scope = parameters.get("candidate_scope")
         if isinstance(raw_scope, str):
             scope = raw_scope
-    return {
+    output = {
         "model_family": family,
         "model_format": format_name,
-        "model_quantization": quantization or "none",
         "mutation_kind": kind,
         "candidate_scope": scope or "unspecified",
     }
+    if include_context:
+        context = _context(record)
+        output.update(
+            {
+                "model_quantization": quantization or "none",
+                "feature_source_precision": context[1],
+                "hardware_accelerator": context[2],
+                "hardware_os": context[3],
+            }
+        )
+    return output
+
+
+def _quantization_type(raw: object) -> GGMLQuantizationType | None:
+    if not isinstance(raw, str):
+        return None
+    canonical = raw.upper()
+    aliases = {"Q4_K_M": "Q4_K", "Q4_K_S": "Q4_K", "Q5_K_M": "Q5_K", "Q5_K_S": "Q5_K"}
+    canonical = aliases.get(canonical, canonical)
+    try:
+        return GGMLQuantizationType(canonical)
+    except ValueError:
+        return None
+
+
+def _context(
+    record: Mapping[str, object],
+) -> tuple[dict[str, float], str, str, str]:
+    """Extract source-only model, precision, and hardware context without outcomes."""
+
+    numeric: dict[str, float] = {}
+    model = record.get("model")
+    if isinstance(model, Mapping):
+        parameters = model.get("parameter_count")
+        if isinstance(parameters, int) and not isinstance(parameters, bool) and parameters > 0:
+            numeric["context_model_parameter_count"] = float(parameters)
+        quant_type = _quantization_type(model.get("quantization"))
+        if quant_type is not None:
+            layout = QUANT_LAYOUTS[quant_type]
+            numeric["context_bits_per_weight"] = 8.0 * layout.type_size / layout.block_size
+
+    precision_sources: set[str] = set()
+    storage_dtypes: set[str] = set()
+    errors: list[float] = []
+    raw_features = record.get("pre_mutation_features")
+    if isinstance(raw_features, list):
+        for feature in raw_features:
+            if not isinstance(feature, Mapping) or not isinstance(
+                feature.get("precision"), Mapping
+            ):
+                continue
+            precision = cast(Mapping[str, object], feature["precision"])
+            source = precision.get("source")
+            storage = precision.get("storage_dtype")
+            if isinstance(source, str):
+                precision_sources.add(source)
+            if isinstance(storage, str):
+                storage_dtypes.add(storage.lower())
+            error = precision.get("error")
+            if isinstance(error, Mapping):
+                absolute = error.get("absolute_error")
+                if isinstance(absolute, (int, float)) and not isinstance(absolute, bool):
+                    value = float(absolute)
+                    if math.isfinite(value) and value >= 0.0:
+                        errors.append(value)
+    if "context_bits_per_weight" not in numeric and len(storage_dtypes) == 1:
+        bits = {
+            "float64": 64.0,
+            "float32": 32.0,
+            "bfloat16": 16.0,
+            "float16": 16.0,
+        }.get(next(iter(storage_dtypes)))
+        if bits is not None:
+            numeric["context_bits_per_weight"] = bits
+    if errors:
+        numeric["context_feature_error_mean"] = math.fsum(errors) / len(errors)
+        numeric["context_feature_error_max"] = max(errors)
+    precision_source = (
+        "unknown"
+        if not precision_sources
+        else next(iter(precision_sources))
+        if len(precision_sources) == 1
+        else "mixed"
+    )
+
+    accelerator = "unknown"
+    os_name = "unknown"
+    hardware = record.get("hardware")
+    if isinstance(hardware, Mapping):
+        os_record = hardware.get("os")
+        if isinstance(os_record, Mapping) and isinstance(os_record.get("name"), str):
+            os_name = str(os_record["name"])
+        cpu = hardware.get("cpu")
+        if isinstance(cpu, Mapping):
+            cores = cpu.get("logical_cores")
+            if isinstance(cores, int) and not isinstance(cores, bool) and cores > 0:
+                numeric["context_cpu_logical_cores"] = float(cores)
+        memory = hardware.get("memory")
+        if isinstance(memory, Mapping):
+            total_memory = memory.get("total_bytes")
+            if (
+                isinstance(total_memory, int)
+                and not isinstance(total_memory, bool)
+                and total_memory > 0
+            ):
+                numeric["context_system_memory_bytes"] = float(total_memory)
+        cuda = hardware.get("cuda")
+        if isinstance(cuda, Mapping) and cuda.get("available") is True:
+            devices = cuda.get("devices")
+            if isinstance(devices, list) and devices and isinstance(devices[0], Mapping):
+                device = cast(Mapping[str, object], devices[0])
+                name = device.get("name")
+                accelerator = str(name) if isinstance(name, str) else "cuda"
+                total_vram = device.get("total_memory_bytes")
+                if (
+                    isinstance(total_vram, int)
+                    and not isinstance(total_vram, bool)
+                    and total_vram > 0
+                ):
+                    numeric["context_accelerator_memory_bytes"] = float(total_vram)
+        elif isinstance(cuda, Mapping):
+            accelerator = "cpu"
+    return numeric, precision_source, accelerator, os_name
 
 
 def materialize_raw_rows(
@@ -373,6 +486,7 @@ def materialize_raw_rows(
     *,
     target_schema: TargetSchema,
     sample_weights: Mapping[str, float] | None = None,
+    include_context: bool = True,
 ) -> tuple[RawSurgeonRow, ...]:
     """Materialize typed raw rows without learning any preprocessing state."""
 
@@ -392,13 +506,15 @@ def materialize_raw_rows(
             numeric = _numeric_from_feature_records(example.pre_mutation_features)
         else:
             numeric = _numeric_from_feature_dicts(record.get("pre_mutation_features"))
+        if include_context:
+            numeric.update(_context(record)[0])
         weight = 1.0 if sample_weights is None else sample_weights.get(example_id, 1.0)
         rows.append(
             RawSurgeonRow(
                 example_id,
                 partition,
                 tuple(sorted(numeric.items())),
-                tuple(sorted(_categorical(record).items())),
+                tuple(sorted(_categorical(record, include_context=include_context).items())),
                 derive_supervised_targets(example, target_schema),
                 weight,
                 _feature_schema_version(example, record),
@@ -441,11 +557,7 @@ def fit_preprocessor(
     categorical_names = sorted({name for row in train for name, _ in row.categorical})
     categorical: list[CategoricalPreprocessor] = []
     for name in categorical_names:
-        categories = {
-            dict(row.categorical)[name]
-            for row in train
-            if name in dict(row.categorical)
-        }
+        categories = {dict(row.categorical)[name] for row in train if name in dict(row.categorical)}
         categories.add(_UNKNOWN_CATEGORY)
         categorical.append(CategoricalPreprocessor(name, tuple(sorted(categories))))
 
@@ -490,9 +602,7 @@ def _target_for_row(
 ) -> tuple[float, bool]:
     if target_name == "safe_mutation":
         return (
-            (1.0 if row.targets.safe_mutation else 0.0)
-            if row.targets.safe_mutation_mask
-            else 0.0,
+            (1.0 if row.targets.safe_mutation else 0.0) if row.targets.safe_mutation_mask else 0.0,
             row.targets.safe_mutation_mask,
         )
     target = row.targets.value(target_name)
@@ -529,6 +639,7 @@ def build_training_matrices(
     target_schema: TargetSchema,
     target_name: str,
     sample_weights: Mapping[str, float] | None = None,
+    include_context: bool = True,
 ) -> TrainingMatrices:
     """Build train/validation/test matrices while fitting state on train only."""
 
@@ -539,6 +650,7 @@ def build_training_matrices(
         split,
         target_schema=target_schema,
         sample_weights=sample_weights,
+        include_context=include_context,
     )
     preprocessor = fit_preprocessor(rows, target_schema_version=target_schema.version)
     matrices = TrainingMatrices(
@@ -577,15 +689,14 @@ def transform_inference_record(
         numeric_values = _numeric_from_feature_records(example.pre_mutation_features)
     else:
         numeric_values = _numeric_from_feature_dicts(record.get("pre_mutation_features"))
+    numeric_values.update(_context(record)[0])
     categorical_values = _categorical(record)
     if refuse_missing:
         missing_numeric = [
             item.name for item in preprocessor.numeric if item.name not in numeric_values
         ]
         missing_categorical = [
-            item.name
-            for item in preprocessor.categorical
-            if item.name not in categorical_values
+            item.name for item in preprocessor.categorical if item.name not in categorical_values
         ]
         if missing_numeric or missing_categorical:
             raise TrainingMatrixError(
