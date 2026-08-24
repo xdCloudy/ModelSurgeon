@@ -4,6 +4,7 @@ import struct
 import pytest
 
 from modelsurgeon.adapters.gguf.quantization import ByteOrder, GGMLQuantizationType
+from modelsurgeon.evaluation.quantization_loss_study import run_quantization_loss_study
 from modelsurgeon.evaluation.quantized_feature_reliability import (
     QuantizedTensorSample,
     run_quantized_feature_reliability,
@@ -165,3 +166,29 @@ def test_quantized_reliability_study_compares_all_target_codecs() -> None:
     provenance = model.precision_provenance(storage_dtype="Q4_K")
     assert provenance.error is not None
     assert provenance.error.absolute_error == model.mean_absolute_error
+
+
+def test_quantization_loss_study_uses_matched_surgery_regions() -> None:
+    samples = tuple(
+        QuantizedTensorSample(
+            "model-a" if index < 2 else "model-b",
+            f"tensor-{index}",
+            tuple(math.cos(offset / 19.0 + index) * 0.1 for offset in range(256)),
+        )
+        for index in range(3)
+    )
+
+    result = run_quantization_loss_study(
+        samples,
+        surgery_stride=16,
+        bootstrap_repetitions=20,
+    )
+
+    assert result.surgery_fraction == pytest.approx(1 / 16)
+    assert {item["codec"] for item in result.codecs} == {
+        "Q4_K",
+        "Q5_K",
+        "Q6_K",
+        "Q8_0",
+    }
+    assert all(len(item["effects"]) == 5 for item in result.codecs)
