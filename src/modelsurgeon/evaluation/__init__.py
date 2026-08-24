@@ -18,6 +18,18 @@ from modelsurgeon.evaluation.llama_cpp_perplexity import (
     LlamaCppPerplexityReport,
     benchmark_gguf_perplexity,
 )
+from modelsurgeon.evaluation.llama_cpp_throughput import (
+    LLAMA_CPP_THROUGHPUT_SCHEMA_VERSION,
+    GpuProcessMemoryProbe,
+    LlamaCppBenchmarkEnvironment,
+    LlamaCppThroughputComparison,
+    LlamaCppThroughputConfig,
+    LlamaCppThroughputError,
+    LlamaCppThroughputPhase,
+    LlamaCppThroughputReport,
+    benchmark_gguf_throughput,
+    compare_gguf_throughput,
+)
 from modelsurgeon.evaluation.requantization_control import (
     CodecAlignedControlRange,
     MatchedGGUFRequantizationControl,
@@ -29,15 +41,23 @@ from modelsurgeon.evaluation.requantization_control import (
 
 __all__ = [
     "LLAMA_CPP_PERPLEXITY_SCHEMA_VERSION",
+    "LLAMA_CPP_THROUGHPUT_SCHEMA_VERSION",
     "LLAMA_CPP_VALIDATION_COMMIT",
     "LLAMA_CPP_VALIDATION_SCHEMA_VERSION",
     "CodecAlignedControlRange",
+    "GpuProcessMemoryProbe",
+    "LlamaCppBenchmarkEnvironment",
     "LlamaCppGGUFValidationReport",
     "LlamaCppPerplexityConfig",
     "LlamaCppPerplexityError",
     "LlamaCppPerplexityManifest",
     "LlamaCppPerplexityMeasurement",
     "LlamaCppPerplexityReport",
+    "LlamaCppThroughputComparison",
+    "LlamaCppThroughputConfig",
+    "LlamaCppThroughputError",
+    "LlamaCppThroughputPhase",
+    "LlamaCppThroughputReport",
     "LlamaCppToolProvenance",
     "LlamaCppValidationConfig",
     "LlamaCppValidationError",
@@ -47,5 +67,7 @@ __all__ = [
     "MatchedRequantizationControlReport",
     "MatchedRequantizationDeltas",
     "benchmark_gguf_perplexity",
+    "benchmark_gguf_throughput",
+    "compare_gguf_throughput",
     "validate_generated_gguf",
 ]

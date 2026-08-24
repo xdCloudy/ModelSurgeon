@@ -117,6 +117,9 @@
 - Benchmark baseline/candidate GGUF perplexity with pinned llama.cpp under one
   content-addressed sample and runtime configuration, require matching tokenizer
   metadata, parse finite structured estimates, and preserve bounded raw failure logs.
+- Benchmark pinned llama.cpp GGUF prompt and generation throughput with phase latency
+  samples, child-process peak RAM/VRAM, explicit warmup/thread/offload/context settings,
+  raw failure logs, and drift-gated comparison ratios.
 - Execute model-wide native quantized GGUF attention-head removal with direct
   Q/K/V/O encoded copies, bounded one-row O repacking, explicit fixed head-length
   metadata, resumable output, error ceilings, and output-graph validation.
