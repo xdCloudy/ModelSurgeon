@@ -24,6 +24,7 @@ from modelsurgeon.cli.experiment import (
     write_experiment_result,
 )
 from modelsurgeon.cli.inspection import inspect_huggingface_model
+from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
@@ -177,6 +178,7 @@ def experiment(
         raise typer.Exit(2) from error
 
 
+app.command("first-surgeon-proof")(first_surgeon_proof_command)
 app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
 
