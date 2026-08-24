@@ -25,6 +25,12 @@ from modelsurgeon.adapters.huggingface.physical_attention import (
     HuggingFacePhysicalAttentionError,
     remove_huggingface_attention_heads,
 )
+from modelsurgeon.adapters.huggingface.physical_layers import (
+    HF_PHYSICAL_LAYER_SCHEMA_VERSION,
+    HuggingFaceLayerRemovalResult,
+    HuggingFacePhysicalLayerError,
+    remove_huggingface_transformer_layers,
+)
 from modelsurgeon.adapters.huggingface.physical_mlp import (
     HF_PHYSICAL_MLP_SCHEMA_VERSION,
     HuggingFaceMLPLayerResize,
@@ -35,12 +41,14 @@ from modelsurgeon.adapters.huggingface.physical_mlp import (
 
 __all__ = [
     "HF_PHYSICAL_ATTENTION_SCHEMA_VERSION",
+    "HF_PHYSICAL_LAYER_SCHEMA_VERSION",
     "HF_PHYSICAL_MLP_SCHEMA_VERSION",
     "HuggingFaceAttentionRemovalResult",
     "HuggingFaceComponentKind",
     "HuggingFaceDType",
     "HuggingFaceDependencyError",
     "HuggingFaceDiscovery",
+    "HuggingFaceLayerRemovalResult",
     "HuggingFaceLoadError",
     "HuggingFaceLoadProvenance",
     "HuggingFaceLoadRequest",
@@ -50,6 +58,7 @@ __all__ = [
     "HuggingFaceModelError",
     "HuggingFaceModelProvider",
     "HuggingFacePhysicalAttentionError",
+    "HuggingFacePhysicalLayerError",
     "HuggingFacePhysicalMLPError",
     "HuggingFaceRevisionError",
     "ParameterReconciliationError",
@@ -58,4 +67,5 @@ __all__ = [
     "load_causal_lm",
     "remove_huggingface_attention_heads",
     "remove_huggingface_mlp_channels",
+    "remove_huggingface_transformer_layers",
 ]

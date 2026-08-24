@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add physical Hugging Face transformer-layer removal with retained-weight identity,
+  canonical and KV-cache execution-index renumbering, exact residual-bypass equivalence,
+  parameter reconciliation, and successful real-model save/reload.
 - Add model-wide physical Hugging Face MHA/GQA head removal with complete-KV-group safety,
   synchronized Q/K/V/O block resizing, metadata/parameter reconciliation, bit-exact
   grouped-mask evidence, and successful real-model save/reload.
