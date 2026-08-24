@@ -14,6 +14,10 @@ from modelsurgeon.datasets.grouped_splits import (
 from modelsurgeon.evaluation.activation_feature_study import (
     run_activation_feature_ablation,
 )
+from modelsurgeon.evaluation.cross_model_transfer import (
+    TransferDataset,
+    run_cross_model_transfer,
+)
 from modelsurgeon.evaluation.gradient_feature_study import (
     run_gradient_feature_ablation,
 )
@@ -136,6 +140,46 @@ def _split() -> GroupedSplitManifest:
     )
 
 
+def _transfer_dataset(prefix: str, identifier: str, family: str) -> TransferDataset:
+    deltas = (0.05, 0.75, 0.10, 0.90) * 4
+    records: list[dict[str, object]] = []
+    groups: list[SplitGroup] = []
+    for index, delta in enumerate(deltas):
+        record = _gradient_example(index, delta)
+        example_id = f"{prefix}-example-{index}"
+        record["example_id"] = example_id
+        model = record["model"]
+        assert isinstance(model, dict)
+        model["identifier"] = identifier
+        model["revision"] = f"{prefix}-revision"
+        model["family"] = family
+        records.append(record)
+        partition = (
+            SplitPartition.TRAIN
+            if index < 8
+            else SplitPartition.VALIDATION
+            if index < 12
+            else SplitPartition.TEST
+        )
+        groups.append(
+            SplitGroup(
+                f"{prefix}-group-{index:02d}",
+                partition,
+                (f"component:{prefix}:{index}",),
+                (example_id,),
+            )
+        )
+    return TransferDataset(
+        tuple(records),
+        GroupedSplitManifest(
+            GroupedSplitMode.COMPONENT,
+            43,
+            SplitRatios(0.5, 0.25, 0.25),
+            tuple(groups),
+        ),
+    )
+
+
 def test_static_selector_excludes_calibration_dependent_features() -> None:
     selected = select_static_records((_example(0, 0.1),))
 
@@ -244,6 +288,46 @@ def test_q4_baselines_use_equal_budgets_and_paired_seeds() -> None:
         "mean_perplexity_delta_reduction_vs_magnitude",
         "mean_perplexity_delta_reduction_vs_random",
     }
+
+
+def test_q5_transfer_fits_only_source_preprocessing() -> None:
+    pytest.importorskip("lightgbm")
+    result = run_cross_model_transfer(
+        (
+            _transfer_dataset("source-a", "synthetic/source-a", "llama"),
+            _transfer_dataset("source-b", "synthetic/source-b", "qwen"),
+        ),
+        _transfer_dataset("target", "synthetic/unseen-target", "llama"),
+        StaticFeatureStudyConfig(
+            top_n=2,
+            threads=1,
+            bootstrap_repetitions=20,
+        ),
+    )
+
+    assert result.source_train_count == 16
+    assert result.source_validation_count == 8
+    assert result.target_test_count == 4
+    assert result.target_model[0] == "synthetic/unseen-target"
+    assert result.target_model not in result.source_models
+    assert "synthetic/unseen-target" not in str(result.source_preprocessor)
+    assert len(result.source_preprocessor_sha256) == 64
+    assert {item.name for item in result.degradations} == {
+        "auc_degradation",
+        "mae_increase",
+        "precision_at_2_degradation",
+        "rmse_increase",
+    }
+
+
+def test_q5_transfer_rejects_target_leakage_and_unrepresented_family() -> None:
+    source = _transfer_dataset("source", "synthetic/source", "llama")
+    with pytest.raises(StaticFeatureStudyError, match="completely unseen"):
+        run_cross_model_transfer((source,), source)
+
+    target = _transfer_dataset("target", "synthetic/target", "mamba")
+    with pytest.raises(StaticFeatureStudyError, match="family must be represented"):
+        run_cross_model_transfer((source,), target)
 
 
 def test_static_study_rejects_invalid_protocol() -> None:
