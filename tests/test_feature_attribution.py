@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 
-import lightgbm
 import numpy as np
 import pytest
 
@@ -48,6 +47,7 @@ def test_linear_contributions_reconcile_and_preserve_missingness_provenance() ->
 
 
 def _tree_model(task: ModelTask) -> LightGBMSurgeonModel:
+    lightgbm = pytest.importorskip("lightgbm")
     x = np.asarray(((0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.0)))
     y = np.asarray((0.0, 1.0, 2.0, 3.0) if task is ModelTask.REGRESSION else (0, 0, 1, 1))
     objective = "regression" if task is ModelTask.REGRESSION else "binary"
