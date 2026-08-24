@@ -157,6 +157,12 @@ def first_surgeon_hf_proof_command(
     except KeyboardInterrupt:
         typer.echo("Hugging Face proof interrupted; active mutation hook removed", err=True)
         raise typer.Exit(130) from None
-    except (HuggingFaceDependencyError, HuggingFaceMLPProofError, OSError, RuntimeError, ValueError) as error:
+    except (
+        HuggingFaceDependencyError,
+        HuggingFaceMLPProofError,
+        OSError,
+        RuntimeError,
+        ValueError,
+    ) as error:
         typer.echo(f"first-surgeon-hf-proof error: {error}", err=True)
         raise typer.Exit(2) from error
