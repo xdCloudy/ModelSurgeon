@@ -124,7 +124,7 @@ def rank_random(
 
     keyed: list[tuple[int, str]] = []
     for candidate_id in ids:
-        payload = f"random-baseline-v1:{seed}:{candidate_id}".encode("utf-8")
+        payload = f"random-baseline-v1:{seed}:{candidate_id}".encode()
         score = int.from_bytes(hashlib.sha256(payload).digest(), "big")
         keyed.append((score, candidate_id))
     # A hash collision is resolved by candidate ID, making tie behavior explicit.
@@ -162,6 +162,9 @@ class MagnitudeRankingConfig:
     normalization: MagnitudeNormalization = MagnitudeNormalization.MEAN_ABSOLUTE
     component_aggregation: ComponentAggregation = ComponentAggregation.MEAN
     select_count: int | None = None
+
+
+DEFAULT_MAGNITUDE_RANKING_CONFIG: Final[MagnitudeRankingConfig] = MagnitudeRankingConfig()
 
 
 def _scalar_features(
@@ -218,7 +221,7 @@ def rank_magnitude(
     candidates: Sequence[MutationCandidate],
     features: Iterable[FeatureRecord],
     *,
-    config: MagnitudeRankingConfig = MagnitudeRankingConfig(),
+    config: MagnitudeRankingConfig = DEFAULT_MAGNITUDE_RANKING_CONFIG,
 ) -> RankingResult:
     """Rank graph-compatible candidates from normalized pre-mutation weight statistics."""
 
@@ -340,6 +343,9 @@ class HeuristicConfig:
             raise RankingError("heuristic signal names must be unique and canonical")
 
 
+DEFAULT_HEURISTIC_CONFIG: Final[HeuristicConfig] = HeuristicConfig()
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionTrace:
     candidate_id: str
@@ -390,10 +396,7 @@ def _minmax(
     maximum: float,
     direction: SignalDirection,
 ) -> float:
-    if maximum == minimum:
-        normalized = 0.5
-    else:
-        normalized = (value - minimum) / (maximum - minimum)
+    normalized = 0.5 if maximum == minimum else (value - minimum) / (maximum - minimum)
     if direction is SignalDirection.LOWER_IS_BETTER:
         return 1.0 - normalized
     return normalized
@@ -403,7 +406,7 @@ def rank_heuristic(
     candidates: Sequence[MutationCandidate],
     features: Iterable[FeatureRecord],
     *,
-    config: HeuristicConfig = HeuristicConfig(),
+    config: HeuristicConfig = DEFAULT_HEURISTIC_CONFIG,
 ) -> HeuristicRankingResult:
     """Combine normalized magnitude/activation/sensitivity/redundancy rules with traces."""
 
