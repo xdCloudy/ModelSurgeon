@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import IO
 
 from modelsurgeon.adapters.gguf.conformance import GGML_UPSTREAM_REVISION
 
@@ -153,7 +153,7 @@ def _resolve_executable(value: str | Path, expected_revision: str) -> Path:
     return Path(discovered).resolve()
 
 
-def _read_bounded_log(stream: BinaryIO, max_bytes: int) -> tuple[str, bool]:
+def _read_bounded_log(stream: IO[bytes], max_bytes: int) -> tuple[str, bool]:
     stream.flush()
     stream.seek(0, os.SEEK_END)
     total = stream.tell()

@@ -177,10 +177,13 @@ def _proc_rss_bytes() -> int | None:
     statm = Path("/proc/self/statm")
     if not statm.exists():
         return None
+    sysconf = getattr(os, "sysconf", None)
+    if sysconf is None:
+        return None
     try:
         fields = statm.read_text(encoding="ascii").split()
         resident_pages = int(fields[1])
-        page_size = int(os.sysconf("SC_PAGE_SIZE"))
+        page_size = int(sysconf("SC_PAGE_SIZE"))
     except (IndexError, OSError, ValueError):
         return None
     return resident_pages * page_size

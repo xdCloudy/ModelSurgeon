@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Make durable artifact and checkpoint publication work on Windows, publish the
+  package's PEP 561 typing marker, and keep platform-specific memory and llama.cpp
+  validation paths strict-type-checkable.
 - Add turnkey `first-surgeon-evidence` LightGBM proof reporting with grouped held-out
   bootstrap metrics, identical-candidate random/magnitude comparisons, immutable-bundle
   inference smoke tests, source revisions, artifact hashes, and bounded training telemetry.

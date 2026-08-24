@@ -71,7 +71,7 @@ def test_generated_gguf_passes_only_after_pinned_llama_forward(
     assert report.failure_reason is None
     assert report.tool.expected_revision == LLAMA_CPP_VALIDATION_COMMIT
     assert report.tool.reported_revision == LLAMA_CPP_VALIDATION_COMMIT[:7]
-    assert calls[0] == ("/opt/llama.cpp/llama-cli", "--version")
+    assert calls[0] == (str(Path("/opt/llama.cpp/llama-cli").resolve()), "--version")
     assert report.command == calls[1]
     assert report.command[1:5] == (
         "-m",
