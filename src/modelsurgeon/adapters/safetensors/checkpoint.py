@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 from collections.abc import Mapping
@@ -93,7 +94,7 @@ def write_safetensors_checkpoint_atomic(
     source_hashes = _source_shard_hashes(source_path)
     groups = _group_shards(planned, max_shard_bytes)
     try:
-        from safetensors.torch import save_file
+        save_file = importlib.import_module("safetensors.torch").save_file
     except ImportError as error:  # pragma: no cover - optional dependency boundary
         raise SafetensorsCheckpointError(
             "safetensors checkpoint writing requires the hf extra"
