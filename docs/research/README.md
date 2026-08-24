@@ -4,4 +4,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - [v0.5 First Surgeon empirical evidence](v0.5-first-surgeon-evidence.md)
 - [v0.6 tree-surgeon uncertainty evidence](v0.6-tree-uncertainty-evidence.md)
+- [v0.6 MLP uncertainty evidence](v0.6-mlp-uncertainty-evidence.md)
 
