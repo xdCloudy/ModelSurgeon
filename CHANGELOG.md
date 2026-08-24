@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add equal-budget active/random/utility-only learning-curve studies with normalized AULC,
+  seeded bootstrap confidence intervals, dependency-free SVG plots, and explicit negative
+  results when active selection does not beat the strongest baseline.
 - Add auditable surgeon retraining triggers for new-example count, elapsed budget, and drift,
   plus all-criteria challenger promotion that always retains the incumbent after training
   failure or missing/insufficient validation evidence.

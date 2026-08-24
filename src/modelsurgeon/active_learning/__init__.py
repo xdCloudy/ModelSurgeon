@@ -93,6 +93,17 @@ from .scheduler import (
     ScheduledEvaluation,
     ScheduledEvaluationState,
 )
+from .study import (
+    ACTIVE_LEARNING_STUDY_SCHEMA_VERSION,
+    ActiveLearningStudy,
+    ActiveLearningStudyError,
+    LearningCurve,
+    LearningCurvePoint,
+    SelectionStrategy,
+    StrategyStudySummary,
+    render_learning_curve_svg,
+    summarize_active_learning_study,
+)
 from .tree_uncertainty import (
     TREE_UNCERTAINTY_SCHEMA_VERSION,
     TreeMethodEvidence,
@@ -113,6 +124,7 @@ from .tree_uncertainty_lightgbm import (
 
 __all__ = [
     "ACQUISITION_POLICY_SCHEMA_VERSION",
+    "ACTIVE_LEARNING_STUDY_SCHEMA_VERSION",
     "ACTIVE_SCHEDULE_SCHEMA_VERSION",
     "CANDIDATE_EQUIVALENCE_SCHEMA_VERSION",
     "CANDIDATE_POOL_SCHEMA_VERSION",
@@ -131,6 +143,8 @@ __all__ = [
     "AcquisitionReason",
     "AcquisitionReport",
     "ActiveEvaluationSchedule",
+    "ActiveLearningStudy",
+    "ActiveLearningStudyError",
     "ActiveScheduleError",
     "ActiveScheduleStore",
     "AdapterEquivalenceDeclarations",
@@ -157,6 +171,8 @@ __all__ = [
     "ExperimentBudgetSnapshot",
     "ExperimentResources",
     "FailedAttemptBudgetPolicy",
+    "LearningCurve",
+    "LearningCurvePoint",
     "LightGBMTreeUncertaintyConfig",
     "MLPMethodEvidence",
     "MLPUncertaintyBudget",
@@ -176,6 +192,8 @@ __all__ = [
     "ScheduledEvaluation",
     "ScheduledEvaluationState",
     "ScoringCandidate",
+    "SelectionStrategy",
+    "StrategyStudySummary",
     "SurgeonPromotionDecision",
     "TreeMethodEvidence",
     "TreePredictionInterval",
@@ -195,9 +213,11 @@ __all__ = [
     "estimate_mlp_uncertainty",
     "evaluate_challenger_promotion",
     "evaluate_retraining_trigger",
+    "render_learning_curve_svg",
     "run_lightgbm_tree_uncertainty_study",
     "run_mlp_uncertainty_study",
     "score_candidate_pool",
     "select_diverse_candidates",
+    "summarize_active_learning_study",
     "write_candidate_pool",
 ]
