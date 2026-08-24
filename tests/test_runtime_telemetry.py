@@ -35,8 +35,8 @@ from modelsurgeon.experiments import (
     derive_experiment_identity,
     derive_run_identity,
 )
-from modelsurgeon.instrumentation.memory_telemetry import MemoryTelemetryConfig
 from modelsurgeon.graph import ComponentId
+from modelsurgeon.instrumentation.memory_telemetry import MemoryTelemetryConfig
 from modelsurgeon.surgery.contracts import (
     MutationDelta,
     MutationKind,
