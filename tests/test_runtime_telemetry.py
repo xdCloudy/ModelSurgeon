@@ -26,6 +26,7 @@ from modelsurgeon.experiments import (
     ProcessIOCounters,
     SeedContext,
     SoftwareInventory,
+    StageTelemetryError,
     StageTelemetryRecorder,
     StageTelemetrySnapshot,
     StageTelemetryState,
@@ -272,7 +273,7 @@ def test_cpu_only_snapshot_rejects_cuda_metrics_and_store_rejects_unknown_candid
     tmp_path: Path,
 ) -> None:
     hardware = HardwareNormalizationContext.from_inventory(_hardware())
-    with pytest.raises(Exception, match="cannot fabricate CUDA peaks"):
+    with pytest.raises(StageTelemetryError, match="cannot fabricate CUDA peaks"):
         StageTelemetrySnapshot(
             "evaluation",
             StageTelemetryState.COMPLETE,
