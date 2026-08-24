@@ -9,6 +9,13 @@ from .constraints import (
     OptimizationConstraint,
     constraints_from_config,
 )
+from .objectives import (
+    ObjectiveObservation,
+    ObjectiveScore,
+    ObjectiveSet,
+    ObjectiveTerm,
+    objectives_from_config,
+)
 
 __all__ = [
     "BaselineReference",
@@ -16,6 +23,11 @@ __all__ = [
     "ConstraintMetric",
     "ConstraintObservation",
     "ConstraintSet",
+    "ObjectiveObservation",
+    "ObjectiveScore",
+    "ObjectiveSet",
+    "ObjectiveTerm",
     "OptimizationConstraint",
     "constraints_from_config",
+    "objectives_from_config",
 ]

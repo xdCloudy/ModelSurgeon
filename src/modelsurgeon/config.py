@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from modelsurgeon.adapters import ModelFormat
@@ -34,10 +34,43 @@ class MemoryMode(StrEnum):
 
 
 class OptimizeMetric(StrEnum):
+    QUALITY = "quality"
     PARAMETER_COUNT = "parameter_count"
     LATENCY = "latency"
     MEMORY = "memory"
     DISK_SIZE = "disk_size"
+
+
+class ObjectiveDirection(StrEnum):
+    MAXIMIZE = "maximize"
+    MINIMIZE = "minimize"
+
+
+class ObjectiveNormalization(StrEnum):
+    IDENTITY = "identity"
+    BASELINE_RATIO = "baseline_ratio"
+    MIN_MAX = "min_max"
+
+
+class ObjectiveTermConfig(StrictConfigModel):
+    """One configurable soft objective and its score normalization."""
+
+    metric: OptimizeMetric
+    direction: ObjectiveDirection
+    weight: float = Field(default=1.0, gt=0.0)
+    normalization: ObjectiveNormalization = ObjectiveNormalization.BASELINE_RATIO
+    minimum: float | None = None
+    maximum: float | None = None
+
+    @model_validator(mode="after")
+    def validate_normalization_bounds(self) -> ObjectiveTermConfig:
+        has_bounds = self.minimum is not None or self.maximum is not None
+        if self.normalization is ObjectiveNormalization.MIN_MAX:
+            if self.minimum is None or self.maximum is None or self.minimum >= self.maximum:
+                raise ValueError("min-max normalization requires ordered finite bounds")
+        elif has_bounds:
+            raise ValueError("normalization bounds are only valid for min-max")
+        return self
 
 
 class ModelConfig(StrictConfigModel):
@@ -105,6 +138,7 @@ class ObjectiveConfig(StrictConfigModel):
         OptimizeMetric.PARAMETER_COUNT,
         OptimizeMetric.LATENCY,
     )
+    terms: tuple[ObjectiveTermConfig, ...] | None = None
 
     @field_validator("optimize")
     @classmethod
@@ -116,6 +150,18 @@ class ObjectiveConfig(StrictConfigModel):
             raise ValueError("optimization dimensions must be unique")
         if not value:
             raise ValueError("at least one optimization dimension is required")
+        return value
+
+    @field_validator("terms")
+    @classmethod
+    def reject_duplicate_objective_terms(
+        cls,
+        value: tuple[ObjectiveTermConfig, ...] | None,
+    ) -> tuple[ObjectiveTermConfig, ...] | None:
+        if value is not None:
+            metrics = [term.metric for term in value]
+            if not value or len(metrics) != len(set(metrics)):
+                raise ValueError("objective terms must be non-empty and unique by metric")
         return value
 
 
