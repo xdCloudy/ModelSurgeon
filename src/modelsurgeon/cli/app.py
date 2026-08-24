@@ -24,6 +24,7 @@ from modelsurgeon.cli.experiment import (
     write_experiment_result,
 )
 from modelsurgeon.cli.inspection import inspect_huggingface_model
+from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
@@ -167,15 +168,17 @@ def experiment(
                 result,
                 redact_local_paths=not include_local_paths,
             )
-        typer.echo(
-            result.canonical_json(redact_local_paths=not include_local_paths)
-        )
+        typer.echo(result.canonical_json(redact_local_paths=not include_local_paths))
     except KeyboardInterrupt:
         typer.echo("experiment interrupted; transaction rolled back", err=True)
         raise typer.Exit(130) from None
     except (ExperimentCommandError, OSError, RuntimeError, ValueError) as error:
         typer.echo(f"experiment error: {error}", err=True)
         raise typer.Exit(2) from error
+
+
+app.command("train-surgeon")(train_surgeon_command)
+app.command("predict-surgeon")(predict_surgeon_command)
 
 
 if __name__ == "__main__":  # pragma: no cover
