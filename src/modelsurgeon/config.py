@@ -35,6 +35,7 @@ class MemoryMode(StrEnum):
 
 class OptimizeMetric(StrEnum):
     QUALITY = "quality"
+    PERPLEXITY = "perplexity"
     PARAMETER_COUNT = "parameter_count"
     LATENCY = "latency"
     MEMORY = "memory"

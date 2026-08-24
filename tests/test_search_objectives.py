@@ -32,6 +32,11 @@ def test_weighted_normalized_reward_composes_all_dimensions() -> None:
                 1.0,
             ),
             ObjectiveTerm(
+                OptimizeMetric.PERPLEXITY,
+                ObjectiveDirection.MINIMIZE,
+                1.0,
+            ),
+            ObjectiveTerm(
                 OptimizeMetric.LATENCY,
                 ObjectiveDirection.MINIMIZE,
                 1.0,
@@ -52,12 +57,13 @@ def test_weighted_normalized_reward_composes_all_dimensions() -> None:
         (
             ObjectiveObservation(OptimizeMetric.QUALITY, 0.98),
             ObjectiveObservation(OptimizeMetric.PARAMETER_COUNT, 80, 100),
+            ObjectiveObservation(OptimizeMetric.PERPLEXITY, 90, 100),
             ObjectiveObservation(OptimizeMetric.LATENCY, 70, 100),
             ObjectiveObservation(OptimizeMetric.MEMORY, 60, 100),
             ObjectiveObservation(OptimizeMetric.DISK_SIZE, 50, 100),
         )
     )
-    assert score.reward == pytest.approx((2 * 0.98 - 0.8 - 0.7 - 0.6 - 0.5) / 6)
+    assert score.reward == pytest.approx((2 * 0.98 - 0.8 - 0.9 - 0.7 - 0.6 - 0.5) / 7)
     assert [item.metric for item in score.contributions] == sorted(
         OptimizeMetric, key=lambda metric: metric.value
     )
