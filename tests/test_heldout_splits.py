@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.datasets.heldout_splits import (
     HeldOutAssignmentStrategy,
     HeldOutSplitConfig,
@@ -10,7 +11,6 @@ from modelsurgeon.datasets.heldout_splits import (
     create_heldout_split,
     heldout_key,
 )
-from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.experiments import (
     CPUInventory,
     CUDAInventory,
@@ -27,7 +27,12 @@ from modelsurgeon.experiments import (
     VersionContext,
 )
 from modelsurgeon.graph import ComponentId
-from modelsurgeon.surgery.contracts import MutationDelta, MutationKind, MutationPlan, MutationRequest
+from modelsurgeon.surgery.contracts import (
+    MutationDelta,
+    MutationKind,
+    MutationPlan,
+    MutationRequest,
+)
 from modelsurgeon.surgery.serialization import (
     MutationOutcome,
     MutationOutcomeStatus,
@@ -137,7 +142,10 @@ def test_explicit_model_holdout_supports_train_abc_test_unseen_d() -> None:
 
     assert manifest.strategy is HeldOutAssignmentStrategy.EXPLICIT
     assert manifest.partition_for("D") is SplitPartition.TEST
-    assert all(manifest.partition_for(value) is SplitPartition.TRAIN for value in ("A", "B", "C"))
+    assert all(
+        manifest.partition_for(value) is SplitPartition.TRAIN
+        for value in ("A", "B", "C")
+    )
     assert manifest.example_counts[SplitPartition.TEST] == 1
     assert manifest.example_counts[SplitPartition.TRAIN] == 3
 
