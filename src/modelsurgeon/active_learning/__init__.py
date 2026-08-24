@@ -1,5 +1,19 @@
 """Bounded active-learning selection and scheduling contracts."""
 
+from .mlp_uncertainty import (
+    MLP_UNCERTAINTY_SCHEMA_VERSION,
+    MLPMethodEvidence,
+    MLPUncertaintyBudget,
+    MLPUncertaintyError,
+    MLPUncertaintyMethod,
+    MLPUncertaintyRunConfig,
+    MLPUncertaintyScore,
+    MLPUncertaintyStudy,
+    MLPUncertaintyValue,
+    compare_mlp_uncertainty,
+    estimate_mlp_uncertainty,
+    run_mlp_uncertainty_study,
+)
 from .tree_uncertainty import (
     TREE_UNCERTAINTY_SCHEMA_VERSION,
     TreeMethodEvidence,
@@ -19,8 +33,17 @@ from .tree_uncertainty_lightgbm import (
 )
 
 __all__ = [
+    "MLP_UNCERTAINTY_SCHEMA_VERSION",
     "TREE_UNCERTAINTY_SCHEMA_VERSION",
     "LightGBMTreeUncertaintyConfig",
+    "MLPMethodEvidence",
+    "MLPUncertaintyBudget",
+    "MLPUncertaintyError",
+    "MLPUncertaintyMethod",
+    "MLPUncertaintyRunConfig",
+    "MLPUncertaintyScore",
+    "MLPUncertaintyStudy",
+    "MLPUncertaintyValue",
     "TreeMethodEvidence",
     "TreePredictionInterval",
     "TreeUncertaintyBudget",
@@ -28,8 +51,11 @@ __all__ = [
     "TreeUncertaintyMethod",
     "TreeUncertaintyScore",
     "TreeUncertaintyStudy",
+    "compare_mlp_uncertainty",
     "compare_tree_uncertainty",
     "estimate_from_members",
     "estimate_from_quantiles",
+    "estimate_mlp_uncertainty",
     "run_lightgbm_tree_uncertainty_study",
+    "run_mlp_uncertainty_study",
 ]

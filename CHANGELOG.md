@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add optional fixed-budget MLP uncertainty comparison for deep ensembles and Monte Carlo
+  dropout, reporting interval calibration and active-selection lift with deterministic,
+  schema-versioned stochastic predictions and backward-compatible dropout configuration.
 - Add a fixed-budget tree-surgeon uncertainty comparison across ensemble, bootstrap, and
   quantile intervals, reporting coverage, error-ranking utility, CPU/model-memory cost,
   and schema-versioned uncertainty values for downstream acquisition.
