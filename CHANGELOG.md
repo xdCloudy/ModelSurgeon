@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add native quantized GGUF transformer-layer removal by omitting complete block tensors,
+  canonically renaming following blocks, updating block-count metadata, and checksum-verifying
+  byte-identical bounded direct copies of every retained encoded payload.
 - Add non-overwriting atomic safetensors checkpoint publication with deterministic single or
   sharded layouts, index/config staging, source-shard integrity checks, bounded tensor/shard
   sizes, and streamed payload checksum verification before visibility.

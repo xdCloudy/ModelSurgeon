@@ -50,6 +50,15 @@ from modelsurgeon.surgery.gguf_alignment import (
     propose_aligned_axis_removal,
     validate_gguf_quantized_plan,
 )
+from modelsurgeon.surgery.native_layer_execute import (
+    NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION,
+    NativeGGUFLayerRemovalError,
+    NativeGGUFLayerRemovalPlan,
+    NativeGGUFLayerRemovalResult,
+    RetainedGGUFTensor,
+    execute_native_gguf_transformer_layer_removal,
+    plan_native_gguf_transformer_layer_removal,
+)
 from modelsurgeon.surgery.native_mlp_execute import (
     NativeGGUFMLPExecutionError,
     NativeGGUFMLPExecutionLimits,
@@ -117,6 +126,7 @@ from modelsurgeon.surgery.transaction import (
 __all__ = [
     "MUTATION_RECORD_SCHEMA_VERSION",
     "MUTATION_SCHEMA_VERSION",
+    "NATIVE_GGUF_LAYER_REMOVAL_SCHEMA_VERSION",
     "PHYSICAL_MUTATION_PLAN_SCHEMA_VERSION",
     "REDACTED_LOCAL_PATH",
     "AlignedAxisRemovalProposal",
@@ -164,6 +174,9 @@ __all__ = [
     "NativeGGUFAttentionHeadExecutionResult",
     "NativeGGUFAttentionHeadRuleError",
     "NativeGGUFAttentionHeadRules",
+    "NativeGGUFLayerRemovalError",
+    "NativeGGUFLayerRemovalPlan",
+    "NativeGGUFLayerRemovalResult",
     "NativeGGUFMLPExecutionError",
     "NativeGGUFMLPExecutionLimits",
     "NativeGGUFMLPExecutionResult",
@@ -180,6 +193,7 @@ __all__ = [
     "QuantizedEditStrategy",
     "ResolvedMutationTarget",
     "ResolvedMutationTargets",
+    "RetainedGGUFTensor",
     "SelectiveDequantizationError",
     "SelectiveDequantizationLimits",
     "SelectiveDequantizationReport",
@@ -196,7 +210,9 @@ __all__ = [
     "compile_physical_mutation_plan",
     "execute_native_gguf_attention_head_removal",
     "execute_native_gguf_mlp_channel_removal",
+    "execute_native_gguf_transformer_layer_removal",
     "plan_native_gguf_mlp_channel_removal",
+    "plan_native_gguf_transformer_layer_removal",
     "propose_aligned_axis_removal",
     "require_safe_transaction",
     "resolve_mutation_targets",
