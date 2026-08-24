@@ -23,6 +23,7 @@ from .pareto import (
     ParetoObjectiveValue,
     conservatively_dominates,
 )
+from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
     "BaselineReference",
@@ -30,6 +31,7 @@ __all__ = [
     "ConstraintMetric",
     "ConstraintObservation",
     "ConstraintSet",
+    "MutationSequenceState",
     "ObjectiveObservation",
     "ObjectiveScore",
     "ObjectiveSet",
@@ -39,6 +41,7 @@ __all__ = [
     "ParetoArchiveEntry",
     "ParetoCandidate",
     "ParetoObjectiveValue",
+    "SequenceMutationPlan",
     "conservatively_dominates",
     "constraints_from_config",
     "objectives_from_config",
