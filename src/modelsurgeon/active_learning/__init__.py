@@ -28,6 +28,16 @@ from .candidate_scoring import (
     ScoringCandidate,
     score_candidate_pool,
 )
+from .diversity import (
+    DIVERSITY_SELECTION_SCHEMA_VERSION,
+    MAX_DIVERSITY_CANDIDATES,
+    DiverseSelection,
+    DiversityCandidate,
+    DiversitySelectionConfig,
+    DiversitySelectionError,
+    DiversitySelectionReport,
+    select_diverse_candidates,
+)
 from .mlp_uncertainty import (
     MLP_UNCERTAINTY_SCHEMA_VERSION,
     MLPMethodEvidence,
@@ -64,7 +74,9 @@ __all__ = [
     "CANDIDATE_EQUIVALENCE_SCHEMA_VERSION",
     "CANDIDATE_POOL_SCHEMA_VERSION",
     "CANDIDATE_SCORING_SCHEMA_VERSION",
+    "DIVERSITY_SELECTION_SCHEMA_VERSION",
     "MAX_CANDIDATE_POOL_SIZE",
+    "MAX_DIVERSITY_CANDIDATES",
     "MLP_UNCERTAINTY_SCHEMA_VERSION",
     "TREE_UNCERTAINTY_SCHEMA_VERSION",
     "AdapterEquivalenceDeclarations",
@@ -78,6 +90,11 @@ __all__ = [
     "CandidateScoringError",
     "CandidateScoringReport",
     "CheapCandidateFeatures",
+    "DiverseSelection",
+    "DiversityCandidate",
+    "DiversitySelectionConfig",
+    "DiversitySelectionError",
+    "DiversitySelectionReport",
     "LightGBMTreeUncertaintyConfig",
     "MLPMethodEvidence",
     "MLPUncertaintyBudget",
@@ -107,5 +124,6 @@ __all__ = [
     "run_lightgbm_tree_uncertainty_study",
     "run_mlp_uncertainty_study",
     "score_candidate_pool",
+    "select_diverse_candidates",
     "write_candidate_pool",
 ]

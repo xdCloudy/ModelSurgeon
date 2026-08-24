@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add seeded farthest-first diversity selection across normalized numeric, categorical,
+  and topology spaces with observable O(candidate-count) working memory and explicit
+  100,000-candidate/4,096-selection ceilings.
 - Add versioned mutation-equivalence keys with order-insensitive component closures,
   namespaced adapter-declared equivalence, deterministic pool deduplication, and exclusion
   of already completed or in-flight work.
