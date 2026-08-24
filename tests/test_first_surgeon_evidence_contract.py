@@ -13,7 +13,8 @@ from modelsurgeon.cli.proof_evidence import (
     _rank_scores,
     load_grouped_proof_split,
 )
-from modelsurgeon.datasets.grouped_splits import SplitPartition
+from modelsurgeon.cli.surgeon import load_split_assignments
+from modelsurgeon.datasets.grouped_splits import GroupedSplitManifest, SplitPartition
 from modelsurgeon.surgeon.ranking import RankedCandidate, RankingResult
 
 
@@ -78,6 +79,22 @@ def test_grouped_proof_split_round_trips_group_identity(tmp_path: Path) -> None:
         "group-c",
         "group-d",
     }
+
+
+def test_train_cli_preserves_grouped_manifest_identity(tmp_path: Path) -> None:
+    path = tmp_path / "split.json"
+    path.write_text(json.dumps(_split_record()), encoding="utf-8")
+
+    loaded = load_split_assignments(path)
+
+    assert isinstance(loaded, GroupedSplitManifest)
+    assert loaded.group_counts[SplitPartition.TEST] == 2
+    assert tuple(group.group_id for group in loaded.groups) == (
+        "group-a",
+        "group-b",
+        "group-c",
+        "group-d",
+    )
 
 
 def test_rank_scores_preserve_requested_held_out_order() -> None:
