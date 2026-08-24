@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add versioned mutation-equivalence keys with order-insensitive component closures,
+  namespaced adapter-declared equivalence, deterministic pool deduplication, and exclusion
+  of already completed or in-flight work.
 - Add bounded candidate-pool scoring for utility, named outcomes, calibrated safe
   probability, and uncertainty, with batch-size-stable ordering and explicit quarantine
   records for incompatible feature schemas.
