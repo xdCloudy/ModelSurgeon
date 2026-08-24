@@ -27,6 +27,7 @@ from modelsurgeon.datasets.parquet_store import (
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.surgeon.matrix import (
     ExampleRecord,
+    TrainingMatrices,
     build_training_matrices,
     transform_inference_record,
 )
@@ -328,18 +329,12 @@ def _metric_mapping(report: MetricReport) -> dict[str, float | None]:
     return {metric.name: metric.value for metric in report.metrics}
 
 
-def _split_group_counts(
-    matrices: object,
-) -> dict[str, int]:
-    resolved = cast(AnyTrainingMatrices, matrices)
+def _split_group_counts(matrices: TrainingMatrices) -> dict[str, int]:
     return {
-        "train": len(set(resolved.train.group_ids)),
-        "validation": len(set(resolved.validation.group_ids)),
-        "test": len(set(resolved.test.group_ids)),
+        "train": len(set(matrices.train.group_ids)),
+        "validation": len(set(matrices.validation.group_ids)),
+        "test": len(set(matrices.test.group_ids)),
     }
-
-
-type AnyTrainingMatrices = object
 
 
 def train_surgeon_command(
@@ -528,11 +523,7 @@ def train_surgeon_command(
                 "validation": len(matrices.validation.example_ids),
                 "test": len(matrices.test.example_ids),
             },
-            "split_group_counts": {
-                "train": len(set(matrices.train.group_ids)),
-                "validation": len(set(matrices.validation.group_ids)),
-                "test": len(set(matrices.test.group_ids)),
-            },
+            "split_group_counts": _split_group_counts(matrices),
             "metrics": report.to_record(),
         }
         if output_json:
