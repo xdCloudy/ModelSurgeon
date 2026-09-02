@@ -348,16 +348,16 @@ An illustrative data layout is:
 
 ```text
 %LOCALAPPDATA%\ModelSurgeon\
-├── Surgeon Tensors\
+├── Surgeon Tensors\            ← ModelSurgeon's learned Meta-Surgeon brain
 │   ├── meta-surgeon-current\
 │   ├── meta-surgeon-previous\
 │   └── registry.json
 │
-├── Text LLM\
+├── Text LLM\                   ← conversational language model only
 │   ├── modelsurgeon-chat.gguf
 │   └── config.json
 │
-├── Models\
+├── Models\                     ← user/target models ModelSurgeon operates on
 ├── Campaigns\
 │   ├── active\
 │   └── completed\
@@ -373,11 +373,30 @@ An illustrative data layout is:
 
 The exact names and layout may evolve, but several conceptual separations should remain clear.
 
-### Surgeon Tensors
+### Surgeon Tensors — ModelSurgeon’s learned brain
 
-`Surgeon Tensors/` stores learned specialist models used by ModelSurgeon to predict or rank neural-network surgery outcomes. These are **not** the conversational LLM.
+`Surgeon Tensors/` contains **ModelSurgeon’s own learned Meta-Surgeon checkpoint: the specialist neural model that acts as ModelSurgeon’s learned brain for model surgery**.
 
-A future surgeon bundle might contain:
+It is not a general model-storage folder. It does **not** contain the user models that ModelSurgeon is optimizing, and it does **not** contain the conversational text LLM. Those belong in `Models/` and `Text LLM/` respectively.
+
+Conceptually:
+
+```text
+Surgeon Tensors/
+    = ModelSurgeon's learned brain
+    = the Meta-Surgeon itself
+    = learned surgery knowledge accumulated from training evidence
+
+Text LLM/
+    = the model that understands and talks to the user
+
+Models/
+    = the external/target models being inspected and optimized
+```
+
+The Meta-Surgeon stored here is the learned component that increasingly understands neural-network anatomy: which structures are likely redundant, how mutations may interact, how quality and deployment metrics may change, and which candidate operations are worth testing. ModelSurgeon’s deterministic execution engine remains responsible for actually performing, measuring, accepting or rejecting those operations.
+
+A future Meta-Surgeon brain bundle might contain:
 
 ```text
 Surgeon Tensors\
@@ -389,7 +408,7 @@ Surgeon Tensors\
     └── model-card.json
 ```
 
-The specialist model format should follow the architecture that performs best. It may eventually be GGUF-compatible if the learned surgeon uses an executable architecture supported by an appropriate runtime, but ModelSurgeon should not force the Meta-Surgeon into GGUF merely for packaging convenience.
+The Meta-Surgeon’s storage format should follow whichever learned architecture performs best. It may eventually be GGUF-compatible if the chosen surgeon architecture can be executed appropriately, but ModelSurgeon should not force its brain into GGUF merely for packaging convenience.
 
 ### Text LLM
 
