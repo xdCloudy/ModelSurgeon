@@ -320,6 +320,177 @@ Surgeon:  6K → 100K → 1M → 10M → 100M+ parameters
 
 Those numbers are not commitments. The criterion is empirical scaling behaviour. If a small model saturates, keep it small. If larger structured models continue reducing search cost and generalizing across architectures, increase capacity deliberately.
 
+## Product packaging and local installation
+
+The mature product should feel like normal installable software even though it may manage large model files, learned surgeon tensors, datasets and experiment artifacts.
+
+On Windows, a future release may ship through a conventional installer such as:
+
+```text
+Setup.exe
+```
+
+The application binaries should use a conventional protected installation path by default:
+
+```text
+C:\Program Files\ModelSurgeon\
+├── ModelSurgeon.exe
+├── modelsurgeon-cli.exe
+├── runtime\
+└── uninstall.exe
+```
+
+Large mutable data should live separately. The default should be `%LOCALAPPDATA%\ModelSurgeon\` rather than roaming `%APPDATA%`, because surgeon tensors, text LLMs, caches, optimized models and experiment evidence may be many gigabytes and should not be treated as roaming profile data.
+
+The installer should make this data root user-selectable so a user can instead choose a secondary SSD or another appropriate location such as `D:\ModelSurgeon\`.
+
+An illustrative data layout is:
+
+```text
+%LOCALAPPDATA%\ModelSurgeon\
+├── Surgeon Tensors\
+│   ├── meta-surgeon-current\
+│   ├── meta-surgeon-previous\
+│   └── registry.json
+│
+├── Text LLM\
+│   ├── modelsurgeon-chat.gguf
+│   └── config.json
+│
+├── Models\
+├── Campaigns\
+│   ├── active\
+│   └── completed\
+├── Evidence\
+├── Benchmarks\
+├── Artifacts\
+├── Cache\
+├── Logs\
+├── Config\
+│   └── modelsurgeon.toml
+└── README.md
+```
+
+The exact names and layout may evolve, but several conceptual separations should remain clear.
+
+### Surgeon Tensors
+
+`Surgeon Tensors/` stores learned specialist models used by ModelSurgeon to predict or rank neural-network surgery outcomes. These are **not** the conversational LLM.
+
+A future surgeon bundle might contain:
+
+```text
+Surgeon Tensors\
+└── modelsurgeon-meta-v3.4\
+    ├── model.safetensors
+    ├── config.json
+    ├── preprocessing.json
+    ├── compatibility.json
+    └── model-card.json
+```
+
+The specialist model format should follow the architecture that performs best. It may eventually be GGUF-compatible if the learned surgeon uses an executable architecture supported by an appropriate runtime, but ModelSurgeon should not force the Meta-Surgeon into GGUF merely for packaging convenience.
+
+### Text LLM
+
+`Text LLM/` stores the optional language model used by the conversational harness. A local quantized GGUF is a natural fit here, particularly for an offline/local-first product.
+
+For example:
+
+```text
+Text LLM\
+└── modelsurgeon-chat-qwen-q4_k_m.gguf
+```
+
+The text LLM should remain replaceable. Users may select a bundled local model, another local compatible model, a separately hosted OpenAI-compatible endpoint, another supported provider, or no conversational model at all when using the structured CLI/Python API directly.
+
+### User README
+
+The data root should include a short `README.md` explaining what ModelSurgeon is, how to launch it, where outputs are stored, and the distinction between the text LLM and surgeon tensors.
+
+The README should be written for users rather than researchers and should cover a minimal path such as:
+
+```text
+1. Launch ModelSurgeon.
+2. Select or provide a model.
+3. Describe what you want to optimize.
+4. Review the interpreted constraints and planned campaign.
+5. Approve execution.
+6. Review measured candidates and trade-offs.
+7. Export or select the preferred optimized artifact.
+```
+
+Advanced documentation can remain in the repository and application help system; the installed README should primarily help a user understand the product and its local data.
+
+## Product eras beyond v2.0
+
+The roadmap should be free to evolve based on evidence, but the long-term product direction can be divided into three broad eras.
+
+### v1.0–v2.0: build the optimization engine
+
+The first era focuses on making ModelSurgeon scientifically and operationally capable:
+
+- reliable model inspection and mutation;
+- physical HF and GGUF surgery;
+- hardware-aware optimization;
+- multi-axis architecture search;
+- state- and interaction-aware prediction;
+- cross-model Meta-Surgeon transfer;
+- repair, distillation and quantization strategy;
+- reproducibility, security and evidence;
+- an autonomous optimization orchestrator.
+
+The result of this era should be a stable engine that can consume a structured optimization objective and produce measured, reproducible optimized artifacts.
+
+### v2.1–v3.0: make the optimizer conversational
+
+Once the optimization contract and autonomous engine are stable, development can focus on the text-LLM control plane and product experience rather than asking the LLM to compensate for unstable backend interfaces.
+
+Potential milestones include:
+
+- natural-language to `OptimizationSpec` compilation;
+- replaceable local and hosted text-model providers;
+- `modelsurgeon chat <model>` as a supported workflow;
+- conversational clarification of ambiguous goals;
+- constraint negotiation and infeasibility explanation;
+- bounded tool calling over stable ModelSurgeon APIs;
+- conversational pause, resume and campaign state;
+- evidence-grounded explanations of accepted and rejected surgeries;
+- conversational approval gates for expensive or consequential actions;
+- prompt-injection and tool-boundary hardening;
+- chat as the primary user experience by v3.0 while preserving direct CLI/Python access.
+
+The key invariant is that the text LLM may **interpret, plan, explain and request actions**, but it may not override hard constraints, fabricate measurements, or promote unvalidated artifacts.
+
+### v3.1 and beyond: improve the surgeon itself
+
+After the autonomous engine and conversational product are mature, the main research emphasis can return to the learned Meta-Surgeon and the quality of optimization knowledge.
+
+This era may focus on:
+
+- explicit surgeon scaling-law studies;
+- much larger and more diverse surgery corpora;
+- stronger graph/set/sequence/transformer surgeon architectures where justified;
+- longer-horizon sequence prediction;
+- continual learning from completed campaigns;
+- improved unseen-architecture transfer;
+- stronger cross-hardware generalization;
+- active-learning and evaluation-efficiency improvements;
+- surgeon distillation and inference efficiency;
+- better calibration, uncertainty and abstention;
+- reducing the number of expensive real evaluations needed to reach a strong Pareto frontier.
+
+A useful long-term research question is whether surgeon capability exhibits reliable scaling with both dataset diversity and model capacity. This should be measured with downstream optimization metrics rather than parameter count for its own sake.
+
+Illustratively:
+
+```text
+Training data:  3K → 10K → 100K → 1M → 10M → 100M+
+Surgeon size:   6K → 100K → 1M → 10M → 100M → 500M+
+```
+
+The purpose of such experiments is not to make the surgeon large. It is to determine whether larger learned surgeons can reduce search regret, improve transfer, improve calibration, find better deployable frontiers and require fewer real experiments. If a smaller model saturates the useful signal, keeping it small is preferable.
+
 ## Example end state
 
 A mature ModelSurgeon workflow could eventually support:
@@ -370,6 +541,8 @@ The long-term vision does **not** require:
 - replacing measurement with model confidence;
 - forcing a particular text-model provider or runtime;
 - forcing the learned surgeon to use a Llama-style architecture;
+- forcing the learned surgeon to use GGUF when another representation/runtime is more appropriate;
+- installing large mutable model data into the protected application directory;
 - scaling parameter count for its own sake;
 - silently changing user constraints to obtain a better-looking result;
 - removing human approval gates for consequential artifact publication.
