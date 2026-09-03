@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add the `metric-schema-v1` golden compatibility contract for persisted metric records,
+  evaluator metric definitions, migration identities, and supported schema versions.
 - Add `modelsurgeon report` for deterministic, evidence-backed JSON and offline HTML reports
   from persisted runs or candidates, with redacted provenance and actionable incomplete-ID errors.
 - Add `modelsurgeon features` for manifest-selected, CPU-safe, record-budgeted feature extraction,
