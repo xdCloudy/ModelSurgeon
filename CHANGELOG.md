@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Define the supported package-level Python API, experimental implementation boundary, and
+  schema-versioning compatibility policy for the v1.0 stabilization work.
 - Smoke-test plain, non-interactive help for every public CLI command and document
   shell completion discovery without modifying user shell configuration.
 - Normalize malformed or empty GGUF mmap inputs to the public parser-error boundary and

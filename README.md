@@ -258,6 +258,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Security report
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md) and [compatibility matrix](docs/architecture-compatibility.md)
+- [Public API and compatibility policy](docs/api-compatibility.md)
 - [Roadmap](ROADMAP.md) and [GitHub milestones](https://github.com/xdCloudy/ModelSurgeon/milestones)
 - [Research evidence](docs/research/README.md) and [experiment guides](docs/experiments/README.md)
 - [Design records](docs/design/)
