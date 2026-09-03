@@ -23,6 +23,7 @@ from modelsurgeon.cli.experiment import (
     run_single_mutation_experiment,
     write_experiment_result,
 )
+from modelsurgeon.cli.features import features_command
 from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
@@ -189,6 +190,7 @@ app.command("first-surgeon-evidence")(first_surgeon_evidence_command)
 app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
 app.command("search")(search_command)
+app.command("features")(features_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
 
