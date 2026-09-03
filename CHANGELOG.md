@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Smoke-test plain, non-interactive help for every public CLI command and document
+  shell completion discovery without modifying user shell configuration.
 - Normalize malformed or empty GGUF mmap inputs to the public parser-error boundary and
   add deterministic hostile-byte and checkpoint-path alias coverage.
 - Document the Windows 11 and WSL2 consumer workflow, including validated portable

@@ -99,9 +99,12 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `train-surgeon` | Train and publish an immutable baseline surgeon bundle. |
 | `predict-surgeon` | Score compatible candidates with a persisted bundle. |
 | `search` | Start or resume one constrained greedy, beam, or uncertainty-aware search decision. |
+| `features` | Extract bounded, cacheable model features through a trusted runtime. |
+| `generate-dataset` | Run or resume a campaign and emit leakage-safe JSONL splits. |
 | `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
+| `report` | Render deterministic JSON or offline HTML evidence reports. |
 
-Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract.
+Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract. Generate shell-specific completion instructions with `modelsurgeon --show-completion`; use `--install-completion` only when you intend to modify the current user's shell configuration.
 
 <details>
 <summary><strong>Run the First Surgeon workflow</strong></summary>
