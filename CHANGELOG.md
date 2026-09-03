@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `modelsurgeon report` for deterministic, evidence-backed JSON and offline HTML reports
+  from persisted runs or candidates, with redacted provenance and actionable incomplete-ID errors.
+- Add `modelsurgeon features` for manifest-selected, CPU-safe, record-budgeted feature extraction,
+  component filtering, atomic partition reuse, and explicit per-extractor skip reasons.
 - Add `modelsurgeon reproduce RUN_ID` with schema-v2 resolved recipes, exact-command dry
   runs, content-addressed integrity and environment checks, trusted replay adapters, and
   original-linked tolerance comparisons for reproduced metrics.
