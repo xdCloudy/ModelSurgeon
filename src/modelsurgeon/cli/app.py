@@ -16,6 +16,7 @@ from modelsurgeon.adapters.huggingface import (
     HuggingFaceModelError,
     HuggingFaceRevisionError,
 )
+from modelsurgeon.cli.dataset import generate_dataset_command
 from modelsurgeon.cli.experiment import (
     ExperimentCommandError,
     load_experiment_runtime,
@@ -191,6 +192,7 @@ app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
 app.command("search")(search_command)
 app.command("features")(features_command)
+app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
 
