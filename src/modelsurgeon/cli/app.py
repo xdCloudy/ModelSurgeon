@@ -16,6 +16,7 @@ from modelsurgeon.adapters.huggingface import (
     HuggingFaceModelError,
     HuggingFaceRevisionError,
 )
+from modelsurgeon.cli.dataset import generate_dataset_command
 from modelsurgeon.cli.experiment import (
     ExperimentCommandError,
     load_experiment_runtime,
@@ -23,10 +24,12 @@ from modelsurgeon.cli.experiment import (
     run_single_mutation_experiment,
     write_experiment_result,
 )
+from modelsurgeon.cli.features import features_command
 from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
 from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
+from modelsurgeon.cli.report import report_command
 from modelsurgeon.cli.reproduce import reproduce_command
 from modelsurgeon.cli.search import search_command
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
@@ -188,7 +191,10 @@ app.command("first-surgeon-evidence")(first_surgeon_evidence_command)
 app.command("train-surgeon")(train_surgeon_command)
 app.command("predict-surgeon")(predict_surgeon_command)
 app.command("search")(search_command)
+app.command("features")(features_command)
+app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
+app.command("report")(report_command)
 
 
 if __name__ == "__main__":  # pragma: no cover
