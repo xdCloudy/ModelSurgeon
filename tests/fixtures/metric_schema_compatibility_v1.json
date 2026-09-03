@@ -1,0 +1,29 @@
+{
+  "fixture_version": 1,
+  "schema_versions": {
+    "experiment": 1,
+    "experiment_database": 5,
+    "identity": 1,
+    "mutation": 1,
+    "mutation_record": 1,
+    "mutation_example": 1,
+    "reproducibility_manifest": 2
+  },
+  "migration_names": [
+    "experiment identities and runs",
+    "candidates states metrics and artifacts",
+    "candidate work leases",
+    "campaign plans checkpoints and results",
+    "append-only stage resource telemetry"
+  ],
+  "tier_metrics": {
+    "0": ["load_shape_forward_pass", "numerics_pass"],
+    "1": ["loss_delta", "mean_loss", "perplexity", "perplexity_delta"],
+    "2": ["cosine_similarity", "teacher_to_candidate_kl", "top_k_agreement"],
+    "3": ["decode_speedup_ratio", "prefill_speedup_ratio"]
+  },
+  "metric_records": [
+    {"name":"perplexity","state":"measured","value":10.25,"unit":"nats","reason":null,"precision":null},
+    {"name":"latency","state":"skipped","value":null,"unit":"seconds","reason":"CPU-only fixture","precision":null}
+  ]
+}
