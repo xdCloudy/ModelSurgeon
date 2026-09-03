@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload compatibility evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gguf-compatibility-report
           path: compatibility-report.json

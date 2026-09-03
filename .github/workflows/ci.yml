@@ -78,7 +78,7 @@ jobs:
           --output performance-pr-cpu.json
       - name: Upload hardware-bound regression report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-pr-cpu
           path: performance-pr-cpu.json

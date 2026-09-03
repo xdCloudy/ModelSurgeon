@@ -40,7 +40,7 @@ jobs:
           --output performance-consumer-cpu.json
       - name: Upload hardware-bound CPU report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-consumer-cpu
           path: performance-consumer-cpu.json
@@ -63,7 +63,7 @@ jobs:
           --output performance-consumer-gpu.json
       - name: Upload hardware-bound GPU report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-consumer-gpu
           path: performance-consumer-gpu.json
