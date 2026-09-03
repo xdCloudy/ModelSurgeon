@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mmap
+import os
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
@@ -290,15 +291,35 @@ class MemoryMappedGGUF:
     def __init__(self, path: str | Path, *, limits: GGUFParserLimits | None = None):
         self.path = Path(path)
         self.limits = limits or GGUFParserLimits()
-        self._stream = self.path.open("rb")
         try:
+            self._stream = self.path.open("rb")
+            if os.fstat(self._stream.fileno()).st_size == 0:
+                raise CorruptGGUFError("GGUF file is empty")
             self._mapping = mmap.mmap(self._stream.fileno(), 0, access=mmap.ACCESS_READ)
             self.container = self._parse()
+        except GGUFParseError:
+            mapping = getattr(self, "_mapping", None)
+            if mapping is not None:
+                mapping.close()
+            stream = getattr(self, "_stream", None)
+            if stream is not None:
+                stream.close()
+            raise
+        except (OSError, ValueError) as error:
+            mapping = getattr(self, "_mapping", None)
+            if mapping is not None:
+                mapping.close()
+            stream = getattr(self, "_stream", None)
+            if stream is not None:
+                stream.close()
+            raise CorruptGGUFError(f"could not safely read GGUF input {self.path}") from error
         except Exception:
             mapping = getattr(self, "_mapping", None)
             if mapping is not None:
                 mapping.close()
-            self._stream.close()
+            stream = getattr(self, "_stream", None)
+            if stream is not None:
+                stream.close()
             raise
 
     def __enter__(self) -> MemoryMappedGGUF:
