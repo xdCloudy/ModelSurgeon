@@ -35,7 +35,11 @@ from modelsurgeon.cli.search import search_command
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
-app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    pretty_exceptions_show_locals=False,
+    rich_markup_mode=None,
+)
 
 
 def _inspection_error(
