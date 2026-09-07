@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a unified bounded repair outcome schema for no-repair, LoRA,
+  selected/full fine-tuning, and logit/feature distillation with explicit
+  budgets, held-out improvement evidence, teacher/data/tokenizer lineage,
+  artifact-byte reconciliation, immutable children, and exact rollback/search
+  parent rules for rejected or failed repairs.
 - Add an offline signed pretrained meta-surgeon registry with complete model
   cards, source evidence and compatibility metadata, HMAC content identities,
   pre-deserialization schema guards, local resolve/list/verify APIs, and

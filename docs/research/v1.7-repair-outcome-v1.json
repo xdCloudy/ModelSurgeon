@@ -1,0 +1,30 @@
+{
+  "record_type": "unified_repair_outcome_protocol",
+  "schema_version": 1,
+  "protocol_revision": "repair-outcome-v1",
+  "methods": [
+    "no_repair",
+    "lora",
+    "selected_finetune",
+    "full_finetune",
+    "logit_distillation",
+    "feature_distillation"
+  ],
+  "required_lineage": [
+    "parent",
+    "source",
+    "candidate",
+    "teacher_when_distilling",
+    "data_revision",
+    "tokenizer_digest"
+  ],
+  "required_outcome_evidence": [
+    "heldout_improvement",
+    "step_token_time_gpu_energy_disk_cost",
+    "artifact_bytes_reconciliation",
+    "rollback_or_commit_transition"
+  ],
+  "rejection_policy": "restore exact candidate and prevent rejected/failed outcomes from becoming search parents",
+  "artifact_policy": "children are immutable and adapter/merged/separate outputs reconcile to declared disk cost",
+  "reproduction": "RepairOutcomeManifest and record_repair_result()"
+}
