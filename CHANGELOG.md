@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add read-only public benchmark auditing and falsification records for
+  protocol drift, claim coverage, confidence evidence, contamination,
+  reproduction, metric cherry-picking, aggregation sensitivity, and negative
+  result retention.
+
 - Add deterministic replay environment contracts for native, Docker, and
   exploratory Nix locks, mismatch preflight, resumable cursors, ordered schema
   migration copies, and tolerance-aware metric comparison.

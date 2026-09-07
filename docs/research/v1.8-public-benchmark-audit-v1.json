@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "v1.8-public-benchmark-audit-v1",
+  "claim": "unsupported",
+  "claim_boundary": "The read-only auditor and injected-defect falsification fixtures are tested; canonical v1.1-v1.7 publication bundles await external bundle inputs.",
+  "checks": [
+    "protocol-drift",
+    "missing-cell",
+    "unsupported-claim-cell",
+    "confidence-bounds",
+    "lineage-and-artifact",
+    "contamination",
+    "failed-reproduction",
+    "negative-result-retention",
+    "metric-cherry-picking",
+    "alternative-aggregation"
+  ],
+  "outcomes": ["clean", "findings", "unsupported", "unknown"],
+  "known_skips": [
+    "No public transparency service or external publication bundle is accessed by the read-only contract."
+  ],
+  "reproduction": {
+    "commands": ["python -m pytest -q tests/test_public_audit.py"],
+    "environment": "repository quality gate environment"
+  }
+}
