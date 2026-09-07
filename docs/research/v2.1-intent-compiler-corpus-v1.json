@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "record_type": "intent_compiler_equivalence_refusal_corpus",
+  "status": "implemented",
+  "corpus_file": "tests/fixtures/intent_compiler_corpus_v1.json",
+  "runner": "modelsurgeon.search.intent_corpus.run_intent_corpus",
+  "case_requirements": [
+    "canonical IntentRecord",
+    "expected compiler outcome and canonical spec",
+    "expected policy outcome and canonical spec",
+    "expected diagnostic code sets",
+    "expected ambiguity categories",
+    "exact provenance",
+    "retained classification"
+  ],
+  "required_classes": [
+    "supported",
+    "clarification",
+    "unsupported",
+    "refused",
+    "inconclusive"
+  ],
+  "invariants": [
+    "non-executable policy results never carry a spec",
+    "hard constraints are compared as exact canonical contract records",
+    "missing hard constraints never receive an invented threshold",
+    "negative, unsupported, inconclusive, and implementation-failure results remain visible",
+    "provenance must match the canonical intent record",
+    "equivalence groups compare stable canonical specs, not provider prose"
+  ],
+  "bounds": {
+    "max_fixture_bytes": 2000000,
+    "default_max_cases": 256,
+    "default_max_request_chars": 8192,
+    "default_max_fields": 32,
+    "default_max_ambiguities": 16,
+    "max_compiler_implementations": 16
+  },
+  "replay_protocol": [
+    "record repository revision and corpus revision",
+    "run every available compiler implementation through the typed boundary",
+    "retain every result, including failed and inconclusive results",
+    "compare exact outcomes, diagnostics, specs, ambiguity categories, and provenance",
+    "record unavailable provider/compiler implementations as known skips outside the corpus result"
+  ],
+  "known_skips": [
+    "No provider-backed compiler is currently registered; the corpus exercises the built-in compiler and its public entrypoint aliases."
+  ],
+  "unknown_schema_policy": "refuse"
+}

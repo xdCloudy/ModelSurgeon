@@ -2,6 +2,8 @@
 
 Store bounded spike outcomes, hypotheses, protocols, negative results and follow-up decisions here. Every record identifies immutable model/dataset revisions, seeds, hardware and software.
 
+- [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
+
 - [v0.5 First Surgeon empirical evidence](v0.5-first-surgeon-evidence.md)
 - [v0.6 tree-surgeon uncertainty evidence](v0.6-tree-uncertainty-evidence.md)
 - [v0.6 MLP uncertainty evidence](v0.6-mlp-uncertainty-evidence.md)

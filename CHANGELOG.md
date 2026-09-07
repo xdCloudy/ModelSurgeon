@@ -28,6 +28,10 @@
   structured-output negotiation, bounded retries/rate-limit handling, model
   identity checks, redacted failures, and strict typed-response validation.
 
+- Add a bounded, versioned intent compiler equivalence/refusal corpus with
+  exact canonical-spec, ambiguity, diagnostic, provenance, resource-budget,
+  and retained-negative-result checks.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and
