@@ -18,6 +18,13 @@ from typing import TYPE_CHECKING, Literal, cast
 from modelsurgeon.experiments import HardwareProfile, build_default_hardware_profile
 from modelsurgeon.provider_kind import ProviderKind
 
+from .clarification import (
+    ClarificationAnswer,
+    ClarificationError,
+    ClarificationState,
+    apply_clarification_answer,
+    build_clarification_state,
+)
 from .execution import ChatExecutionRecord, ChatOptimizeAdapter, ProgressCallback
 from .inspection import (
     ChatInspectionContext,
@@ -136,6 +143,7 @@ class ChatTurnResult:
     policy_decision: IntentPolicyDecision | None
     spec_preview: SpecPreview | None = None
     execution: ChatExecutionRecord | None = None
+    clarification: ClarificationState | None = None
     schema_version: Literal[2] = CHAT_TURN_SCHEMA_VERSION
 
     @property
@@ -146,9 +154,8 @@ class ChatTurnResult:
 
     def to_record(self) -> dict[str, object]:
         intent: dict[str, object] | None = None
-        if (
-            self.provider_result.outcome is ProviderOutcome.SUPPORTED
-            and isinstance(self.provider_result.output, IntentProviderOutput)
+        if self.provider_result.outcome is ProviderOutcome.SUPPORTED and isinstance(
+            self.provider_result.output, IntentProviderOutput
         ):
             intent = self.provider_result.output.intent.to_record()
         return {
@@ -164,11 +171,12 @@ class ChatTurnResult:
             "policy_decision": (
                 None if self.policy_decision is None else self.policy_decision.to_record()
             ),
-            "spec_preview": (
-                None if self.spec_preview is None else self.spec_preview.to_record()
-            ),
+            "spec_preview": (None if self.spec_preview is None else self.spec_preview.to_record()),
             "execution": (
                 "not_requested" if self.execution is None else self.execution.to_record()
+            ),
+            "clarification": (
+                None if self.clarification is None else self.clarification.to_record()
             ),
         }
 
@@ -216,9 +224,7 @@ def _build_provider(
         max_context_tokens=max_input_tokens + max_output_tokens,
         max_wall_seconds=max_wall_seconds,
     )
-    provider = (
-        LocalGGUFProvider(config) if provider_factory is None else provider_factory(config)
-    )
+    provider = LocalGGUFProvider(config) if provider_factory is None else provider_factory(config)
     return provider, resolved, computed_revision, architecture, selected_runtime_revision
 
 
@@ -388,23 +394,22 @@ class ChatSession:
                 request_id,
                 request,
                 budget=self.budget,
-                inspection_context=cast(
-                    Mapping[str, JSONValue], self.bootstrap.inspection_context
-                ),
+                inspection_context=cast(Mapping[str, JSONValue], self.bootstrap.inspection_context),
             ),
             cancellation=cancellation or self._cancellation,
         )
         policy: IntentPolicyDecision | None = None
         preview: SpecPreview | None = None
-        if (
-            provider_result.outcome is ProviderOutcome.SUPPORTED
-            and isinstance(provider_result.output, IntentProviderOutput)
+        clarification: ClarificationState | None = None
+        if provider_result.outcome is ProviderOutcome.SUPPORTED and isinstance(
+            provider_result.output, IntentProviderOutput
         ):
             from modelsurgeon.search.intent_policy import evaluate_intent_policy
             from modelsurgeon.search.spec_preview import build_spec_preview
 
             policy = evaluate_intent_policy(provider_result.output.intent)
             preview = build_spec_preview(provider_result.output.intent, decision=policy)
+            clarification = build_clarification_state(provider_result.output.intent, policy)
         return ChatTurnResult(
             self.bootstrap.session_id,
             self._turn,
@@ -413,6 +418,76 @@ class ChatSession:
             provider_result,
             policy,
             preview,
+            None,
+            clarification,
+        )
+
+    def answer_clarification(
+        self, turn: ChatTurnResult, answer: ClarificationAnswer
+    ) -> ChatTurnResult:
+        """Apply one typed answer and replay canonical policy before continuing."""
+
+        if self._closed:
+            raise ChatSessionError("session_closed", "chat session is closed")
+        if turn.session_id != self.bootstrap.session_id:
+            raise ChatSessionError("turn_identity", "chat turn belongs to another session")
+        if turn.clarification is None:
+            raise ChatSessionError(
+                "clarification_unavailable", "the turn has no clarification state"
+            )
+        try:
+            state = apply_clarification_answer(turn.clarification, answer)
+        except ClarificationError as error:
+            raise ChatSessionError("clarification_failed", str(error)) from error
+        preview: SpecPreview | None = None
+        if state.policy is not None:
+            from modelsurgeon.search.spec_preview import build_spec_preview
+
+            preview = build_spec_preview(
+                state.intent,
+                decision=state.policy,
+                previous=turn.spec_preview,
+            )
+        return ChatTurnResult(
+            self.bootstrap.session_id,
+            turn.turn,
+            turn.request_id,
+            turn.request,
+            turn.provider_result,
+            state.policy,
+            preview,
+            None,
+            state,
+        )
+
+    answer = answer_clarification
+
+    def cancel_clarification(self, turn: ChatTurnResult) -> ChatTurnResult:
+        """Cancel clarification without changing the canonical intent or policy."""
+
+        if turn.session_id != self.bootstrap.session_id:
+            raise ChatSessionError("turn_identity", "chat turn belongs to another session")
+        if turn.clarification is None:
+            raise ChatSessionError(
+                "clarification_unavailable", "the turn has no clarification state"
+            )
+        state = turn.clarification
+        from .clarification import ClarificationMachine
+
+        cancelled = ClarificationMachine(
+            high_confidence=state.high_confidence,
+            medium_confidence=state.medium_confidence,
+        ).cancel(state)
+        return ChatTurnResult(
+            self.bootstrap.session_id,
+            turn.turn,
+            turn.request_id,
+            turn.request,
+            turn.provider_result,
+            turn.policy_decision,
+            turn.spec_preview,
+            None,
+            cancelled,
         )
 
     def preview_plan(self, turn: ChatTurnResult) -> ChatTurnResult:
