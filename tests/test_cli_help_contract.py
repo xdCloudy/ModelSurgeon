@@ -22,6 +22,7 @@ _PUBLIC_COMMANDS = (
     "reproduce",
     "report",
     "optimize",
+    "registry",
     "benchmark",
 )
 

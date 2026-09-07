@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add an offline local artifact registry for immutable model, surgeon, and
+  evidence objects with stable catalog JSON, aliases, tags, leases, reference-
+  aware garbage collection, signed bundle import/export, verification, and
+  CLI/API parity.
+
 - Add the unified read-only optimize planning contract with deterministic
   presets, hardware/quality profiles, dry-run JSON, bounded cost estimates,
   explicit approvals, source/artifact lineage, and unsupported/failed/unknown

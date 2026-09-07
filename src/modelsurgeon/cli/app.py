@@ -32,6 +32,7 @@ from modelsurgeon.cli.optimize import optimize_command
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
 from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
+from modelsurgeon.cli.registry import registry_app
 from modelsurgeon.cli.report import report_command
 from modelsurgeon.cli.reproduce import reproduce_command
 from modelsurgeon.cli.search import search_command
@@ -204,6 +205,7 @@ app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
 app.command("optimize")(optimize_command)
+app.add_typer(registry_app, name="registry")
 app.add_typer(benchmark_app, name="benchmark")
 
 
