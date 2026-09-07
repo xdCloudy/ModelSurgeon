@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a deterministic 2,048-case mutation property-suite contract covering writable
+  native GGUF codecs and operations, seeded failure injection, deterministic shrinking,
+  source/rollback/reconciliation evidence, and retained unsupported or unknown outcomes.
 - Add a bounded corpus contamination audit for exact and near-duplicate text,
   generated outputs, declared model ancestry, licenses, unavailable sources,
   remediation protocol identities, and retained unknown limitations.

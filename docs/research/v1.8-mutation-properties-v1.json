@@ -1,0 +1,24 @@
+{
+  "protocol": "mutation-properties-v1",
+  "schema_version": 1,
+  "issue": 407,
+  "seed": 407,
+  "default_executions": 2048,
+  "coverage": {
+    "writable_native_gguf_codecs": ["BF16", "F16", "F32", "IQ4_NL", "IQ4_XS", "Q2_K", "Q3_K", "Q4_K", "Q5_K", "Q6_K", "Q8_0"],
+    "operations": ["hf_mutation_sequence", "native_attention_head_removal", "native_layer_removal", "native_low_rank_replacement", "native_mlp_channel_removal", "native_direct_copy"],
+    "invariants": ["source_immutability", "rollback", "idempotence", "identity_remap", "parameter_storage_reconciliation", "direct_copy_identity", "bounded_error", "working_memory"]
+  },
+  "failure_policy": "retain original seed and deterministic shrunk counterexample",
+  "unsupported_policy": "retain explicit unsupported result",
+  "reproduction": [
+    "python -m pytest tests/test_properties.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in campaign is a harness-level CPU suite; scheduled jobs should add licensed real-artifact codec cases.",
+    "A property pass is not a statistical model-quality claim.",
+    "Concrete evaluators must provide the operation-specific resource ceilings."
+  ]
+}
