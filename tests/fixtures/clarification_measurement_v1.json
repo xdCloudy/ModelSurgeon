@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "protocol_id": "v24-clarification-measurement-v1",
+  "corpus_id": "clarification-measurement-corpus",
+  "corpus_revision": "v2.4-clarification-measurement-v1",
+  "source_corpus_id": "intent-compiler-corpus",
+  "source_corpus_revision": "v2.1-intent-corpus-v1",
+  "limits": {
+    "max_cases": 64,
+    "max_questions_per_case": 16,
+    "provider_replay_seeds": []
+  },
+  "cases": [
+    {
+      "case_id": "contradictory-quality-constraints",
+      "intent_case_id": "contradictory-quality-constraints",
+      "split": "adversarial",
+      "expected_outcome": "refused",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "refused",
+      "retained": true
+    },
+    {
+      "case_id": "equivalence-quality-latency-01",
+      "intent_case_id": "equivalence-quality-latency-01",
+      "split": "fixture",
+      "expected_outcome": "executable",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "supported",
+      "retained": true
+    },
+    {
+      "case_id": "equivalence-quality-latency-02",
+      "intent_case_id": "equivalence-quality-latency-02",
+      "split": "held_out",
+      "expected_outcome": "executable",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "supported",
+      "retained": true
+    },
+    {
+      "case_id": "equivalence-quality-latency-03",
+      "intent_case_id": "equivalence-quality-latency-03",
+      "split": "held_out",
+      "expected_outcome": "executable",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "supported",
+      "retained": true
+    },
+    {
+      "case_id": "injection-like-text-is-data",
+      "intent_case_id": "injection-like-text-is-data",
+      "split": "adversarial",
+      "expected_outcome": "executable",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "supported",
+      "retained": true
+    },
+    {
+      "case_id": "input-refusal-retained",
+      "intent_case_id": "input-refusal-retained",
+      "split": "adversarial",
+      "expected_outcome": "refused",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "refused",
+      "retained": true
+    },
+    {
+      "case_id": "low-confidence-required-constraint",
+      "intent_case_id": "low-confidence-required-constraint",
+      "split": "held_out",
+      "expected_outcome": "clarification_required",
+      "necessary_question": true,
+      "expected_question_categories": ["low-confidence"],
+      "classification": "inconclusive",
+      "retained": true
+    },
+    {
+      "case_id": "missing-hard-constraint",
+      "intent_case_id": "missing-hard-constraint",
+      "split": "fixture",
+      "expected_outcome": "clarification_required",
+      "necessary_question": true,
+      "expected_question_categories": ["missing-hard-constraint"],
+      "classification": "inconclusive",
+      "retained": true
+    },
+    {
+      "case_id": "required-vague-constraint",
+      "intent_case_id": "required-vague-constraint",
+      "split": "held_out",
+      "expected_outcome": "clarification_required",
+      "necessary_question": true,
+      "expected_question_categories": ["vague"],
+      "classification": "clarification",
+      "retained": true
+    },
+    {
+      "case_id": "unsupported-budget-declaration",
+      "intent_case_id": "unsupported-budget-declaration",
+      "split": "adversarial",
+      "expected_outcome": "unsupported",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "unsupported",
+      "retained": true
+    },
+    {
+      "case_id": "unsupported-operation-declaration",
+      "intent_case_id": "unsupported-operation-declaration",
+      "split": "adversarial",
+      "expected_outcome": "unsupported",
+      "necessary_question": false,
+      "expected_question_categories": [],
+      "classification": "unsupported",
+      "retained": true
+    }
+  ]
+}
