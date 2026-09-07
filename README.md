@@ -192,6 +192,50 @@ The campaign refuses to publish when a split is empty or the leakage audit finds
 </details>
 
 <details>
+<summary><strong>Amend an objective explicitly</strong></summary>
+
+Measured infeasibility never changes a contract by itself. Build an immutable
+objective amendment from the original contract and #458 feasibility evidence,
+approve the exact visible diff, and apply it only against the unchanged
+original objective:
+
+```python
+from modelsurgeon.search import (
+    apply_objective_amendment,
+    approve_objective_amendment,
+    propose_objective_amendment,
+)
+
+proposal = propose_objective_amendment(
+    original_contract,
+    proposed_contract,
+    rationale="measured near-miss evidence supports this explicit trade-off",
+    evidence=feasibility_explanation,
+    operator_id="operator-alice",
+    requested_at="2026-09-07T10:00:00+00:00",
+    expires_at="2026-09-07T11:00:00+00:00",
+)
+approved = approve_objective_amendment(
+    proposal, operator_id="operator-alice", decided_at="2026-09-07T10:05:00+00:00"
+)
+application = apply_objective_amendment(
+    approved,
+    current_objective=original_contract,
+    applied_at="2026-09-07T10:06:00+00:00",
+)
+```
+
+The proposal contains the original objective, proposed amendment, rationale,
+approval scope/provenance, deterministic materiality diff, and retained
+evidence IDs. A material amendment receives a new spec/campaign identity;
+reordering or a no-op remains non-material. Rejection, expiry, cancellation,
+stale replay, and immutable history are exposed through the same direct API.
+See [the amendment design](docs/design/objective-amendments.md) and the
+[tiny fixture example](docs/examples/objective_amendment.py).
+
+</details>
+
+<details>
 <summary><strong>Run the bounded autonomous optimizer</strong></summary>
 
 Execution requires a trusted runtime adapter and explicit approvals. The adapter

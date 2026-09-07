@@ -23,8 +23,8 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.optimization_orchestrator` | Versioned, approval-bound, atomic and resumable v2 optimize workflow state; trusted runtime boundary; measured-only promotion and explicit negative outcomes. |
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, ranking, versioned current-state embeddings, state-dependent, repair-recoverability, and repair-cost predictor contracts, fixed-budget ranking-objective studies, bounded structural-model comparisons, explicit lineage/compatibility decisions, bounded target adaptation records, fail-closed transfer-confidence decisions, and signed pretrained registry cards. |
 | `modelsurgeon.active_learning` | Deterministic acquisition, diversity, uncertainty, schedules, budgets, and state-bound interaction-aware replanning with rollback lineage. |
-| `modelsurgeon.search` | Constraints, objectives, Pareto archives, policies, resumable search state, and versioned deployable architecture state/distance contracts. |
-| `modelsurgeon.explain` | Decision summaries, attribution records, deterministic reports, measured feasibility explanations, and measured Pareto alternative projections. |
+  | `modelsurgeon.search` | Constraints, objectives, immutable approval-bound objective amendments, amendment diffs/history, Pareto archives, policies, resumable search state, and versioned deployable architecture state/distance contracts. |
+  | `modelsurgeon.explain` | Decision summaries, attribution records, deterministic reports, measured feasibility explanations, and measured Pareto alternative projections. |
 
 The CLI is the stable end-user orchestration boundary; use `modelsurgeon --help` for its
 versioned command contracts. Direct Hugging Face, PyTorch, `llama.cpp`, GGUF codec, and
@@ -43,6 +43,10 @@ storage implementation imports are intentionally not stable public API.
   the architecture compatibility matrix; structural tests alone do not imply a runtime claim.
 - Commands and record readers fail explicitly for unavailable optional dependencies,
   unsupported model formats, and incompatible schemas.
+- Objective amendments are append-only control-plane records. Existing objective,
+  approval, campaign, and feasibility records retain their identity; material
+  amendments create a new spec/campaign identity and preserve the original
+  evidence archive. Unknown amendment schema versions are rejected.
 
 The package is currently pre-1.0. These rules prevent silent contract drift while the public
 surface is stabilized for the v1.0 release; they do not promise broad semver compatibility
