@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add calibrated state-dependent predictors for safety, quality, latency, memory,
+  and non-additive error with grouped state/model/candidate leakage checks,
+  validation intervals, separate failure probability, additive/stateless baselines,
+  explicit negative outcomes, and fail-closed unseen-state inference.
 - Add the versioned fixed-width current-state embedding contract with normalized
   architecture scalars/histograms, canonical mutation sets, order-sensitive bounded
   history, metric/constraint masks, explicit evidence outcomes, and deterministic IDs.
