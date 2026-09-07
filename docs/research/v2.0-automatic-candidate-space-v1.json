@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "title": "Automatic capability and objective-relevant candidate-space planning",
+  "status": "implemented",
+  "identity_inputs": [
+    "model ID and immutable revision",
+    "base deployable state",
+    "hardware profile and revision",
+    "objective revision",
+    "tool revision",
+    "compatibility matrix ID",
+    "deterministic seed"
+  ],
+  "outcomes": ["supported", "unsupported", "failed", "unknown"],
+  "negative_cells": [
+    "Unknown architecture or runtime produces no space.",
+    "Unsupported compatibility operation produces an explicit exclusion.",
+    "Missing required plugin produces an explicit unsupported exclusion.",
+    "Incomplete coupling and source disk overflow fail closed."
+  ],
+  "bounds": {
+    "max_candidates": 100000,
+    "artifact_estimate": "min(target_disk, source_storage * 2)"
+  }
+}
