@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "v1.8-signed-evidence-bundles-v1",
+  "claim": "unsupported",
+  "claim_boundary": "The bundle/verifier contract is tested locally; representative HF, GGUF, competitor, meta-surgeon, and repair bundles await licensed artifact publication.",
+  "bundle_kinds": [
+    "hf-study",
+    "gguf-study",
+    "competitor-study",
+    "meta-surgeon-study",
+    "repair-study"
+  ],
+  "signature_algorithm": "hmac-sha256",
+  "key_states": ["active", "rotated", "revoked"],
+  "verification": [
+    "member-byte-digest",
+    "member-size",
+    "Merkle-root",
+    "lineage",
+    "detached-signature",
+    "missing-member",
+    "external-reference",
+    "redaction"
+  ],
+  "known_skips": [
+    "No public transparency service or external blob registry is included.",
+    "No signing secret is committed to the repository."
+  ],
+  "reproduction": {
+    "commands": ["python -m pytest -q tests/test_signed_evidence.py"],
+    "environment": "repository quality gate environment"
+  }
+}
