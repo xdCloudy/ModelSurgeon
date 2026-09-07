@@ -1,0 +1,22 @@
+{
+  "protocol": "architecture-pareto-study-v1",
+  "schema_version": 1,
+  "issue": 383,
+  "families": ["llama", "qwen"],
+  "hardware_profiles": ["cpu", "cuda"],
+  "methods": ["greedy", "beam", "evolutionary", "surrogate", "one_axis", "competitor"],
+  "budgets": [8, 32],
+  "seeds": [11, 23, 47],
+  "statistics": ["conservative_frontier", "quality_cost_hypervolume", "paired_seed_bootstrap"],
+  "decision": "unsupported_pending_licensed_physical_artifact_bundle",
+  "reproduction": [
+    "python -m pytest tests/test_architecture_pareto_study.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The default matrix retains unavailable physical cells and makes no superiority claim.",
+    "Measured frontier points must bind complete deployable state and output artifact evidence.",
+    "Runtime bootstrap and two-family deployment measurements remain required for a positive claim."
+  ]
+}

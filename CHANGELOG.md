@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add the closed multi-axis architecture Pareto study contract with complete
+  family/hardware/method/budget/seed matrices, conservative deployable
+  frontiers, quality-cost hypervolume, paired deterministic bootstrap
+  comparisons, and retained negative, unsupported, failed, and unknown cells.
 - Add capability-gated heterogeneous architecture states with per-layer widths,
   low-rank factors, sparsity, and mixed codecs, analytic cost reconciliation,
   explicit unsupported/failed/unknown outcomes, and staging-based
