@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a versioned objective contract that separates fail-closed hard
+  constraints from weighted, lexicographic, or Pareto soft objectives,
+  retains uncertainty and evidence, and gates custom objective plugins on
+  capability cards, trust modes, approvals, and provenance.
+
 - Add bounded target-runtime export capability contracts for Transformers,
   llama.cpp, MLX, ONNX, and vLLM with family/state matrices, converter/runtime
   provenance, explicit verified/experimental/unsupported/failed/unknown
