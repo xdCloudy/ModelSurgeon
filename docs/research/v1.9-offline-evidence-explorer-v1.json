@@ -1,0 +1,25 @@
+{
+  "record_type": "offline_evidence_explorer_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-offline-evidence-explorer-v1",
+  "cell_statuses": ["supported", "negative", "unsupported", "failed", "unknown"],
+  "projections": ["metrics", "pareto_front", "architecture_diff", "lineage", "failure_reason"],
+  "invariants": [
+    "every_displayed_value_projects_from_canonical_cell_evidence",
+    "immutable_source_ids_are_retained",
+    "non_success_cells_are_visible_and_distinguishable",
+    "no_remote_scripts_or_mutable_queries",
+    "user_text_and_embedded_json_are_escaped"
+  ],
+  "generation_bounds": {
+    "default_max_cells": 100000,
+    "partition_strategy": "pre-partition canonical cells before generation when larger"
+  },
+  "negative_cells": [
+    "unknown_metric_values",
+    "unsupported_runtime",
+    "failed_evaluation",
+    "negative_quality_result"
+  ],
+  "reproduction": "generate_explorer(sorted ExplorerCell fixtures) and compare html_sha256"
+}

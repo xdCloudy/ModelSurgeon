@@ -24,6 +24,7 @@ _PUBLIC_COMMANDS = (
     "optimize",
     "registry",
     "progress",
+    "explorer",
     "benchmark",
 )
 

@@ -20,6 +20,16 @@ from modelsurgeon.explain.decision_summary import (
     QuantizationContext,
     generate_mutation_decision_summary,
 )
+from modelsurgeon.explain.explorer import (
+    EXPLORER_SCHEMA_VERSION,
+    ExplorerArtifact,
+    ExplorerCell,
+    ExplorerCellStatus,
+    ExplorerError,
+    generate_explorer,
+    pareto_front,
+    write_explorer,
+)
 from modelsurgeon.explain.reporting import (
     REPORT_SCHEMA_VERSION,
     GeneratedReport,
@@ -35,6 +45,7 @@ from modelsurgeon.explain.reporting import (
 __all__ = [
     "ATTRIBUTION_SCHEMA_VERSION",
     "DECISION_SUMMARY_SCHEMA_VERSION",
+    "EXPLORER_SCHEMA_VERSION",
     "REPORT_SCHEMA_VERSION",
     "AttributionError",
     "AttributionReport",
@@ -43,6 +54,10 @@ __all__ = [
     "DecisionEvidence",
     "DecisionSummaryError",
     "ExpectedDeltaSummary",
+    "ExplorerArtifact",
+    "ExplorerCell",
+    "ExplorerCellStatus",
+    "ExplorerError",
     "FeatureContribution",
     "FeatureProvenance",
     "GeneratedReport",
@@ -56,6 +71,9 @@ __all__ = [
     "ReportPlot",
     "ReportRedaction",
     "attribute_predictions",
+    "generate_explorer",
     "generate_mutation_decision_summary",
     "generate_report",
+    "pareto_front",
+    "write_explorer",
 ]
