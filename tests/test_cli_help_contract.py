@@ -9,6 +9,7 @@ from modelsurgeon.cli.app import app
 
 _PUBLIC_COMMANDS = (
     "inspect",
+    "chat",
     "experiment",
     "first-surgeon-proof",
     "first-surgeon-hf-proof",

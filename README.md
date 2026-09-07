@@ -61,7 +61,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
-| Conversational control plane | **v2.2 provider boundary frozen; product planned** | Typed intent records, compiler, policy, corpus, provider adapters, no-LLM configuration, and offline conformance evidence are bounded and documented. `modelsurgeon chat`, universal hosted support, and live provider benchmarks are not current capabilities. |
+| Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and retains explicit outcomes. Inspection, preview, execution, universal hosted support, and live provider benchmarks remain outside this slice. |
 
 Measured evidence currently includes:
 
@@ -121,6 +121,7 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | Command | Purpose |
 | --- | --- |
 | `inspect` | Load and enumerate a Hugging Face causal language model. |
+| `chat` | Start an experimental, interpretation-only bounded chat session around a local GGUF text model. |
 | `experiment` | Resolve, evaluate, and roll back one transactional mutation. |
 | `first-surgeon-proof` | Build a leakage-safe proof dataset through a runtime adapter. |
 | `first-surgeon-hf-proof` | Run real HF MLP-channel masks and create the proof dataset. |
