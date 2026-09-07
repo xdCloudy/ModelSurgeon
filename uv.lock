@@ -391,6 +391,15 @@ nvtx = [
 ]
 
 [[package]]
+name = "diskcache"
+version = "5.6.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.32.3"
 source = { registry = "https://pypi.org/simple" }
@@ -636,6 +645,18 @@ wheels = [
 ]
 
 [[package]]
+name = "llama-cpp-python"
+version = "0.3.35"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/71/5ecdad726b87527b361d9d95313c6591f27bb3fad79c9ab524ad4250b4c9/llama_cpp_python-0.3.35.tar.gz", hash = "sha256:1139dbb54509074b70893fab8554e3b079aa9f4d312058ce4018ef0019e3de12", size = 74868054, upload-time = "2026-08-17T09:41:34.939Z" }
+
+[[package]]
 name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -746,11 +767,15 @@ hf = [
     { name = "torch" },
     { name = "transformers" },
 ]
+local = [
+    { name = "llama-cpp-python" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'hf'", specifier = ">=1.0,<2" },
     { name = "gguf", marker = "extra == 'dev'", specifier = ">=0.17,<1" },
+    { name = "llama-cpp-python", marker = "extra == 'local'", specifier = ">=0.3,<1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11,<2" },
     { name = "numpy", specifier = ">=2,<3" },
     { name = "pydantic", specifier = ">=2.8,<3" },
@@ -765,7 +790,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=4.45,<6" },
     { name = "typer", specifier = ">=0.12,<1" },
 ]
-provides-extras = ["hf", "dev"]
+provides-extras = ["hf", "local", "dev"]
 
 [[package]]
 name = "mpmath"

@@ -158,6 +158,33 @@ uv run modelsurgeon reproduce run_<sha256> \
 
 Replay requires a trusted local adapter and rejects missing evidence, changed inputs, corrupt artifacts, unsafe environment drift, and tolerance failures. The command text stored in evidence is never executed automatically.
 
+## 8. Use a local GGUF text-model provider
+
+The optional local provider is a control-plane client for interpretation,
+clarification, and evidence explanation. It is separate from Surgeon Tensors
+and from the target model being edited: provider output cannot select a surgery,
+approve an artifact, or replace deterministic ModelSurgeon execution.
+
+Install the pinned project environment and an explicitly selected local runtime:
+
+~~~bash
+uv sync --extra dev --extra local --locked
+~~~
+
+Place a licensed, already-downloaded GGUF in disposable local storage. Record
+its source repository, license, revision, SHA-256, architecture metadata, and
+the exact `llama-cpp-python` revision. Configure finite input/output/context,
+memory, response-byte, and wall-time budgets. The adapter opens the file with
+the ModelSurgeon GGUF parser, requires explicit supported architecture metadata,
+and fails closed for missing or malformed metadata, unavailable runtimes,
+memory exhaustion, timeout, cancellation, and invalid structured output. It
+does not download models or contact a network service.
+
+Keep the provider result and provenance with the run. A supported result is
+only a validated typed provider output; interpretation still requires the
+normal intent-policy and compiler gates. Unsupported, failed, timed-out,
+cancelled, and malformed results are retained as negative evidence.
+
 ## Supported-claim boundary
 
 The [architecture compatibility matrix](../architecture-compatibility.md), codec conformance vectors, and retained run manifest define the claim. The repository's Q4_K_M proof is specifically bounded to its measured family and runtime revision; it is not a blanket claim for every GGUF architecture or quantization.

@@ -5,7 +5,8 @@ v2.2. This is an adapter boundary, not a vendor SDK integration.
 
 ## Responsibility and authority
 
-`TextModelProvider` is an optional control-plane client. Its only operations
+`TextModelProvider` is an optional control-plane client. Its version-2 records
+are backward-compatible extensions of the v1 provider boundary. Its only operations
 are:
 
 - interpret a user request into a validated `IntentRecord`;
@@ -77,3 +78,29 @@ optimization plan, or execute a campaign.
 Future provider implementations may target local GGUF runtimes, compatible
 endpoints, hosted providers, or another allowlisted runtime. They must conform
 to these records and must not add execution authority to the provider layer.
+
+## Local GGUF adapter
+
+`LocalGGUFProvider` is the bounded offline adapter for a licensed `.gguf`
+fixture. Install it with `uv sync --extra dev --extra local --locked`, pin the
+model revision and the `llama-cpp-python` runtime revision, and keep the model
+path in disposable local storage. The adapter opens the file through
+ModelSurgeon's read-only GGUF parser before loading the runtime; missing,
+malformed, unknown, or conflicting architecture metadata is rejected. It
+currently accepts the explicit Llama, Qwen, Mistral, and Gemma architecture
+aliases already covered by the GGUF family boundary.
+
+The adapter advertises hard input, output, context, response-byte, wall-time,
+and memory limits. It estimates model plus context working memory before load,
+uses the request's stricter budgets when present, and retains timeout,
+cancellation, runtime, memory, missing-model, and malformed-output outcomes.
+The runtime and configuration revisions, absolute model path, request digest,
+response digest, and configuration digest are retained in provider provenance.
+No network endpoint or download fallback is used.
+
+The runtime is asked for one JSON object only. The common decoder validates the
+operation-specific output, including `IntentRecord` validation for interpretation;
+raw text, extra fields, invalid schemas, and command-like content never become
+an executable request. The returned intent still passes through the same
+ModelSurgeon policy, compilation, approval, and deterministic execution path as
+every other provider.
