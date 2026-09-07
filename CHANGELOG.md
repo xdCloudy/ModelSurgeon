@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add the complete consumer repair effectiveness/economics study matrix with
+  physical-artifact evidence, hierarchical intervals, efficiency metrics, and
+  conservative beneficial/harmful/unnecessary/infeasible recommendations.
+
 - Add bounded joint surgery, repair, and quantization search contracts with
   hard resource budgets, compatibility gates, immutable lineage, rollback and
   terminal outcomes, conservative acquisition, and measured-only promotion.

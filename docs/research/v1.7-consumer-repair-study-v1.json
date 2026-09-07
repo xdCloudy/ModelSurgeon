@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "v1.7-consumer-repair-study-v1",
+  "claim": "unsupported",
+  "claim_boundary": "The preregistered matrix is retained without fabricated consumer-hardware measurements.",
+  "model_families": ["llama", "qwen"],
+  "model_sizes": ["medium", "small"],
+  "damage_levels": ["high", "low", "medium"],
+  "repair_budgets": ["long", "medium", "short"],
+  "hardware_profiles": ["cpu_offload", "low_vram_12gb"],
+  "arms": ["no_repair", "fixed_repair", "oracle_budget", "learned_joint"],
+  "seeds": [0, 1, 2],
+  "matrix_cells": 864,
+  "metrics": [
+    "heldout_quality",
+    "deployment_cost",
+    "artifact_bytes",
+    "repair_seconds",
+    "energy_joules",
+    "quality_gain_per_token",
+    "quality_gain_per_second",
+    "quality_gain_per_joule",
+    "tokens_per_second",
+    "failure_rate",
+    "overfit_rate",
+    "rollback_rate"
+  ],
+  "decision_rule": "Compare matched repair arms with no-repair using held-out quality and physical deployment cost; retain harmful, unnecessary, infeasible, and unknown regions.",
+  "resource_profiles": {
+    "low_vram_12gb": "12 GiB low-VRAM ceiling",
+    "cpu_offload": "declared CPU-offload fallback"
+  },
+  "known_skips": ["No licensed representative artifact bundle was measured in this contract revision."],
+  "reproduction": {
+    "commands": ["python -m pytest -q tests/test_consumer_repair_study.py"],
+    "environment": "repository quality gate environment"
+  }
+}
