@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add automatic capability and candidate-space planning with compatibility
+  matrix checks, plugin/runtime refusals, deterministic model/hardware/objective
+  identity, explicit exclusions, and dry-run candidate/evaluation/artifact
+  bounds before mutation.
+
 - Add a stable Python API quickstart, executable notebook, profile reference,
   consumer troubleshooting decision tree, and explicit HF/GGUF support
   boundaries for fresh-environment workflows.
