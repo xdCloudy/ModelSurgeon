@@ -26,5 +26,18 @@
   ],
   "rejection_policy": "restore exact candidate and prevent rejected/failed outcomes from becoming search parents",
   "artifact_policy": "children are immutable and adapter/merged/separate outputs reconcile to declared disk cost",
-  "reproduction": "RepairOutcomeManifest and record_repair_result()"
+  "reproduction": "RepairOutcomeManifest and record_repair_result()",
+  "dataset": {
+    "schema_version": 1,
+    "protocol_revision": "repair-dataset-v1",
+    "record_type": "matched_repair_recoverability_dataset",
+    "required_controls": ["same_damaged_candidate", "same_heldout_groups", "same_budget"],
+    "required_outcomes": ["accepted", "rejected", "failed", "unsupported", "unknown"],
+    "default_budgets": ["zero", "short", "medium"],
+    "minimum_model_families": 2,
+    "minimum_mutation_kinds": 2,
+    "minimum_seeds": 2,
+    "split_rule": "complete lineage groups are assigned to exactly one of train, validation, or test",
+    "reproduction": "build_repair_dataset()"
+  }
 }
