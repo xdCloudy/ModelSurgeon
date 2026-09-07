@@ -26,7 +26,7 @@ It supports two complementary paths:
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
 The v2.1 conversational intent boundary, v2.2 replaceable-provider boundary,
-v2.6 bounded tool boundary, and v2.7 canonical campaign state store are frozen around the existing `OptimizationSpec`
+v2.6 bounded tool boundary, and the closed v2.7 stateful campaign release are frozen around the existing `OptimizationSpec`
 contract. The tool boundary is control-plane infrastructure, not a general
 agent runtime, `modelsurgeon chat` product release, universal hosted-provider
 claim, or optimization evidence. ModelSurgeon retains authority over
@@ -39,6 +39,9 @@ and [canonical campaign state design](docs/design/conversational-campaign-state.
 The bounded [campaign recovery matrix](docs/design/campaign-recovery-matrix.md)
 proves direct/store and summary/chat recovery against the same canonical
 snapshot; UI reconnect is not correctness evidence.
+The [v2.7 stateful campaign release boundary](docs/release/v2.7-stateful-campaigns-boundary.md)
+also records stale/expired fail-closed behavior, direct API authority,
+unsupported multi-writer concurrency, and unsupported distributed recovery.
 Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
@@ -78,9 +81,9 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Conversational control plane | **v2.3 chat execution slice experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and can submit confirmed specs through the stable optimize planner/orchestrator with typed progress, canonical campaign evidence, resumable interruption, and retained negative outcomes. Universal hosted support and live provider benchmarks remain outside this slice. |
 | Constraint negotiation and infeasibility | **v2.5 milestone closed** | The release boundary reconciles grounded non-destructive infeasibility, measured-only Pareto alternatives, v2.0-scoped user approval, immutable amendments, preserved direct-API objective history, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation is not supported. See the [v2.5 release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json). |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
-| Conversational campaign state | **v2.7 canonical state implemented** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Chat transcripts are not authoritative. |
+| Conversational campaign state | **v2.7 milestone closed by #474** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Structured campaign APIs and canonical state are authoritative; chat transcripts are not. |
 | Conversational summaries | **v2.7 bounded non-authoritative view** | Deterministic, budgeted transcript summaries keep canonical state/evidence separate, mark omissions and unsupported roles, preserve negative evidence, and refuse stale or over-budget rehydration. |
-| Campaign recovery evidence | **v2.7 bounded matrix** | Twelve fixture cells cover lifecycle commands, stale plans, expired approvals, transcript loss, partial evidence, atomic fault checkpoints, subprocess restart, and direct/chat equivalence. Failed and inconclusive cells remain visible; hostile process and UI correctness are not claimed. |
+| Campaign recovery evidence | **v2.7 closed release boundary** | Twelve fixture cells cover lifecycle commands, stale plans, expired approvals, transcript loss, partial evidence, atomic fault checkpoints, subprocess restart, and direct/chat equivalence. Failed and inconclusive cells remain visible; multi-writer concurrency, distributed recovery, hostile process and UI correctness are not claimed. |
 | Clarification and ambiguity handling | **v2.4 bounded milestone closed** | Necessary-only typed questions, fail-closed contradiction handling, explicit soft-preference selection, deterministic replay/provenance, and retained negative/inconclusive evidence. General natural-language understanding and autonomous negotiation are not claimed. See the [v2.4 release boundary](docs/release/v2.4-clarification-boundary.md). |
 | Measurable target elicitation | **v2.4 bounded clarification** | Vague quality, latency, throughput, memory, and deployment requests receive targeted measurable questions; complete specs proceed, while unsupported metrics remain explicit and no thresholds or baselines are invented. The [clarification measurement protocol](docs/design/clarification-measurement.md) retains bounded safety evidence. |
 

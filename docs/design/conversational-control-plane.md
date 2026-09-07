@@ -18,6 +18,10 @@ and [machine-readable release record](../research/v2.1-conversational-intent-con
 are normative for versioning and replay. This document is not a claim that the
 full conversational product is currently implemented.
 
+The v2.7 milestone closure is recorded in the [stateful campaign release
+boundary](../release/v2.7-stateful-campaigns-boundary.md) and
+[machine-readable release manifest](../research/v2.7-stateful-campaign-release-v1.json).
+
 The v2.4 milestone closure is recorded in the [clarification release boundary](../release/v2.4-clarification-boundary.md)
 and [`v2.4-clarification-release-v1.json`](../research/v2.4-clarification-release-v1.json).
 

@@ -4,6 +4,8 @@ Conversational text is a client of the campaign state store, never a second
 source of truth. A replan starts with a trusted `ReplanContext` snapshot. The
 snapshot binds the campaign spec, retained evidence IDs and digest, provider
 context, resource budget, current plan, approval identity, and transaction ID.
+This is part of the closed [v2.7 stateful campaign release
+boundary](../release/v2.7-stateful-campaigns-boundary.md).
 
 `detect_stale_context` compares two snapshots in canonical field order. A
 restart or lifecycle-only transition is not stale; a changed spec, evidence

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+  - Close the v2.7 stateful conversational campaigns milestone for issue #474.
+    Reconcile merged #469 canonical campaign state, #470 lifecycle/recovery,
+    #471 stale replanning, #472 summary authority, and #473 recovery evidence
+    in a versioned release boundary and fail-closed audit. Verify supported
+    interruption recovery, stale/expired rejection, direct structured API
+    authority, non-authoritative transcripts, and explicit unsupported
+    multi-writer/distributed recovery. Review duplicate scope against #415,
+    #427, and #428. See the [v2.7 stateful campaign release boundary](docs/release/v2.7-stateful-campaigns-boundary.md)
+    and [evidence manifest](docs/research/v2.7-stateful-campaign-release-v1.json).
+
     - Close the v2.5 constraint-negotiation and infeasibility milestone for
       issue #462. Reconcile the #458 measured infeasibility, #459 measured
       Pareto, #460 immutable amendment, and #461 decision-quality APIs with the
