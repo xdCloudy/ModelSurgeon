@@ -4,9 +4,9 @@ The session bootstrap includes the versioned [chat inspection context](chat-insp
 It carries direct model, hardware, memory, runtime, and capability records to
 the compiler while preserving explicit unknown and unsupported outcomes.
 
-Status: implemented as the bounded v2.3 entry slice. This is an
-interpretation-only harness; the v2.3 inspection, preview, approval, and
-execution surfaces remain separate work.
+Status: implemented as the bounded v2.3 entry slice. Interpretation remains
+separate from execution, and the optional [chat optimize execution adapter](chat-execution-adapter.md)
+hands only confirmed specs to the stable planner/orchestrator APIs.
 
 ## Command contract
 
@@ -26,6 +26,11 @@ revision before starting the provider. It does not download a model or use a
 network fallback. `--provider none` is an explicit no-provider mode useful for
 offline contract checks; interpretation then returns `unsupported`.
 
+To request a stable plan for a separate target model, add `--target-model`,
+`--target-revision`, and `--preview-plan`. Add `--execute`, `--state`, an
+explicit `--approval-id`, and every required `--approve` value only after the
+plan has been reviewed. `--resume` resumes the matching durable campaign.
+
 Each session has a deterministic `chat_session_<sha256>` identity and a hard
 turn budget (8 by default, maximum 64). Each request has bounded input,
 output, and wall-time budgets. `--json` emits one canonical bootstrap record
@@ -36,9 +41,10 @@ followed by one retained turn record per request.
 The provider is invoked only through `invoke_provider()`. A supported provider
 response must decode to the canonical `IntentRecord`, then passes through the
 existing intent compiler and policy evaluator. The validated interpretation is
-shown in the turn record before any future execution hand-off could be
-considered. This command has no execution or mutation path; its records state
-`execution: not_requested`.
+shown in the turn record before any execution hand-off could be considered.
+When the optional execution flags are absent, records state
+`execution: not_requested`. With them, the execution record contains only
+typed planner/orchestrator outcomes and engine-owned provenance.
 
 Provider and policy outcomes remain explicit: `supported`, `unsupported`,
 `failed`, `unknown`, `timeout`, `cancelled`, `malformed_output`,

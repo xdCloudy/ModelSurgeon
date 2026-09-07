@@ -59,6 +59,14 @@ from .endpoint import (
     SecretResolver,
     UrllibEndpointTransport,
 )
+from .execution import (
+    ChatExecutionError,
+    ChatExecutionRecord,
+    ChatOptimizeAdapter,
+    ChatProgressEvent,
+    ChatProgressStatus,
+    ProgressCallback,
+)
 from .inspection import (
     CHAT_INSPECTION_SCHEMA_VERSION,
     ChatInspectionContext,
@@ -208,9 +216,14 @@ __all__ = [
     "CancellationToken",
     "CapabilityProbeOutcome",
     "CapabilityProbeResult",
+    "ChatExecutionError",
+    "ChatExecutionRecord",
     "ChatInspectionContext",
     "ChatInspectionError",
     "ChatInspectionOutcome",
+    "ChatOptimizeAdapter",
+    "ChatProgressEvent",
+    "ChatProgressStatus",
     "ChatSession",
     "ChatSessionBootstrap",
     "ChatSessionError",
@@ -243,6 +256,7 @@ __all__ = [
     "LocalGGUFProviderError",
     "LocalGGUFUnsupportedError",
     "NullTextModelProvider",
+    "ProgressCallback",
     "ProviderBudget",
     "ProviderCancelledError",
     "ProviderCapability",

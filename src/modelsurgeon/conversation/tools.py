@@ -1125,7 +1125,7 @@ def default_tool_definitions() -> tuple[ToolDefinition, ...]:
     digest = _string_schema(pattern=r"sha256:[0-9a-f]{64}", max_length=71)
     status: JSONSchema = {
         "type": "string",
-        "enum": ["supported", "unsupported", "unknown"],
+        "enum": ["supported", "unsupported", "failed", "unknown"],
     }
     evidence_refs: JSONSchema = {"type": "array", "items": ref, "maxItems": 256}
     common_failures = _ALL_FAILURE_SEMANTICS
@@ -1221,11 +1221,22 @@ def default_tool_definitions() -> tuple[ToolDefinition, ...]:
             _object_schema(
                 {
                     "run_id": ref,
-                    "outcome": {"type": "string", "enum": ["supported", "failed", "unknown"]},
+                    "campaign_id": ref,
+                    "plan_id": ref,
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["supported", "unsupported", "failed", "unknown"],
+                    },
                     "evidence_refs": evidence_refs,
                     "artifact_ref": {"type": "string", "maxLength": 128},
+                    "artifact_digest": digest,
+                    "reasons": {
+                        "type": "array",
+                        "items": _string_schema(max_length=2048),
+                        "maxItems": 256,
+                    },
                 },
-                ("run_id", "outcome", "evidence_refs", "artifact_ref"),
+                ("run_id", "outcome", "evidence_refs"),
             ),
             ToolBudget(600.0, 2 * 1024 * 1024 * 1024, 1, 512 * 1024),
             common_failures,
