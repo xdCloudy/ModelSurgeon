@@ -1,0 +1,40 @@
+{
+  "allowed_operations": [],
+  "approval": {"required": true, "status": "pending"},
+  "budgets": [],
+  "diagnostics": [
+    {"code": "compiled-objective-contract", "field_id": null, "message": "typed intent compiled into the existing objective contract schema", "provenance_refs": ["evidence:request"], "severity": "info", "source_span_ids": []},
+    {"code": "intent-diagnostic", "field_id": null, "message": "typed interpretation complete", "provenance_refs": ["evidence:request"], "severity": "warning", "source_span_ids": []},
+    {"code": "policy-outcome", "field_id": null, "message": "policy outcome is executable; confidence does not replace contract validation", "provenance_refs": ["evidence:request"], "severity": "info", "source_span_ids": []}
+  ],
+  "diff": null,
+  "hard_constraints": [{"baseline": "absolute", "direction": "minimum", "metric": "quality", "threshold": 0.95, "unit": "ratio"}],
+  "intent_id": "intent_b8b1f4d81eca159451d5e655d37bceaa0eb9905d26ad8f95d050d806dd0e3452",
+  "objectives": [{"baseline": null, "direction": "minimize", "maximum": null, "metric": "latency", "minimum": null, "normalization": "identity", "plugin": null, "unit": "milliseconds", "weight": 1.0}],
+  "outcome": "executable",
+  "preferences": [{"baseline": null, "direction": "minimize", "maximum": null, "metric": "latency", "minimum": null, "normalization": "identity", "plugin": null, "unit": "milliseconds", "weight": 1.0}],
+  "preview_id": "spec_preview_fa740fc361dab1c2cf80203c2c9dfbe21700140051255b569202b8818a75f03b",
+  "provenance": {
+    "decision_id": "policy_e3a459436650aad1828db5f6808bcba290dd6744ac94b7a110b3c57dd6a1771a",
+    "evidence_refs": ["evidence:request"],
+    "intent_id": "intent_b8b1f4d81eca159451d5e655d37bceaa0eb9905d26ad8f95d050d806dd0e3452",
+    "provider_id": "fixture-provider",
+    "provider_revision": "provider-v1",
+    "request_digest": "sha256:7b187cce1636e0f97e6be5a8ec9a8e40489104346de03729bf3f2f1b1a83dcb6",
+    "source_revision": "request-v1",
+    "tool_revision": "tool-v1"
+  },
+  "record_type": "optimization_spec_preview",
+  "schema_version": 1,
+  "spec": {
+    "approval_policy": {"allowed_plugin_names": [], "require_custom_plugin_approval": true, "require_execution_approval": true},
+    "constraints": [{"baseline": "absolute", "direction": "minimum", "metric": "quality", "threshold": 0.95, "unit": "ratio"}],
+    "contract_id": "objective_contract_6de6d670d46256fdeed5702d2f6aa7a0b0f9e11cc660ce5358b33c9c8b8d2280",
+    "mode": "weighted",
+    "objectives": [{"baseline": null, "direction": "minimize", "maximum": null, "metric": "latency", "minimum": null, "normalization": "identity", "plugin": null, "unit": "milliseconds", "weight": 1.0}],
+    "schema_version": 1
+  },
+  "spec_digest": "sha256:25df832da5fa1a8b4119a6905c8ccb7fe7f1d6570f7d7155bb927d5383a3f675",
+  "spec_identity": "objective_contract_6de6d670d46256fdeed5702d2f6aa7a0b0f9e11cc660ce5358b33c9c8b8d2280",
+  "unresolved_fields": []
+}

@@ -229,6 +229,9 @@ def test_chat_bootstrap_is_deterministic_and_validates_before_interaction(
     turn = first.interpret("retain quality and reduce latency")
     assert turn.outcome == "executable"
     assert turn.policy_decision is not None
+    assert turn.spec_preview is not None
+    assert turn.spec_preview.spec == turn.policy_decision.contract.to_record()
+    assert turn.to_record()["spec_preview"] == turn.spec_preview.to_record()
     assert turn.to_record()["execution"] == "not_requested"
     first.close()
     second.close()
