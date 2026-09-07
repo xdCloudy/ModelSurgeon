@@ -1,10 +1,10 @@
 # Conversational control-plane design
 
-Status: the v2.1 canonical intent-record boundary is implemented in
-`modelsurgeon.conversation`; compilation, providers, and the conversational
-product remain planned. This document is normative for the separation of
-responsibilities and is not a claim that the full conversational product is
-currently implemented.
+Status: the v2.1 intent-record boundary and v2.2 replaceable provider
+contract are implemented in `modelsurgeon.conversation`. Compilation and the
+conversational product remain planned. This document is normative for the
+separation of responsibilities and is not a claim that a conversational
+product is currently implemented.
 
 ## Purpose
 
@@ -68,7 +68,14 @@ The provider layer is replaceable and optional. A provider may be:
 - another supported hosted provider; or
 - absent, when the user calls the direct CLI/Python APIs.
 
-Providers implement a narrow interface for interpretation, clarification and explanation. They report capabilities, limits, model identity, failures and provenance. Provider output is untrusted input until it passes typed schema validation. Secrets are resolved outside canonical evidence and are redacted from diagnostics, transcripts and reproducibility bundles.
+Providers implement the typed `TextModelProvider` interface documented in
+[`text-model-provider-interface.md`](text-model-provider-interface.md) for
+interpretation, clarification and explanation. They report capabilities,
+limits, model identity, failures and provenance. Provider output is untrusted
+input until it passes typed schema validation. Secrets are resolved outside
+canonical evidence and are redacted from diagnostics, transcripts and
+reproducibility bundles. `NullTextModelProvider` makes the no-LLM path
+explicit; direct CLI/Python APIs do not depend on a provider.
 
 ## Tool boundary
 
