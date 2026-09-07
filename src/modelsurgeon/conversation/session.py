@@ -39,9 +39,10 @@ from .provider import (
 
 if TYPE_CHECKING:
     from modelsurgeon.search.intent_policy import IntentPolicyDecision
+    from modelsurgeon.search.spec_preview import SpecPreview
 
 CHAT_SESSION_SCHEMA_VERSION: Literal[1] = 1
-CHAT_TURN_SCHEMA_VERSION: Literal[1] = 1
+CHAT_TURN_SCHEMA_VERSION: Literal[2] = 2
 DEFAULT_CHAT_MAX_TURNS = 8
 _MAX_CHAT_TURNS = 64
 _CHUNK_SIZE = 1024 * 1024
@@ -168,7 +169,8 @@ class ChatTurnResult:
     request: str
     provider_result: ProviderResult
     policy_decision: IntentPolicyDecision | None
-    schema_version: Literal[1] = CHAT_TURN_SCHEMA_VERSION
+    spec_preview: SpecPreview | None = None
+    schema_version: Literal[2] = CHAT_TURN_SCHEMA_VERSION
 
     @property
     def outcome(self) -> str:
@@ -195,6 +197,9 @@ class ChatTurnResult:
             "intent": intent,
             "policy_decision": (
                 None if self.policy_decision is None else self.policy_decision.to_record()
+            ),
+            "spec_preview": (
+                None if self.spec_preview is None else self.spec_preview.to_record()
             ),
             "execution": "not_requested",
         }
@@ -377,13 +382,16 @@ class ChatSession:
             cancellation=cancellation or self._cancellation,
         )
         policy: IntentPolicyDecision | None = None
+        preview: SpecPreview | None = None
         if (
             provider_result.outcome is ProviderOutcome.SUPPORTED
             and isinstance(provider_result.output, IntentProviderOutput)
         ):
             from modelsurgeon.search.intent_policy import evaluate_intent_policy
+            from modelsurgeon.search.spec_preview import build_spec_preview
 
             policy = evaluate_intent_policy(provider_result.output.intent)
+            preview = build_spec_preview(provider_result.output.intent, decision=policy)
         return ChatTurnResult(
             self.bootstrap.session_id,
             self._turn,
@@ -391,6 +399,7 @@ class ChatSession:
             request,
             provider_result,
             policy,
+            preview,
         )
 
     def cancel(self) -> None:

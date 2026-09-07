@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "record_type": "optimization_spec_preview",
+  "status": "experimental",
+  "input": "modelsurgeon.conversation.IntentRecord",
+  "policy_input": "modelsurgeon.search.IntentPolicyDecision",
+  "spec_source": "modelsurgeon.search.objective_contract.ObjectiveContract.to_record",
+  "outcomes": [
+    "executable",
+    "clarification_required",
+    "unsupported",
+    "refused"
+  ],
+  "required_fields": [
+    "intent_id",
+    "outcome",
+    "spec_identity",
+    "spec_digest",
+    "spec",
+    "objectives",
+    "hard_constraints",
+    "preferences",
+    "budgets",
+    "allowed_operations",
+    "unresolved_fields",
+    "diagnostics",
+    "provenance",
+    "approval",
+    "diff"
+  ],
+  "safety_invariants": [
+    "spec_is_exactly_the_contract_submitted_to_a_future_trusted_adapter",
+    "non_executable_outcomes_have_no_spec",
+    "unsupported_or_unresolved_fields_block_confirmation",
+    "material_changes_have_a_new_contract_identity_and_visible_diff",
+    "confirmation_requires_the_contract_approval_policy",
+    "preview_rendering_has_no_mutation_or_optimizer_execution"
+  ],
+  "canonicalization": "sorted compact UTF-8 JSON with deterministic diagnostics and diff paths",
+  "unknown_schema_policy": "refuse"
+}

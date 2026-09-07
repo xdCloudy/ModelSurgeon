@@ -29,8 +29,11 @@ def _render_turn(turn: ChatTurnResult, *, output_json: bool) -> None:
     if result.failure is not None:
         typer.echo(f"reason: {result.failure.detail}")
     if turn.policy_decision is not None:
-        typer.echo("interpreted objective (validated before any execution):")
-        typer.echo(turn.policy_decision.canonical_json())
+        typer.echo("interpreted OptimizationSpec preview (validated before any execution):")
+        if turn.spec_preview is not None:
+            typer.echo(turn.spec_preview.render())
+        else:
+            typer.echo(turn.policy_decision.canonical_json())
         typer.echo("execution: not requested by modelsurgeon chat")
 
 

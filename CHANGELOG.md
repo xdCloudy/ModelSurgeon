@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add the experimental interpreted `OptimizationSpec` preview boundary for
+  conversational requests. It renders the exact canonical objective contract,
+  hard constraints, preferences, budgets, allowed operations, unresolved
+  fields, diagnostics, provenance, and approval requirement; unsupported or
+  unresolved fields remain blocked. Material edits produce a new spec identity
+  and deterministic diff, while explicit confirmation releases only the exact
+  digest-bound spec submission. No mutation, optimizer execution, or live
+  provider/model evidence is claimed.
+
 - Add the v2.6 adversarial conversational tool-boundary corpus for shell/code,
   traversal, secret-exfiltration, prompt-injection, malformed-schema, forged
   measurement, contradictory-provenance, and replay attacks. Tighten schema
