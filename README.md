@@ -60,7 +60,7 @@ Measured evidence currently includes:
 - real HF and native-GGUF physical mutation and repair runs; and
 - a **134.5M–7.25B** consumer-hardware ladder on Windows with an RTX 3060 12 GB and 64 GB RAM.
 
-The results include negative findings where a learned policy or repair did not beat the declared baseline. Start with the [research index](docs/research/README.md), [First Surgeon evidence](docs/research/v0.5-first-surgeon-evidence.md), and [consumer scale evidence](docs/research/v0.8-consumer-scale-evidence.md).
+The results include negative findings where a learned policy or repair did not beat the declared baseline. Start with the [v1.0 scientific results and limitations](docs/research/v1.0-scientific-results.md), [research index](docs/research/README.md), [First Surgeon evidence](docs/research/v0.5-first-surgeon-evidence.md), and [consumer scale evidence](docs/research/v0.8-consumer-scale-evidence.md).
 
 ## Quick start
 
