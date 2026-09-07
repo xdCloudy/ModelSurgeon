@@ -15,6 +15,13 @@
   explicit negative outcomes, access boundaries, and deterministic direct-report
   parity coverage.
 
+- Added deterministic negative-evidence explanations on top of canonical
+  evidence queries. Rejected, rolled-back, failed, unsupported, unknown and
+  inconclusive outcomes retain measured metric direction, units, thresholds,
+  uncertainty, qualification reasons and mutation/evaluation/rollback
+  lineage; incomplete evidence stays explicitly unknown and rollback never
+  implies acceptance.
+
   - Close the v2.7 stateful conversational campaigns milestone for issue #474.
     Reconcile merged #469 canonical campaign state, #470 lifecycle/recovery,
     #471 stale replanning, #472 summary authority, and #473 recovery evidence

@@ -14,6 +14,7 @@ import json
 import math
 import re
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
@@ -41,9 +42,7 @@ _FORBIDDEN_FIELD = re.compile(
     r"message|history|llm|provider_context|secret|token|password|credential|raw)"
 )
 
-type JSONValue = (
-    bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"] | None
-)
+type JSONValue = bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"] | None
 
 
 class EvidenceQueryError(ValueError):
@@ -126,6 +125,10 @@ _ALLOWED_FIELDS: Final[frozenset[str]] = frozenset(
         "observed_at",
         "missing_fields",
         "unavailable_fields",
+        "mutation_record",
+        "evaluation_record",
+        "rollback_record",
+        "lineage",
     }
 )
 
@@ -215,18 +218,10 @@ class EvidenceQueryLimits:
             (self.max_output_bytes, "maximum query output bytes"),
         ):
             _positive_int(value, label)
-        if (
-            self.max_records > 256
-            or self.max_fields > 32
-            or self.max_provenance_refs > 64
-        ):
-            raise EvidenceQueryResourceError(
-                "query limits exceed the canonical boundary"
-            )
+        if self.max_records > 256 or self.max_fields > 32 or self.max_provenance_refs > 64:
+            raise EvidenceQueryResourceError("query limits exceed the canonical boundary")
         if self.max_output_bytes > MAX_EVIDENCE_QUERY_RESULT_BYTES:
-            raise EvidenceQueryResourceError(
-                "query output limit exceeds the canonical boundary"
-            )
+            raise EvidenceQueryResourceError("query output limit exceeds the canonical boundary")
 
     def to_record(self) -> dict[str, int]:
         return {
@@ -252,16 +247,10 @@ class EvidenceQuery:
 
     def __post_init__(self) -> None:
         _identifier(self.campaign_id, "query campaign ID")
-        object.__setattr__(
-            self, "evidence_ids", _sorted_unique(self.evidence_ids, "evidence IDs")
-        )
+        object.__setattr__(self, "evidence_ids", _sorted_unique(self.evidence_ids, "evidence IDs"))
         if any(not item.startswith("evidence_") for item in self.evidence_ids):
-            raise EvidenceQueryError(
-                "query evidence IDs must be canonical evidence IDs"
-            )
-        if self.outcomes != tuple(
-            sorted(set(self.outcomes), key=lambda item: item.value)
-        ):
+            raise EvidenceQueryError("query evidence IDs must be canonical evidence IDs")
+        if self.outcomes != tuple(sorted(set(self.outcomes), key=lambda item: item.value)):
             raise EvidenceQueryError("query outcomes must be sorted and unique")
         if not all(isinstance(item, EvidenceQueryOutcome) for item in self.outcomes):
             raise EvidenceQueryError("query outcomes are invalid")
@@ -270,9 +259,7 @@ class EvidenceQuery:
             raise EvidenceQueryResourceError("query requests too many fields")
         for item in selected_fields:
             if _FORBIDDEN_FIELD.search(item) or item not in _ALLOWED_FIELDS:
-                raise EvidenceQueryAccessError(
-                    f"query field {item!r} is outside the read boundary"
-                )
+                raise EvidenceQueryAccessError(f"query field {item!r} is outside the read boundary")
         object.__setattr__(self, "fields", selected_fields)
         if self.expected_snapshot_id is not None:
             _identifier(self.expected_snapshot_id, "expected snapshot ID")
@@ -280,9 +267,7 @@ class EvidenceQuery:
             _digest(self.expected_state_digest, "expected state digest")
         _positive_int(self.max_records, "query maximum records")
         if self.max_records > 256:
-            raise EvidenceQueryResourceError(
-                "query maximum records exceeds the canonical boundary"
-            )
+            raise EvidenceQueryResourceError("query maximum records exceeds the canonical boundary")
         if not isinstance(self.access, EvidenceQueryAccess):
             raise EvidenceQueryAccessError("query access must be read_only")
         if (
@@ -329,13 +314,8 @@ class EvidenceQuery:
             "max_records",
             "access",
         }
-        if (
-            set(record) != expected
-            or record["schema_version"] != EVIDENCE_QUERY_SCHEMA_VERSION
-        ):
-            raise EvidenceQueryError(
-                "evidence query has missing, unknown, or unsupported fields"
-            )
+        if set(record) != expected or record["schema_version"] != EVIDENCE_QUERY_SCHEMA_VERSION:
+            raise EvidenceQueryError("evidence query has missing, unknown, or unsupported fields")
         evidence_ids = record["evidence_ids"]
         outcomes = record["outcomes"]
         fields = record["fields"]
@@ -343,26 +323,18 @@ class EvidenceQuery:
             isinstance(item, str) for item in evidence_ids
         ):
             raise EvidenceQueryError("query evidence IDs must be a string array")
-        if not isinstance(outcomes, list) or not all(
-            isinstance(item, str) for item in outcomes
-        ):
+        if not isinstance(outcomes, list) or not all(isinstance(item, str) for item in outcomes):
             raise EvidenceQueryError("query outcomes must be a string array")
-        if not isinstance(fields, list) or not all(
-            isinstance(item, str) for item in fields
-        ):
+        if not isinstance(fields, list) or not all(isinstance(item, str) for item in fields):
             raise EvidenceQueryError("query fields must be a string array")
         evidence_id_values = cast(list[str], evidence_ids)
         outcome_values = cast(list[str], outcomes)
         field_values = cast(list[str], fields)
         try:
-            parsed_outcomes = tuple(
-                EvidenceQueryOutcome(item) for item in outcome_values
-            )
+            parsed_outcomes = tuple(EvidenceQueryOutcome(item) for item in outcome_values)
             access = EvidenceQueryAccess(cast(str, record["access"]))
         except ValueError as error:
-            raise EvidenceQueryError(
-                "query contains an unknown outcome or access"
-            ) from error
+            raise EvidenceQueryError("query contains an unknown outcome or access") from error
         result = cls(
             cast(str, record["campaign_id"]),
             tuple(evidence_id_values),
@@ -378,9 +350,7 @@ class EvidenceQuery:
             access,
         )
         if record["query_id"] != result.query_id:
-            raise EvidenceQueryIntegrityError(
-                "query ID does not match its canonical payload"
-            )
+            raise EvidenceQueryIntegrityError("query ID does not match its canonical payload")
         return result
 
 
@@ -414,9 +384,7 @@ class EvidenceUncertainty:
         ):
             raise EvidenceQueryError("uncertainty bounds are reversed")
         if self.confidence is not None and not 0 <= self.confidence <= 1:
-            raise EvidenceQueryError(
-                "uncertainty confidence must be between zero and one"
-            )
+            raise EvidenceQueryError("uncertainty confidence must be between zero and one")
         if self.standard_error is not None and self.standard_error < 0:
             raise EvidenceQueryError("uncertainty standard error cannot be negative")
         if self.sample_count is not None:
@@ -481,9 +449,7 @@ class EvidenceMeasurement:
             "metric": self.metric,
             "value": self.value,
             "unit": self.unit,
-            "uncertainty": None
-            if self.uncertainty is None
-            else self.uncertainty.to_record(),
+            "uncertainty": None if self.uncertainty is None else self.uncertainty.to_record(),
         }
 
     @classmethod
@@ -529,12 +495,8 @@ class EvidenceSnapshot:
             raise EvidenceQueryIntegrityError(
                 "snapshot evidence does not match the campaign evidence cursor"
             )
-        if any(
-            item.source_digest != self.campaign.source_model_digest for item in evidence
-        ):
-            raise EvidenceQueryIntegrityError(
-                "snapshot joins evidence from another source model"
-            )
+        if any(item.source_digest != self.campaign.source_model_digest for item in evidence):
+            raise EvidenceQueryIntegrityError("snapshot joins evidence from another source model")
         if self.captured_at is not None:
             _timestamp(self.captured_at, "snapshot captured timestamp")
         state_digest = self.campaign.digest
@@ -557,9 +519,7 @@ class EvidenceSnapshot:
         object.__setattr__(self, "snapshot_digest", snapshot_digest)
 
     @classmethod
-    def from_store(
-        cls, store: CampaignStateStore, campaign_id: str
-    ) -> EvidenceSnapshot:
+    def from_store(cls, store: CampaignStateStore, campaign_id: str) -> EvidenceSnapshot:
         try:
             state = store.load(campaign_id)
             evidence = store.evidence(campaign_id)
@@ -596,15 +556,10 @@ class EvidenceSnapshot:
             "evidence",
             "captured_at",
         }
-        if (
-            set(record) != expected
-            or record["record_type"] != "canonical_evidence_snapshot"
-        ):
+        if set(record) != expected or record["record_type"] != "canonical_evidence_snapshot":
             raise EvidenceQueryIntegrityError("snapshot has missing or unknown fields")
         if record["schema_version"] != EVIDENCE_SNAPSHOT_SCHEMA_VERSION:
-            raise EvidenceQueryIntegrityError(
-                "unsupported evidence snapshot schema version"
-            )
+            raise EvidenceQueryIntegrityError("unsupported evidence snapshot schema version")
         evidence = record["evidence"]
         if not isinstance(evidence, list):
             raise EvidenceQueryIntegrityError("snapshot evidence must be an array")
@@ -612,9 +567,7 @@ class EvidenceSnapshot:
             result = cls(
                 CampaignState.from_record(record["campaign"]),
                 tuple(CampaignEvidence.from_record(item) for item in evidence),
-                None
-                if record["captured_at"] is None
-                else cast(str, record["captured_at"]),
+                None if record["captured_at"] is None else cast(str, record["captured_at"]),
             )
         except (CampaignStateError, EvidenceQueryError) as error:
             raise EvidenceQueryIntegrityError(
@@ -626,9 +579,7 @@ class EvidenceSnapshot:
             or record["state_digest"] != result.state_digest
             or record["evidence_digest"] != result.evidence_digest
         ):
-            raise EvidenceQueryIntegrityError(
-                "snapshot digest does not match its content"
-            )
+            raise EvidenceQueryIntegrityError("snapshot digest does not match its content")
         return result
 
     def assert_current(self, store: CampaignStateStore) -> None:
@@ -680,9 +631,7 @@ class EvidenceQueryRecord:
             raise EvidenceQueryError("query measurements must be sorted and unique")
         refs = _sorted_unique(self.provenance_refs, "query provenance references")
         if len(refs) > 64:
-            raise EvidenceQueryResourceError(
-                "query record has too many provenance references"
-            )
+            raise EvidenceQueryResourceError("query record has too many provenance references")
         object.__setattr__(self, "provenance_refs", refs)
         object.__setattr__(
             self,
@@ -814,22 +763,16 @@ class EvidenceQueryResponse:
             self.query.expected_snapshot_id is not None
             and self.query.expected_snapshot_id != self.snapshot.snapshot_id
         ):
-            raise EvidenceQueryStaleError(
-                "query references a different evidence snapshot"
-            )
+            raise EvidenceQueryStaleError("query references a different evidence snapshot")
         if (
             self.query.expected_state_digest is not None
             and self.query.expected_state_digest != self.snapshot.state_digest
         ):
-            raise EvidenceQueryStaleError(
-                "query references a stale campaign state digest"
-            )
+            raise EvidenceQueryStaleError("query references a stale campaign state digest")
         if not isinstance(self.status, EvidenceQueryStatus):
             raise EvidenceQueryError("query response status is invalid")
         if len(self.records) > self.query.max_records:
-            raise EvidenceQueryResourceError(
-                "query returned more records than requested"
-            )
+            raise EvidenceQueryResourceError("query returned more records than requested")
         object.__setattr__(
             self,
             "missing_fields",
@@ -845,17 +788,11 @@ class EvidenceQueryResponse:
             isinstance(value, int) and not isinstance(value, bool) and value >= 0
             for value in usage.values()
         ):
-            raise EvidenceQueryError(
-                "query resource usage values must be non-negative integers"
-            )
+            raise EvidenceQueryError("query resource usage values must be non-negative integers")
         object.__setattr__(self, "resource_usage", MappingProxyType(usage))
-        encoded = _canonical(
-            self.to_record(include_digest=False), "query response"
-        ).encode("utf-8")
+        encoded = _canonical(self.to_record(include_digest=False), "query response").encode("utf-8")
         if len(encoded) > MAX_EVIDENCE_QUERY_RESULT_BYTES:
-            raise EvidenceQueryResourceError(
-                "query response exceeds the hard size limit"
-            )
+            raise EvidenceQueryResourceError("query response exceeds the hard size limit")
         object.__setattr__(
             self,
             "response_digest",
@@ -955,9 +892,7 @@ class EvidenceQueryResponse:
 
 
 def _plain_digest(value: object) -> str:
-    return hashlib.sha256(
-        _canonical(value, "digest payload").encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(_canonical(value, "digest payload").encode("utf-8")).hexdigest()
 
 
 def _prefixed_digest(value: object) -> str:
@@ -965,21 +900,33 @@ def _prefixed_digest(value: object) -> str:
 
 
 def _disposition(evidence: CampaignEvidence) -> EvidenceQueryOutcome:
-    decision = evidence.provenance.get("decision")
-    if isinstance(decision, str):
-        try:
-            return EvidenceQueryOutcome(decision)
-        except ValueError:
-            pass
     if evidence.inconclusive:
         return EvidenceQueryOutcome.INCONCLUSIVE
+    decision = evidence.provenance.get("decision")
+    parsed_decision: EvidenceQueryOutcome | None = None
+    if isinstance(decision, str):
+        with suppress(ValueError):
+            parsed_decision = EvidenceQueryOutcome(decision)
     if evidence.outcome is CampaignOutcome.UNSUPPORTED:
         return EvidenceQueryOutcome.UNSUPPORTED
-    if evidence.outcome is CampaignOutcome.FAILED:
-        return EvidenceQueryOutcome.FAILED
     if evidence.outcome is CampaignOutcome.UNKNOWN:
         return EvidenceQueryOutcome.UNKNOWN
-    return EvidenceQueryOutcome.ACCEPTED
+    if evidence.outcome is CampaignOutcome.FAILED:
+        return (
+            EvidenceQueryOutcome.ROLLED_BACK
+            if parsed_decision is EvidenceQueryOutcome.ROLLED_BACK
+            else EvidenceQueryOutcome.FAILED
+        )
+    return (
+        parsed_decision
+        if parsed_decision
+        in {
+            EvidenceQueryOutcome.ACCEPTED,
+            EvidenceQueryOutcome.REJECTED,
+            EvidenceQueryOutcome.ROLLED_BACK,
+        }
+        else EvidenceQueryOutcome.ACCEPTED
+    )
 
 
 def _measurement(value: object, metric: str) -> EvidenceMeasurement | None:
@@ -1056,16 +1003,56 @@ def _provenance_refs(evidence: CampaignEvidence, *, limit: int) -> tuple[str, ..
             values.add(value)
     refs = tuple(sorted(values))
     if len(refs) > limit:
-        raise EvidenceQueryResourceError(
-            "evidence provenance join exceeds the hard limit"
-        )
+        raise EvidenceQueryResourceError("evidence provenance join exceeds the hard limit")
     return refs
+
+
+def _canonical_provenance_record(
+    evidence: CampaignEvidence, *keys: str
+) -> dict[str, JSONValue] | None:
+    """Return one known canonical record without exposing arbitrary provenance."""
+
+    for key in keys:
+        value = evidence.provenance.get(key)
+        if not isinstance(value, Mapping):
+            continue
+        try:
+            return _mapping(value, f"evidence provenance {key}")
+        except EvidenceQueryError:
+            return None
+    return None
+
+
+def _canonical_records(
+    evidence: CampaignEvidence,
+) -> tuple[
+    dict[str, JSONValue] | None,
+    dict[str, JSONValue] | None,
+    dict[str, JSONValue] | None,
+]:
+    return (
+        _canonical_provenance_record(evidence, "mutation_record", "mutation"),
+        _canonical_provenance_record(evidence, "evaluation_record", "evaluation"),
+        _canonical_provenance_record(evidence, "rollback_record", "rollback"),
+    )
 
 
 def _record(
     snapshot: EvidenceSnapshot, evidence: CampaignEvidence, fields: tuple[str, ...]
 ) -> EvidenceQueryRecord:
     measurements = _measurements(evidence)
+    mutation_record, evaluation_record, rollback_record = _canonical_records(evidence)
+    canonical_lineage = tuple(
+        sorted(
+            {
+                value
+                for record in (mutation_record, evaluation_record, rollback_record)
+                if record is not None
+                for key, value in record.items()
+                if key.endswith("_id") and isinstance(value, str)
+            }
+        )
+    )
     all_fields = {
         "campaign_id": snapshot.campaign.campaign_id,
         "session_id": snapshot.campaign.session_id,
@@ -1088,14 +1075,16 @@ def _record(
         "inconclusive": evidence.inconclusive,
         "measurements": [item.to_record() for item in measurements],
         "uncertainty": [
-            item.uncertainty.to_record()
-            for item in measurements
-            if item.uncertainty is not None
+            item.uncertainty.to_record() for item in measurements if item.uncertainty is not None
         ],
         "provenance_refs": list(_provenance_refs(evidence, limit=64)),
         "observed_at": evidence.provenance.get("observed_at")
         if isinstance(evidence.provenance.get("observed_at"), str)
         else None,
+        "mutation_record": mutation_record,
+        "evaluation_record": evaluation_record,
+        "rollback_record": rollback_record,
+        "lineage": list(sorted(set((*_provenance_refs(evidence, limit=64), *canonical_lineage)))),
     }
     selected = (
         set(fields)
@@ -1115,7 +1104,15 @@ def _record(
             field_name
             for field_name in selected
             if field_name
-            in {"artifact_digest", "measurements", "uncertainty", "observed_at"}
+            in {
+                "artifact_digest",
+                "measurements",
+                "uncertainty",
+                "observed_at",
+                "mutation_record",
+                "evaluation_record",
+                "rollback_record",
+            }
             and all_fields[field_name] in (None, [], "")
         )
     )
@@ -1167,68 +1164,43 @@ class EvidenceQueryEngine:
 
     def query(self, request: EvidenceQuery) -> EvidenceQueryResponse:
         if request.campaign_id != self.snapshot.campaign.campaign_id:
-            raise EvidenceQueryAccessError(
-                "query campaign is outside the snapshot boundary"
-            )
+            raise EvidenceQueryAccessError("query campaign is outside the snapshot boundary")
         if request.max_records > self.limits.max_records:
-            raise EvidenceQueryResourceError(
-                "query maximum records exceeds engine limit"
-            )
+            raise EvidenceQueryResourceError("query maximum records exceeds engine limit")
         candidates = self.snapshot.evidence
         if request.evidence_ids:
             selected = set(request.evidence_ids)
-            candidates = tuple(
-                item for item in candidates if item.evidence_id in selected
-            )
+            candidates = tuple(item for item in candidates if item.evidence_id in selected)
         if request.outcomes:
             candidates = tuple(
                 item for item in candidates if _disposition(item) in request.outcomes
             )
         if len(candidates) > request.max_records:
-            raise EvidenceQueryResourceError(
-                "query result exceeds the requested record limit"
-            )
+            raise EvidenceQueryResourceError("query result exceeds the requested record limit")
         fields = request.fields
         if len(fields) > self.limits.max_fields:
-            raise EvidenceQueryResourceError(
-                "query field selection exceeds engine limit"
-            )
+            raise EvidenceQueryResourceError("query field selection exceeds engine limit")
         records = tuple(_record(self.snapshot, item, fields) for item in candidates)
         missing = tuple(
-            sorted(
-                {field_name for item in records for field_name in item.missing_fields}
-            )
+            sorted({field_name for item in records for field_name in item.missing_fields})
         )
         unavailable = tuple(
-            sorted(
-                {
-                    field_name
-                    for item in records
-                    for field_name in item.unavailable_fields
-                }
-            )
+            sorted({field_name for item in records for field_name in item.unavailable_fields})
         )
         response = EvidenceQueryResponse(
             request,
             self.snapshot,
-            EvidenceQueryStatus.PARTIAL
-            if missing or unavailable
-            else EvidenceQueryStatus.COMPLETE,
+            EvidenceQueryStatus.PARTIAL if missing or unavailable else EvidenceQueryStatus.COMPLETE,
             records,
             missing,
             unavailable,
             {
-                "input_bytes": len(
-                    _canonical(request.to_record(), "query").encode("utf-8")
-                ),
+                "input_bytes": len(_canonical(request.to_record(), "query").encode("utf-8")),
                 "evidence_records": len(records),
                 "provenance_refs": sum(len(item.provenance_refs) for item in records),
             },
         )
-        if (
-            len(response.canonical_json().encode("utf-8"))
-            > self.limits.max_output_bytes
-        ):
+        if len(response.canonical_json().encode("utf-8")) > self.limits.max_output_bytes:
             raise EvidenceQueryResourceError("query result exceeds engine output limit")
         return response
 
