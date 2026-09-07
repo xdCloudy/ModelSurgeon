@@ -18,6 +18,15 @@
   `isolation_failure` outcomes. The implementation is capability-isolated but
   does not claim hostile-process containment or live hosted-provider evidence.
 
+- Add the experimental `modelsurgeon chat <provider-model-path>` entry slice.
+  It bootstraps a bounded local GGUF provider, validates model identity and
+  runtime provenance, emits deterministic session/turn records, and routes
+  interpretation through the existing intent compiler and policy evaluator.
+  The command is interpretation-only: no optimizer, tensor selection,
+  approval, mutation, artifact write, hosted-provider claim, or live evidence
+  is added. Unsupported, failed, unknown, malformed, timeout, and cancelled
+  outcomes remain explicit.
+
 - Add the bounded v2.0 autonomous optimizer release boundary: a versioned
   compatibility/evidence manifest, capability classifications, scientific
   limitations report, deterministic reproduction contract, and fail-closed

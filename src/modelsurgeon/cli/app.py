@@ -18,6 +18,7 @@ from modelsurgeon.adapters.huggingface import (
 )
 from modelsurgeon.cli.benchmark import benchmark_app
 from modelsurgeon.cli.calibration import calibrate_command
+from modelsurgeon.cli.chat import chat_command
 from modelsurgeon.cli.dataset import generate_dataset_command
 from modelsurgeon.cli.experiment import (
     ExperimentCommandError,
@@ -209,6 +210,7 @@ app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
 app.command("explorer")(explorer_command)
 app.command("optimize")(optimize_command)
+app.command("chat")(chat_command)
 app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")
 app.add_typer(benchmark_app, name="benchmark")

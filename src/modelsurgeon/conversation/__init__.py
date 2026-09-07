@@ -100,6 +100,16 @@ from .provider import (
     request_digest,
     result_from_raw_output,
 )
+from .session import (
+    CHAT_SESSION_SCHEMA_VERSION,
+    CHAT_TURN_SCHEMA_VERSION,
+    DEFAULT_CHAT_MAX_TURNS,
+    ChatSession,
+    ChatSessionBootstrap,
+    ChatSessionError,
+    ChatTurnResult,
+    bootstrap_chat_session,
+)
 from .tools import (
     CONVERSATIONAL_TOOL_SCHEMA_VERSION,
     DEFAULT_TOOL_CATALOG,
@@ -136,8 +146,11 @@ from .transaction import (
 )
 
 __all__ = [
+    "CHAT_SESSION_SCHEMA_VERSION",
+    "CHAT_TURN_SCHEMA_VERSION",
     "CONVERSATIONAL_INTENT_SCHEMA_VERSION",
     "CONVERSATIONAL_TOOL_SCHEMA_VERSION",
+    "DEFAULT_CHAT_MAX_TURNS",
     "DEFAULT_TOOL_CATALOG",
     "ENDPOINT_ADAPTER_SCHEMA_VERSION",
     "LOCAL_GGUF_PROVIDER_REVISION",
@@ -155,6 +168,10 @@ __all__ = [
     "CancellationToken",
     "CapabilityProbeOutcome",
     "CapabilityProbeResult",
+    "ChatSession",
+    "ChatSessionBootstrap",
+    "ChatSessionError",
+    "ChatTurnResult",
     "ClarificationProviderOutput",
     "ClarificationRequest",
     "CompatibleEndpointAdapter",
@@ -242,6 +259,7 @@ __all__ = [
     "ToolUsage",
     "TrustZone",
     "UrllibEndpointTransport",
+    "bootstrap_chat_session",
     "copy_untrusted_json",
     "decode_provider_output",
     "default_tool_definitions",
