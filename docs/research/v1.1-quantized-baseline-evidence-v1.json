@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "protocol_id": "quantized_protocol_7cbf8ea12e06d950e387960ddadd074e78acc641be32493914b42b064448e9fd",
+  "model_families": ["llama", "qwen"],
+  "profiles": ["BF16", "F16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M"],
+  "arms": ["quantization_only", "pruning_plus_quantization"],
+  "targets": {"quantization_only": 0.0, "pruning_plus_quantization": 0.2},
+  "seeds": [11, 23, 47],
+  "cell_count": 72,
+  "outcome_counts": {"unsupported": 72},
+  "compatibility_counts": {"unknown": 12, "unsupported": 12},
+  "measured_artifact_cells": 0,
+  "loss_decomposition_cells": 0,
+  "performance_claim": null,
+  "diagnosis": "Pinned llama.cpp quantizer executables are not bundled in this evidence release; no artifact or metric is claimed."
+}
