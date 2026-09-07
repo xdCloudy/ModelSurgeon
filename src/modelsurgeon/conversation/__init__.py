@@ -119,6 +119,14 @@ from .tools import (
     deterministic_tool_request_id,
     tool_request_digest,
 )
+from .transaction import (
+    ToolTransactionBoundary,
+    ToolTransactionContext,
+    ToolTransactionError,
+    ToolTransactionHandle,
+    ToolTransactionParticipant,
+    ToolTransactionState,
+)
 
 __all__ = [
     "CONVERSATIONAL_INTENT_SCHEMA_VERSION",
@@ -217,6 +225,12 @@ __all__ = [
     "ToolProvenance",
     "ToolRequest",
     "ToolResult",
+    "ToolTransactionBoundary",
+    "ToolTransactionContext",
+    "ToolTransactionError",
+    "ToolTransactionHandle",
+    "ToolTransactionParticipant",
+    "ToolTransactionState",
     "ToolUsage",
     "UrllibEndpointTransport",
     "decode_provider_output",

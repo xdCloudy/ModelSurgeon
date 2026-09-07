@@ -50,6 +50,26 @@ request and cannot reach an adapter. Handlers are registered by trusted engine
 code against an existing catalog name. Requests never contain callbacks,
 commands, paths, or provider selectors.
 
+Every dispatch also owns one `ToolTransactionBoundary` handle. Read-only
+operations receive a logical handle with no engine participant and cannot
+commit or roll back mutable state. Their successful result closes the handle
+as committed; cancellation, timeout, invalid output, and handler failure close
+it as rolled back. A consequential handler receives the same narrow lifecycle
+capability and must explicitly commit before a supported result can be
+published. Trusted engine code may bind that handle to an already-prepared
+transaction participant with commit/rollback hooks; the conversational layer
+does not expose a mutation method, model object, artifact writer, or campaign
+store.
+
+Handles are generation-bound and become stale after a transition. A later
+operation cannot reuse an earlier handle, and a bounded active-handle limit
+refuses new work rather than growing without limit. Cancellation and timeout
+roll back an active participant before a negative result is returned. A
+consequential retry is rejected with `retry_not_safe` unless the trusted
+handler explicitly declares the failed operation idempotent; an identical
+completed request is still served from the existing replay ledger without
+invoking the handler again.
+
 The dispatcher negotiates the catalog entry, strict input schema, capability,
 tool identity, and request budget before applying an optional dispatcher-wide
 ceiling. Consequential requests additionally require a top-level approval
@@ -58,14 +78,16 @@ accepts the exact request. The policy is responsible for binding the referenced
 plan digest to the current plan and hard constraints; tool arguments cannot
 replace that policy.
 
-Handlers receive a cooperative cancellation token and wall-time deadline. The
+Handlers receive a cooperative cancellation token, wall-time deadline, and
+transaction lifecycle capability. The
 dispatcher charges one evaluation on entry, permits nested evaluations and
 peak-memory reservations to be charged explicitly, and validates output against
 the declared schema and output limit before constructing engine-owned
-provenance. Budget exhaustion, timeout, cancellation, unsupported capability,
-approval failure, invalid output, and handler failure remain typed negative
-outcomes. Retryable handler failures may be retried only up to the configured
-maximum of three retries.
+provenance. Budget exhaustion, timeout, cancellation, missing commit, unsafe
+retry, unsupported capability, approval failure, invalid output, and handler
+failure remain typed negative outcomes. Retryable handler failures may be
+retried only up to the configured maximum of three retries, and consequential
+retries additionally require the handler's idempotency declaration.
 
 Completed request IDs are retained in a bounded replay ledger; replays return
 the original result without invoking the handler again. A full ledger refuses

@@ -8,6 +8,13 @@
   release audit. This records protocol and control-plane evidence only; no
   live benchmark, signed package, or reference model artifact is claimed.
 
+- Add a fail-closed conversational transaction boundary that separates
+  read-only tool handles from consequential execution, requires explicit
+  commit before publishing consequential success, rolls back active work on
+  cancellation/timeout/failure, rejects undeclared consequential retries, and
+  retains deterministic transaction IDs alongside replay receipts. No live
+  campaign or model evidence is claimed by this control-plane contract.
+
 - Add the v2.0 autonomous benchmark release-candidate contract with exact
   protocol identities, bounded matrices, retained negative/unsupported cells,
   confidence-bounded competitiveness claims, complete reference-artifact
