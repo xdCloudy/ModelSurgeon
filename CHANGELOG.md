@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add an explicit, secret-free provider configuration boundary with deterministic
+  precedence, no-LLM defaults and CLI overrides. Direct optimization remains
+  usable without a text-model installation; provider diagnostics report stable
+  no-LLM, missing-key, and unavailable-adapter outcomes without silent fallback.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and

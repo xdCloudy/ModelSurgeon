@@ -34,6 +34,7 @@ from modelsurgeon.cli.progress import progress_app
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
 from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
+from modelsurgeon.cli.provider import provider_app
 from modelsurgeon.cli.registry import registry_app
 from modelsurgeon.cli.report import report_command
 from modelsurgeon.cli.reproduce import reproduce_command
@@ -211,6 +212,7 @@ app.command("optimize")(optimize_command)
 app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")
 app.add_typer(benchmark_app, name="benchmark")
+app.add_typer(provider_app, name="provider")
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from modelsurgeon.adapters import ModelFormat
+from modelsurgeon.provider_kind import ProviderKind
 
 
 class StrictConfigModel(BaseModel):
@@ -195,6 +196,86 @@ class SafetyConfig(StrictConfigModel):
     require_atomic_writes: bool = True
 
 
+class ProviderConfig(StrictConfigModel):
+    """Optional conversational provider selection and hard request budgets.
+
+    Provider configuration is deliberately separate from optimization policy.
+    The direct CLI and Python APIs use ``none`` by default and never need a
+    provider adapter to build or execute deterministic work.
+    """
+
+    kind: ProviderKind = ProviderKind.NONE
+    provider_id: str = "none"
+    model_id: str = "none"
+    model_revision: str = "none"
+    endpoint: str | None = None
+    api_key_env: str | None = None
+    request_timeout_seconds: float = Field(default=30.0, gt=0.0, le=3600.0)
+    max_input_size: int = Field(default=8192, gt=0)
+    max_output_size: int = Field(default=2048, gt=0)
+
+    @field_validator("provider_id", "model_id", "model_revision")
+    @classmethod
+    def reject_blank_identity_values(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("provider identity values cannot be blank")
+        return value
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("provider endpoint cannot be blank")
+        if value is not None:
+            from urllib.parse import urlsplit
+
+            parsed = urlsplit(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError("provider endpoint must be an absolute http(s) URL")
+            if parsed.username or parsed.password:
+                raise ValueError("provider endpoint cannot contain credentials")
+            if parsed.query or parsed.fragment:
+                raise ValueError("provider endpoint cannot contain query or fragment data")
+        return value
+
+    @field_validator("api_key_env")
+    @classmethod
+    def validate_api_key_env(cls, value: str | None) -> str | None:
+        if value is not None:
+            import re
+
+            if re.fullmatch(r"[A-Z_][A-Z0-9_]*", value) is None:
+                raise ValueError("api_key_env must be an uppercase environment variable name")
+        return value
+
+    @model_validator(mode="after")
+    def validate_selection(self) -> ProviderConfig:
+        if self.kind is ProviderKind.NONE:
+            if (
+                self.provider_id != "none"
+                or self.model_id != "none"
+                or self.model_revision != "none"
+                or self.endpoint is not None
+                or self.api_key_env is not None
+            ):
+                raise ValueError(
+                    "provider.kind='none' requires provider_id, model_id, and "
+                    "model_revision to be 'none' and no endpoint or api_key_env"
+                )
+            return self
+
+        for field_name in ("provider_id", "model_id", "model_revision"):
+            if getattr(self, field_name) == "none":
+                raise ValueError(
+                    f"provider.{field_name} is required when provider.kind is {self.kind.value!r}"
+                )
+        if self.kind is ProviderKind.COMPATIBLE_ENDPOINT and self.endpoint is None:
+            raise ValueError(
+                "provider.endpoint is required for provider.kind='compatible_endpoint'"
+            )
+        return self
+
+
 class Settings(BaseSettings):
     """Top-level settings populated by MODELSURGEON_* environment variables."""
 
@@ -214,6 +295,7 @@ class Settings(BaseSettings):
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
+    provider: ProviderConfig = Field(default_factory=ProviderConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     def canonical_dict(self) -> dict[str, object]:

@@ -26,6 +26,7 @@ _PUBLIC_COMMANDS = (
     "progress",
     "explorer",
     "benchmark",
+    "provider",
 )
 
 

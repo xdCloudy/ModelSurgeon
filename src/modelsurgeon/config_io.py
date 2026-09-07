@@ -18,6 +18,8 @@ _ENV_DELIMITER = "__"
 class ConfigurationFileError(ValueError):
     """Raised when a configuration source cannot be parsed as a settings mapping."""
 
+    code = "configuration_file_error"
+
 
 def _mapping(value: object, *, source: str) -> dict[str, object]:
     if value is None:

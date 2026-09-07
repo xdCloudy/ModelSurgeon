@@ -1,0 +1,26 @@
+{
+  "record_type": "direct_api_provider_configuration_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.2-direct-api-config-v1",
+  "configuration_precedence": ["defaults", "file", "environment", "cli"],
+  "default_provider_kind": "none",
+  "provider_kinds": ["compatible_endpoint", "hosted", "local", "none"],
+  "no_llm_guarantees": [
+    "direct_cli_and_python_optimization_do_not_resolve_a_provider",
+    "no_provider_adapter_is_imported_for_provider_kind_none",
+    "no_conversational_state_is_created_by_direct_optimization",
+    "hard_optimization_policy_is_not_provider_overridable"
+  ],
+  "stable_diagnostic_codes": [
+    "no_llm",
+    "missing_api_key",
+    "adapter_unavailable",
+    "invalid_configuration"
+  ],
+  "secret_policy": {
+    "api_keys": "environment_variable_reference_only",
+    "canonical_settings": "never_include_secret_values",
+    "endpoints": "reject_credentials_query_and_fragment"
+  },
+  "unknown_schema_policy": "refuse"
+}

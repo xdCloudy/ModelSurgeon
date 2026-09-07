@@ -55,6 +55,12 @@ rollback policy, and uncertainties. `plan_id` and `resume_token` are stable
 for equivalent inputs. Treat a plan with `unknown`, `unsupported`, or `failed`
 outcome as evidence, not as permission to execute.
 
+No conversational provider is needed for this API. `Settings()` selects the
+explicit `provider.kind=none` mode; callers that need to inspect provider
+availability can use `modelsurgeon.providers.provider_diagnostics(settings)`.
+Provider configuration is metadata and a bounded request budget only: it does
+not override hard optimization constraints or provide execution authority.
+
 ## HF and GGUF boundaries
 
 For Hugging Face/safetensors, inspect a revision-pinned source with the

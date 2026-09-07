@@ -58,6 +58,34 @@ def test_precedence_is_defaults_file_environment_then_cli(tmp_path: Path) -> Non
     assert settings.calibration.batch_size == 1
 
 
+def test_provider_precedence_can_explicitly_disable_llm(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "provider:\n"
+        "  kind: compatible_endpoint\n"
+        "  provider_id: endpoint\n"
+        "  model_id: model\n"
+        "  model_revision: revision-1\n"
+        "  endpoint: https://provider.example/v1\n",
+        encoding="utf-8",
+    )
+
+    settings = load_settings(
+        path,
+        environ={"MODELSURGEON_PROVIDER__KIND": "hosted"},
+        cli_overrides={
+            "provider.kind": "none",
+            "provider.provider_id": "none",
+            "provider.model_id": "none",
+            "provider.model_revision": "none",
+            "provider.endpoint": None,
+        },
+    )
+
+    assert settings.provider.kind.value == "none"
+    assert settings.provider.endpoint is None
+
+
 def test_nested_cli_overrides_merge_without_erasing_siblings() -> None:
     expanded = expand_dotted_overrides(
         {
