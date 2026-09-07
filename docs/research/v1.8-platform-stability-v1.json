@@ -1,0 +1,22 @@
+{
+  "protocol": "platform-stability-v1",
+  "schema_version": 1,
+  "issue": 409,
+  "scope": "cross-platform numerical metric and artifact stability",
+  "matrix": ["Windows", "WSL", "Linux", "CPU", "CUDA", "float32", "float16", "thread-count", "runtime-revision"],
+  "decision_classes": ["within_tolerance", "expected_variation", "semantic_drift", "artifact_drift", "unknown"],
+  "negative_cells_retained": true,
+  "unsupported_cells_retained": true,
+  "metric_definition_policy": "registry version and changelog marker required for every definition change",
+  "migration_policy": "additive v0-to-v1 only; unknown versions fail closed",
+  "ci_reproduction": [
+    "python -m pytest tests/test_platform_stability.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The PR matrix is deterministic and tiny; scheduled jobs must supply real licensed model and reference-hardware evidence.",
+    "Floating-point equivalence is not asserted across unlike hardware; semantic drift thresholds are explicit per metric.",
+    "Artifact identity is exact only when both sides provide a digest and size."
+  ]
+}
