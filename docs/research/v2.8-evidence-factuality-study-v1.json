@@ -1,0 +1,159 @@
+{
+  "record_type": "bounded_evidence_factuality_study",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.8-evidence-factuality-v1",
+  "status": "bounded_release_threshold_decision",
+  "dependency_evidence": [
+    {
+      "key": "v28-claim-renderer",
+      "issue": 476,
+      "status": "merged",
+      "commit": "5558cbcfaab7de1e61c0ac35a500dd7aff5d172d",
+      "artifacts": ["src/modelsurgeon/explain/claim_evidence.py"],
+      "tests": ["tests/test_claim_evidence.py"]
+    },
+    {
+      "key": "v28-negative-results",
+      "issue": 477,
+      "status": "merged",
+      "commit": "e2dec02c1747e4023ba56d1ba6a3a384447c0022",
+      "artifacts": ["src/modelsurgeon/explain/negative_evidence.py"],
+      "tests": ["tests/test_negative_evidence.py"]
+    },
+    {
+      "key": "v28-pareto-selection",
+      "issue": 478,
+      "status": "merged",
+      "commit": "6b09bf0c7cfa0e6fe35dbbc4700c33f431c42694",
+      "artifacts": ["src/modelsurgeon/explain/pareto_selection.py"],
+      "tests": ["tests/test_pareto_selection.py"]
+    },
+    {
+      "key": "v28-evidence-snapshots",
+      "issue": 475,
+      "status": "merged",
+      "commit": "e0b4940a0b3a9d6dda468b46bcc02de303a492bb",
+      "artifacts": ["src/modelsurgeon/conversation/evidence_query.py"],
+      "tests": ["tests/test_evidence_query.py"]
+    }
+  ],
+  "protocol": {
+    "protocol_id": "v28-evidence-factuality-v1",
+    "fixture": "tests/fixtures/evidence_factuality_study_v1.json",
+    "case_count": 6,
+    "seeds_per_case": 3,
+    "method_count": 3,
+    "retained_cell_count": 54,
+    "negative_and_inconclusive_retained": true,
+    "live_provider_replay": "not_run",
+    "fixed_cpu_bound_seconds": 10.0,
+    "critical_escape_policy": "fail_closed_for_shippability"
+  },
+  "run_id": "evidence_factuality_run_22defbd821679984c060c130906733669b21e8370e6402d868d4d3c0a58697d0",
+  "metrics": {
+    "grounded_renderer": {
+      "gold_claim_count": 33,
+      "predicted_claim_count": 33,
+      "claim_source_precision": 1.0,
+      "claim_source_recall": 1.0,
+      "source_id_correctness": 1.0,
+      "measured_predicted_confusion_rate": 0.0,
+      "negative_evidence_coverage": 1.0,
+      "uncertainty_disclosure": 1.0,
+      "uncertainty_calibration": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "deterministic_ids": 1.0,
+      "critical_escapes": 0,
+      "failures": 0,
+      "negative_claims": 24,
+      "negative_claims_covered": 24,
+      "inconclusive_cells": 6,
+      "passed": true
+    },
+    "template_only": {
+      "gold_claim_count": 33,
+      "predicted_claim_count": 33,
+      "claim_source_precision": 1.0,
+      "claim_source_recall": 1.0,
+      "source_id_correctness": 1.0,
+      "measured_predicted_confusion_rate": 0.0,
+      "negative_evidence_coverage": 1.0,
+      "uncertainty_disclosure": 1.0,
+      "uncertainty_calibration": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "deterministic_ids": 1.0,
+      "critical_escapes": 0,
+      "failures": 0,
+      "negative_claims": 24,
+      "negative_claims_covered": 24,
+      "inconclusive_cells": 6,
+      "passed": true
+    },
+    "unconstrained_text": {
+      "gold_claim_count": 33,
+      "predicted_claim_count": 33,
+      "claim_source_precision": 0.0,
+      "claim_source_recall": 0.0,
+      "source_id_correctness": 0.0,
+      "measured_predicted_confusion_rate": 0.8181818181818182,
+      "negative_evidence_coverage": 0.0,
+      "uncertainty_disclosure": 0.0,
+      "uncertainty_calibration": 0.8181818181818182,
+      "unsupported_claim_rate": 1.0,
+      "deterministic_ids": 1.0,
+      "critical_escapes": 18,
+      "failures": 18,
+      "negative_claims": 24,
+      "negative_claims_covered": 0,
+      "inconclusive_cells": 6,
+      "passed": false
+    }
+  },
+  "release_threshold_decision": {
+    "renderer": "ship_bounded_grounded_renderer",
+    "template_only": "safe_structured_baseline",
+    "unconstrained_text": "never_shippable",
+    "scope": "checked_in_provider_independent_corpus_only"
+  },
+  "retained_failures_and_inconclusive": [
+    {
+      "cell": "unconstrained_text/all_cases/all_seeds",
+      "disposition": "retained_negative_control;critical_escape_fails_closed"
+    },
+    {
+      "cell": "heldout_inconclusive/all_methods/all_seeds",
+      "disposition": "retained_inconclusive_evidence;not_promoted_to_positive"
+    }
+  ],
+  "authority_boundary": {
+    "canonical_evidence_authoritative": true,
+    "source_model_immutable": true,
+    "provider_independent": true,
+    "unconstrained_text_shippable": false
+  },
+  "documentation": [
+    "docs/design/evidence-factuality-study.md",
+    "docs/release/v2.8-evidence-grounding-boundary.md",
+    "docs/research/v2.8-evidence-factuality-study-v1.json"
+  ],
+  "examples": ["docs/examples/evidence_factuality_study.py"],
+  "reproduction_commands": [
+    "uv run python tools/run_evidence_factuality_study.py",
+    "uv run python tools/audit_evidence_factuality_study.py",
+    "uv run python docs/examples/evidence_factuality_study.py"
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "commands": [
+      "git diff --check",
+      "ruff check src tests",
+      "mypy src/modelsurgeon",
+      "pytest -q",
+      "uv run python tools/audit_evidence_factuality_study.py",
+      "uv run python docs/examples/evidence_factuality_study.py"
+    ],
+    "revision": "issue-479-evidence-factuality-study",
+    "outcomes": ["full local quality gate passed", "study audit and example passed"],
+    "known_skips": ["no live provider replay by protocol design"]
+  }
+}
