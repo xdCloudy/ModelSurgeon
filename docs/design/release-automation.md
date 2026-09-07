@@ -4,11 +4,11 @@ The release workflow is deliberately split into build, attestation, and publish 
 
 ## Release trigger and version identity
 
-A maintainer creates and publishes a GitHub Release for a tag such as v0.0.1. The workflow checks out that tag and requires it to match the version in pyproject.toml. A release cannot silently package a different commit or version. Version bumps and the corresponding CHANGELOG.md Unreleased content are explicit repository changes.
+A maintainer creates and publishes a GitHub Release for a tag such as v1.0.0. The workflow checks out that tag and requires it to match the version in pyproject.toml. A release cannot silently package a different commit or version. Version bumps and the corresponding versioned CHANGELOG.md section are explicit repository changes.
 
 ## Build and clean-install gate
 
-The build job creates exactly one sdist and one wheel with uv build. verify_release_artifacts.py checks archive safety, package names, versions, Python requirements, package contents, and the release tag. generate_release_notes.py renders the Unreleased section without changing CHANGELOG.md.
+The build job creates exactly one sdist and one wheel with uv build. verify_release_artifacts.py checks archive safety, package names, versions, Python requirements, package contents, and the release tag. audit_v1_release.py checks the versioned release contract, release notes, and content-addressed reference manifests. generate_release_notes.py renders the matching versioned changelog section without changing CHANGELOG.md.
 
 The wheel is installed into a new Python 3.12 environment before the workflow can continue. The smoke imports the package and CLI app; dependency resolution remains the responsibility of the package index and the wheel metadata.
 

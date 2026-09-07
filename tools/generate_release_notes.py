@@ -1,4 +1,4 @@
-"""Generate release notes from the repository's Unreleased changelog section."""
+"""Generate release notes from a versioned or Unreleased changelog section."""
 
 from __future__ import annotations
 
@@ -7,11 +7,21 @@ import re
 from pathlib import Path
 
 _UNRELEASED = re.compile(r"^## Unreleased\s*$", re.MULTILINE)
-_NEXT_SECTION = re.compile(r"^## (?!Unreleased\b).*$", re.MULTILINE)
+_NEXT_SECTION = re.compile(r"^## .*$", re.MULTILINE)
 
 
 class ReleaseNotesError(ValueError):
-    """Raised when the changelog has no usable Unreleased section."""
+    """Raised when the changelog has no usable release section."""
+
+
+def _section_body(changelog: str, match: re.Match[str], label: str) -> str:
+    start = match.end()
+    next_match = _NEXT_SECTION.search(changelog, start)
+    end = next_match.start() if next_match is not None else len(changelog)
+    body = changelog[start:end].strip()
+    if not body:
+        raise ReleaseNotesError(f"CHANGELOG.md has an empty {label} section")
+    return body
 
 
 def unreleased_body(changelog: str) -> str:
@@ -19,13 +29,19 @@ def unreleased_body(changelog: str) -> str:
     match = _UNRELEASED.search(changelog)
     if match is None:
         raise ReleaseNotesError("CHANGELOG.md has no ## Unreleased section")
-    start = match.end()
-    next_match = _NEXT_SECTION.search(changelog, start)
-    end = next_match.start() if next_match is not None else len(changelog)
-    body = changelog[start:end].strip()
-    if not body:
-        raise ReleaseNotesError("CHANGELOG.md has an empty ## Unreleased section")
-    return body
+    return _section_body(changelog, match, "## Unreleased")
+
+
+def release_body(changelog: str, version: str) -> str:
+    """Return the matching version section, falling back to Unreleased."""
+    normalized = version.strip().removeprefix("v")
+    if not normalized:
+        raise ReleaseNotesError("release version cannot be empty")
+    pattern = re.compile(rf"^## {re.escape(normalized)}(?:\s|$).*$", re.MULTILINE)
+    match = pattern.search(changelog)
+    if match is not None:
+        return _section_body(changelog, match, f"## {normalized}")
+    return unreleased_body(changelog)
 
 
 def render_release_notes(changelog: str, version: str) -> str:
@@ -33,7 +49,7 @@ def render_release_notes(changelog: str, version: str) -> str:
     version = version.strip()
     if not version:
         raise ReleaseNotesError("release version cannot be empty")
-    return f"# ModelSurgeon {version}\n\n{unreleased_body(changelog)}\n"
+    return f"# ModelSurgeon {version}\n\n{release_body(changelog, version)}\n"
 
 
 def main() -> int:

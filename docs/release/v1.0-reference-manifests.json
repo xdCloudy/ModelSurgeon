@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "release": "v1.0.0",
+  "purpose": "Content-addressed index of the checked-in evidence and fixture manifests used by the v1.0 release audit.",
+  "manifests": [
+    {
+      "path": "docs/architecture-compatibility.md",
+      "kind": "compatibility-matrix",
+      "sha256": "694b00e8766397e33bd85f7841d4bffb1933a709e6e549b5f6f8c90b662fa6fc"
+    },
+    {
+      "path": "docs/research/v1.0-scientific-results.json",
+      "kind": "scientific-results",
+      "sha256": "810294f94221ced5b9639d89f6cf5fe8bcc90e49f8bc98bc8b7218e9491f42cb"
+    },
+    {
+      "path": "docs/research/v1.0-performance-regression-evidence.md",
+      "kind": "performance-regression",
+      "sha256": "dc6983615e0ffcb4fda7f9dec719cb3ec9019c693fdbe04f1ca36a2501a6c0b0"
+    },
+    {
+      "path": "docs/research/v1.0-windows-wsl-consumer-evidence.md",
+      "kind": "consumer-platform",
+      "sha256": "97071cf56f81ec96df32fb55758232ff15a91b328632c5be9d6333f995fbbc96"
+    },
+    {
+      "path": "tests/fixtures/tiny_hf_models_v1.json",
+      "kind": "integration-fixtures",
+      "sha256": "8ca381b2993e31904a32f7607027cf319a5b999dafbabc263f3aa6198fc8475c"
+    }
+  ]
+}

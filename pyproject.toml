@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "modelsurgeon"
-version = "0.0.1"
+version = "1.0.0"
 description = "Learned automated structural optimization and pruning for neural networks"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -30,18 +30,18 @@ def _metadata() -> bytes:
     return (
         b"Metadata-Version: 2.3\n"
         b"Name: modelsurgeon\n"
-        b"Version: 0.0.1\n"
+        b"Version: 1.0.0\n"
         b"Requires-Python: >=3.12\n\n"
     )
 
 
 def _write_test_dist(path: Path) -> None:
     path.mkdir()
-    with zipfile.ZipFile(path / "modelsurgeon-0.0.1-py3-none-any.whl", "w") as archive:
+    with zipfile.ZipFile(path / "modelsurgeon-1.0.0-py3-none-any.whl", "w") as archive:
         archive.writestr("modelsurgeon/__init__.py", "")
-        archive.writestr("modelsurgeon-0.0.1.dist-info/METADATA", _metadata())
-    with tarfile.open(path / "modelsurgeon-0.0.1.tar.gz", "w:gz") as archive:
-        info = tarfile.TarInfo("modelsurgeon-0.0.1/PKG-INFO")
+        archive.writestr("modelsurgeon-1.0.0.dist-info/METADATA", _metadata())
+    with tarfile.open(path / "modelsurgeon-1.0.0.tar.gz", "w:gz") as archive:
+        info = tarfile.TarInfo("modelsurgeon-1.0.0/PKG-INFO")
         payload = _metadata()
         info.size = len(payload)
         archive.addfile(info, io.BytesIO(payload))
@@ -51,9 +51,9 @@ def test_release_artifact_verifier_checks_both_archive_types(tmp_path: Path) -> 
     dist = tmp_path / "dist"
     _write_test_dist(dist)
 
-    assert verify_release_artifacts(dist, project=ROOT / "pyproject.toml", tag="v0.0.1") == (
-        dist / "modelsurgeon-0.0.1-py3-none-any.whl",
-        dist / "modelsurgeon-0.0.1.tar.gz",
+    assert verify_release_artifacts(dist, project=ROOT / "pyproject.toml", tag="v1.0.0") == (
+        dist / "modelsurgeon-1.0.0-py3-none-any.whl",
+        dist / "modelsurgeon-1.0.0.tar.gz",
     )
 
 
