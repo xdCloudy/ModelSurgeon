@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a bounded multi-machine hardware-selection study contract with three-profile
+  coverage, repeated host/run evidence, deterministic hardware-aware versus blind
+  comparisons, provenance capture, and explicit negative or inconclusive claims.
 - Add hardware-conditioned search candidates with placement-aware identity,
   uncertainty-conservative hard constraints, measured-evidence promotion gates,
   deployment-objective ranking, and hardware-preserving resume/report/lineage records.
