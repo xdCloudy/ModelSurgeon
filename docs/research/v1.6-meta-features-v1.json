@@ -1,0 +1,19 @@
+{
+  "record_type": "architecture_normalized_meta_feature_schema",
+  "schema_version": 1,
+  "protocol_revision": "meta-features-v1",
+  "numeric_fields": [
+    "relative_layer_depth",
+    "width_to_hidden_ratio",
+    "heads_to_kv_heads_ratio",
+    "log_parameter_count",
+    "state_value_mean"
+  ],
+  "categorical_fields": ["architecture_family", "structural_role", "quantization", "hardware_profile"],
+  "source_fit_policy": "numeric statistics, vocabularies, and mutation-history tokens are fitted from source samples only",
+  "unknown_policy": "missing fields and unseen target categories retain explicit masks and unknown status",
+  "unsupported_policy": "MoE numeric transfer fields are unsupported unless explicitly enabled",
+  "audit_outputs": ["coverage_report", "compatibility_matrix", "schema_id", "source_lineage"],
+  "claim_boundary": "No cross-model comparability claim when required fields are unknown or unsupported.",
+  "reproduction": "fit_meta_feature_normalizer()"
+}
