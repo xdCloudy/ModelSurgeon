@@ -32,7 +32,8 @@ def test_scientific_manifest_hashes_and_claim_links_are_complete() -> None:
         assert evidence.exists()
         assert evidence_record.exists()
         if artifact["sha256"] is not None:
-            digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+            canonical_bytes = evidence.read_bytes().replace(b"\r\n", b"\n")
+            digest = hashlib.sha256(canonical_bytes).hexdigest()
             assert digest == artifact["sha256"]
 
     for claim in manifest["claims"]:
