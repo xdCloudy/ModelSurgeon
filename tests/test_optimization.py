@@ -125,3 +125,24 @@ def test_cli_dry_run_emits_json_without_creating_artifacts(tmp_path: Path) -> No
     assert record["outcome"] == "supported"
     assert record["dry_run"] is True
     assert output.is_file()
+
+
+def test_cli_no_llm_path_is_supported_without_provider_configuration() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "optimize",
+            "--model",
+            "models/tiny",
+            "--revision",
+            "abc123",
+            "--no-llm",
+            "--json",
+        ],
+        color=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    record = json.loads(result.output)
+    assert record["outcome"] == "supported"
+    assert record["resolved_config"]["provider"]["kind"] == "none"

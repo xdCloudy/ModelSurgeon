@@ -67,9 +67,12 @@ API-key forms before serialization.
 
 `NullTextModelProvider` advertises no capabilities and returns explicit
 `UNSUPPORTED` results. It is useful for callers that want one provider-shaped
-configuration while preserving the direct CLI and Python APIs. No provider is
-required to inspect models, compile an optimization plan, or execute a
-campaign.
+configuration while preserving the direct CLI and Python APIs. The optional
+`Settings.provider` section and `modelsurgeon provider diagnostics` command
+select or diagnose that boundary without starting a provider. Unavailable
+configured adapters fail closed with a stable diagnostic rather than falling
+back silently. No provider is required to inspect models, compile an
+optimization plan, or execute a campaign.
 
 Future provider implementations may target local GGUF runtimes, compatible
 endpoints, hosted providers, or another allowlisted runtime. They must conform

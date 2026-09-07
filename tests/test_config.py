@@ -10,8 +10,10 @@ from modelsurgeon.config import (
     MemoryMode,
     ObjectiveConfig,
     OptimizeMetric,
+    ProviderConfig,
     Settings,
 )
+from modelsurgeon.provider_kind import ProviderKind
 
 
 def test_safe_defaults() -> None:
@@ -23,6 +25,8 @@ def test_safe_defaults() -> None:
     assert settings.hardware.cpu_offload is True
     assert settings.model.format is ModelFormat.HUGGING_FACE
     assert settings.objective.quality_retention == 0.98
+    assert settings.provider.kind is ProviderKind.NONE
+    assert settings.provider.provider_id == "none"
 
 
 @pytest.mark.parametrize(
@@ -36,6 +40,18 @@ def test_safe_defaults() -> None:
         {"objective": {"max_perplexity_increase": -0.1}},
         {"hardware": {"max_vram_gb": 0}},
         {"model": {"path": "  "}},
+        {"provider": {"kind": "none", "provider_id": "hosted"}},
+        {"provider": {"kind": "compatible_endpoint", "provider_id": "p"}},
+        {"provider": {"kind": "local", "api_key_env": "not-uppercase"}},
+        {
+            "provider": {
+                "kind": "hosted",
+                "provider_id": "p",
+                "model_id": "m",
+                "model_revision": "r",
+                "endpoint": "https://user:pass@example.test",
+            }
+        },
     ],
 )
 def test_invalid_limits_and_unknown_keys_are_rejected(payload: dict[str, object]) -> None:
@@ -86,4 +102,23 @@ def test_configuration_sections_are_immutable() -> None:
 
     with pytest.raises(ValidationError):
         settings.hardware.max_vram_gb = 12  # type: ignore[misc]
+
+
+def test_provider_config_requires_complete_non_null_identity() -> None:
+    with pytest.raises(ValidationError, match=r"provider\.model_id"):
+        ProviderConfig(
+            kind=ProviderKind.LOCAL,
+            provider_id="local",
+            model_revision="revision-1",
+        )
+
+    configured = ProviderConfig(
+        kind=ProviderKind.COMPATIBLE_ENDPOINT,
+        provider_id="endpoint",
+        model_id="model",
+        model_revision="revision-1",
+        endpoint="https://provider.example/v1",
+        api_key_env="MODELSURGEON_PROVIDER_KEY",
+    )
+    assert configured.endpoint == "https://provider.example/v1"
 

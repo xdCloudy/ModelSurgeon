@@ -17,6 +17,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 from modelsurgeon.conversation.intent import IntentRecord, IntentRecordError
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.provider_kind import ProviderKind
 
 TEXT_PROVIDER_SCHEMA_VERSION: Literal[1] = 1
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -32,13 +33,6 @@ type JSONValue = (
 
 class ProviderContractError(ValueError):
     """Raised when a provider contract value is unsafe or malformed."""
-
-
-class ProviderKind(StrEnum):
-    LOCAL = "local"
-    COMPATIBLE_ENDPOINT = "compatible_endpoint"
-    HOSTED = "hosted"
-    NONE = "none"
 
 
 class ProviderCapability(StrEnum):

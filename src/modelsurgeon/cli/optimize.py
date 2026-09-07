@@ -14,6 +14,7 @@ from modelsurgeon.optimization import (
     build_optimize_plan,
     write_optimize_plan,
 )
+from modelsurgeon.provider_kind import ProviderKind
 
 
 def optimize_command(
@@ -29,6 +30,41 @@ def optimize_command(
         str | None,
         typer.Option("--revision", help="Immutable source model revision"),
     ] = None,
+    provider: Annotated[
+        ProviderKind | None,
+        typer.Option(
+            "--provider",
+            "--provider-kind",
+            help="Optional text-model provider kind; none keeps the direct no-LLM path",
+        ),
+    ] = None,
+    provider_id: Annotated[
+        str | None,
+        typer.Option("--provider-id", help="Configured provider identity"),
+    ] = None,
+    provider_model: Annotated[
+        str | None,
+        typer.Option("--provider-model", help="Configured text-model identity"),
+    ] = None,
+    provider_revision: Annotated[
+        str | None,
+        typer.Option("--provider-revision", help="Immutable text-model revision"),
+    ] = None,
+    provider_endpoint: Annotated[
+        str | None,
+        typer.Option("--provider-endpoint", help="Absolute compatible-provider endpoint"),
+    ] = None,
+    provider_api_key_env: Annotated[
+        str | None,
+        typer.Option(
+            "--provider-api-key-env",
+            help="Environment variable containing a provider key",
+        ),
+    ] = None,
+    no_llm: Annotated[
+        bool,
+        typer.Option("--no-llm", help="Explicitly disable conversational provider use"),
+    ] = False,
     preset: Annotated[
         str,
         typer.Option(help="Bounded optimization preset: fast, balanced, or quality"),
@@ -64,6 +100,29 @@ def optimize_command(
         overrides["model.path"] = model
     if revision is not None:
         overrides["model.revision"] = revision
+    if no_llm:
+        overrides.update(
+            {
+                "provider.kind": ProviderKind.NONE.value,
+                "provider.provider_id": "none",
+                "provider.model_id": "none",
+                "provider.model_revision": "none",
+                "provider.endpoint": None,
+                "provider.api_key_env": None,
+            }
+        )
+    else:
+        provider_overrides = {
+            "provider.kind": provider,
+            "provider.provider_id": provider_id,
+            "provider.model_id": provider_model,
+            "provider.model_revision": provider_revision,
+            "provider.endpoint": provider_endpoint,
+            "provider.api_key_env": provider_api_key_env,
+        }
+        overrides.update(
+            {key: value for key, value in provider_overrides.items() if value is not None}
+        )
     try:
         settings = load_settings(config, cli_overrides=overrides)
         plan = build_optimize_plan(

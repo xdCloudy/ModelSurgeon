@@ -88,6 +88,22 @@ uv run modelsurgeon inspect HuggingFaceTB/SmolLM2-135M \
 
 Add `--json` for machine-readable model and component records.
 
+The direct optimize workflow does not require a text model or conversational
+dependency. Use the explicit no-LLM mode in automation when desired:
+
+```bash
+uv run modelsurgeon optimize \
+  --model models/tiny-supported \
+  --revision sha256:replace-with-an-immutable-revision \
+  --no-llm --json
+```
+
+Provider selection is optional and fail-closed. Inspect the resolved provider
+configuration without starting a model with
+`uv run modelsurgeon provider diagnostics --json`; see the
+[configuration contract](docs/design/configuration.md) for precedence,
+redaction, and supported/unavailable outcomes.
+
 ## CLI workflows
 
 The public CLI exposes the stable orchestration boundary. Lower-level HF and GGUF surgery APIs remain library-level while their end-user contracts are stabilized for v1.0.
