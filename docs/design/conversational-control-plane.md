@@ -1,7 +1,8 @@
 # Conversational control-plane design
 
 Status: the v2.1 canonical intent-record boundary, bounded objective-contract
-compiler, policy evaluator, and equivalence/refusal corpus, the v2.2
+compiler, policy evaluator, and equivalence/refusal corpus, the deterministic
+v2.4 clarification state machine, the v2.2
 replaceable provider boundary, the experimental v2.3 chat bootstrap, the
 v2.6 bounded conversational tool boundary, and the v2.7 canonical campaign
 state store are implemented and frozen in
@@ -67,6 +68,14 @@ v2.1 compiles a structured intent record into the existing stable v2 objective a
 Every result carries the original request, normalized interpretation, confidence/ambiguity information, schema/version identity, deterministic serialization and provenance. Confidence describes interpretation quality only; it is never evidence that a candidate surgery is safe.
 
 Missing hard constraints are unresolved. The compiler never invents a threshold because a provider suggests one, and later negotiation always creates an explicit objective amendment with a visible diff and approval. Fields that the current objective contract cannot represent, such as budgets, allowed operations, or deployment targets, produce an explicit unsupported result rather than being dropped.
+
+The v2.4 clarification state machine sits after policy evaluation. It asks only
+for fields required to make the objective executable, retains exact root and
+derived intent records, and re-runs the same compiler and policy boundary after
+each typed answer. Unsupported, contradictory, repeated, cancelled and
+incomplete transitions remain canonical records; no answer can approve
+execution or remove a hard constraint. See the [clarification state-machine
+design](clarification-state-machine.md).
 
 ## Provider abstraction
 
