@@ -1,0 +1,44 @@
+{
+  "protocol": "hostile-fuzz-v1",
+  "schema_version": "1.0",
+  "issue": 406,
+  "scope": "bounded malformed input corpus and parser boundary harnesses",
+  "seed": 406,
+  "cpu_hour_budget": 0.25,
+  "max_total_bytes": 524288,
+  "input_boundaries": [
+    "hf_checkpoint",
+    "safetensors",
+    "gguf",
+    "config",
+    "manifest",
+    "path",
+    "subprocess"
+  ],
+  "limits": {
+    "max_input_bytes": 65536,
+    "max_output_bytes": 65536,
+    "timeout_seconds": 2.0,
+    "max_memory_bytes": 268435456,
+    "max_disk_bytes": 262144
+  },
+  "results": {
+    "executions": 7,
+    "crashes": 0,
+    "hangs": 0,
+    "path_escapes": 0,
+    "excessive_allocation": 0,
+    "partial_publications": 0,
+    "zero_finding_result_retained": true
+  },
+  "reproduction": [
+    "python -m pytest tests/test_validation.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The minimal CI corpus is not a claim of exhaustive parser coverage.",
+    "Memory ceilings are admission and output-artifact ceilings; deployments should add an OS sandbox for hostile external binaries.",
+    "Licensed model weights are intentionally excluded; real-artifact campaigns must record their own license-safe fixture provenance."
+  ]
+}

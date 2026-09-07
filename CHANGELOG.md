@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a deterministic, license-safe hostile-input corpus for HF, safetensors,
+  GGUF, config, manifest, path, and subprocess boundaries with content-addressed
+  manifests, bounded runners, timeout/resource/path-escape outcomes, and retained
+  zero-finding campaign evidence.
 - Add a matched repair/recoverability dataset contract with exact no-repair controls,
   budget/method metadata, held-out evidence, immutable artifact lineage, complete cost and
   provenance records, group-disjoint splits, and retained failed, unsupported, and unknown cells.
