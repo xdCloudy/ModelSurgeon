@@ -1,12 +1,13 @@
 # Conversational control-plane design
 
-Status: the v2.1 canonical intent-record boundary and bounded objective-contract
-compiler are implemented in `modelsurgeon.conversation` and
-`modelsurgeon.search.intent_compiler`, and the v2.2 replaceable provider
-contract is implemented in `modelsurgeon.conversation`. The conversational
-product remains planned. This document is normative for the separation of
-responsibilities and is not a claim that the full conversational product is
-currently implemented.
+Status: the v2.1 canonical intent-record boundary, bounded objective-contract
+compiler, policy evaluator, and equivalence/refusal corpus are implemented and
+frozen in `modelsurgeon.conversation` and `modelsurgeon.search`. The v2.2
+replaceable provider contract is available as bounded infrastructure, but the
+conversational product remains planned. The [frozen v2.1 contract](conversational-intent-contract.md)
+and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
+are normative for versioning and replay. This document is not a claim that the
+full conversational product is currently implemented.
 
 ## Purpose
 
@@ -49,7 +50,7 @@ The learned Meta-Surgeon and the text LLM are different models with different re
 
 ## Request compilation
 
-v2.1 compiles a structured intent record into the existing stable v2 objective and constraint schema. It does not introduce a parallel optimization schema. A compiler result is one of:
+v2.1 compiles a structured intent record into the existing stable v2 objective and constraint schema. It does not introduce a parallel optimization schema. The exact frozen boundary is documented in [conversational-intent-contract.md](conversational-intent-contract.md). A compiler result is one of:
 
 - `executable`: all required fields validate and the spec is safe to submit;
 - `clarification_required`: a bounded missing or ambiguous field prevents execution;

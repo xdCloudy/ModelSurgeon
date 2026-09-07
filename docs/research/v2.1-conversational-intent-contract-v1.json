@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "record_type": "v2.1_conversational_intent_contract_freeze",
+  "status": "frozen",
+  "milestone": "v2.1 — Natural-language OptimizationSpec Compiler",
+  "stable_optimization_schema": {
+    "name": "OptimizationSpec",
+    "owner": "modelsurgeon.search.objective_contract.ObjectiveContract",
+    "schema_version": 1,
+    "record_method": "ObjectiveContract.to_record",
+    "definition": "docs/research/v2.0-objective-contract-v1.json",
+    "invariant": "The conversational boundary may compile to this schema but never introduces a parallel optimization schema."
+  },
+  "versioned_components": [
+    {
+      "name": "intent_records",
+      "owner": "modelsurgeon.conversation.IntentRecord",
+      "schema_version": 1,
+      "definition": "docs/research/v2.1-intent-records-v1.json"
+    },
+    {
+      "name": "intent_compiler",
+      "owner": "modelsurgeon.search.intent_compiler",
+      "schema_version": 1,
+      "definition": "docs/research/v2.1-intent-compiler-v1.json"
+    },
+    {
+      "name": "intent_policy",
+      "owner": "modelsurgeon.search.intent_policy",
+      "schema_version": 1,
+      "definition": "docs/research/v2.1-intent-policy-v1.json"
+    },
+    {
+      "name": "equivalence_refusal_corpus",
+      "owner": "modelsurgeon.search.intent_corpus",
+      "schema_version": 1,
+      "definition": "docs/research/v2.1-intent-compiler-corpus-v1.json",
+      "fixtures": "tests/fixtures/intent_compiler_corpus_v1.json"
+    }
+  ],
+  "outcomes": [
+    "executable",
+    "clarification_required",
+    "unsupported",
+    "refused"
+  ],
+  "supported_field_kinds": [
+    "hard_constraint",
+    "constraint",
+    "soft_objective",
+    "objective",
+    "preference"
+  ],
+  "unsupported_field_kinds": [
+    "budget",
+    "allowed_operation",
+    "deployment_target"
+  ],
+  "safety_invariants": [
+    "Hard constraints are preserved exactly and are never inferred from confidence or provider output.",
+    "Only an executable policy decision may carry an OptimizationSpec.",
+    "Confidence describes interpretation quality, not surgery safety or measured optimization evidence.",
+    "Unsupported, refused, failed, and inconclusive evidence remains retained and inspectable.",
+    "The compiler is side-effect free and has no tensor-selection, mutation, or optimizer-strategy authority.",
+    "Unknown schema versions and contract drift fail closed."
+  ],
+  "compatibility": {
+    "canonicalization": "sorted compact UTF-8 JSON with deterministic diagnostic ordering",
+    "unknown_schema_policy": "refuse",
+    "additive_change_policy": "Additive record fields require an explicitly compatible reader and regression coverage.",
+    "breaking_change_policy": "A changed field meaning, outcome, identity rule, or boundary requires a new schema version and migration test.",
+    "provenance_policy": "Original request, source links, provider/tool provenance, diagnostics, and negative outcomes remain part of the replay record."
+  },
+  "current_availability": {
+    "implemented": [
+      "Canonical typed intent records",
+      "Deterministic compiler to the existing ObjectiveContract",
+      "Fail-closed ambiguity and confidence policy evaluation",
+      "Versioned equivalence/refusal corpus and retained negative results",
+      "Direct CLI/Python optimization without a conversational provider"
+    ],
+    "planned": [
+      "modelsurgeon chat user experience",
+      "Provider-backed conversational clarification loop",
+      "Conversational campaign state, tool execution, and evidence-grounded explanations"
+    ],
+    "availability_rule": "Implemented boundary artifacts do not imply that the full conversational product is available."
+  },
+  "replay_protocol": {
+    "focused_command": "uv run pytest tests/test_v21_intent_contract.py tests/test_intent_compiler.py tests/test_intent_policy.py tests/test_intent_corpus.py",
+    "quality_gate": [
+      "uv run ruff check .",
+      "uv run mypy src",
+      "uv run pytest --cov=modelsurgeon --cov-report=term-missing"
+    ],
+    "environment": "Python 3.12 with the project-managed uv.lock environment",
+    "known_skips": [
+      "No provider-backed compiler implementation is registered; the corpus runs the built-in compiler and its public entrypoint aliases.",
+      "Full-model, GPU, llama.cpp, and long-running evidence workflows are outside the bounded v2.1 contract gate."
+    ],
+    "retention_rule": "Unavailable implementations and failed or inconclusive cases are recorded as known skips or retained negative evidence; they are never converted to a passing compiler result."
+  }
+}

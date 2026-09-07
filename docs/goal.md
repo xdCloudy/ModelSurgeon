@@ -170,7 +170,7 @@ This lets each layer improve independently.
 
 ## Structured intent, not prompt-driven surgery
 
-Natural-language requests should be compiled into an explicit contract before optimization begins.
+Natural-language requests should be compiled into an explicit contract before optimization begins. For v2.1, the existing v2 `OptimizationSpec`/`ObjectiveContract` is frozen as the only optimization schema; the conversational compiler records intent and policy decisions around it rather than replacing it.
 
 For example:
 
@@ -201,7 +201,7 @@ search:
   evaluation_budget: 500
 ```
 
-The exact schema will evolve, but the principle should remain stable: **the user’s request becomes inspectable data before destructive work begins**.
+The v2.1 schema boundary is versioned in the [frozen conversational intent contract](design/conversational-intent-contract.md); later product layers may evolve, but the principle remains stable: **the user’s request becomes inspectable data before destructive work begins**.
 
 That creates a clear chain of responsibility:
 
