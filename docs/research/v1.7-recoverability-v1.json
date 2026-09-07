@@ -1,0 +1,14 @@
+{
+  "record_type": "repair_recoverability_predictor_protocol",
+  "schema_version": 1,
+  "protocol_revision": "repair-recoverability-v1",
+  "targets": ["heldout_quality_gain", "repair_success_probability", "no_repair_decision"],
+  "conditional_axes": ["repair_method", "budget_name"],
+  "required_control": "no_repair_zero_budget",
+  "outcomes": ["measured", "negative_result", "unsupported", "unknown", "failed"],
+  "calibration": ["validation_absolute_residual_interval", "laplace_success_probability"],
+  "baselines": ["damage_only", "global_action_mean"],
+  "leakage_rule": "model, state, and candidate identities are disjoint across train/validation/test",
+  "policy": "repair only when lower gain interval and success threshold pass; otherwise choose measured no-repair or abstain",
+  "reproduction": "fit_recoverability_predictors() and RecoverabilityStudy.decide()"
+}
