@@ -478,7 +478,11 @@ Potential milestones include:
 - **closed v2.7 stateful campaigns:** canonical pause, resume, cancel,
   reconnect, restart, stale-context handling, bounded summaries and recovery
   evidence, with direct structured APIs authoritative over chat;
-- evidence-grounded explanations of accepted and rejected surgeries;
+- **closed v2.8 evidence-grounded explanations:** typed canonical query/report
+  projections for measured, prediction-only, rejected, rolled-back, failed,
+  unsupported, unknown, inconclusive, and measured Pareto outcomes; every
+  factual claim is source-traceable and qualified, negative evidence and
+  uncertainty remain visible, and direct/report APIs stay authoritative;
 - conversational approval gates for expensive or consequential actions;
 - prompt-injection and tool-boundary hardening;
 - chat as the primary user experience by v3.0 while preserving direct CLI/Python access.
@@ -494,7 +498,7 @@ The execution breakdown is intentionally staged so the conversational layer does
 | v2.5 | Explain measured infeasibility and present Pareto alternatives without silently changing constraints. | v2.4 plus v2.0 evidence/approval primitives. | **Closed:** the release boundary permits grounded measured-only alternatives with v2.0-scoped, immutable, user-approved objective amendments; direct APIs preserve objective history; prediction-only alternatives remain never shippable and negative/unsupported/inconclusive outcomes remain visible. |
 | v2.6 | Bound every text-model action behind typed, capability-scoped tools and budgets. | v2.2 provider contracts and v1.9/v2.0 plugin, transaction and provenance work. | **Frozen:** allowlists, read-only/consequential separation, approval/transaction gates, grounded results, deterministic replay and adversarial tests; live providers, campaigns and hostile-process containment remain unclaimed. |
 | v2.7 | **Closed by #474:** persist canonical campaign state and recover across pause, resume, cancel, reconnect, restart, stale/expired context and bounded summaries. | v2.3, v2.6, v1.9 resumability and v2.0 campaign state. | Versioned [release boundary](release/v2.7-stateful-campaigns-boundary.md): structured state remains authoritative, supported recovery is deterministic, and unsupported concurrency/distributed recovery is explicit. |
-| v2.8 | Explain measured outcomes, uncertainty, failures, rollbacks and selection decisions from canonical evidence. | v2.6 grounding, v2.7 state and v2.0 evidence packages. | Every factual claim is traceable; negative evidence remains visible. |
+| v2.8 | **Closed by #480:** explain measured outcomes, prediction-only decisions, uncertainty, failures, rollbacks and selection decisions from canonical evidence. | v2.6 grounding, v2.7 state, v2.0 evidence packages, and merged #475–#479. | Versioned [release boundary](release/v2.8-evidence-grounding-boundary.md) and [manifest](research/v2.8-evidence-grounding-release-v1.json): source-traceable qualified claims, retained negative/unknown/inconclusive evidence, canonical direct/report APIs, factuality thresholds, fail-closed audit, and explicit limitations. |
 | v2.9 | Add scoped approvals, plan diffs, provider/tool isolation, injection resistance and fail-closed policy precedence. | v2.6, v2.8 and v1.8-v2.0 security/provenance primitives. | Reviewed conversational control plane with explicit residual risk. |
 | v3.0 | Make conversation the primary UX while preserving direct CLI/Python automation and local-first operation. | v2.1-v2.9 exit criteria and v2.0 release evidence. | Integrated setup, diagnostics, campaign, explanation, approval, migration, packaging and end-to-end acceptance. |
 

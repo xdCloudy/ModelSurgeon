@@ -147,9 +147,9 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 [GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/28). **Closed by issue #474.** The versioned [v2.7 stateful campaign release boundary](docs/release/v2.7-stateful-campaigns-boundary.md) reconciles merged #469 canonical state, #470 lifecycle/recovery, #471 stale replanning, #472 summary authority, and #473 recovery evidence. The exit is deterministic recovery with structured state authoritative over chat history, stale/expired paths failing closed, and unsupported multi-writer/distributed recovery stated explicitly.
 
-## v2.8 — Evidence-grounded Explanations
+## v2.8 — Evidence-grounded Explanations (closed)
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/29). Explain accepted, rejected, rolled-back, failed, unsupported, uncertain and Pareto outcomes using canonical evidence. Entry is v2.6 result grounding, v2.7 state and v2.0 evidence packages; exit is claim-to-evidence traceability, explicit uncertainty and retained negative results. The conversational layer may summarize evidence but cannot manufacture it.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/29). **Closed by issue #480.** The versioned [v2.8 evidence-grounding release boundary](docs/release/v2.8-evidence-grounding-boundary.md) and [evidence manifest](docs/research/v2.8-evidence-grounding-release-v1.json) reconcile merged #475 evidence queries, #476 claim rendering, #477 negative evidence, #478 measured Pareto selection, and #479 factuality study. The exit is source-traceable and qualified claims, retained negative/unknown/uncertain evidence, direct/report API authority, strict factuality thresholds, and explicit unsupported/deferred explanation types. Optimizer proof, unavailable measurements, live provider quality, and unbounded narrative authority remain unclaimed.
 
 ## v2.9 — Approval Gates and Conversational Security Hardening
 

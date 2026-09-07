@@ -42,9 +42,9 @@ flowchart TD
   D --> P
 ```
 
-## Conversational control plane (v2.7 stateful campaigns closed; product planned for v2.8–v3.0)
+## Conversational control plane (v2.7 stateful campaigns and v2.8 evidence grounding closed; product planned for v2.9–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, v2.6 typed tool boundary, and the **closed v2.7 stateful campaign boundary** are implemented and frozen. The conversational product remains planned; the tool boundary and state store are not a general agent runtime or an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md), the [v2.7 release boundary](docs/release/v2.7-stateful-campaigns-boundary.md), and [canonical campaign state design](docs/design/conversational-campaign-state.md).
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, v2.6 typed tool boundary, **closed v2.7 stateful campaign boundary**, and **closed v2.8 evidence-grounding boundary** are implemented and frozen. The conversational product remains planned; the tool boundary, state store, and explanation projections are not a general agent runtime, alternate optimizer, or proof authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md), the [v2.7 release boundary](docs/release/v2.7-stateful-campaigns-boundary.md), the [v2.8 release boundary](docs/release/v2.8-evidence-grounding-boundary.md), and [canonical campaign state design](docs/design/conversational-campaign-state.md).
 
 ```text
 User request
@@ -72,7 +72,7 @@ The planned boundary has four non-negotiable properties:
 - Consequential calls pass through typed capabilities, transaction boundaries, existing approval gates and fail-closed validation. Provider secrets and untrusted text/metadata/tool output remain outside trusted evidence fields.
 - The v2.3 vertical slice keeps the optimizer's JSON stage cursor separate from the #469 WAL-backed campaign record. Accepted, rejected, unsupported, failed, paused, cancelled and no-artifact outcomes retain canonical engine evidence; only an accepted immutable digest can cross the artifact boundary.
 
-The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; **v2.7 closes canonical campaign state and bounded recovery**; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security with the versioned [adversarial resistance corpus](docs/testing/adversarial-resistance.md); v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
+The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; **v2.7 closes canonical campaign state and bounded recovery**; **v2.8 closes bounded evidence-grounded explanations**; v2.9 hardens approvals and security with the versioned [adversarial resistance corpus](docs/testing/adversarial-resistance.md); v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers, live external evidence, optimizer proof, or measurements absent from a canonical report.
 
 The v2.7 recovery guarantee is tested by a bounded fixture matrix, not by a
 successful UI reconnect. Recovery compares canonical state, evidence cursors,
@@ -235,6 +235,16 @@ explanation projection. It joins allowlisted mutation, evaluation and rollback
 records, preserves metric direction/unit/threshold/uncertainty and full
 lineage, and emits explicit incomplete/unknown fields. Unsupported is not
 failed, unknown is not rejected, and rollback is never an acceptance claim.
+
+The closed v2.8 boundary composes this query with the claim renderer and
+measured Pareto-selection explanation. Direct evidence/report APIs remain
+canonical; chat, HTML, provider output, and transcript text are projections or
+untrusted context. Every factual claim carries source identity or an explicit
+unavailable marker. Prediction-only decisions are never measurements, and the
+boundary does not claim optimizer optimality/proof, live provider quality,
+unmeasured hardware results, or causal attribution without canonical
+intervention evidence. See the [v2.8 release design](docs/design/evidence-grounding-release.md)
+and [machine-readable release manifest](docs/research/v2.8-evidence-grounding-release-v1.json).
 
 ## Surgeon training and active learning
 

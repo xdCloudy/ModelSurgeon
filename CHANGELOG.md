@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+  - Closed the v2.8 evidence-grounded explanations milestone for issue #480.
+    Added a versioned release boundary and fail-closed evidence manifest that
+    reconcile merged #475 canonical evidence queries, #476 claim rendering,
+    #477 negative evidence, #478 measured Pareto selection, and #479 factuality
+    study evidence. The acceptance boundary requires source-traceable and
+    qualified claims, retained negative/unknown/inconclusive outcomes and
+    uncertainty, canonical direct/report APIs, strict factuality thresholds,
+    explicit supported/unsupported/unknown limitations, deferred explanation
+    types, and duplicate-scope review against #420, #411, and #429. Optimizer
+    proof, unavailable measurements, live provider quality, and unbounded
+    narrative authority remain unclaimed.
+
   - Added the issue #482 v2.9 adversarial resistance corpus and deterministic
     audit for prompt injection, instruction smuggling, hostile provider/model
     metadata, forged evidence, secret requests, path attempts, conflicting

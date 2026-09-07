@@ -49,3 +49,11 @@ print(explanation.render_text())
 The renderer is an explanation layer, not a measurement authority. Only
 `EvidenceMeasurement` values present in the canonical query envelope can appear
 as measurements.
+
+At the v2.8 release boundary, an accepted row without a canonical measurement
+is prediction-only; the renderer never supplies a value from provider text or
+an unavailable field. Source identity, uncertainty, negative outcomes, and
+explicit unavailable markers are part of the acceptance contract. Optimizer
+proof, live provider quality, and broad language-model factuality are deferred;
+the bounded release decision is recorded in the [evidence-grounding release
+design](evidence-grounding-release.md).
