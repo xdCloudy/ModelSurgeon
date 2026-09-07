@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Added the issue #482 v2.9 adversarial resistance corpus and deterministic
+    audit for prompt injection, instruction smuggling, hostile provider/model
+    metadata, forged evidence, secret requests, path attempts, conflicting
+    authority, malformed tool results and unvalidated promotion. Each variant
+    retains severity, remediation status, budgets and provenance; the explicit
+    hostile-process containment limitation remains unresolved and unclaimed.
+
   - Added a deterministic claim-to-evidence renderer for canonical evidence-query
     responses. It preserves evidence IDs, metrics and units, uncertainty,
     provenance, negative outcomes, unavailable fields, and resource bounds;

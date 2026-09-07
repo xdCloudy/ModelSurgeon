@@ -153,7 +153,7 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 ## v2.9 — Approval Gates and Conversational Security Hardening
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/30). Harden the complete control plane with scoped approvals, expiry, plan diffs, provider/tool isolation, redaction, prompt-injection resistance, adversarial tests and fail-closed policy precedence. Entry is v2.6, v2.8 and v1.8-v2.0 security/provenance primitives; exit is a reviewed residual-risk posture with no conversational bypass around hard constraints, evidence or transaction boundaries.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/30). Harden the complete control plane with scoped approvals, expiry, plan diffs, provider/tool isolation, redaction, prompt-injection resistance, adversarial tests and fail-closed policy precedence. Issue #482 adds the versioned deterministic resistance corpus, retained negative results, explicit threat assumptions and residual-risk evidence in [the v2.9 manifest](docs/research/v2.9-adversarial-resistance-v1.json). Entry is v2.6, v2.8 and v1.8-v2.0 security/provenance primitives; exit is a reviewed residual-risk posture with no conversational bypass around hard constraints, evidence or transaction boundaries.
 
 ## v3.0 — Conversational ModelSurgeon Product Release
 

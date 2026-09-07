@@ -1,0 +1,112 @@
+{
+  "record_type": "adversarial_resistance_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.9-adversarial-resistance-v1",
+  "milestone": "v2.9",
+  "issue": 482,
+  "status": "bounded_resistance_evidence",
+  "dependency_evidence": [
+    {
+      "issue": 467,
+      "key": "v26-adversarial-boundary",
+      "status": "merged",
+      "commit": "f1d99d1435fb05352d3db3cab134c49b608219e8",
+      "artifacts": [
+        "tests/fixtures/conversational_tool_boundary_adversarial_v1.json",
+        "tests/test_conversational_adversarial_corpus.py",
+        "docs/testing/conversational-tool-boundary-adversarial.md"
+      ]
+    },
+    {
+      "issue": 476,
+      "key": "v28-claim-evidence-renderer",
+      "status": "merged",
+      "commit": "5558cbcfaab7de1e61c0ac35a500dd7aff5d172d",
+      "artifacts": [
+        "src/modelsurgeon/explain/claim_evidence.py",
+        "docs/design/conversational-evidence-queries.md"
+      ]
+    }
+  ],
+  "corpus": {
+    "fixture": "tests/fixtures/adversarial_resistance_v1.json",
+    "revision": "v2.9-adversarial-resistance-v1",
+    "seed": 482,
+    "case_count": 18,
+    "variant_count": 69,
+    "threats": [
+      "prompt_injection",
+      "instruction_smuggling",
+      "hostile_model_description",
+      "malformed_provider_output",
+      "forged_evidence",
+      "secret_request",
+      "path_attempt",
+      "conflicting_authority",
+      "hostile_tool_result",
+      "hostile_process"
+    ],
+    "deterministic_variants": ["base", "whitespace", "casefold", "unicode_spacing"],
+    "budgets": {
+      "max_cases": 32,
+      "max_variants": 4,
+      "max_wall_seconds": 5.0,
+      "max_output_bytes": 65536
+    }
+  },
+  "authority_contract": {
+    "trusted_structured_policy_wins": true,
+    "arbitrary_execution": "forbidden",
+    "silent_constraint_change": "forbidden",
+    "unvalidated_promotion": "forbidden",
+    "source_model_immutability": "preserved",
+    "failure_retention": "required",
+    "provenance_and_budgets": "required"
+  },
+  "evidence_policy": {
+    "fixture_and_local_contract_evidence": "measured",
+    "live_provider_calls": "not_run",
+    "credentials": "not_run",
+    "shell_or_subprocess": "not_run",
+    "model_quality": "not_run",
+    "hostile_process_containment": "not_claimed",
+    "unresolved_cases": "retained_with_failed_closed_status"
+  },
+  "artifacts": {
+    "runner": "tools/audit_adversarial_resistance.py",
+    "tests": [
+      "tests/test_adversarial_resistance.py",
+      "tests/test_conversational_adversarial_corpus.py",
+      "tests/test_conversational_tools.py",
+      "tests/test_conversational_dispatcher.py"
+    ],
+    "documentation": [
+      "docs/testing/adversarial-resistance.md",
+      "docs/design/provider-tool-isolation.md",
+      "README.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "reproduction_commands": [
+    "git diff --check",
+    "uv run --locked --extra dev ruff check src tests",
+    "uv run --locked --extra dev mypy src/modelsurgeon",
+    "uv run --locked --extra dev pytest -q",
+    "uv run --locked --extra dev python tools/audit_adversarial_resistance.py"
+  ],
+  "quality_gate": {
+    "status": "required",
+    "commands": [
+      "git diff --check",
+      "uv run --locked --extra dev ruff check src tests",
+      "uv run --locked --extra dev mypy src/modelsurgeon",
+      "uv run --locked --extra dev pytest -q",
+      "uv run --locked --extra dev python tools/audit_adversarial_resistance.py"
+    ],
+    "known_skips": [
+      "No live hosted-provider, credentialed endpoint, shell, subprocess, or hostile-process run is claimed."
+    ]
+  }
+}
