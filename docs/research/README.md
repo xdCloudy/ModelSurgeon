@@ -18,4 +18,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v0.9 logit-distillation repair evidence](v0.9-distillation-repair-evidence.md)
 - [v1.0 performance regression evidence](v1.0-performance-regression-evidence.md)
 - [v1.0 scientific results and limitations](v1.0-scientific-results.md)
+- [v1.0 Windows and WSL2 consumer evidence](v1.0-windows-wsl-consumer-evidence.md)
 

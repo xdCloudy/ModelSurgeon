@@ -103,6 +103,7 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `predict-surgeon` | Score compatible candidates with a persisted bundle. |
 | `search` | Start or resume one constrained greedy, beam, or uncertainty-aware search decision. |
 | `features` | Extract bounded, cacheable model features through a trusted runtime. |
+| `calibrate` | Build or reuse a revision-pinned, content-addressed calibration manifest ([contract](docs/design/calibration-cli.md)). |
 | `generate-dataset` | Run or resume a campaign and emit leakage-safe JSONL splits. |
 | `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
 | `report` | Render deterministic JSON or offline HTML evidence reports. |

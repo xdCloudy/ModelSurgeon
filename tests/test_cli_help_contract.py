@@ -17,6 +17,7 @@ _PUBLIC_COMMANDS = (
     "predict-surgeon",
     "search",
     "features",
+    "calibrate",
     "generate-dataset",
     "reproduce",
     "report",

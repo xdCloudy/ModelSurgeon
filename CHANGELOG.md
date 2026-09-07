@@ -11,6 +11,8 @@
 - Document the Windows 11 and WSL2 consumer workflow, including validated portable
   path, interrupt, disk, mmap, and telemetry coverage plus the retained native
   GGUF/CUDA-offload evidence required for a host-specific compatibility claim.
+- Retain measured Windows 11 and WSL2 SmolLM2-135M Q4_K_M CUDA-offload evidence,
+  fixture provenance, platform identities, and explicit runtime-version limitations.
 - Add the `metric-schema-v1` golden compatibility contract for persisted metric records,
   evaluator metric definitions, migration identities, and supported schema versions.
 - Add `modelsurgeon report` for deterministic, evidence-backed JSON and offline HTML reports
@@ -20,6 +22,8 @@
 - Publish the v1.0 scientific results ledger with content-addressed evidence run IDs, Q1–Q8 and
   quantization findings, consumer-hardware costs, and explicit prediction/masking/physical-surgery
   limitations.
+- Add `modelsurgeon calibrate` for strict revision-pinned calibration plans, bounded tokenization,
+  content-addressed atomic cache publication, dry-run isolation, and interruption-safe refresh.
 - Add `modelsurgeon generate-dataset` to start or resume a trusted mutation campaign and emit
   validated, leakage-safe JSONL splits with a standalone progress and failure manifest.
 - Add `modelsurgeon reproduce RUN_ID` with schema-v2 resolved recipes, exact-command dry
