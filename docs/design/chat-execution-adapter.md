@@ -43,10 +43,20 @@ The trusted runtime wrapper emits one typed start and completion event per
 orchestrator stage. These events may be streamed by the CLI as JSON records;
 the final turn retains the same bounded events with the canonical tool result.
 Cancellation is cooperative and reaches the runtime before a stage begins and
-after it returns. Interrupted workflows are persisted by the existing
-orchestrator and can be resumed with `--resume`; the adapter treats that as a
-new explicit request against the same durable campaign rather than replaying a
-previous paused tool response.
+after it returns. The adapter uses the supplied `--state` path as the
+WAL-backed canonical campaign store and keeps the stage cursor in a sibling
+`.execution.json` file. The campaign store records `created -> running ->
+paused/completed/failed/cancelled` transitions with deterministic IDs and
+provenance; a stale or expired approval cannot be resumed. `pause()`,
+`resume()`, `cancel()`, `reconnect()`, and `restart()` operate on those typed
+records and are safe to retry by operation ID.
+
+Interrupted workflows are persisted by the existing orchestrator and can be
+resumed with `--resume`; the adapter treats that as a new explicit request
+against the same canonical campaign rather than replaying a previous paused
+tool response. Completed stage records are read and never evaluated again
+after reconnect or process restart. Cancellation retains already committed
+evidence and makes the campaign terminal; it never promotes a partial result.
 
 Example shape:
 
@@ -54,7 +64,7 @@ Example shape:
 modelsurgeon chat ./text-model.gguf \
   --target-model ./target-model \
   --target-revision <immutable-revision> \
-  --state ./artifacts/chat-run.json \
+  --state ./artifacts/chat-campaign.sqlite3 \
   --preview-plan --request "retain quality and reduce latency"
 ```
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,7 +29,13 @@ from modelsurgeon.config import (
     Settings,
 )
 from modelsurgeon.conversation.campaign import CanonicalCampaignRecorder
-from modelsurgeon.conversation.campaign_state import CampaignLifecycle, CampaignOutcome
+from modelsurgeon.conversation.campaign_state import (
+    CampaignLifecycle,
+    CampaignOutcome,
+    CampaignState,
+    CampaignStateError,
+    CampaignStateStore,
+)
 from modelsurgeon.conversation.dispatcher import (
     ToolCancellationToken,
     ToolDispatcher,
@@ -441,12 +448,14 @@ class _ProgressRuntime:
         callback: ProgressCallback,
         campaign_id: str,
         plan_id: str,
+        pause_requested: Callable[[], bool] | None = None,
     ) -> None:
         self.runtime = runtime
         self.token = token
         self.callback = callback
         self.campaign_id = campaign_id
         self.plan_id = plan_id
+        self.pause_requested = pause_requested or (lambda: False)
         self.sequence = 0
 
     def _emit(
@@ -474,6 +483,8 @@ class _ProgressRuntime:
     def run_stage(self, context: StageContext) -> StageResult:
         if self.token.cancelled:
             raise OptimizeInterrupted()
+        if self.pause_requested():
+            raise OptimizeInterrupted()
         self._emit(
             context.stage,
             ChatProgressStatus.STARTED,
@@ -482,6 +493,8 @@ class _ProgressRuntime:
         )
         result = self.runtime.run_stage(context)
         if self.token.cancelled:
+            raise OptimizeInterrupted()
+        if self.pause_requested():
             raise OptimizeInterrupted()
         self._emit(
             context.stage,
@@ -527,7 +540,7 @@ class ChatOptimizeAdapter:
         self.quality_profile = quality_profile
         self.runtime = runtime or PreflightRuntime()
         self.approvals = tuple(sorted(set(approvals)))
-        self.resume = resume
+        self._resume_by_default = resume
         self._previews: dict[str, object] = {}
         self._prepared: dict[str, _PreparedPlan] = {}
         self._submissions: dict[str, SpecSubmission] = {}
@@ -536,6 +549,9 @@ class ChatOptimizeAdapter:
         self._resume_by_request: dict[str, bool] = {}
         self._provider_context_by_spec: dict[str, Mapping[str, object]] = {}
         self._session_by_request: dict[str, str] = {}
+        self._active_tokens: dict[str, ToolCancellationToken] = {}
+        self._pause_events: dict[str, threading.Event] = {}
+        self._lifecycle_lock = threading.RLock()
         self._dispatcher = ToolDispatcher(
             {
                 "preview_plan": self._preview_handler,
@@ -543,6 +559,105 @@ class ChatOptimizeAdapter:
             },
             approval_policy=self._approval_policy,
         )
+
+    def reconnect(self, campaign_id: str, session_id: str) -> CampaignState:
+        """Recover canonical state by trusted IDs, never by replaying chat."""
+
+        if self.campaign_state_path is None:
+            raise ChatExecutionError("reconnect_failed", "campaign state path is required")
+        try:
+            with CampaignStateStore(self.campaign_state_path) as store:
+                return store.reconnect(campaign_id, session_id)
+        except CampaignStateError as error:
+            raise ChatExecutionError("reconnect_failed", str(error)) from error
+
+    def pause(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "pause",
+        detail: str = "paused by operator",
+    ) -> CampaignState:
+        """Request cooperative pause and persist the lifecycle transition."""
+
+        with self._lifecycle_lock:
+            event = self._pause_events.get(campaign_id)
+            if event is not None:
+                event.set()
+        if self.campaign_state_path is None:
+            raise ChatExecutionError("pause_failed", "campaign state path is required")
+        try:
+            with CampaignStateStore(self.campaign_state_path) as store:
+                return store.pause(
+                    campaign_id,
+                    session_id,
+                    operation_id=operation_id,
+                    detail=detail,
+                )
+        except CampaignStateError as error:
+            raise ChatExecutionError("pause_failed", str(error)) from error
+
+    def resume(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "resume",
+    ) -> CampaignState:
+        """Move a paused campaign back to runnable state after validation."""
+
+        if self.campaign_state_path is None:
+            raise ChatExecutionError("resume_failed", "campaign state path is required")
+        try:
+            with CampaignStateStore(self.campaign_state_path) as store:
+                return store.resume(campaign_id, session_id, operation_id=operation_id)
+        except CampaignStateError as error:
+            raise ChatExecutionError("resume_failed", str(error)) from error
+
+    def cancel(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "cancel",
+        detail: str = "cancelled by operator",
+    ) -> CampaignState:
+        """Cancel cooperatively and make the terminal lifecycle durable."""
+
+        with self._lifecycle_lock:
+            token = self._active_tokens.get(campaign_id)
+            if token is not None:
+                token.cancel()
+        if self.campaign_state_path is None:
+            raise ChatExecutionError("cancel_failed", "campaign state path is required")
+        try:
+            with CampaignStateStore(self.campaign_state_path) as store:
+                return store.cancel(
+                    campaign_id,
+                    session_id,
+                    operation_id=operation_id,
+                    detail=detail,
+                )
+        except CampaignStateError as error:
+            raise ChatExecutionError("cancel_failed", str(error)) from error
+
+    def restart(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "restart",
+    ) -> CampaignState:
+        """Reconnect after process loss and mark unfinished work runnable."""
+
+        if self.campaign_state_path is None:
+            raise ChatExecutionError("restart_failed", "campaign state path is required")
+        try:
+            with CampaignStateStore(self.campaign_state_path) as store:
+                return store.restart(campaign_id, session_id, operation_id=operation_id)
+        except CampaignStateError as error:
+            raise ChatExecutionError("restart_failed", str(error)) from error
 
     def preview(
         self,
@@ -646,7 +761,7 @@ class ChatOptimizeAdapter:
         self._session_by_request[request.request_id] = session_id
         self._progress[request.request_id] = progress
         self._progress_callbacks[request.request_id] = callback
-        selected_resume = self.resume if resume is None else resume
+        selected_resume = self._resume_by_default if resume is None else resume
         if selected_resume:
             # A resumed workflow is an explicit new request against the
             # durable state, not a replay of the earlier paused response.
@@ -748,7 +863,9 @@ class ChatOptimizeAdapter:
             raise ToolExecutionError(
                 ToolFailureCode.INVALID_INPUT, "execution state path is required"
             )
-        selected_resume = self._resume_by_request.get(context.request.request_id, self.resume)
+        selected_resume = self._resume_by_request.get(
+            context.request.request_id, self._resume_by_default
+        )
         recorder = CanonicalCampaignRecorder(
             self.campaign_state_path,
             session_id=self._session_for_request(context.request.request_id),
@@ -758,75 +875,99 @@ class ChatOptimizeAdapter:
             approval_id=self._submissions[prepared.plan_id].approval_id,
         )
         campaign_id = recorder.campaign_id
-        runtime = _ProgressRuntime(
-            self.runtime,
-            context.cancellation,
-            callback,
-            campaign_id,
-            plan_id,
-        )
-        if prepared.plan.outcome is not OptimizeOutcome.SUPPORTED:
-            detail = redact_secret_text(
-                f"optimize plan is {prepared.plan.outcome.value}; execution is unsupported"
-            )
-            _state, evidence_id = recorder.retain_outcome(
-                detail,
-                outcome=CampaignOutcome.UNSUPPORTED,
-                lifecycle=CampaignLifecycle.COMPLETED,
-                inconclusive=False,
-            )
-            return self._terminal_response(
-                context,
-                recorder,
-                ToolOutcome.UNSUPPORTED,
-                evidence_id,
-                detail,
-            )
-        recorder.start()
         try:
-            run = OptimizeOrchestrator(prepared.plan, state_path).run(
-                runtime,
-                resume=selected_resume,
-                approvals=self.approvals,
-                operator_id="chat",
-                operator_context={"campaign_id": campaign_id},
+            with self._lifecycle_lock:
+                pause_event = threading.Event()
+                self._active_tokens[campaign_id] = context.cancellation
+                self._pause_events[campaign_id] = pause_event
+            runtime = _ProgressRuntime(
+                self.runtime,
+                context.cancellation,
+                callback,
+                campaign_id,
+                plan_id,
+                pause_event.is_set,
             )
-        except Exception as error:
-            detail = redact_secret_text(str(error))
-            _state, evidence_id = recorder.retain_failure(detail)
-            return self._terminal_response(
-                context,
-                recorder,
-                ToolOutcome.FAILED,
-                evidence_id,
-                detail,
+            if prepared.plan.outcome is not OptimizeOutcome.SUPPORTED:
+                detail = redact_secret_text(
+                    f"optimize plan is {prepared.plan.outcome.value}; execution is unsupported"
+                )
+                _state, evidence_id = recorder.retain_outcome(
+                    detail,
+                    outcome=CampaignOutcome.UNSUPPORTED,
+                    lifecycle=CampaignLifecycle.COMPLETED,
+                    inconclusive=False,
+                )
+                return self._terminal_response(
+                    context,
+                    recorder,
+                    ToolOutcome.UNSUPPORTED,
+                    evidence_id,
+                    detail,
+                )
+            recorder.start()
+            try:
+                run = OptimizeOrchestrator(prepared.plan, state_path).run(
+                    runtime,
+                    resume=selected_resume,
+                    approvals=self.approvals,
+                    operator_id="chat",
+                    operator_context={"campaign_id": campaign_id},
+                )
+            except Exception as error:
+                detail = redact_secret_text(str(error))
+                _state, evidence_id = recorder.retain_failure(detail)
+                return self._terminal_response(
+                    context,
+                    recorder,
+                    ToolOutcome.FAILED,
+                    evidence_id,
+                    detail,
+                )
+            if context.cancellation.cancelled:
+                _state, evidence_id = recorder.retain_outcome(
+                    "campaign cancelled by operator",
+                    outcome=CampaignOutcome.UNKNOWN,
+                    lifecycle=CampaignLifecycle.CANCELLED,
+                    inconclusive=True,
+                )
+                return self._terminal_response(
+                    context,
+                    recorder,
+                    ToolOutcome.CANCELLED,
+                    evidence_id,
+                    "campaign cancelled by operator",
+                )
+            _state, campaign_evidence_refs = recorder.retain_run(run)
+            context.check_cancelled()
+            evidence_refs = tuple(dict.fromkeys(campaign_evidence_refs))
+            output: dict[str, JSONValue] = {
+                "run_id": run.run_id,
+                "campaign_id": campaign_id,
+                "plan_id": run.plan_id,
+                "outcome": run.outcome.value,
+                "evidence_refs": list(evidence_refs),
+            }
+            artifact_id = _artifact_id(run.accepted_artifact_digest)
+            if artifact_id is not None:
+                output["artifact_ref"] = artifact_id
+                output["artifact_digest"] = run.accepted_artifact_digest
+            if run.reasons:
+                output["reasons"] = list(run.reasons)
+            context.transaction.commit()
+            return ToolExecutionResponse(
+                output,
+                ToolEvidenceStatus.CANONICAL,
+                _digest(run.to_record()),
+                campaign_evidence_refs[-1],
+                artifact_id=artifact_id,
+                campaign_id=campaign_id,
+                observed_at=_now(),
             )
-        _state, campaign_evidence_refs = recorder.retain_run(run)
-        context.check_cancelled()
-        evidence_refs = tuple(dict.fromkeys(campaign_evidence_refs))
-        output: dict[str, JSONValue] = {
-            "run_id": run.run_id,
-            "campaign_id": campaign_id,
-            "plan_id": run.plan_id,
-            "outcome": run.outcome.value,
-            "evidence_refs": list(evidence_refs),
-        }
-        artifact_id = _artifact_id(run.accepted_artifact_digest)
-        if artifact_id is not None:
-            output["artifact_ref"] = artifact_id
-            output["artifact_digest"] = run.accepted_artifact_digest
-        if run.reasons:
-            output["reasons"] = list(run.reasons)
-        context.transaction.commit()
-        return ToolExecutionResponse(
-            output,
-            ToolEvidenceStatus.CANONICAL,
-            _digest(run.to_record()),
-            campaign_evidence_refs[-1],
-            artifact_id=artifact_id,
-            campaign_id=campaign_id,
-            observed_at=_now(),
-        )
+        finally:
+            with self._lifecycle_lock:
+                self._active_tokens.pop(campaign_id, None)
+                self._pause_events.pop(campaign_id, None)
 
     @staticmethod
     def _terminal_response(

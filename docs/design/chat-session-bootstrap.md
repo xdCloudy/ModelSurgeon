@@ -29,7 +29,9 @@ offline contract checks; interpretation then returns `unsupported`.
 To request a stable plan for a separate target model, add `--target-model`,
 `--target-revision`, and `--preview-plan`. Add `--execute`, `--state`, an
 explicit `--approval-id`, and every required `--approve` value only after the
-plan has been reviewed. `--resume` resumes the matching durable campaign.
+plan has been reviewed. `--state` names the canonical campaign database;
+`--resume` resumes the matching durable campaign and its sibling execution
+cursor after an interruption.
 
 Each session has a deterministic `chat_session_<sha256>` identity and a hard
 turn budget (8 by default, maximum 64). Each request has bounded input,

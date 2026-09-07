@@ -379,6 +379,36 @@ def test_interrupted_campaign_is_paused_and_resume_reuses_canonical_identity(
     assert state.outcome is CampaignOutcome.SUPPORTED
 
 
+def test_explicit_reconnect_restart_pause_and_cancel_are_durable(tmp_path: Path) -> None:
+    adapter = _adapter(tmp_path, _Runtime(interrupt_once=True))
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+    paused = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+    assert paused.campaign_id is not None
+
+    recovered = adapter.reconnect(paused.campaign_id, "chat-session")
+    assert recovered.lifecycle is CampaignLifecycle.PAUSED
+    restarted = adapter.restart(paused.campaign_id, "chat-session", operation_id="restart-test")
+    assert restarted.lifecycle is CampaignLifecycle.RUNNING
+    paused_again = adapter.pause(
+        paused.campaign_id,
+        "chat-session",
+        operation_id="pause-test",
+        detail="test pause",
+    )
+    assert paused_again.lifecycle is CampaignLifecycle.PAUSED
+    cancelled = adapter.cancel(
+        paused.campaign_id,
+        "chat-session",
+        operation_id="cancel-test",
+        detail="test cancellation",
+    )
+    assert cancelled.lifecycle is CampaignLifecycle.CANCELLED
+    assert adapter.reconnect(paused.campaign_id, "chat-session").lifecycle is (
+        CampaignLifecycle.CANCELLED
+    )
+
+
 def test_chat_campaign_projection_matches_direct_run_identity(tmp_path: Path) -> None:
     adapter = _adapter(tmp_path, _Runtime())
     preview = _preview()

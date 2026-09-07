@@ -218,3 +218,97 @@ def test_concurrent_reader_sees_last_committed_canonical_snapshot(tmp_path: Path
     finally:
         first.close()
         second.close()
+
+
+def test_lifecycle_commands_are_replayable_and_terminal_cancel_fails_closed(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "campaign.sqlite3"
+    with CampaignStateStore(path) as store:
+        created = store.create(_state())
+        approved = CampaignApproval(
+            ApprovalStatus.APPROVED,
+            created.spec_digest,
+            approval_id="approval_lifecycle",
+            recorded_by="operator_fixture",
+            expires_at="2030-01-01T00:00:00+00:00",
+            provenance={"record_type": "approval", "source": "fixture"},
+        )
+        running = store.transition(
+            created.campaign_id,
+            expected_version=created.state_version,
+            kind="started",
+            provenance={
+                "record_type": "campaign_transition",
+                "source": "fixture",
+                "operation_id": "start_fixture",
+            },
+            lifecycle=CampaignLifecycle.RUNNING,
+            approval=approved,
+        )
+        paused = store.pause(
+            running.campaign_id,
+            running.session_id,
+            operation_id="pause_fixture",
+        )
+        assert (
+            store.pause(
+                running.campaign_id,
+                running.session_id,
+                operation_id="pause_fixture",
+            )
+            == paused
+        )
+        resumed = store.resume(
+            paused.campaign_id,
+            paused.session_id,
+            operation_id="resume_fixture",
+        )
+        cancelled = store.cancel(
+            resumed.campaign_id,
+            resumed.session_id,
+            operation_id="cancel_fixture",
+        )
+        assert cancelled.lifecycle is CampaignLifecycle.CANCELLED
+        assert cancelled.state_version == resumed.state_version + 1
+        with pytest.raises(CampaignStateError, match="cannot resume"):
+            store.resume(cancelled.campaign_id, cancelled.session_id)
+
+
+def test_expired_approval_is_recorded_and_resume_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "campaign.sqlite3"
+    initial = _state()
+    approved = CampaignApproval(
+        ApprovalStatus.APPROVED,
+        initial.spec_digest,
+        approval_id="approval_expired",
+        recorded_by="operator_fixture",
+        expires_at="2020-01-01T00:00:00+00:00",
+        provenance={"record_type": "approval", "source": "fixture"},
+    )
+    initial = new_campaign_state(
+        session_id=initial.session_id,
+        run_id=initial.run_id,
+        source_model_digest=initial.source_model_digest,
+        spec=initial.spec,
+        policy_state=initial.policy_state,
+        provider_context=initial.provider_context,
+        budget=initial.budget,
+        approval=approved,
+        provenance=initial.provenance,
+    )
+    with CampaignStateStore(path) as store:
+        created = store.create(initial)
+        paused = store.transition(
+            created.campaign_id,
+            expected_version=created.state_version,
+            kind="paused",
+            provenance={"record_type": "fixture", "source": "test"},
+            lifecycle=CampaignLifecycle.PAUSED,
+        )
+        with pytest.raises(CampaignStateError, match="expired"):
+            store.resume(paused.campaign_id, paused.session_id)
+        expired = store.load(paused.campaign_id)
+        assert expired.lifecycle is CampaignLifecycle.PAUSED
+        assert expired.approval.status is ApprovalStatus.EXPIRED
+        assert expired.state_version == paused.state_version + 1

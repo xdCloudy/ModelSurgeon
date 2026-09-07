@@ -16,7 +16,7 @@ import threading
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Self, cast
@@ -90,6 +90,7 @@ def _sha256(value: object, label: str) -> str:
 def _mapping(value: object, label: str) -> dict[str, object]:
     if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
         raise CampaignStateError(f"{label} must be a JSON object")
+
     def validate_keys(item: object) -> None:
         if isinstance(item, Mapping):
             for key, nested in item.items():
@@ -211,9 +212,7 @@ class CampaignApproval:
             try:
                 expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
             except (TypeError, ValueError) as error:
-                raise CampaignStateError(
-                    "approval expiry must be an ISO-8601 timestamp"
-                ) from error
+                raise CampaignStateError("approval expiry must be an ISO-8601 timestamp") from error
             if expiry.tzinfo is None:
                 raise CampaignStateError("approval expiry must include a timezone")
         if self.status is ApprovalStatus.APPROVED and (
@@ -239,6 +238,15 @@ class CampaignApproval:
             "expires_at": self.expires_at,
             "provenance": dict(self.provenance),
         }
+
+    @property
+    def active(self) -> bool:
+        """Whether this approval is currently usable for consequential work."""
+
+        if self.status is not ApprovalStatus.APPROVED or self.expires_at is None:
+            return False
+        expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
+        return expiry.astimezone(UTC) > datetime.now(UTC)
 
     @classmethod
     def pending(cls, spec_digest: str) -> CampaignApproval:
@@ -869,6 +877,167 @@ class CampaignStateStore:
         return self.load_for_session(session_id, campaign_id=campaign_id)
 
     @staticmethod
+    def _allowed_lifecycle(current: CampaignLifecycle, requested: CampaignLifecycle) -> bool:
+        if current is requested:
+            return True
+        allowed: dict[CampaignLifecycle, frozenset[CampaignLifecycle]] = {
+            CampaignLifecycle.CREATED: frozenset(
+                {CampaignLifecycle.RUNNING, CampaignLifecycle.PAUSED, CampaignLifecycle.CANCELLED}
+            ),
+            CampaignLifecycle.RUNNING: frozenset(
+                {
+                    CampaignLifecycle.PAUSED,
+                    CampaignLifecycle.COMPLETED,
+                    CampaignLifecycle.FAILED,
+                    CampaignLifecycle.CANCELLED,
+                }
+            ),
+            CampaignLifecycle.PAUSED: frozenset(
+                {CampaignLifecycle.RUNNING, CampaignLifecycle.CANCELLED}
+            ),
+            CampaignLifecycle.COMPLETED: frozenset(),
+            CampaignLifecycle.FAILED: frozenset(),
+            CampaignLifecycle.CANCELLED: frozenset(),
+        }
+        return requested in allowed[current]
+
+    def _command(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        kind: str,
+        lifecycle: CampaignLifecycle,
+        operation_id: str,
+        detail: str,
+    ) -> CampaignState:
+        _identifier(session_id, "session ID")
+        _identifier(operation_id, "operation ID")
+        current = self.reconnect(campaign_id, session_id)
+        if current.lifecycle is lifecycle and lifecycle is not CampaignLifecycle.RUNNING:
+            return current
+        if current.lifecycle is not lifecycle and not self._allowed_lifecycle(
+            current.lifecycle, lifecycle
+        ):
+            raise CampaignStateError(
+                f"cannot {kind} campaign in {current.lifecycle.value} lifecycle"
+            )
+        if lifecycle is CampaignLifecycle.RUNNING and not current.approval.active:
+            if current.approval.status is ApprovalStatus.APPROVED:
+                expired = CampaignApproval(
+                    ApprovalStatus.EXPIRED,
+                    current.approval.spec_digest,
+                    current.approval.approval_id,
+                    current.approval.recorded_by,
+                    current.approval.expires_at,
+                    {
+                        "record_type": "approval_expiry",
+                        "source": "campaign_state_store",
+                    },
+                )
+                current = self.transition(
+                    campaign_id,
+                    expected_version=current.state_version,
+                    kind="approval_expired",
+                    provenance={
+                        "record_type": "campaign_transition",
+                        "source": "campaign_state_store",
+                        "operation_id": operation_id,
+                        "detail": "approval expired before recovery",
+                    },
+                    lifecycle=CampaignLifecycle.PAUSED,
+                    approval=expired,
+                )
+            raise CampaignStateError("campaign approval is missing or expired")
+        if current.lifecycle is lifecycle:
+            return current
+        return self.transition(
+            campaign_id,
+            expected_version=current.state_version,
+            kind=kind,
+            provenance={
+                "record_type": "campaign_transition",
+                "source": "campaign_state_store",
+                "operation_id": operation_id,
+                "detail": detail,
+            },
+            lifecycle=lifecycle,
+        )
+
+    def pause(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "pause",
+        detail: str = "paused by operator",
+    ) -> CampaignState:
+        """Durably request a pause without discarding completed work."""
+
+        return self._command(
+            campaign_id,
+            session_id,
+            kind="paused",
+            lifecycle=CampaignLifecycle.PAUSED,
+            operation_id=operation_id,
+            detail=detail,
+        )
+
+    def resume(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "resume",
+        detail: str = "resumed from the last committed stage",
+    ) -> CampaignState:
+        """Resume only a non-terminal, approval-valid campaign."""
+
+        return self._command(
+            campaign_id,
+            session_id,
+            kind="resumed",
+            lifecycle=CampaignLifecycle.RUNNING,
+            operation_id=operation_id,
+            detail=detail,
+        )
+
+    def cancel(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "cancel",
+        detail: str = "cancelled by operator",
+    ) -> CampaignState:
+        """Durably cancel a campaign; cancellation is terminal and replayable."""
+
+        return self._command(
+            campaign_id,
+            session_id,
+            kind="cancelled",
+            lifecycle=CampaignLifecycle.CANCELLED,
+            operation_id=operation_id,
+            detail=detail,
+        )
+
+    def restart(
+        self,
+        campaign_id: str,
+        session_id: str,
+        *,
+        operation_id: str = "restart",
+    ) -> CampaignState:
+        """Reconnect after process loss and mark unfinished work runnable."""
+
+        return self.resume(
+            campaign_id,
+            session_id,
+            operation_id=operation_id,
+            detail="restarted from canonical campaign state",
+        )
+
+    @staticmethod
     def _transition_id(
         campaign_id: str,
         from_version: int,
@@ -885,9 +1054,9 @@ class CampaignStateStore:
             "state": state.to_record(include_transition=False),
             "provenance": _mapping(provenance, "transition provenance"),
         }
-        return "campaign_transition_" + hashlib.sha256(
-            _canonical(payload).encode("utf-8")
-        ).hexdigest()
+        return (
+            "campaign_transition_" + hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+        )
 
     @staticmethod
     def _transition(
@@ -912,20 +1081,24 @@ class CampaignStateStore:
             selected_approval = CampaignApproval.pending(selected_spec.spec_digest)
         if selected_approval.spec_digest != selected_spec.spec_digest:
             raise CampaignStateError("approval must bind the transition's current spec")
+        selected_lifecycle = current.lifecycle if lifecycle is None else lifecycle
+        if not CampaignStateStore._allowed_lifecycle(current.lifecycle, selected_lifecycle):
+            raise CampaignStateError(
+                "invalid lifecycle transition "
+                f"{current.lifecycle.value}->{selected_lifecycle.value}"
+            )
         selected_provenance = _mapping(provenance, "transition provenance")
         candidate = replace(
             current,
             spec=selected_spec,
             policy_state=current.policy_state if policy_state is None else policy_state,
             approval=selected_approval,
-            evidence_cursor=current.evidence_cursor
-            if evidence_cursor is None
-            else evidence_cursor,
+            evidence_cursor=current.evidence_cursor if evidence_cursor is None else evidence_cursor,
             provider_context=current.provider_context
             if provider_context is None
             else provider_context,
             budget=current.budget if budget is None else budget,
-            lifecycle=current.lifecycle if lifecycle is None else lifecycle,
+            lifecycle=selected_lifecycle,
             outcome=current.outcome if outcome is None else outcome,
             state_version=current.state_version + 1,
             last_transition_id=None,
@@ -1050,6 +1223,19 @@ class CampaignStateStore:
                 raise CampaignStateError(f"unknown campaign {campaign_id}")
             current = self._state_from_row(row)
             if current.state_version != expected_version:
+                requested_provenance = _mapping(provenance, "transition provenance")
+                operation_id = requested_provenance.get("operation_id")
+                if isinstance(operation_id, str):
+                    prior = connection.execute(
+                        "SELECT kind, provenance_json FROM campaign_state_transitions "
+                        "WHERE campaign_id = ? ORDER BY to_version",
+                        (campaign_id,),
+                    ).fetchall()
+                    requested_json = _canonical(requested_provenance)
+                    if any(
+                        str(item[0]) == kind and str(item[1]) == requested_json for item in prior
+                    ):
+                        return current
                 raise CampaignStateError(
                     "stale campaign state version "
                     f"{expected_version}; current is {current.state_version}"
