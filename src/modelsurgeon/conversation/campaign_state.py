@@ -871,6 +871,46 @@ class CampaignStateStore:
             raise CampaignStateError("session does not identify exactly one campaign")
         return self._state_from_row(rows[0])
 
+    def campaigns_for_session(self, session_id: str) -> tuple[CampaignState, ...]:
+        """Return every immutable campaign version for a session in ID order."""
+
+        _identifier(session_id, "session ID")
+        with self.reader() as connection:
+            rows = connection.execute(
+                "SELECT campaign_id, session_id, state_version, state_json, state_digest "
+                "FROM campaign_state_records WHERE session_id = ? ORDER BY campaign_id",
+                (session_id,),
+            ).fetchall()
+        return tuple(self._state_from_row(row) for row in rows)
+
+    def children(self, campaign_id: str) -> tuple[CampaignState, ...]:
+        """Return immutable child campaigns whose provenance names this parent."""
+
+        _identifier(campaign_id, "campaign ID")
+        children = tuple(
+            state
+            for state in self.campaigns_for_session(self.load(campaign_id).session_id)
+            if state.provenance.get("parent_campaign_id") == campaign_id
+        )
+        return tuple(sorted(children, key=lambda item: item.campaign_id))
+
+    def lineage(self, campaign_id: str) -> tuple[CampaignState, ...]:
+        """Return a child-to-root immutable campaign lineage."""
+
+        current = self.load(campaign_id)
+        result = [current]
+        seen = {current.campaign_id}
+        while True:
+            parent_id = current.provenance.get("parent_campaign_id")
+            if not isinstance(parent_id, str):
+                break
+            if parent_id in seen:
+                raise CampaignStateError("campaign lineage contains a cycle")
+            current = self.load(parent_id)
+            result.append(current)
+            seen.add(current.campaign_id)
+        return tuple(result)
+
     def reconnect(self, campaign_id: str, session_id: str) -> CampaignState:
         """Recover by trusted IDs; transcript text is intentionally not an input."""
 

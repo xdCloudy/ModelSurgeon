@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add deterministic stale-context detection and evidence-driven conversational
+  replanning for issue #471. Replans bind spec, evidence, provider, resource,
+  approval, plan, and transaction context; no-op refreshes keep the existing
+  campaign, while material changes emit a versioned diff, require fresh plan
+  approval, and create an immutable child campaign with preserved parent
+  lineage and evidence references. Cancelled, expired, stale, and incompatible
+  replay paths fail closed. See
+  [stale conversational replanning](docs/design/stale-conversational-replanning.md)
+  and the deterministic example.
+
 - Add measured Pareto alternatives and trade-off explanations for issue #459.
   The read-only projection reuses canonical feasibility evidence, shows
   metric deltas, uncertainty, hard-constraint violations, frontier/tie/
