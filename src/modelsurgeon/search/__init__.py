@@ -1,5 +1,17 @@
 """Constrained and multi-objective candidate search primitives."""
 
+from .architecture_policies import (
+    ARCHITECTURE_POLICY_SCHEMA_VERSION,
+    ArchitectureEvidenceStatus,
+    ArchitecturePolicyConfig,
+    ArchitecturePolicyDecision,
+    ArchitecturePolicyError,
+    ArchitecturePolicyKind,
+    ArchitecturePolicySelection,
+    ArchitecturePolicyState,
+    ArchitectureSearchPolicy,
+    CompleteArchitectureState,
+)
 from .candidate_space import (
     CANDIDATE_SPACE_SCHEMA_VERSION,
     ArchitectureCandidate,
@@ -127,6 +139,7 @@ from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
     "ARCHITECTURE_LIFECYCLE_SCHEMA_VERSION",
+    "ARCHITECTURE_POLICY_SCHEMA_VERSION",
     "CANDIDATE_SPACE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_DISTANCE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_SCHEMA_VERSION",
@@ -138,10 +151,18 @@ __all__ = [
     "ArchitectureCandidateSpace",
     "ArchitectureChoice",
     "ArchitectureDistance",
+    "ArchitectureEvidenceStatus",
     "ArchitectureLifecycleCandidate",
     "ArchitectureLifecycleError",
     "ArchitectureMutationRequest",
+    "ArchitecturePolicyConfig",
+    "ArchitecturePolicyDecision",
+    "ArchitecturePolicyError",
+    "ArchitecturePolicyKind",
+    "ArchitecturePolicySelection",
+    "ArchitecturePolicyState",
     "ArchitectureSearchLifecycle",
+    "ArchitectureSearchPolicy",
     "ArchitectureSearchResumeStore",
     "ArchitectureSearchSnapshot",
     "ArchitectureSequenceCompilation",
@@ -158,6 +179,7 @@ __all__ = [
     "CheckpointLineageStore",
     "CompiledArchitectureSequence",
     "CompiledArchitectureStep",
+    "CompleteArchitectureState",
     "ConstraintDirection",
     "ConstraintEvaluation",
     "ConstraintMetric",

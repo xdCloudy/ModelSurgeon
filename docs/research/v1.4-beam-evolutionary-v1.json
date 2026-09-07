@@ -1,0 +1,21 @@
+{
+  "protocol": "architecture-beam-evolutionary-policy-v1",
+  "schema_version": 1,
+  "issue": 380,
+  "policies": ["pareto_beam", "evolutionary"],
+  "controls": ["seeded_pareto_frontier", "bounded_evaluation_budget"],
+  "determinism": "sha256-seeded ties with serializable generation and decision cursors",
+  "legality": "mutations and crossovers may emit only complete candidates in the bounded legal pool",
+  "evidence": ["predicted", "measured", "unsupported", "failed", "unknown"],
+  "uncertainty": "conservative confidence-bound Pareto dominance",
+  "reproduction": [
+    "python -m pytest tests/test_architecture_policies.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in fixtures exercise deterministic policy behavior, not a physical model search.",
+    "Objective estimates and legal candidate pools must come from an evidence-producing caller.",
+    "Whether these policies improve measured hypervolume or regret is a downstream study question."
+  ]
+}
