@@ -11,6 +11,9 @@
 - Add cumulative native GGUF sequencing with re-discovery boundaries, untouched
   payload identity checks, RAM/scratch limits, reload/generation evidence, and
   fail-closed child cleanup.
+- Add the matched four-arm quantization-order study contract with reconciled
+  quantization, surgery, and interaction effects plus explicit unsupported and
+  inconclusive cells.
 - Add the resumable `modelsurgeon benchmark` matrix CLI with deterministic plans, imports, audits, and reports.
 - Add matched BF16/F16/Q8_0/Q6_K/Q5_K_M/Q4_K_M quantization baseline records with explicit unsupported-tool evidence and loss-decomposition fields.
 - Add the v1.1 artifact-bound competitor Pareto study record with uncertainty gates, complete deployment metrics, and explicit no-claim evidence.
