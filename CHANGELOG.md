@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a fail-closed conversational intent policy evaluator with explicit
+  confidence categories, ambiguity/refusal diagnostics, hard-constraint and
+  preference conflict detection, deterministic safety precedence, and
+  provenance-linked decisions that never emit a spec unless policy is
+  executable.
+
 - Add versioned conversational intent records that preserve the original
   request, source spans, normalized units, ambiguity and interpretation links,
   provider/tool provenance, and an exact emitted-spec digest or fail-closed

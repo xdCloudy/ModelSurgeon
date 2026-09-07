@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "title": "Conversational intent confidence, ambiguity, and safe refusal policy",
+  "status": "implemented",
+  "outcome_precedence": ["refused", "unsupported", "clarification_required", "executable"],
+  "confidence_categories": ["high", "medium", "low"],
+  "hard_rules": [
+    "required hard constraints must be complete",
+    "contradictory hard constraints are refused",
+    "confidence never bypasses contract validation",
+    "non-executable outcomes never carry an objective spec"
+  ],
+  "diagnostic_requirements": ["stable_code", "source_spans", "provenance_refs"],
+  "unknown_schema_policy": "refuse"
+}
