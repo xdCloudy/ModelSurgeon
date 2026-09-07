@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a versioned cross-platform stability contract with metric tolerance provenance,
+  exact environment and artifact identities, within-tolerance/expected-variation/drift
+  classifications, unsupported and unknown cell retention, and additive report migration.
 - Add a deterministic, license-safe hostile-input corpus for HF, safetensors,
   GGUF, config, manifest, path, and subprocess boundaries with content-addressed
   manifests, bounded runners, timeout/resource/path-escape outcomes, and retained
