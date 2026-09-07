@@ -1,0 +1,11 @@
+{
+  "record_type": "interaction_aware_acquisition_lifecycle",
+  "schema_version": 1,
+  "protocol_revision": "interaction-acquisition-v1",
+  "policy_terms": ["utility", "safety", "uncertainty", "interaction_uncertainty", "diversity"],
+  "state_safety": "candidates compiled for a parent state are rejected when the current state differs",
+  "outcome_policy": "accepted outcomes continue, negative or surprising outcomes trigger bounded replan, and exhausted unsafe failures roll back",
+  "lineage_policy": "every outcome retains parent state, resulting state, resources, and lineage token; negative outcomes are never discarded",
+  "budget_policy": "selection is bounded by cumulative wall, tier, GPU, disk, and candidate limits",
+  "reproduction": "plan_interaction_acquisition() and replan_after_outcome()"
+}
