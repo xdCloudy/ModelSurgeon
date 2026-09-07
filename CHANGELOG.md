@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add hardware-conditioned search candidates with placement-aware identity,
+  uncertainty-conservative hard constraints, measured-evidence promotion gates,
+  deployment-objective ranking, and hardware-preserving resume/report/lineage records.
 - Add versioned hardware-conditioned quality, safety, and utility predictors with
   explicit CPU/GPU/offload/quantization context, pre-mutation-only features,
   unsupported profile gates, and held-out-profile null-result ablations.
