@@ -9,6 +9,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | Namespace | Stable contract |
 | --- | --- |
 | `modelsurgeon.adapters` | Framework-neutral sources, sessions, capability discovery, family detection, and fail-closed competitor execution records. |
+| `modelsurgeon.conversation` | Typed conversational provider records plus experimental fail-closed hosted and compatible endpoint adapters. |
 | `modelsurgeon.graph` | Canonical component IDs, component graphs, validation, serialization, and remapping. |
 | `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, hardware cost examples, profile-partitioned manifests, versioned mutation interaction evidence, and paired repair/recoverability outcomes. |
 | `modelsurgeon.features` | Versioned feature records, bounded primitive extractors, pre-mutation interaction feature contracts, and source-fitted architecture-normalized meta-feature schemas. |
