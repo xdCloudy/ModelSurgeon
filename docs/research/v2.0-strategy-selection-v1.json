@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "title": "Deterministic baseline, surgeon, acquisition, and search-policy selection",
+  "status": "implemented",
+  "policy": "rule_based_until_held_out_meta_evidence_is_validated",
+  "required": ["strong_baselines", "objective_contract_id", "candidate_space_id", "seed"],
+  "selected_kinds": ["surgeon", "acquisition", "search_policy"],
+  "refusals": [
+    "missing or incompatible required baseline",
+    "unapproved strategy override",
+    "unknown strategy evidence",
+    "cost budget exceeded"
+  ],
+  "decision_evidence": ["selected options", "alternatives", "reasons", "estimated cost"]
+}
