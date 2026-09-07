@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the versioned fixed-width current-state embedding contract with normalized
+  architecture scalars/histograms, canonical mutation sets, order-sensitive bounded
+  history, metric/constraint masks, explicit evidence outcomes, and deterministic IDs.
 - Add bounded pre-mutation interaction features for activation/gradient overlap,
   redundancy, topology distance, mutation order, and cumulative error with explicit
   missingness, target outcomes, provenance context, deterministic IDs, and RAM/VRAM/time
