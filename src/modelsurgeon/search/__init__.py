@@ -64,6 +64,18 @@ from .hardware_objectives import (
     assess_hardware_candidate,
     rank_hardware_candidates,
 )
+from .lifecycle import (
+    ARCHITECTURE_LIFECYCLE_SCHEMA_VERSION,
+    ArchitectureLifecycleCandidate,
+    ArchitectureLifecycleError,
+    ArchitectureSearchLifecycle,
+    ArchitectureSearchResumeStore,
+    ArchitectureSearchSnapshot,
+    EvaluationStatus,
+    LifecycleBudget,
+    LifecycleEvidence,
+    LifecycleStage,
+)
 from .lineage import (
     AcceptedCheckpoint,
     CheckpointLineageStore,
@@ -114,6 +126,7 @@ from .resume import (
 from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
+    "ARCHITECTURE_LIFECYCLE_SCHEMA_VERSION",
     "CANDIDATE_SPACE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_DISTANCE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_SCHEMA_VERSION",
@@ -125,7 +138,12 @@ __all__ = [
     "ArchitectureCandidateSpace",
     "ArchitectureChoice",
     "ArchitectureDistance",
+    "ArchitectureLifecycleCandidate",
+    "ArchitectureLifecycleError",
     "ArchitectureMutationRequest",
+    "ArchitectureSearchLifecycle",
+    "ArchitectureSearchResumeStore",
+    "ArchitectureSearchSnapshot",
     "ArchitectureSequenceCompilation",
     "ArtifactContainerFormat",
     "ArtifactLineage",
@@ -150,6 +168,7 @@ __all__ = [
     "DeploymentObjective",
     "DistanceComponent",
     "DistanceStatus",
+    "EvaluationStatus",
     "EvidenceStatus",
     "HardwareCandidate",
     "HardwareCandidateAssessment",
@@ -164,6 +183,9 @@ __all__ = [
     "HardwareSearchReport",
     "HardwareSearchResume",
     "LayerWidth",
+    "LifecycleBudget",
+    "LifecycleEvidence",
+    "LifecycleStage",
     "LineageDecision",
     "LineageDecisionKind",
     "LowRankFactor",

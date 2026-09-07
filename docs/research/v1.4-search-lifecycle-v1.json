@@ -1,0 +1,19 @@
+{
+  "protocol": "architecture-search-lifecycle-v1",
+  "schema_version": 1,
+  "issue": 379,
+  "stages": ["predicted", "reserved", "materialized", "evaluated", "accepted", "rejected", "failed"],
+  "promotion_policy": "passing measured evidence only",
+  "deduplication": ["architecture_identity", "equivalent_path_identity"],
+  "resume_policy": "atomic generation plus content digest and ordered decision/evidence cursors",
+  "reproduction": [
+    "python -m pytest tests/test_lifecycle.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in worker is a deterministic lifecycle contract, not a beam or Bayesian policy.",
+    "Real interrupted-search evidence must bind materialized artifacts and deployment measurements.",
+    "Policy-specific selection and Pareto behavior remain downstream scope."
+  ]
+}
