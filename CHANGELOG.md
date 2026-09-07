@@ -5,6 +5,9 @@
 - Add a matched repair/recoverability dataset contract with exact no-repair controls,
   budget/method metadata, held-out evidence, immutable artifact lineage, complete cost and
   provenance records, group-disjoint splits, and retained failed, unsupported, and unknown cells.
+- Add bounded immutable teacher-target chunks with model/tokenizer/example compatibility keys,
+  checksum validation, resumable publication, cache hit/miss byte telemetry, and deterministic
+  random/domain-balanced/diversity/recoverability selection that excludes held-out examples.
 - Add a unified bounded repair outcome schema for no-repair, LoRA,
   selected/full fine-tuning, and logit/feature distillation with explicit
   budgets, held-out improvement evidence, teacher/data/tokenizer lineage,
