@@ -115,7 +115,13 @@ class ToolFailureCode(StrEnum):
     INVALID_INPUT = "invalid_input"
     BUDGET_EXCEEDED = "budget_exceeded"
     APPROVAL_REQUIRED = "approval_required"
+    APPROVAL_MISMATCH = "approval_mismatch"
     EXECUTION_FAILED = "execution_failed"
+    HANDLER_UNAVAILABLE = "handler_unavailable"
+    OUTPUT_INVALID = "output_invalid"
+    REPLAYED_REQUEST = "replayed_request"
+    REPLAY_LEDGER_FULL = "replay_ledger_full"
+    APPROVAL_INVALID = "approval_invalid"
     TIMEOUT = "timeout"
     CANCELLED = "cancelled"
     INTERNAL = "internal"
@@ -928,6 +934,13 @@ class ToolCatalog:
                 ToolOutcome.REFUSED,
                 ToolFailureCode.APPROVAL_REQUIRED,
                 "consequential tool requires an approval identity",
+            )
+        if definition.approval_required and request.input.get("approval_id") != request.approval_id:
+            return self._refused(
+                request,
+                ToolOutcome.REFUSED,
+                ToolFailureCode.APPROVAL_MISMATCH,
+                "approval identity is not bound to the request arguments",
             )
         return ToolNegotiation(request.request_id, request.name, ToolOutcome.SUPPORTED, definition)
 

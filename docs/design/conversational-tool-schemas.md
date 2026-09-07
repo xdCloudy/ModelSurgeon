@@ -1,10 +1,10 @@
 # Capability-scoped conversational tool schemas
 
-Status: request schema version 1 and result envelope version 2 are implemented
-as a schema-only boundary in `modelsurgeon.conversation.tools`. They define
+Status: request schema version 1, result envelope version 2, and the trusted
+dispatcher boundary are implemented in `modelsurgeon.conversation`. They define
 what a conversational client may request and how an engine may publish a
-grounded result; they do not implement an executor or make the conversational
-product generally available.
+grounded result; they do not make the conversational product generally
+available or register a default model executor.
 
 ## Boundary contract
 
@@ -33,13 +33,48 @@ rollback, acceptance, budget, and provenance boundaries.
 
 ## Negotiation and failure behavior
 
-`ToolCatalog.negotiate()` is the pre-execution gate. Unknown tool names return
+`ToolCatalog.negotiate()` is the first pre-execution gate. Unknown tool names return
 `UNKNOWN`; known tools requested with the wrong capability return
 `UNSUPPORTED`; unknown schema versions, tool identity drift, invalid input,
-budget expansion, and missing approval return typed `REFUSED` failures. No
-negotiation method invokes an implementation. `negotiate_record()` converts
+budget expansion, approval mismatch, and missing approval return typed `REFUSED`
+failures. No negotiation method invokes an implementation. `negotiate_record()` converts
 untrusted JSON into a typed refusal and retains the request identity when it
 is safe to do so.
+
+## Dispatch enforcement
+
+`ToolDispatcher` is the only runtime entry point for a registered conversational
+handler. `dispatch_record()` decodes untrusted data before handler lookup; a
+malformed, oversized, unknown-version, or adversarial record has no typed
+request and cannot reach an adapter. Handlers are registered by trusted engine
+code against an existing catalog name. Requests never contain callbacks,
+commands, paths, or provider selectors.
+
+The dispatcher negotiates the catalog entry, strict input schema, capability,
+tool identity, and request budget before applying an optional dispatcher-wide
+ceiling. Consequential requests additionally require a top-level approval
+identity that matches the approval argument and a trusted approval policy that
+accepts the exact request. The policy is responsible for binding the referenced
+plan digest to the current plan and hard constraints; tool arguments cannot
+replace that policy.
+
+Handlers receive a cooperative cancellation token and wall-time deadline. The
+dispatcher charges one evaluation on entry, permits nested evaluations and
+peak-memory reservations to be charged explicitly, and validates output against
+the declared schema and output limit before constructing engine-owned
+provenance. Budget exhaustion, timeout, cancellation, unsupported capability,
+approval failure, invalid output, and handler failure remain typed negative
+outcomes. Retryable handler failures may be retried only up to the configured
+maximum of three retries.
+
+Completed request IDs are retained in a bounded replay ledger; replays return
+the original result without invoking the handler again. A full ledger refuses
+new work rather than silently permitting unbounded state. Wall-time enforcement
+signals cancellation and returns a timeout even if a handler ignores the token,
+so trusted handlers must check cancellation before consequential mutations and
+use idempotent or transactionally rollback-safe engine operations. The
+dispatcher does not provide process isolation for a malicious in-process
+handler.
 
 `ToolResult` is the typed result envelope for a later engine adapter. A
 supported result must contain output and no failure; every non-supported result
@@ -70,7 +105,6 @@ object/array/string/number/integer/boolean constructs with bounded lengths and
 ranges. Tool input and raw result payloads are capped at 1 MiB; individual
 tool output budgets are smaller and explicit.
 
-This is a contract layer, not an execution implementation. It does not add
-shell, Python, filesystem, network, provider, model-session, or generic
-callback authority to the text model. Direct CLI/Python callers remain
-independent of this boundary.
+This boundary does not add shell, Python, filesystem, network, provider,
+model-session, or generic callback authority to the text model. Direct
+CLI/Python callers remain independent of this boundary.
