@@ -1,8 +1,9 @@
 # Capability-scoped conversational tool schemas
 
-Status: version 1 is implemented as a schema-only boundary in
-`modelsurgeon.conversation.tools`. It defines what a conversational client
-may request; it does not implement an executor or make the conversational
+Status: request schema version 1 and result envelope version 2 are implemented
+as a schema-only boundary in `modelsurgeon.conversation.tools`. They define
+what a conversational client may request and how an engine may publish a
+grounded result; they do not implement an executor or make the conversational
 product generally available.
 
 ## Boundary contract
@@ -42,18 +43,32 @@ is safe to do so.
 
 `ToolResult` is the typed result envelope for a later engine adapter. A
 supported result must contain output and no failure; every non-supported result
-must contain a typed failure whose request ID matches. Provenance retains the
-tool owner, schema identity, and canonical request digest. Failed, unknown,
-unsupported, timed-out, cancelled, and refused states are not converted into
-success or omitted.
+must contain a typed failure whose request ID matches. Each result has a
+deterministic `tool_result_<sha256>` ID over the complete canonical envelope,
+so changing output, failure, provenance, or retained raw payload is detectable
+on replay. `ToolResult.from_record()` rejects unknown fields, unknown result
+versions, and tampered result IDs; `validate_request()` rejects results
+replayed against a different or stale request digest.
+
+`ToolProvenance` is engine-supplied trusted lineage, separate from provider
+text. It retains the tool owner, tool identity, canonical request digest,
+source digest, evidence ID, artifact ID, campaign ID, and an explicit UTC
+observation timestamp where available. Provenance is either `canonical`,
+`unverified`, or `unavailable`: canonical evidence requires an immutable
+source digest, evidence ID, and timestamp; unavailable evidence cannot claim a
+source. Failed and unsupported results retain bounded raw payloads in a
+separate field, while trusted outcome and provenance fields remain unchanged.
+Failed, unknown, unsupported, timed-out, cancelled, and refused states are
+not converted into success or omitted.
 
 ## Versioning and limits
 
-Version 1 is fail-closed. `ToolRequest.from_record()` rejects unknown schema
-versions and unknown fields. The schema dialect is intentionally small and
-allows only strict object/array/string/number/integer/boolean constructs with
-bounded lengths and ranges. Tool input is capped at 1 MiB before negotiation;
-individual tool output budgets are smaller and explicit.
+Request version 1 and result version 2 are fail-closed. `ToolRequest.from_record()`
+and `ToolResult.from_record()` reject unknown schema versions and unknown
+fields. The schema dialect is intentionally small and allows only strict
+object/array/string/number/integer/boolean constructs with bounded lengths and
+ranges. Tool input and raw result payloads are capped at 1 MiB; individual
+tool output budgets are smaller and explicit.
 
 This is a contract layer, not an execution implementation. It does not add
 shell, Python, filesystem, network, provider, model-session, or generic

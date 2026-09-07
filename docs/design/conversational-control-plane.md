@@ -82,8 +82,8 @@ explicit; direct CLI/Python APIs do not depend on a provider.
 
 ## Tool boundary
 
-The text model receives only typed, capability-scoped operations. The version-1
-schema contract is documented in
+The text model receives only typed, capability-scoped operations. The request
+version-1/result-version-2 schema contract is documented in
 [`conversational-tool-schemas.md`](conversational-tool-schemas.md) and exposed
 by `modelsurgeon.conversation.tools`. Each operation declares:
 

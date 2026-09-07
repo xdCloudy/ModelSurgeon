@@ -75,6 +75,8 @@ from .tools import (
     CONVERSATIONAL_TOOL_SCHEMA_VERSION,
     DEFAULT_TOOL_CATALOG,
     MAX_TOOL_INPUT_BYTES,
+    MAX_TOOL_RESULT_BYTES,
+    TOOL_RESULT_SCHEMA_VERSION,
     TOOL_SCHEMA_VERSION,
     ToolAccess,
     ToolBudget,
@@ -82,6 +84,7 @@ from .tools import (
     ToolCatalog,
     ToolContractError,
     ToolDefinition,
+    ToolEvidenceStatus,
     ToolFailure,
     ToolFailureCode,
     ToolName,
@@ -92,6 +95,7 @@ from .tools import (
     ToolResult,
     default_tool_definitions,
     deterministic_tool_request_id,
+    tool_request_digest,
 )
 
 __all__ = [
@@ -102,7 +106,9 @@ __all__ = [
     "LOCAL_GGUF_PROVIDER_REVISION",
     "LOCAL_GGUF_STRUCTURED_SCHEMA",
     "MAX_TOOL_INPUT_BYTES",
+    "MAX_TOOL_RESULT_BYTES",
     "TEXT_PROVIDER_SCHEMA_VERSION",
+    "TOOL_RESULT_SCHEMA_VERSION",
     "TOOL_SCHEMA_VERSION",
     "AmbiguityRecord",
     "AuthReference",
@@ -163,6 +169,7 @@ __all__ = [
     "ToolCatalog",
     "ToolContractError",
     "ToolDefinition",
+    "ToolEvidenceStatus",
     "ToolFailure",
     "ToolFailureCode",
     "ToolName",
@@ -178,4 +185,5 @@ __all__ = [
     "invoke_provider",
     "request_digest",
     "result_from_raw_output",
+    "tool_request_digest",
 ]

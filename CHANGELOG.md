@@ -23,6 +23,11 @@
   negotiation/refusal results, approval-gated consequential calls, and no
   direct tensor-removal or arbitrary command authority.
 
+- Add version-2 grounded tool-result envelopes with deterministic result IDs,
+  engine-supplied canonical/unverified/unavailable provenance, source,
+  evidence, artifact and campaign lineage, stale-request checks, UTC
+  observation timestamps, and retained bounded raw negative payloads.
+
 - Add a bounded autonomous `optimize --execute` orchestrator with a deterministic
   stage DAG/cursor, atomic resume state, recorded approvals and overrides,
   trusted runtime adapters, retained alternatives, and fail-closed measured-only
