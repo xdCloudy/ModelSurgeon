@@ -17,11 +17,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import cast
 
 from modelsurgeon.conversation import (
     AmbiguityRecord,
@@ -35,6 +33,7 @@ from .intent_compiler import (
     CompilerDiagnostic,
     DiagnosticSeverity,
     IntentCompilation,
+    _detect_conflicts,
     compile_intent_record,
 )
 from .objective_contract import ContractMetric, ObjectiveContract
@@ -143,6 +142,7 @@ class PolicyDiagnostic:
     field_id: str | None = None
     source_span_ids: tuple[str, ...] = ()
     provenance_refs: tuple[str, ...] = ()
+    related_field_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.code.strip() or not self.message.strip():
@@ -153,9 +153,11 @@ class PolicyDiagnostic:
             raise IntentPolicyError("policy diagnostic source spans must be sorted and unique")
         if self.provenance_refs != tuple(sorted(set(self.provenance_refs))):
             raise IntentPolicyError("policy diagnostic provenance must be sorted and unique")
+        if self.related_field_ids != tuple(sorted(set(self.related_field_ids))):
+            raise IntentPolicyError("policy diagnostic related fields must be sorted and unique")
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "code": self.code,
             "message": self.message,
             "severity": self.severity.value,
@@ -163,6 +165,9 @@ class PolicyDiagnostic:
             "source_span_ids": list(self.source_span_ids),
             "provenance_refs": list(self.provenance_refs),
         }
+        if self.related_field_ids:
+            record["related_field_ids"] = list(self.related_field_ids)
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,8 +295,18 @@ class IntentPolicyEvaluator:
             )
             candidates.append((outcome, code))
 
-        hard_conflicts, hard_diags = _hard_constraint_conflicts(intent, fields, intent.provenance)
-        diagnostics.extend(hard_diags)
+        raw_conflicts = _detect_conflicts(intent.fields)
+        for conflict in raw_conflicts:
+            if not any(
+                item.code == conflict.code
+                and item.related_field_ids == conflict.related_field_ids
+                for item in diagnostics
+            ):
+                diagnostics.append(_from_compiler_diagnostic(conflict, fields, intent.provenance))
+        hard_conflicts = any(
+            item.code in {"contradictory-hard-constraints", "conflicting-hard-constraints"}
+            for item in raw_conflicts
+        )
         if hard_conflicts:
             candidates.append((IntentOutcome.REFUSED, "contradictory-hard-constraints"))
 
@@ -300,8 +315,9 @@ class IntentPolicyEvaluator:
         if unsupported_diags:
             candidates.append((IntentOutcome.UNSUPPORTED, "unsupported-intent"))
 
-        soft_conflict, soft_diags = _soft_objective_conflicts(intent, fields, intent.provenance)
-        diagnostics.extend(soft_diags)
+        soft_conflict = any(
+            item.code == "ambiguous-preference-ordering" for item in raw_conflicts
+        )
 
         if not _has_hard_constraint(intent):
             diagnostics.append(
@@ -329,16 +345,9 @@ class IntentPolicyEvaluator:
                 )
 
         if soft_conflict:
-            diagnostics.append(
-                _policy_diagnostic(
-                    "conflicting-soft-objectives",
-                    "multiple soft objectives target the same metric; the preference "
-                    "must be clarified",
-                    None,
-                    intent.provenance,
-                )
+            candidates.append(
+                (IntentOutcome.CLARIFICATION_REQUIRED, "ambiguous-preference-ordering")
             )
-            candidates.append((IntentOutcome.CLARIFICATION_REQUIRED, "conflicting-soft-objectives"))
 
         # The compiler is authoritative for schema validity.  A soft-preference
         # collision is the one compiler refusal that is safely reclassified as
@@ -459,6 +468,7 @@ def _from_compiler_diagnostic(
         item.field_id,
         spans,
         provenance.evidence_refs,
+        item.related_field_ids,
     )
 
 
@@ -469,6 +479,7 @@ def _policy_diagnostic(
     provenance: IntentProvenance,
     *,
     severity: DiagnosticSeverity = DiagnosticSeverity.ERROR,
+    related_field_ids: tuple[str, ...] = (),
 ) -> PolicyDiagnostic:
     return PolicyDiagnostic(
         code,
@@ -477,6 +488,7 @@ def _policy_diagnostic(
         None if field is None else field.field_id,
         () if field is None else field.source_span_ids,
         provenance.evidence_refs,
+        related_field_ids,
     )
 
 
@@ -503,83 +515,6 @@ def _metric(value: object) -> str | None:
 
 def _has_hard_constraint(intent: IntentRecord) -> bool:
     return any(_kind(field.value) == "hard_constraint" for field in intent.fields)
-
-
-def _hard_constraint_conflicts(
-    intent: IntentRecord,
-    fields: Mapping[str, IntentField],
-    provenance: IntentProvenance,
-) -> tuple[bool, list[PolicyDiagnostic]]:
-    grouped: defaultdict[str, list[tuple[IntentField, Mapping[str, object]]]] = defaultdict(list)
-    for field in intent.fields:
-        if _kind(field.value) == "hard_constraint" and isinstance(field.value, Mapping):
-            metric = _metric(field.value.get("metric"))
-            if metric is not None:
-                grouped[metric].append((field, field.value))
-    diagnostics: list[PolicyDiagnostic] = []
-    for metric, terms in sorted(grouped.items()):
-        if len(terms) < 2:
-            continue
-        fields_for_reason = sorted(terms, key=lambda item: item[0].field_id)
-        source = fields_for_reason[0][0]
-        directions = {str(term.get("direction")) for _, term in terms}
-        minimums = [
-            term.get("threshold")
-            for _, term in terms
-            if term.get("direction") == "minimum"
-        ]
-        maximums = [
-            term.get("threshold")
-            for _, term in terms
-            if term.get("direction") == "maximum"
-        ]
-        numeric_minimums = [value for value in minimums if isinstance(value, (int, float))]
-        numeric_maximums = [value for value in maximums if isinstance(value, (int, float))]
-        contradictory = (
-            "minimum" in directions
-            and "maximum" in directions
-            and all(not isinstance(value, bool) for value in numeric_minimums + numeric_maximums)
-            and numeric_minimums
-            and numeric_maximums
-            and max(cast(float, value) for value in numeric_minimums)
-            > min(cast(float, value) for value in numeric_maximums)
-        )
-        code = "contradictory-hard-constraints" if contradictory else "conflicting-hard-constraints"
-        diagnostics.append(
-            _policy_diagnostic(
-                code,
-                f"multiple hard constraints target metric {metric!r}; hard policy "
-                "cannot choose between them",
-                source,
-                provenance,
-            )
-        )
-    return bool(diagnostics), diagnostics
-
-
-def _soft_objective_conflicts(
-    intent: IntentRecord,
-    fields: Mapping[str, IntentField],
-    provenance: IntentProvenance,
-) -> tuple[bool, list[PolicyDiagnostic]]:
-    grouped: defaultdict[str, list[IntentField]] = defaultdict(list)
-    for field in intent.fields:
-        if _kind(field.value) == "soft_objective" and isinstance(field.value, Mapping):
-            metric = _metric(field.value.get("metric"))
-            if metric is not None:
-                grouped[metric].append(field)
-    diagnostics: list[PolicyDiagnostic] = []
-    for metric, terms in sorted(grouped.items()):
-        if len(terms) > 1:
-            diagnostics.append(
-                _policy_diagnostic(
-                    "conflicting-soft-objectives",
-                    f"multiple soft objectives target metric {metric!r}",
-                    sorted(terms, key=lambda item: item.field_id)[0],
-                    provenance,
-                )
-            )
-    return bool(diagnostics), diagnostics
 
 
 def _unsupported_declarations(
