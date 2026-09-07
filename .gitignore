@@ -1,4 +1,6 @@
 .venv/
+.release-venv/
+release-notes.md
 __pycache__/
 *.py[cod]
 .pytest_cache/
