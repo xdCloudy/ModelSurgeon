@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded target-runtime export capability contracts for Transformers,
+  llama.cpp, MLX, ONNX, and vLLM with family/state matrices, converter/runtime
+  provenance, explicit verified/experimental/unsupported/failed/unknown
+  outcomes, and fail-closed asymmetric/low-rank/mixed-codec handling.
+
 - Add deterministic offline benchmark and lineage explorers with canonical
   evidence projections, Pareto-front summaries, visible negative/unsupported/
   failed cells, immutable source links, safe escaping, static filtering, and

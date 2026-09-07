@@ -1,0 +1,25 @@
+{
+  "record_type": "runtime_export_capability_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-runtime-exports-v1",
+  "runtimes": ["huggingface", "llama_cpp", "mlx", "onnx", "vllm"],
+  "families": ["llama", "qwen", "mistral", "gemma"],
+  "states": ["dense_uniform", "asymmetric_width", "low_rank_quantized", "mixed_codec_quantized"],
+  "outcomes": ["verified", "experimental", "unsupported", "failed", "unknown"],
+  "required_provenance": [
+    "source_artifact_digest",
+    "converter_revision",
+    "runtime_revision",
+    "exact_command",
+    "license_id",
+    "config_digest"
+  ],
+  "negative_cells": [
+    "incomplete_huggingface_metadata",
+    "asymmetric_target_representation_gap",
+    "low_rank_target_representation_gap",
+    "mixed_codec_target_representation_gap",
+    "unproven_family_runtime_reload"
+  ],
+  "reproduction": "generate_runtime_export_matrix() and plan_runtime_export(RuntimeExportRequest(...))"
+}
