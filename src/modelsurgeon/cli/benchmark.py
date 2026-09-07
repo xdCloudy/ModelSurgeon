@@ -15,6 +15,7 @@ from typing import Annotated, Protocol, cast, runtime_checkable
 
 import typer
 
+from modelsurgeon.cli.deployment import deployment_app
 from modelsurgeon.evaluation import (
     DEFAULT_BENCHMARK_PROTOCOL,
     BenchmarkProtocolManifest,
@@ -514,13 +515,15 @@ def _save_state(path: Path, state: BenchmarkMatrixState) -> None:
 
 
 benchmark_app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+benchmark_app.add_typer(deployment_app, name="deploy")
 
 
 @benchmark_app.command("plan")
 def plan_command(
     output: Annotated[Path, typer.Option("--output", help="New immutable plan JSON")],
-    executor: Annotated[str, typer.Option("--executor", help="Executor module:factory")]
-    = "modelsurgeon.cli.benchmark:fake_executor_factory",
+    executor: Annotated[
+        str, typer.Option("--executor", help="Executor module:factory")
+    ] = "modelsurgeon.cli.benchmark:fake_executor_factory",
 ) -> None:
     """Create a deterministic benchmark plan without executing any cell."""
     try:

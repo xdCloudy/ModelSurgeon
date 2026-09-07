@@ -1,0 +1,28 @@
+{
+  "record_type": "deployment_benchmark_protocol",
+  "schema_version": 1,
+  "status": "protocol_and_cli_contract",
+  "formats": ["hf", "gguf"],
+  "minimum_warmups": 2,
+  "minimum_repetitions": 7,
+  "metrics": [
+    {"name": "load_time_seconds", "unit": "s"},
+    {"name": "prefill_tokens_per_second", "unit": "tokens/s"},
+    {"name": "decode_tokens_per_second", "unit": "tokens/s"},
+    {"name": "latency_seconds", "unit": "s"},
+    {"name": "peak_ram_bytes", "unit": "bytes"},
+    {"name": "peak_vram_bytes", "unit": "bytes"},
+    {"name": "disk_bytes", "unit": "bytes"}
+  ],
+  "outcomes": [
+    "measured",
+    "unsupported",
+    "failed",
+    "timeout",
+    "oom",
+    "drift",
+    "invalid_artifact",
+    "interrupted"
+  ],
+  "claim_boundary": "The CLI and evidence contract are implemented; runtime-specific HF and GGUF measurements require an explicitly configured runner and reference hardware."
+}
