@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "title": "Approved campaign execution and fail-closed promotion",
+  "status": "implemented",
+  "promotion_requirements": [
+    "approved plan membership",
+    "complete measured evidence",
+    "passed hard constraints",
+    "committed mutation transaction",
+    "distinct immutable child artifact",
+    "unchanged source artifact digest"
+  ],
+  "outcomes": ["promoted", "rejected", "failed", "unknown"],
+  "replan_rule": "remove rejected/failed candidates and retain unknown candidates",
+  "recovery_boundary": "existing lease-aware CampaignRunner, OOM recovery, and lineage store"
+}

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add an approved campaign coordinator and fail-closed promotion gate around
+  lease-aware execution, requiring complete measured evidence, passed hard
+  constraints, committed transactions, immutable child artifacts, and stable
+  source identity before promotion; rejected/failed candidates replan
+  deterministically while unknown candidates remain visible.
+
 - Add deterministic strategy selection for required strong baselines, surgeon,
   acquisition, search policy, budgets, and approval-visible alternatives, with
   a rule-based fallback until held-out meta-evidence is validated.
