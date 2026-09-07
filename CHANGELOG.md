@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded pre-mutation interaction features for activation/gradient overlap,
+  redundancy, topology distance, mutation order, and cumulative error with explicit
+  missingness, target outcomes, provenance context, deterministic IDs, and RAM/VRAM/time
+  and candidate-cell budgets.
 - Add the versioned mutation interaction dataset contract for single, ordered-pair,
   and cumulative evidence, additive/non-additive reconciliation, explicit terminal
   outcomes, topology distance, provenance, and lineage-safe leakage rejection.
