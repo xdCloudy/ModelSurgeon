@@ -35,9 +35,24 @@ from modelsurgeon.adapters.family import (
     UnknownArchitectureError,
     detect_model_family,
 )
+from modelsurgeon.adapters.runtime_exports import (
+    DEFAULT_EXPORT_STATES,
+    RUNTIME_EXPORT_SCHEMA_VERSION,
+    RuntimeExportCell,
+    RuntimeExportError,
+    RuntimeExportMatrix,
+    RuntimeExportOutcome,
+    RuntimeExportRequest,
+    RuntimeExportState,
+    RuntimeKind,
+    generate_runtime_export_matrix,
+    plan_runtime_export,
+)
 
 __all__ = [
     "COMPETITOR_ADAPTER_SCHEMA_VERSION",
+    "DEFAULT_EXPORT_STATES",
+    "RUNTIME_EXPORT_SCHEMA_VERSION",
     "AdapterCapability",
     "AdapterIdentity",
     "ArchitectureDetectionError",
@@ -59,12 +74,21 @@ __all__ = [
     "ModelSource",
     "MutationSupport",
     "OpenOptions",
+    "RuntimeExportCell",
+    "RuntimeExportError",
+    "RuntimeExportMatrix",
+    "RuntimeExportOutcome",
+    "RuntimeExportRequest",
+    "RuntimeExportState",
+    "RuntimeKind",
     "SubprocessCompetitorAdapter",
     "TensorChunk",
     "TensorDescriptor",
     "UnknownArchitectureError",
     "UnsupportedCapabilityError",
     "detect_model_family",
+    "generate_runtime_export_matrix",
+    "plan_runtime_export",
     "require_capability",
 ]
 
