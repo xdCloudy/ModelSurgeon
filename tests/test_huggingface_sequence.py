@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import torch
+import pytest
 
-from modelsurgeon.adapters.huggingface import (
+torch = pytest.importorskip("torch")
+
+from modelsurgeon.adapters.huggingface import (  # noqa: E402
     remove_huggingface_attention_heads,
     remove_huggingface_mlp_channels,
     remove_huggingface_transformer_layers,
 )
-from modelsurgeon.surgery import (
+from modelsurgeon.surgery import (  # noqa: E402
     HuggingFaceEdit,
     run_huggingface_cumulative_sequence,
 )
