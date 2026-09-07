@@ -1,0 +1,238 @@
+{
+  "record_type": "v2_autonomous_optimizer_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.0-autonomous-optimizer-release-v1",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "key": "v20-reference-benchmark",
+      "issue": 429,
+      "status": "merged",
+      "commit": "a50f26f05b7ced018cb0ec166c54b204442a70b7",
+      "artifacts": [
+        "src/modelsurgeon/evaluation/v2_benchmark.py",
+        "docs/design/v2-benchmark-publication.md",
+        "docs/research/v2.0-autonomous-benchmark.md"
+      ],
+      "tests": ["tests/test_v2_benchmark.py"]
+    },
+    {
+      "key": "v19-user-workflows",
+      "issue": 421,
+      "status": "merged",
+      "commit": "a767d7cc56c261a16e05cd576d5c31f54e0ac8fb",
+      "artifacts": [
+        "docs/user-guides/README.md",
+        "docs/user-guides/python-api.md",
+        "docs/user-guides/troubleshooting.md"
+      ],
+      "tests": ["tests/test_user_workflow_docs.py"]
+    },
+    {
+      "key": "v20-objective-contract",
+      "issue": 422,
+      "status": "merged",
+      "commit": "f6775eff7ed9bc69f5b4e5ab830c7ffc4880888b",
+      "artifacts": [
+        "src/modelsurgeon/optimization.py",
+        "docs/design/objective-contract.md",
+        "docs/research/v2.0-objective-contract-v1.json"
+      ],
+      "tests": ["tests/test_objective_contract.py"]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "bounded_plan_and_resume",
+      "surface": "typed optimize planning, cursor resume, and rollback policy",
+      "format": "Hugging Face and native GGUF planning records",
+      "runtime": "Python 3.12 core runtime",
+      "state": "verified",
+      "outcomes": ["supported", "unsupported", "failed", "unknown"],
+      "evidence": "unit and integration tests for deterministic plans and resume state",
+      "limitation": "Execution support remains profile- and format-specific."
+    },
+    {
+      "id": "objective_and_plugin_boundary",
+      "surface": "versioned hard constraints, soft objectives, and capability-gated plugins",
+      "format": "schema-versioned objective records",
+      "runtime": "Python API and direct CLI",
+      "state": "verified",
+      "outcomes": ["supported", "unsupported", "failed", "unknown"],
+      "evidence": "objective contract schema, deterministic identities, and plugin conformance tests",
+      "limitation": "A plugin prediction is not measured optimization evidence."
+    },
+    {
+      "id": "benchmark_publication_gate",
+      "surface": "preregistered matrix, retained cells, lineage, and publication decision",
+      "format": "v2 benchmark protocol and evidence bundle",
+      "runtime": "offline Python validation",
+      "state": "verified",
+      "outcomes": ["supported", "negative", "unsupported", "failed", "unknown"],
+      "evidence": "content-addressed protocol and fail-closed publication tests",
+      "limitation": "No live v2 campaign or reference artifact is claimed in this release."
+    },
+    {
+      "id": "physical_autonomous_optimization",
+      "surface": "automatic candidate selection through physical mutation and evaluation",
+      "format": "declared HF/GGUF cells only",
+      "runtime": "host-specific model and optional runtime dependencies",
+      "state": "experimental",
+      "outcomes": ["supported", "negative", "unsupported", "failed", "unknown"],
+      "evidence": "prior bounded research records and executor contracts",
+      "limitation": "General task quality, cross-family transfer, and deployment benefit are unverified."
+    },
+    {
+      "id": "repair_quantization_runtime_benchmarks",
+      "surface": "repair, quantization, and runtime measurements in release cells",
+      "format": "licensed model artifacts and declared runtime profiles",
+      "runtime": "llama.cpp/CUDA/Hugging Face where separately installed",
+      "state": "experimental",
+      "outcomes": ["supported", "negative", "unsupported", "failed", "unknown"],
+      "evidence": "versioned protocols and host-bound prior evidence",
+      "limitation": "Measurements cannot be generalized beyond the recorded host, tool, and artifact."
+    },
+    {
+      "id": "generic_model_family_optimization",
+      "surface": "unlisted architecture, mutable checkpoint, or inferred format support",
+      "format": "unverified model and quantization combinations",
+      "runtime": "any runtime not covered by a declared capability cell",
+      "state": "unsupported",
+      "outcomes": ["unsupported"],
+      "evidence": "fail-closed compatibility and artifact validation gates",
+      "limitation": "A neighboring family or successful toy fixture does not establish support."
+    },
+    {
+      "id": "live_provider_or_remote_benchmarking",
+      "surface": "hosted providers, live endpoints, and remote model-quality benchmarking",
+      "format": "external provider responses and credentials",
+      "runtime": "networked or credentialed runtime",
+      "state": "unsupported",
+      "outcomes": ["unsupported", "unknown"],
+      "evidence": "provider boundary explicitly excludes execution authority and live quality claims",
+      "limitation": "No credentials, hosted service, or remote endpoint evidence is included."
+    },
+    {
+      "id": "unrun_release_reproduction",
+      "surface": "clean-environment reproduction of every preregistered v2 cell",
+      "format": "licensed checkpoints, datasets, and signed bundles",
+      "runtime": "clean CPU/CUDA environments as declared by a future campaign",
+      "state": "unknown",
+      "outcomes": ["unknown", "unsupported", "failed"],
+      "evidence": "reproduction protocol and required command manifest only",
+      "limitation": "The checked-in release boundary does not contain external weights, datasets, or live run logs."
+    }
+  ],
+  "evidence_policy": {
+    "live_benchmark": "not_run",
+    "signed_packages": "not_built",
+    "published_reference_artifacts": false,
+    "untested_claims": "not_claimed",
+    "negative_or_inconclusive_results": "retained_as_non_claims"
+  },
+  "research_protocol": {
+    "model_families_and_revisions": [
+      "Declare exact dense families, sizes, checkpoint revisions, and licenses before a live campaign.",
+      "Do not substitute mutable branches or unlicensed weights."
+    ],
+    "datasets_tasks_splits_and_licenses": [
+      "Use held-out task or corpus splits with stable identities and license records.",
+      "Retain contamination, unavailable, and unsupported cells."
+    ],
+    "baselines_and_ablations": [
+      "Run the declared v1.1 baseline and autonomous, ablation, manual, and competitor arms under equal budgets."
+    ],
+    "hardware_and_budgets": [
+      "Record CPU, accelerator, memory, runtime revision, optimization budget, evaluation budget, and artifact ceiling."
+    ],
+    "metrics_and_thresholds": [
+      "Record quality, size, RAM, VRAM, prompt/decode throughput, cost, optimization time, and confidence intervals.",
+      "Apply hard constraints before soft objectives and publish only when intervals clear the preregistered threshold."
+    ],
+    "seeds_and_repetitions": [
+      "Use at least three campaign seeds and repeated runtime measurements per measured cell."
+    ],
+    "negative_and_unsupported_cells": [
+      "Every declared cell is retained as measured, negative, unsupported, failed, or unknown with a reason."
+    ],
+    "provenance_requirements": [
+      "Bind code, config, model, dataset, tool, hardware, seed, and artifact digests to every evidence record."
+    ],
+    "report": ["docs/research/v2.0-autonomous-optimizer-report.md"]
+  },
+  "compatibility": {
+    "policy": "Unknown and unsupported combinations fail closed; verified claims are limited to the exact recorded format, model, runtime, and evidence cell.",
+    "matrix": ["docs/architecture-compatibility.md"],
+    "migration_guidance": ["docs/user-guides/README.md", "docs/user-guides/troubleshooting.md"]
+  },
+  "independent_audit_replay": {
+    "audit_status": "passed",
+    "replay_status": "passed",
+    "critical_findings": [],
+    "tests": ["tests/test_v2_benchmark.py", "tests/test_v20_release.py"]
+  },
+  "quality_gate": {
+    "status": "passed",
+    "commands": [
+      "uv run --locked --extra dev python tools/audit_v20_release.py",
+      "uv run --locked --extra dev pytest tests/test_v20_release.py tests/test_v2_benchmark.py tests/test_optimization_package.py tests/test_user_workflow_docs.py -q",
+      "uv run --locked --extra dev ruff check .",
+      "uv run --locked --extra dev mypy src",
+      "uv run --locked --extra dev pytest"
+    ],
+    "results": [
+      {
+        "status": "passed",
+        "environment": "project-managed uv runtime, Python 3.12",
+        "revision": "issue-430-v20-release working tree",
+        "outcome": "audit passed"
+      },
+      {
+        "status": "passed",
+        "environment": "project-managed uv runtime, Python 3.12",
+        "revision": "issue-430-v20-release working tree",
+        "outcome": "focused tests passed"
+      },
+      {
+        "status": "passed",
+        "environment": "project-managed uv runtime, Python 3.12",
+        "revision": "issue-430-v20-release working tree",
+        "outcome": "ruff passed"
+      },
+      {
+        "status": "passed",
+        "environment": "project-managed uv runtime, Python 3.12",
+        "revision": "issue-430-v20-release working tree",
+        "outcome": "mypy passed"
+      },
+      {
+        "status": "passed",
+        "environment": "project-managed uv runtime, Python 3.12",
+        "revision": "issue-430-v20-release working tree",
+        "outcome": "full test suite passed"
+      }
+    ],
+    "known_skips": [
+      "No live CUDA, external llama.cpp service, hosted provider, or licensed external model benchmark was run.",
+      "Package signing, publication, and clean-environment archive installation remain release-pipeline actions."
+    ]
+  },
+  "documentation": [
+    "docs/release/v2.0-autonomous-optimizer-audit.md",
+    "docs/research/v2.0-autonomous-optimizer-report.md",
+    "docs/design/v2-benchmark-publication.md",
+    "README.md",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md"
+  ],
+  "schema_and_api": [
+    "src/modelsurgeon/evaluation/v2_benchmark.py",
+    "docs/research/v2.0-objective-contract-v1.json",
+    "docs/research/v2.0-autonomous-optimize-orchestrator-v1.json"
+  ],
+  "reproduction_commands": [
+    "uv sync --extra dev --locked",
+    "uv run --locked --extra dev python tools/audit_v20_release.py",
+    "uv run --locked --extra dev pytest"
+  ]
+}

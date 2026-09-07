@@ -1,0 +1,61 @@
+"""Tests for the v2.0 autonomous optimizer release boundary."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from tools.audit_v20_release import V20ReleaseAuditError, audit_release
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / "docs" / "research" / "v2.0-autonomous-optimizer-release-v1.json"
+
+
+def _altered_manifest(tmp_path: Path, **changes: object) -> Path:
+    record = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    record.update(changes)
+    path = tmp_path / "release.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    return path
+
+
+def test_v20_release_boundary_is_complete() -> None:
+    audit_release(ROOT)
+
+
+def test_release_audit_withholds_an_unverified_live_claim(tmp_path: Path) -> None:
+    path = _altered_manifest(
+        tmp_path,
+        evidence_policy={
+            "live_benchmark": "measured",
+            "signed_packages": "not_built",
+            "published_reference_artifacts": False,
+            "untested_claims": "not_claimed",
+        },
+    )
+
+    with pytest.raises(V20ReleaseAuditError, match="live benchmark"):
+        audit_release(ROOT, manifest=path)
+
+
+def test_release_audit_rejects_incomplete_capability_states(tmp_path: Path) -> None:
+    record = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    record["capabilities"] = [
+        item for item in record["capabilities"] if item["state"] != "unknown"
+    ]
+    path = tmp_path / "release.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(V20ReleaseAuditError, match="capabilities must include"):
+        audit_release(ROOT, manifest=path)
+
+
+def test_release_audit_rejects_changed_dependency_identity(tmp_path: Path) -> None:
+    record = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    record["dependency_evidence"][0]["commit"] = "0" * 40
+    path = tmp_path / "release.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(V20ReleaseAuditError, match="unexpected commit"):
+        audit_release(ROOT, manifest=path)

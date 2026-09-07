@@ -44,7 +44,7 @@ flowchart TD
 
 ## Conversational control plane (v2.2 provider boundary frozen; product planned for v2.3–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The bounded v2.1 intent-record, compiler, policy, and corpus contracts plus the v2.2 replaceable-provider boundary are implemented and frozen; the conversational product remains planned, and `modelsurgeon chat` is not implemented. The provider adapters are bounded control-plane infrastructure, not an alternate execution authority. See the [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md).
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts plus the v2.2 replaceable-provider boundary are implemented and frozen; the conversational product remains planned, and `modelsurgeon chat` is not implemented. The provider adapters are bounded control-plane infrastructure, not an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md) and [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md).
 
 ```text
 User request
