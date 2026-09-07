@@ -12,6 +12,11 @@
   output validation, cancellation, deterministic provider provenance, and
   retained unsupported/failed/timeout/cancelled outcomes.
 
+- Add version-1 capability-scoped conversational tool schemas with strict
+  allowlisting, deterministic request/tool IDs, bounded budgets, typed
+  negotiation/refusal results, approval-gated consequential calls, and no
+  direct tensor-removal or arbitrary command authority.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and
