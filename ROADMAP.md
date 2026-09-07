@@ -119,9 +119,9 @@ Deliver a resumable `optimize` workflow, worker scheduling, artifact registry, s
 
 Turn a constrained user objective and hardware profile into an auditable capability space, strategy, mutation/evaluation/repair/quantization workflow and deployable alternatives. Exit with human approval gates, deterministic replay, a competitive reference benchmark, signed release artifacts and a scientific report that clearly separates verified, experimental, unsupported and unknown capabilities.
 
-## v2.1 — Natural-language OptimizationSpec Compiler
+## v2.1 — Natural-language OptimizationSpec Compiler (contract frozen)
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/22). Compile plain-English intent into the stable v2 `OptimizationSpec` contract. Entry is the frozen v2.0 objective/API boundary, especially #422; exit is deterministic serialization, provenance, confidence/ambiguity/refusal behavior and rephrasing tests. This is a control-plane compiler only: it cannot choose tensors, relax hard constraints or promote artifacts. It is the contract consumed by the provider and clarification milestones.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/22). Compile plain-English intent into the stable v2 `OptimizationSpec` contract. Entry is the frozen v2.0 objective/API boundary, especially #422; the bounded exit is recorded in [`docs/design/conversational-intent-contract.md`](docs/design/conversational-intent-contract.md) and [`docs/research/v2.1-conversational-intent-contract-v1.json`](docs/research/v2.1-conversational-intent-contract-v1.json): deterministic serialization, provenance, confidence/ambiguity/refusal behavior, retained negative evidence, and rephrasing/refusal tests. This is a control-plane compiler only: it cannot choose tensors, relax hard constraints or promote artifacts. `modelsurgeon chat` and the later provider, clarification, state, tool-execution, and explanation layers remain planned work.
 
 ## v2.2 — Replaceable Text-model Provider Layer
 

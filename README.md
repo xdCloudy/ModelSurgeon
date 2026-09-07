@@ -25,7 +25,7 @@ It supports two complementary paths:
 > [!WARNING]
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
-The v2.1–v3.0 roadmap plans a conversational control plane around the deterministic engine. Those milestones are not current product capabilities: the text LLM will eventually compile intent, request bounded API operations and explain measured evidence, while ModelSurgeon retains authority over constraints, surgery, validation and artifact publication. Direct CLI/Python workflows remain the supported automation path.
+The v2.1 conversational intent boundary is frozen around the existing `OptimizationSpec` contract; the v2.2–v3.0 roadmap still plans the full conversational product. Those later milestones are not current product capabilities: the text LLM will eventually compile intent, request bounded API operations and explain measured evidence, while ModelSurgeon retains authority over constraints, surgery, validation and artifact publication. See the [frozen v2.1 contract](docs/design/conversational-intent-contract.md). Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
 
@@ -51,7 +51,7 @@ Current package version: **`1.0.0` (evidence-bounded research release)**. The v0
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
-| Conversational control plane | **Planned** | v2.1–v3.0 work covers intent compilation, replaceable providers, bounded tools, state, evidence-grounded explanations and approvals; experimental provider adapters exist, but `modelsurgeon chat` is not yet a current capability. |
+| Conversational control plane | **v2.1 contract frozen; product planned** | Typed intent records, compiler, policy, and corpus are implemented; v2.2–v3.0 still cover replaceable providers, chat, bounded execution, state, evidence-grounded explanations and approvals. Experimental provider adapters exist, but `modelsurgeon chat` is not yet a current capability. |
 
 Measured evidence currently includes:
 

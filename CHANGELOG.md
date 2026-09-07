@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Freeze the v2.1 conversational intent contract around the existing
+  `OptimizationSpec`/`ObjectiveContract` schema, with a machine-readable
+  compatibility record, explicit current-versus-planned availability, and a
+  replay test that validates schema versions, deterministic corpus evidence,
+  provenance, and fail-closed non-executable outcomes.
+
 - Add an explicit, secret-free provider configuration boundary with deterministic
   precedence, no-LLM defaults and CLI overrides. Direct optimization remains
   usable without a text-model installation; provider diagnostics report stable
