@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add fail-closed transfer-confidence decisions with compatibility and
+  capability preflight, deterministic abstention reasons, support/distance/
+  uncertainty/calibration thresholds, and selective-risk coverage/cost curves
+  that retain unsupported, unknown, and false-confidence outcomes.
 - Add bounded zero-shot and few-shot target adaptation records for budgets
   0/8/16/32/64/128 with five seeded support selectors, explicit compatibility
   gates, target-test leakage protection, immutable parent/child lineage,

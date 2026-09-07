@@ -1,0 +1,23 @@
+{
+  "record_type": "transfer_confidence_abstention_protocol",
+  "schema_version": 1,
+  "protocol_revision": "transfer-confidence-v1",
+  "folds": ["leave_family", "leave_size", "leave_hardware", "leave_state"],
+  "synthetic_cases": ["corrupt_features", "out_of_distribution", "unsupported_mutation"],
+  "required_outputs": [
+    "coverage_curve",
+    "violation_rate_curve",
+    "selective_risk_curve",
+    "target_evaluation_cost",
+    "paired_uncalibrated_comparison",
+    "false_confidence_cases"
+  ],
+  "hard_preflight": [
+    "compatibility",
+    "architecture_capability",
+    "mutation_capability",
+    "hardware_identity"
+  ],
+  "claim_boundary": "Learned confidence cannot override unknown or unsupported hard capability states",
+  "reproduction": "decide_transfer_confidence() and build_selective_risk_curve()"
+}
