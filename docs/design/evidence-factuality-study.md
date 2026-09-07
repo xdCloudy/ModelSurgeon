@@ -32,3 +32,11 @@ uv run python tools/audit_evidence_factuality_study.py
 ```
 
 The complete retained run is available with `--json`; the checked-in fixture is [evidence_factuality_study_v1.json](../../tests/fixtures/evidence_factuality_study_v1.json), and the release-threshold record is [v2.8-evidence-factuality-study-v1.json](../research/v2.8-evidence-factuality-study-v1.json).
+
+This study is one dependency of the closed v2.8 release boundary. Passing the
+grounded renderer threshold closes only the bounded canonical projection on
+this provider-independent corpus; it does not promote the unconstrained text
+control, establish optimizer proof, or provide live provider/model-quality
+measurements. The milestone-level reconciliation, limitations, deferred
+explanation types, and duplicate-scope review are in the [release design](evidence-grounding-release.md)
+and [versioned release manifest](../research/v2.8-evidence-grounding-release-v1.json).

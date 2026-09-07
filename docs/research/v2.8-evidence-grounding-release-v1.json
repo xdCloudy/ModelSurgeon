@@ -1,0 +1,240 @@
+{
+  "record_type": "bounded_evidence_grounding_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.8-evidence-grounding-release-v1",
+  "milestone": "v2.8",
+  "status": "closed",
+  "issue": 480,
+  "dependency_evidence": [
+    {
+      "key": "v28-evidence-query",
+      "issue": 475,
+      "status": "merged",
+      "commit": "e0b4940a0b3a9d6dda468b46bcc02de303a492bb",
+      "artifacts": [
+        "src/modelsurgeon/conversation/evidence_query.py",
+        "docs/design/conversational-evidence-queries.md"
+      ],
+      "tests": ["tests/test_evidence_query.py"]
+    },
+    {
+      "key": "v28-claim-renderer",
+      "issue": 476,
+      "status": "merged",
+      "commit": "5558cbcfaab7de1e61c0ac35a500dd7aff5d172d",
+      "artifacts": [
+        "src/modelsurgeon/explain/claim_evidence.py",
+        "docs/design/claim-to-evidence-renderer.md"
+      ],
+      "tests": ["tests/test_claim_evidence.py"]
+    },
+    {
+      "key": "v28-negative-results",
+      "issue": 477,
+      "status": "merged",
+      "commit": "e2dec02c1747e4023ba56d1ba6a3a384447c0022",
+      "artifacts": [
+        "src/modelsurgeon/explain/negative_evidence.py",
+        "docs/design/conversational-evidence-queries.md"
+      ],
+      "tests": ["tests/test_negative_evidence.py"]
+    },
+    {
+      "key": "v28-pareto-selection",
+      "issue": 478,
+      "status": "merged",
+      "commit": "6b09bf0c7cfa0e6fe35dbbc4700c33f431c42694",
+      "artifacts": [
+        "src/modelsurgeon/explain/pareto_selection.py",
+        "docs/design/pareto-selection-explanations.md"
+      ],
+      "tests": ["tests/test_pareto_selection.py"]
+    },
+    {
+      "key": "v28-factuality",
+      "issue": 479,
+      "status": "merged",
+      "commit": "8c26280fa595c66fac26bd0b6789f922d4233fae",
+      "artifacts": [
+        "src/modelsurgeon/evaluation/evidence_factuality_study.py",
+        "tools/audit_evidence_factuality_study.py",
+        "docs/research/v2.8-evidence-factuality-study-v1.json"
+      ],
+      "tests": ["tests/test_evidence_factuality_study.py"]
+    }
+  ],
+  "authority_boundary": {
+    "canonical_query_api": "modelsurgeon.conversation.direct_evidence_report",
+    "canonical_query_engine": "modelsurgeon.conversation.EvidenceQueryEngine",
+    "claim_renderer_input": "typed EvidenceQueryResponse only",
+    "negative_report_projection": "modelsurgeon.explain.direct_negative_evidence_report",
+    "pareto_report_projection": "modelsurgeon.explain.build_pareto_selection_explanation",
+    "provider_text": "not_authoritative",
+    "transcript_text": "not_authoritative",
+    "prediction_values": "not_measurements",
+    "source_model": "immutable"
+  },
+  "claim_policy": {
+    "source_traceability": "every factual claim carries an evidence ID and source digest or is marked unavailable",
+    "qualification": "measured values retain units and uncertainty; unmeasured decisions are prediction-only",
+    "negative_evidence": "rejected, rolled_back, failed, unsupported, unknown, and inconclusive rows remain retained",
+    "unknown_evidence": "missing or incomplete fields remain unknown and are never inferred",
+    "optimizer_proof": "forbidden",
+    "unavailable_measurements": "forbidden",
+    "outcome_vocabulary": [
+      "failed",
+      "inconclusive",
+      "measured",
+      "predicted",
+      "rejected",
+      "rolled_back",
+      "unknown",
+      "unsupported"
+    ]
+  },
+  "canonical_report_reconciliation": {
+    "direct_evidence_report": "byte-identical to EvidenceQueryEngine response",
+    "claim_renderer": "replays the typed response and preserves every response row",
+    "negative_evidence_report": "direct and explanation paths share one canonical query response",
+    "pareto_selection_report": "direct/chat/html renderings derive from one typed explanation and replay the selection",
+    "tamper_policy": "digest, snapshot, stale-context, source, and selection drift fail closed"
+  },
+  "factuality_evidence": {
+    "manifest": "docs/research/v2.8-evidence-factuality-study-v1.json",
+    "grounded_renderer": "passed",
+    "template_only": "passed",
+    "unconstrained_text": "retained_never_shippable_negative_control",
+    "negative_and_inconclusive_retained": true,
+    "thresholds": {
+      "claim_source_precision": 1.0,
+      "claim_source_recall": 1.0,
+      "source_id_correctness": 1.0,
+      "negative_evidence_coverage": 1.0,
+      "uncertainty_disclosure": 1.0,
+      "uncertainty_calibration": 1.0,
+      "deterministic_ids": 1.0,
+      "measured_predicted_confusion_rate": 0.0,
+      "unsupported_claim_rate": 0.0,
+      "critical_escapes": 0
+    }
+  },
+  "limitations": {
+    "supported": [
+      "bounded typed explanations projected from canonical campaign evidence",
+      "source IDs, source digests, provenance, status, and artifact lineage retained",
+      "measured metrics retain units and available uncertainty",
+      "negative, unsupported, unknown, failed, rejected, rolled-back, and inconclusive outcomes remain distinguishable",
+      "measured Pareto selection explanations with deterministic replay and hard-constraint checks",
+      "provider-independent factuality thresholds on the checked-in v2.8 corpus"
+    ],
+    "unsupported": [
+      "provider text, transcript text, or free-form narrative as an evidence authority",
+      "claims of optimizer optimality, optimizer proof, or general correctness proof",
+      "measurements that are absent from the canonical evidence envelope",
+      "live provider quality, live external model quality, or broad language-model factuality",
+      "cross-family or cross-model generalization without matching held-out evidence",
+      "causal attribution without a canonical intervention record"
+    ],
+    "unknown": [
+      "missing measurements, missing lineage, incomplete qualification, and unavailable fields",
+      "quality, latency, memory, throughput, or hardware outcomes that were not observed",
+      "an empty feasible Pareto frontier or a selection with no canonical selected candidate",
+      "interrupted, failed, or incomplete execution where the retained record cannot qualify the outcome",
+      "capability outside the checked-in fixtures and verified support matrix"
+    ],
+    "optimizer_proof_claim": "not_supported",
+    "unavailable_measurement_claim": "not_supported",
+    "deferred_explanation_types": [
+      "optimizer_optimality_or_proof",
+      "live_provider_or_external_model_quality",
+      "unmeasured_hardware_or_latency_explanations",
+      "free_form_unbounded_narrative_explanations",
+      "cross_model_generalization_without_held_out_evidence",
+      "causal_attribution_without_canonical_intervention_evidence"
+    ]
+  },
+  "duplicate_scope_review": {
+    "status": "passed",
+    "no_duplicate_authority": true,
+    "reviewed_issues": [
+      {
+        "issue": 420,
+        "boundary": "offline explorer/report projection remains the explorer authority"
+      },
+      {
+        "issue": 411,
+        "boundary": "signed immutable evidence bundles remain the evidence-package authority"
+      },
+      {
+        "issue": 429,
+        "boundary": "optimizer benchmark/reference artifacts remain the measured benchmark authority"
+      }
+    ]
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "docs/goal.md",
+    "ARCHITECTURE.md",
+    "README.md",
+    "CHANGELOG.md",
+    "docs/design/conversational-evidence-queries.md",
+    "docs/design/claim-to-evidence-renderer.md",
+    "docs/design/negative-evidence.md",
+    "docs/design/pareto-selection-explanations.md",
+    "docs/design/evidence-factuality-study.md",
+    "docs/design/evidence-grounding-release.md",
+    "docs/release/v2.8-evidence-grounding-boundary.md"
+  ],
+  "tests": [
+    "tests/test_v28_evidence_grounding_release.py",
+    "tests/test_evidence_query.py",
+    "tests/test_claim_evidence.py",
+    "tests/test_negative_evidence.py",
+    "tests/test_pareto_selection.py",
+    "tests/test_evidence_factuality_study.py"
+  ],
+  "examples": [
+    "docs/examples/evidence_query.py",
+    "docs/examples/claim_evidence_renderer.py",
+    "docs/examples/pareto_selection.py",
+    "docs/examples/evidence_factuality_study.py"
+  ],
+  "reproduction_commands": [
+    "uv run --locked --extra dev python tools/audit_v28_evidence_grounding_release.py",
+    "uv run --locked --extra dev python tools/audit_evidence_factuality_study.py",
+    "uv run --locked --extra dev python docs/examples/evidence_query.py",
+    "uv run --locked --extra dev python docs/examples/claim_evidence_renderer.py",
+    "uv run --locked --extra dev python docs/examples/pareto_selection.py",
+    "uv run --locked --extra dev python docs/examples/evidence_factuality_study.py",
+    "uv run --locked --extra dev pytest tests/test_v28_evidence_grounding_release.py tests/test_evidence_query.py tests/test_claim_evidence.py tests/test_negative_evidence.py tests/test_pareto_selection.py tests/test_evidence_factuality_study.py -q",
+    "git diff --check",
+    "uv run --locked --extra dev ruff check src tests",
+    "uv run --locked --extra dev mypy src/modelsurgeon",
+    "uv run --locked --extra dev pytest -q"
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "commands": [
+      "git diff --check",
+      "uv run --locked --extra dev ruff check src tests",
+      "uv run --locked --extra dev mypy src/modelsurgeon",
+      "uv run --locked --extra dev pytest -q",
+      "uv run --locked --extra dev python tools/audit_v28_evidence_grounding_release.py",
+      "uv run --locked --extra dev python docs/examples/evidence_query.py",
+      "uv run --locked --extra dev python docs/examples/claim_evidence_renderer.py",
+      "uv run --locked --extra dev python docs/examples/pareto_selection.py",
+      "uv run --locked --extra dev python docs/examples/evidence_factuality_study.py"
+    ],
+    "revision": "issue-480-evidence-grounding-release",
+    "outcomes": [
+      "all canonical evidence and explanation acceptance tests passed",
+      "release audit passed with factuality replay",
+      "representative evidence/query/claim/Pareto/factuality examples passed",
+      "negative and inconclusive evidence remained retained",
+      "unconstrained narrative control remained fail-closed and non-shippable"
+    ],
+    "known_skips": [
+      "No live provider replay, external model-quality measurement, optimizer proof, or unavailable measurement claim is made by this bounded release."
+    ]
+  }
+}

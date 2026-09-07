@@ -26,7 +26,8 @@ It supports two complementary paths:
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
 The v2.1 conversational intent boundary, v2.2 replaceable-provider boundary,
-v2.6 bounded tool boundary, and the closed v2.7 stateful campaign release are frozen around the existing `OptimizationSpec`
+v2.6 bounded tool boundary, the closed v2.7 stateful campaign release, and the
+closed v2.8 evidence-grounding release are frozen around the existing `OptimizationSpec`
 contract. The tool boundary is control-plane infrastructure, not a general
 agent runtime, `modelsurgeon chat` product release, universal hosted-provider
 claim, or optimization evidence. ModelSurgeon retains authority over
@@ -42,6 +43,11 @@ snapshot; UI reconnect is not correctness evidence.
 The [v2.7 stateful campaign release boundary](docs/release/v2.7-stateful-campaigns-boundary.md)
 also records stale/expired fail-closed behavior, direct API authority,
 unsupported multi-writer concurrency, and unsupported distributed recovery.
+The [v2.8 evidence-grounding release boundary](docs/release/v2.8-evidence-grounding-boundary.md)
+adds source-traceable qualified explanations over canonical evidence, preserves
+negative/unknown/inconclusive outcomes and uncertainty, and keeps direct/report
+APIs authoritative. It does not claim optimizer proof, unavailable measurements,
+live provider quality, or general language-model factuality.
 Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
@@ -86,6 +92,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Conversational summaries | **v2.7 bounded non-authoritative view** | Deterministic, budgeted transcript summaries keep canonical state/evidence separate, mark omissions and unsupported roles, preserve negative evidence, and refuse stale or over-budget rehydration. |
 | Campaign recovery evidence | **v2.7 closed release boundary** | Twelve fixture cells cover lifecycle commands, stale plans, expired approvals, transcript loss, partial evidence, atomic fault checkpoints, subprocess restart, and direct/chat equivalence. Failed and inconclusive cells remain visible; multi-writer concurrency, distributed recovery, hostile process and UI correctness are not claimed. |
 | Canonical evidence queries | **v2.8 typed read path** | Bounded, deterministic, replayable queries join canonical campaign state and retained evidence for conversational explanations. Accepted, rejected, rolled-back, unsupported, failed, unknown, and inconclusive outcomes remain visible; stale snapshots, tampering, missing fields, arbitrary file/LLM access, and over-budget results fail closed. See the [evidence query contract](docs/design/conversational-evidence-queries.md) and [example](docs/examples/evidence_query.py). |
+| Evidence-grounded explanations | **v2.8 milestone closed by #480** | Claim, negative-evidence, and measured Pareto explanations reconcile to canonical reports; measured values retain uncertainty, prediction-only outcomes never become measurements, and unsupported/unknown limits are explicit. Factuality thresholds pass on the bounded corpus; optimizer proof, unavailable measurements, live provider quality, and unbounded narrative authority remain unsupported. See the [release boundary](docs/release/v2.8-evidence-grounding-boundary.md), [manifest](docs/research/v2.8-evidence-grounding-release-v1.json), and [release design](docs/design/evidence-grounding-release.md). |
 | Clarification and ambiguity handling | **v2.4 bounded milestone closed** | Necessary-only typed questions, fail-closed contradiction handling, explicit soft-preference selection, deterministic replay/provenance, and retained negative/inconclusive evidence. General natural-language understanding and autonomous negotiation are not claimed. See the [v2.4 release boundary](docs/release/v2.4-clarification-boundary.md). |
 | Measurable target elicitation | **v2.4 bounded clarification** | Vague quality, latency, throughput, memory, and deployment requests receive targeted measurable questions; complete specs proceed, while unsupported metrics remain explicit and no thresholds or baselines are invented. The [clarification measurement protocol](docs/design/clarification-measurement.md) retains bounded safety evidence. |
 

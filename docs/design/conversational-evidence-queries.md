@@ -148,3 +148,10 @@ assert report.canonical_json() == NegativeEvidenceReport.from_record(
 The response is evidence, not an explanation. A text model may summarize the
 response, but every factual claim must retain the relevant evidence ID or be
 marked unavailable.
+
+The v2.8 release closes this path as the canonical direct/report authority.
+Claim, negative-evidence, and measured Pareto explanations consume typed
+reports from this boundary; provider output, transcript text, predictions, and
+free-form narrative cannot add measurements or replace the report. See the
+[v2.8 release design](evidence-grounding-release.md) and
+[release manifest](../research/v2.8-evidence-grounding-release-v1.json).

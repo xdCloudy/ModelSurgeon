@@ -49,3 +49,11 @@ result. `replay_pareto_selection_explanation` rebuilds the projection and can
 assert byte-stable direct-report parity. The result ID is a SHA-256 digest of
 the canonical report without its result ID. Resource limits fail closed and
 never truncate alternatives.
+
+The v2.8 release treats the typed direct report as canonical: chat and HTML
+forms are presentation projections, and replay must reproduce the same
+selection and report. A no-feasible-frontier or unmeasured candidate remains
+unknown/non-selectable; the explanation does not claim optimizer optimality or
+proof. Cross-model generalization and causal attribution require separate
+held-out/intervention evidence and are deferred. See the [v2.8 release
+design](evidence-grounding-release.md).
