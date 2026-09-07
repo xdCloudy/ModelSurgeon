@@ -1,0 +1,21 @@
+{
+  "protocol": "architecture-surrogate-search-v1",
+  "schema_version": 1,
+  "issue": 381,
+  "methods": ["rbf_compatible_kernel", "expected_improvement", "hypervolume_improvement"],
+  "training": "measured complete architecture states only",
+  "missing_results": ["unsupported", "failed", "unknown", "uncalibrated"],
+  "calibration": ["held_out_objective_rmse", "confidence_interval_coverage", "feasibility_brier"],
+  "budgets": ["training_examples", "fit_operations", "model_bytes", "fit_time_ms", "evaluations"],
+  "reproduction": [
+    "python -m pytest tests/test_surrogate.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "decision": "inconclusive_pending_physical_search",
+  "limitations": [
+    "Synthetic fixtures establish contract behavior, not physical model-search improvement.",
+    "A surrogate is not permitted to promote predicted evidence into an accepted deployment frontier.",
+    "Default-method retention requires paired physical searches, held-out models, and measured cost."
+  ]
+}

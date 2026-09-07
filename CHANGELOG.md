@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded calibrated RBF-compatible surrogate acquisition for complete
+  architecture states, with mixed-space features, held-out objective and
+  feasibility calibration, expected/hypervolume improvement batches, hard
+  constraint gates, fit/evaluation budgets, explicit fallback outcomes, and
+  persisted model/fit/resume records.
 - Add bounded Pareto-beam and constrained evolutionary architecture policies
   over complete legal candidate states, with uncertainty-conservative dominance,
   deterministic seeded mutation/crossover, elitism and diversity, explicit
