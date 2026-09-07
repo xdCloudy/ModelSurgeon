@@ -1,0 +1,21 @@
+{
+  "protocol": "hardware-conditioned-surgeon-v1",
+  "schema_version": 1,
+  "issue": 373,
+  "profiles": ["cpu_only", "low_vram", "full_gpu"],
+  "predictands": ["quality", "safety", "utility"],
+  "pre_mutation_feature_only": true,
+  "post_mutation_runtime_target_is_excluded_from_predictors": true,
+  "ablation": "hardware-conditioned versus hardware-agnostic on held-out profiles",
+  "negative_result_policy": "retain null_result when context adds no value",
+  "reproduction": [
+    "python -m pytest tests/test_hardware_conditioning.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in fixture is tiny and deterministic; real studies must use the joined licensed hardware-cost dataset.",
+    "The linear predictor is a baseline, not evidence that one model family is optimal.",
+    "Unsupported and unknown profiles must remain explicit in scheduled runs."
+  ]
+}
