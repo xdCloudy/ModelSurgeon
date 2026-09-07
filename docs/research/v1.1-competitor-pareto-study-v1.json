@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "study_id": "pareto_study_1f1d0d89ba05fd0142147a42792babc03c207bebb45d3cc463cb9d23d086c365",
+  "model_families": ["llama", "qwen"],
+  "model_sizes": [135000000, 500000000],
+  "methods": [
+    "reference_dense",
+    "modelsurgeon_equal_budget",
+    "wanda",
+    "sparsegpt",
+    "structured_baselines",
+    "quantization_only",
+    "pruning_plus_quantization",
+    "magnitude_random_controls"
+  ],
+  "seeds": [11, 23, 47],
+  "point_count": 48,
+  "outcome_counts": {"unsupported": 48},
+  "frontier_point_ids": [],
+  "superiority_claim": null,
+  "diagnosis": "No complete reloadable artifact bundle is available; no quality, deployment, or superiority claim is made."
+}

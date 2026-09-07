@@ -4,6 +4,7 @@
 
 - Add the resumable `modelsurgeon benchmark` matrix CLI with deterministic plans, imports, audits, and reports.
 - Add matched BF16/F16/Q8_0/Q6_K/Q5_K_M/Q4_K_M quantization baseline records with explicit unsupported-tool evidence and loss-decomposition fields.
+- Add the v1.1 artifact-bound competitor Pareto study record with uncertainty gates, complete deployment metrics, and explicit no-claim evidence.
 - Add a versioned deployable benchmark evidence schema with explicit terminal
   outcomes, equal-budget identities, metric units, uncertainty, artifact lineage,
   provenance, deterministic reports, and a v0-to-v1 migration.
