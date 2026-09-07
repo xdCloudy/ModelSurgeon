@@ -11,6 +11,8 @@
 - Document the Windows 11 and WSL2 consumer workflow, including validated portable
   path, interrupt, disk, mmap, and telemetry coverage plus the retained native
   GGUF/CUDA-offload evidence required for a host-specific compatibility claim.
+- Retain measured Windows 11 and WSL2 SmolLM2-135M Q4_K_M CUDA-offload evidence,
+  fixture provenance, platform identities, and explicit runtime-version limitations.
 - Add the `metric-schema-v1` golden compatibility contract for persisted metric records,
   evaluator metric definitions, migration identities, and supported schema versions.
 - Add `modelsurgeon report` for deterministic, evidence-backed JSON and offline HTML reports
