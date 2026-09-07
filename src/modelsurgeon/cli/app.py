@@ -26,6 +26,7 @@ from modelsurgeon.cli.experiment import (
     run_single_mutation_experiment,
     write_experiment_result,
 )
+from modelsurgeon.cli.explorer import explorer_command
 from modelsurgeon.cli.features import features_command
 from modelsurgeon.cli.inspection import inspect_huggingface_model
 from modelsurgeon.cli.optimize import optimize_command
@@ -205,6 +206,7 @@ app.command("calibrate")(calibrate_command)
 app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
+app.command("explorer")(explorer_command)
 app.command("optimize")(optimize_command)
 app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")

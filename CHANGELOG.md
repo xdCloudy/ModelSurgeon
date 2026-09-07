@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add deterministic offline benchmark and lineage explorers with canonical
+  evidence projections, Pareto-front summaries, visible negative/unsupported/
+  failed cells, immutable source links, safe escaping, static filtering, and
+  bounded generation.
+
 - Add fail-closed capability-negotiated plugin contracts for evaluators,
   runtimes, transformations, search policies, objectives, and registry
   providers, including metadata-only discovery, explicit allowlists, trusted
