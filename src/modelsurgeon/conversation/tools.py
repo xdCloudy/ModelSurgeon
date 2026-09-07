@@ -14,17 +14,24 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
+from types import MappingProxyType
 from typing import Final, Literal, cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 CONVERSATIONAL_TOOL_SCHEMA_VERSION: Literal[1] = 1
 TOOL_SCHEMA_VERSION: Literal[1] = CONVERSATIONAL_TOOL_SCHEMA_VERSION
+TOOL_RESULT_SCHEMA_VERSION: Literal[2] = 2
 MAX_TOOL_INPUT_BYTES: Final[int] = 1 << 20
+MAX_TOOL_RESULT_BYTES: Final[int] = 1 << 20
 
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.:-]{0,127}$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_TIMESTAMP = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
+)
 _FORBIDDEN_SCHEMA_TEXT = re.compile(
     r"(?i)(tensor|shell|python|filesystem|network|command|callback|executor|"
     r"executable|remove|delete)"
@@ -92,6 +99,14 @@ class ToolOutcome(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ToolEvidenceStatus(StrEnum):
+    """Trust and availability of the engine-owned source for a result."""
+
+    CANONICAL = "canonical"
+    UNVERIFIED = "unverified"
+    UNAVAILABLE = "unavailable"
+
+
 class ToolFailureCode(StrEnum):
     UNKNOWN_TOOL = "unknown_tool"
     UNKNOWN_SCHEMA_VERSION = "unknown_schema_version"
@@ -123,6 +138,19 @@ def _digest(value: object, label: str) -> str:
     result = _text(value, label)
     if _DIGEST.fullmatch(result) is None:
         raise ToolContractError(f"{label} must be a lowercase SHA-256 digest")
+    return result
+
+
+def _timestamp(value: object, label: str) -> str:
+    result = _text(value, label)
+    if _TIMESTAMP.fullmatch(result) is None:
+        raise ToolContractError(f"{label} must be an RFC 3339 UTC timestamp")
+    try:
+        parsed = datetime.fromisoformat(result.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ToolContractError(f"{label} must be an RFC 3339 UTC timestamp") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ToolContractError(f"{label} must include UTC")
     return result
 
 
@@ -547,6 +575,12 @@ def deterministic_tool_request_id(
     return f"tool_request_{hashlib.sha256(_canonical(payload).encode()).hexdigest()}"
 
 
+def tool_request_digest(request: ToolRequest) -> str:
+    """Return the canonical digest bound into result provenance."""
+
+    return "sha256:" + hashlib.sha256(_canonical(request.to_record()).encode()).hexdigest()
+
+
 def _budget_from_record(value: object) -> ToolBudget:
     record = _json_object(value, "tool request budget")
     expected = {
@@ -588,24 +622,116 @@ class ToolFailure:
             "retryable": self.retryable,
         }
 
+    @classmethod
+    def from_record(cls, payload: object) -> ToolFailure:
+        record = _json_object(payload, "tool failure")
+        expected = {"code", "detail", "request_id", "retryable"}
+        if set(record) != expected:
+            raise ToolContractError("tool failure has missing or unknown fields")
+        try:
+            code = ToolFailureCode(cast(str, record["code"]))
+        except ValueError as error:
+            raise ToolContractError("tool failure has an unknown failure code") from error
+        retryable = record["retryable"]
+        if not isinstance(retryable, bool):
+            raise ToolContractError("tool failure retryable flag must be boolean")
+        return cls(code, cast(str, record["detail"]), cast(str, record["request_id"]), retryable)
+
 
 @dataclass(frozen=True, slots=True)
 class ToolProvenance:
+    """Engine-supplied lineage for a tool result.
+
+    Provider text is never used to populate these fields.  A canonical source
+    must identify both its immutable source digest and its evidence record;
+    unavailable data is explicit and cannot be mistaken for a measurement.
+    """
+
     owner: str
     tool_id: str
     request_digest: str
+    source_digest: str | None = None
+    evidence_id: str | None = None
+    artifact_id: str | None = None
+    campaign_id: str | None = None
+    observed_at: str | None = None
+    evidence_status: ToolEvidenceStatus = ToolEvidenceStatus.UNVERIFIED
 
     def __post_init__(self) -> None:
+        if not isinstance(self.evidence_status, ToolEvidenceStatus):
+            raise ToolContractError("tool provenance evidence status is invalid")
         _identifier(self.owner, "tool provenance owner")
         _identifier(self.tool_id, "tool provenance ID")
         _digest(self.request_digest, "tool provenance request digest")
+        if self.source_digest is not None:
+            _digest(self.source_digest, "tool provenance source digest")
+        for label, value in (
+            ("tool provenance evidence ID", self.evidence_id),
+            ("tool provenance artifact ID", self.artifact_id),
+            ("tool provenance campaign ID", self.campaign_id),
+        ):
+            if value is not None:
+                _identifier(value, label)
+        if self.observed_at is not None:
+            _timestamp(self.observed_at, "tool provenance observed timestamp")
+        if self.evidence_id is not None and self.source_digest is None:
+            raise ToolContractError("evidence ID requires a source digest")
+        if self.evidence_status is ToolEvidenceStatus.CANONICAL:
+            if self.source_digest is None or self.evidence_id is None:
+                raise ToolContractError(
+                    "canonical tool provenance requires a source digest and evidence ID"
+                )
+            if self.observed_at is None:
+                raise ToolContractError("canonical tool provenance requires an observed timestamp")
+        if self.evidence_status is ToolEvidenceStatus.UNAVAILABLE and (
+            self.source_digest is not None or self.evidence_id is not None
+        ):
+            raise ToolContractError("unavailable tool provenance cannot claim a source")
 
     def to_record(self) -> dict[str, JSONValue]:
         return {
             "owner": self.owner,
             "tool_id": self.tool_id,
             "request_digest": self.request_digest,
+            "source_digest": self.source_digest,
+            "evidence_id": self.evidence_id,
+            "artifact_id": self.artifact_id,
+            "campaign_id": self.campaign_id,
+            "observed_at": self.observed_at,
+            "evidence_status": self.evidence_status.value,
         }
+
+    @classmethod
+    def from_record(cls, payload: object) -> ToolProvenance:
+        record = _json_object(payload, "tool provenance")
+        expected = {
+            "owner",
+            "tool_id",
+            "request_digest",
+            "source_digest",
+            "evidence_id",
+            "artifact_id",
+            "campaign_id",
+            "observed_at",
+            "evidence_status",
+        }
+        if set(record) != expected:
+            raise ToolContractError("tool provenance has missing or unknown fields")
+        try:
+            status = ToolEvidenceStatus(cast(str, record["evidence_status"]))
+        except ValueError as error:
+            raise ToolContractError("tool provenance has an unknown evidence status") from error
+        return cls(
+            cast(str, record["owner"]),
+            cast(str, record["tool_id"]),
+            cast(str, record["request_digest"]),
+            None if record["source_digest"] is None else cast(str, record["source_digest"]),
+            None if record["evidence_id"] is None else cast(str, record["evidence_id"]),
+            None if record["artifact_id"] is None else cast(str, record["artifact_id"]),
+            None if record["campaign_id"] is None else cast(str, record["campaign_id"]),
+            None if record["observed_at"] is None else cast(str, record["observed_at"]),
+            status,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -618,36 +744,107 @@ class ToolResult:
     provenance: ToolProvenance
     output: Mapping[str, JSONValue] | None = None
     failure: ToolFailure | None = None
+    raw_payload: Mapping[str, JSONValue] | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.outcome, ToolOutcome):
+            raise ToolContractError("tool result outcome is invalid")
         _identifier(self.request_id, "tool result request ID")
         _identifier(self.name, "tool result name")
-        if self.provenance.request_digest == "":  # pragma: no cover - constructor validates
-            raise ToolContractError("tool result requires request provenance")
+        if self.output is not None:
+            output = _json_object(self.output, "tool result output")
+            object.__setattr__(self, "output", MappingProxyType(output))
+        if self.raw_payload is not None:
+            raw_payload = _json_object(self.raw_payload, "raw tool result payload")
+            object.__setattr__(self, "raw_payload", MappingProxyType(raw_payload))
         if self.outcome is ToolOutcome.SUPPORTED:
             if self.output is None or self.failure is not None:
                 raise ToolContractError("supported tool result requires output and no failure")
-            _canonical(dict(self.output), "tool result output")
+            if self.raw_payload is not None:
+                raise ToolContractError("supported tool result cannot contain a raw payload")
+            if self.provenance.evidence_status is ToolEvidenceStatus.UNAVAILABLE:
+                raise ToolContractError("supported tool result cannot have unavailable evidence")
         elif self.output is not None:
             raise ToolContractError("non-supported tool result cannot contain output")
         if self.outcome is not ToolOutcome.SUPPORTED and self.failure is None:
             raise ToolContractError("non-supported tool result requires a typed failure")
         if self.failure is not None and self.failure.request_id != self.request_id:
             raise ToolContractError("tool failure request ID does not match result")
+        if len(_canonical(self._identity_record()).encode("utf-8")) > MAX_TOOL_RESULT_BYTES:
+            raise ToolContractError("tool result exceeds the hard size limit")
 
-    def to_record(self) -> dict[str, JSONValue]:
+    def _identity_record(self) -> dict[str, JSONValue]:
         return {
-            "schema_version": TOOL_SCHEMA_VERSION,
+            "schema_version": TOOL_RESULT_SCHEMA_VERSION,
             "request_id": self.request_id,
             "name": self.name,
             "outcome": self.outcome.value,
             "provenance": self.provenance.to_record(),
             "output": None if self.output is None else dict(self.output),
             "failure": None if self.failure is None else self.failure.to_record(),
+            "raw_payload": None if self.raw_payload is None else dict(self.raw_payload),
         }
+
+    @property
+    def result_id(self) -> str:
+        """Return an identity stable across replay of the same result envelope."""
+
+        digest = hashlib.sha256(_canonical(self._identity_record()).encode()).hexdigest()
+        return "tool_result_" + digest
+
+    def to_record(self) -> dict[str, JSONValue]:
+        return {**self._identity_record(), "result_id": self.result_id}
 
     def canonical_json(self) -> str:
         return _canonical(self.to_record())
+
+    def validate_request(self, request: ToolRequest) -> None:
+        """Reject a result replayed against a different or stale request."""
+
+        if self.request_id != request.request_id or self.name != request.name:
+            raise ToolContractError("tool result does not belong to the request")
+        if self.provenance.request_digest != tool_request_digest(request):
+            raise ToolContractError("tool result request provenance is stale or contradictory")
+
+    @classmethod
+    def from_record(cls, payload: object) -> ToolResult:
+        record = _json_object(payload, "tool result")
+        expected = {
+            "schema_version",
+            "result_id",
+            "request_id",
+            "name",
+            "outcome",
+            "provenance",
+            "output",
+            "failure",
+            "raw_payload",
+        }
+        if set(record) != expected:
+            raise ToolContractError("tool result has missing or unknown fields")
+        if record["schema_version"] != TOOL_RESULT_SCHEMA_VERSION:
+            raise ToolContractError("unsupported tool result schema version")
+        try:
+            outcome = ToolOutcome(cast(str, record["outcome"]))
+        except ValueError as error:
+            raise ToolContractError("tool result has an unknown outcome") from error
+        failure = None if record["failure"] is None else ToolFailure.from_record(record["failure"])
+        result = cls(
+            cast(str, record["request_id"]),
+            cast(str, record["name"]),
+            outcome,
+            ToolProvenance.from_record(record["provenance"]),
+            None
+            if record["output"] is None
+            else _json_object(record["output"], "tool result output"),
+            failure,
+            None
+            if record["raw_payload"] is None
+            else _json_object(record["raw_payload"], "raw tool result payload"),
+        )
+        if record["result_id"] != result.result_id:
+            raise ToolContractError("tool result ID does not match canonical result")
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -933,6 +1130,8 @@ __all__ = [
     "CONVERSATIONAL_TOOL_SCHEMA_VERSION",
     "DEFAULT_TOOL_CATALOG",
     "MAX_TOOL_INPUT_BYTES",
+    "MAX_TOOL_RESULT_BYTES",
+    "TOOL_RESULT_SCHEMA_VERSION",
     "TOOL_SCHEMA_VERSION",
     "JSONSchema",
     "JSONValue",
@@ -942,6 +1141,7 @@ __all__ = [
     "ToolCatalog",
     "ToolContractError",
     "ToolDefinition",
+    "ToolEvidenceStatus",
     "ToolFailure",
     "ToolFailureCode",
     "ToolName",
@@ -952,4 +1152,5 @@ __all__ = [
     "ToolResult",
     "default_tool_definitions",
     "deterministic_tool_request_id",
+    "tool_request_digest",
 ]

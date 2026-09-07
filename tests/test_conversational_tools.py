@@ -8,11 +8,14 @@ import pytest
 
 from modelsurgeon.conversation import (
     DEFAULT_TOOL_CATALOG,
+    TOOL_RESULT_SCHEMA_VERSION,
     ToolAccess,
     ToolBudget,
     ToolCapability,
     ToolContractError,
     ToolDefinition,
+    ToolEvidenceStatus,
+    ToolFailure,
     ToolFailureCode,
     ToolName,
     ToolOutcome,
@@ -20,6 +23,7 @@ from modelsurgeon.conversation import (
     ToolRequest,
     ToolResult,
     deterministic_tool_request_id,
+    tool_request_digest,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
 
@@ -193,4 +197,126 @@ def test_typed_result_retains_provenance_and_failure_identity() -> None:
             request.name,
             ToolOutcome.FAILED,
             provenance,
+        )
+
+
+def test_result_identity_and_canonical_provenance_round_trip() -> None:
+    definition = DEFAULT_TOOL_CATALOG.definition("inspect_model")
+    assert definition is not None
+    request = ToolRequest.create(definition, {"model_ref": "fixture.model"})
+    provenance = ToolProvenance(
+        definition.owner,
+        definition.tool_id,
+        tool_request_digest(request),
+        source_digest="sha256:" + "b" * 64,
+        evidence_id="evidence.fixture",
+        artifact_id="artifact.fixture",
+        campaign_id="campaign.fixture",
+        observed_at="2026-09-07T12:34:56.123Z",
+        evidence_status=ToolEvidenceStatus.CANONICAL,
+    )
+    output = {
+        "model_ref": "fixture.model",
+        "status": "supported",
+        "capability_refs": [],
+        "provenance_ref": "evidence.fixture",
+    }
+    result = ToolResult(request.request_id, request.name, ToolOutcome.SUPPORTED, provenance, output)
+    assert result.result_id.startswith("tool_result_")
+    assert result.to_record()["schema_version"] == TOOL_RESULT_SCHEMA_VERSION
+    assert ToolResult.from_record(result.to_record()) == result
+    result.validate_request(request)
+    assert result.result_id == ToolResult.from_record(result.to_record()).result_id
+
+
+def test_result_id_rejects_tampering_and_stale_request_provenance() -> None:
+    definition = DEFAULT_TOOL_CATALOG.definition("inspect_model")
+    assert definition is not None
+    request = ToolRequest.create(definition, {"model_ref": "fixture.model"})
+    result = ToolResult(
+        request.request_id,
+        request.name,
+        ToolOutcome.SUPPORTED,
+        ToolProvenance(definition.owner, definition.tool_id, tool_request_digest(request)),
+        {
+            "model_ref": "fixture.model",
+            "status": "supported",
+            "capability_refs": [],
+            "provenance_ref": "unverified",
+        },
+    )
+    tampered = result.to_record()
+    assert isinstance(tampered["output"], dict)
+    tampered["output"]["model_ref"] = "fixture.tampered"
+    with pytest.raises(ToolContractError, match="result ID"):
+        ToolResult.from_record(tampered)
+
+    stale = ToolResult(
+        request.request_id,
+        request.name,
+        ToolOutcome.SUPPORTED,
+        ToolProvenance(definition.owner, definition.tool_id, "sha256:" + "c" * 64),
+        result.output,
+    )
+    with pytest.raises(ToolContractError, match="stale or contradictory"):
+        stale.validate_request(request)
+
+
+def test_negative_result_keeps_raw_payload_outside_trusted_fields() -> None:
+    definition = DEFAULT_TOOL_CATALOG.definition("inspect_model")
+    assert definition is not None
+    request = ToolRequest.create(definition, {"model_ref": "fixture.model"})
+    result = ToolResult(
+        request.request_id,
+        request.name,
+        ToolOutcome.UNSUPPORTED,
+        ToolProvenance(
+            definition.owner,
+            definition.tool_id,
+            tool_request_digest(request),
+            evidence_status=ToolEvidenceStatus.UNAVAILABLE,
+        ),
+        failure=ToolFailure(
+            ToolFailureCode.UNSUPPORTED_CAPABILITY,
+            "capability is not available",
+            request.request_id,
+        ),
+        raw_payload={"outcome": "supported", "status": "measured", "value": 99},
+    )
+    record = result.to_record()
+    assert record["outcome"] == "unsupported"
+    assert record["provenance"]["evidence_status"] == "unavailable"
+    assert record["raw_payload"] == {
+        "outcome": "supported",
+        "status": "measured",
+        "value": 99,
+    }
+    assert ToolResult.from_record(record) == result
+
+
+def test_canonical_and_unavailable_provenance_require_consistent_fields() -> None:
+    with pytest.raises(ToolContractError, match="source digest and evidence ID"):
+        ToolProvenance(
+            "modelsurgeon.conversation",
+            "tool_fixture",
+            "sha256:" + "a" * 64,
+            evidence_status=ToolEvidenceStatus.CANONICAL,
+            observed_at="2026-09-07T12:00:00Z",
+        )
+    with pytest.raises(ToolContractError, match="observed timestamp"):
+        ToolProvenance(
+            "modelsurgeon.conversation",
+            "tool_fixture",
+            "sha256:" + "a" * 64,
+            source_digest="sha256:" + "b" * 64,
+            evidence_id="evidence.fixture",
+            evidence_status=ToolEvidenceStatus.CANONICAL,
+        )
+    with pytest.raises(ToolContractError, match="cannot claim a source"):
+        ToolProvenance(
+            "modelsurgeon.conversation",
+            "tool_fixture",
+            "sha256:" + "a" * 64,
+            source_digest="sha256:" + "b" * 64,
+            evidence_status=ToolEvidenceStatus.UNAVAILABLE,
         )
