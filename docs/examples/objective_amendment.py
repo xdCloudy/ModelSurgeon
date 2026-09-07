@@ -22,7 +22,6 @@ from modelsurgeon.search import (
     propose_objective_amendment,
 )
 
-
 SOURCE = "sha256:" + "a" * 64
 
 
