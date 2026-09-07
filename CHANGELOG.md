@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add the v2.7 canonical conversational campaign state store. Campaign/session
+  linkage, exact spec and hard constraints, policy and approval state, provider
+  context, resource budgets, lifecycle, deterministic versioned transitions,
+  WAL-backed restart/reconnect recovery, and append-only negative evidence are
+  authoritative and fail closed. Transcript text, summaries, provider memory,
+  secrets, and untrusted tool payloads are not persisted as campaign state.
+
 - Add the experimental interpreted `OptimizationSpec` preview boundary for
   conversational requests. It renders the exact canonical objective contract,
   hard constraints, preferences, budgets, allowed operations, unresolved

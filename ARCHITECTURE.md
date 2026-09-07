@@ -42,9 +42,9 @@ flowchart TD
   D --> P
 ```
 
-## Conversational control plane (v2.6 tool boundary frozen; product planned for v2.7–v3.0)
+## Conversational control plane (v2.7 canonical state implemented; product planned for v2.8–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, and v2.6 typed tool boundary are implemented and frozen. The conversational product remains planned; the tool boundary is not a general agent runtime or an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), and [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md).
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, v2.6 typed tool boundary, and v2.7 canonical campaign state store are implemented and frozen. The conversational product remains planned; the tool boundary and state store are not a general agent runtime or an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md), and [canonical campaign state design](docs/design/conversational-campaign-state.md).
 
 ```text
 User request
@@ -71,7 +71,7 @@ The planned boundary has four non-negotiable properties:
 - The deterministic engine owns model/hardware inspection, capability checks, candidate generation, mutation, rollback, evaluation, budgets, acceptance, artifact publication and provenance. The learned Meta-Surgeon can rank or predict within those policies, but its predictions are not measurements.
 - Consequential calls pass through typed capabilities, transaction boundaries, existing approval gates and fail-closed validation. Provider secrets and untrusted text/metadata/tool output remain outside trusted evidence fields.
 
-The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4–v2.5 add clarification and explicit negotiation; v2.6 freezes the typed tool boundary; v2.7–v2.8 add canonical state and evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
+The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4–v2.5 add clarification and explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
 
 The request-version-1/result-version-2 tool boundary and trusted dispatcher are documented in
 [`docs/design/conversational-tool-schemas.md`](docs/design/conversational-tool-schemas.md).
