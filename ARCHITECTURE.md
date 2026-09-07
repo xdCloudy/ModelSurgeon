@@ -44,7 +44,7 @@ flowchart TD
 
 ## Conversational control plane (planned for v2.1–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The conversational product described below is planned roadmap work; its presence in this document does not mean that `modelsurgeon chat` or a provider layer is currently implemented.
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The conversational product described below is planned roadmap work; its presence in this document does not mean that `modelsurgeon chat` is implemented. The replaceable provider contract and experimental hosted/compatible endpoint adapters are available as bounded control-plane infrastructure, not as an alternate execution authority.
 
 ```text
 User request

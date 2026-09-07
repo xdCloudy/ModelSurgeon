@@ -51,7 +51,7 @@ Current package version: **`1.0.0` (evidence-bounded research release)**. The v0
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
-| Conversational control plane | **Planned** | v2.1–v3.0 work covers intent compilation, replaceable providers, bounded tools, state, evidence-grounded explanations and approvals; `modelsurgeon chat` is not yet a current capability. |
+| Conversational control plane | **Planned** | v2.1–v3.0 work covers intent compilation, replaceable providers, bounded tools, state, evidence-grounded explanations and approvals; experimental provider adapters exist, but `modelsurgeon chat` is not yet a current capability. |
 
 Measured evidence currently includes:
 

@@ -23,6 +23,11 @@
   promotion. Missing or infeasible final evidence now produces an explicit
   negative outcome without an accepted artifact.
 
+- Add fail-closed hosted and compatible endpoint adapters with secret-free
+  endpoint configuration, external credential references, capability probing,
+  structured-output negotiation, bounded retries/rate-limit handling, model
+  identity checks, redacted failures, and strict typed-response validation.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and
