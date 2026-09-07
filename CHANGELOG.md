@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the bounded v2.0 autonomous optimizer release boundary: a versioned
+  compatibility/evidence manifest, capability classifications, scientific
+  limitations report, deterministic reproduction contract, and fail-closed
+  release audit. This records protocol and control-plane evidence only; no
+  live benchmark, signed package, or reference model artifact is claimed.
+
 - Add the v2.0 autonomous benchmark release-candidate contract with exact
   protocol identities, bounded matrices, retained negative/unsupported cells,
   confidence-bounded competitiveness claims, complete reference-artifact

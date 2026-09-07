@@ -47,6 +47,9 @@ budgets, repeated confidence-bounded measurements, complete artifact lineage,
 and an independent audit/replay before any competitiveness claim can publish.
 The repository does not claim live v2 benchmark results; see the [v2.0
 benchmark status](docs/research/v2.0-autonomous-benchmark.md).
+The release-facing capability matrix, scientific limitations, and reproduction
+policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
+and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
 | Area | State | Current capability |
 | --- | --- | --- |
