@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a versioned dense Llama/Qwen/Mistral/Gemma meta-surgeon transfer matrix
+  with raw and architecture-normalized views, cold/within-target/meta controls,
+  explicit checkpoint/size/family/corpus axes, five separate evidence metrics,
+  three-seed grouped-interval requirements, and retained negative or
+  unsupported cells.
 - Add a deterministic cross-model transfer suite with leave-one-checkpoint,
   leave-one-size, leave-one-family, zero-target, and few-shot folds, strict
   lineage-safe source/target separation, complete per-fold metric evidence,

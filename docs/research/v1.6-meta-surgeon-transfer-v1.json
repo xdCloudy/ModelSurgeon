@@ -1,0 +1,31 @@
+{
+  "record_type": "meta_surgeon_dense_four_family_transfer_protocol",
+  "schema_version": 1,
+  "protocol_revision": "meta-surgeon-transfer-v1",
+  "families": ["llama", "qwen", "mistral", "gemma"],
+  "minimum_sizes": 2,
+  "minimum_source_examples": 512,
+  "training_seeds": [0, 1, 2],
+  "bootstrap_repetitions": 1000,
+  "confidence": 0.95,
+  "controls": ["cold_start", "within_target", "meta"],
+  "feature_views": ["raw", "architecture_normalized"],
+  "transfer_axes": ["checkpoint", "size", "family", "corpus"],
+  "required_metrics": [
+    "ranking",
+    "calibration",
+    "regression",
+    "cumulative_frontier",
+    "evaluation_savings"
+  ],
+  "outcome_statuses": [
+    "measured",
+    "negative_result",
+    "unsupported",
+    "failed",
+    "unknown"
+  ],
+  "leakage_policy": "target model rows and target-derived fitted statistics never enter source model IDs",
+  "claim_boundary": "Claims are scoped to declared families, checkpoints, sizes, corpora, hardware, and measured cells only",
+  "reproduction": "build_meta_surgeon_transfer_matrix() followed by record_meta_surgeon_transfer_result()"
+}
