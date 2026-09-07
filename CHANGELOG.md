@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add fail-closed capability-negotiated plugin contracts for evaluators,
+  runtimes, transformations, search policies, objectives, and registry
+  providers, including metadata-only discovery, explicit allowlists, trusted
+  in-process gates, bounded subprocess execution, and malformed/timeout/crash
+  outcomes.
+
 - Add crash-consistent optimize campaign progress with ordered versioned
   events, idempotent stage completion, pause/cancel/resume recovery, bounded
   ETA uncertainty, source/accepted-artifact preservation, and redacted
