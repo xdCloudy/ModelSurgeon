@@ -125,6 +125,17 @@ Ties, overlapping uncertainty, and rejected or rolled-back dispositions are
 explicit. Candidate and output resource bounds fail closed;
 the result is never truncated to manufacture a smaller frontier.
 
+## Explain final Pareto selection
+
+Use `build_pareto_selection_explanation` after the measured alternatives
+projection to explain a final choice. It renders hard constraints before soft
+trade-offs and recomputes the selected candidate from the canonical objective,
+measured feasible frontier, and v2.0 decision replay. Ties, dominance,
+uncertainty, negative evidence, approval context, and objective-amendment
+identity remain visible. See
+[`docs/examples/pareto_selection.py`](../examples/pareto_selection.py) and
+[`docs/design/pareto-selection-explanations.md`](../design/pareto-selection-explanations.md).
+
 ## HF and GGUF boundaries
 
 For Hugging Face/safetensors, inspect a revision-pinned source with the

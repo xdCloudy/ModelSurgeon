@@ -24,7 +24,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, ranking, versioned current-state embeddings, state-dependent, repair-recoverability, and repair-cost predictor contracts, fixed-budget ranking-objective studies, bounded structural-model comparisons, explicit lineage/compatibility decisions, bounded target adaptation records, fail-closed transfer-confidence decisions, and signed pretrained registry cards. |
 | `modelsurgeon.active_learning` | Deterministic acquisition, diversity, uncertainty, schedules, budgets, and state-bound interaction-aware replanning with rollback lineage. |
   | `modelsurgeon.search` | Constraints, objectives, immutable approval-bound objective amendments, amendment diffs/history, Pareto archives, policies, resumable search state, and versioned deployable architecture state/distance contracts. |
-  | `modelsurgeon.explain` | Decision summaries, attribution records, deterministic reports, measured feasibility explanations, and measured Pareto alternative projections. |
+  | `modelsurgeon.explain` | Decision summaries, attribution records, deterministic reports, measured feasibility explanations, measured Pareto alternative projections, and evidence-grounded final-selection explanations. |
 
 The CLI is the stable end-user orchestration boundary; use `modelsurgeon --help` for its
 versioned command contracts. Direct Hugging Face, PyTorch, `llama.cpp`, GGUF codec, and

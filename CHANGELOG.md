@@ -2,12 +2,15 @@
 
 ## Unreleased
 
-- Added a deterministic claim-to-evidence renderer for canonical evidence-query
-  responses. It preserves evidence IDs, metrics and units, uncertainty,
-  provenance, negative outcomes, unavailable fields, and resource bounds;
-  prediction-only decisions cannot become measurements. Added golden replay,
-  parity, tamper, and resource-bound coverage plus the renderer design and
-  audit example.
+  - Added a deterministic claim-to-evidence renderer for canonical evidence-query
+    responses. It preserves evidence IDs, metrics and units, uncertainty,
+    provenance, negative outcomes, unavailable fields, and resource bounds;
+    prediction-only decisions cannot become measurements. Added golden replay,
+    parity, tamper, and resource-bound coverage plus the renderer design and
+    audit example.
+
+  - Added deterministic, evidence-grounded explanations for measured Pareto
+    trade-offs and final candidate selection.
 
 - Added a typed, read-only, bounded and replayable canonical evidence query
   path for conversational explanations, including provenance joins,
