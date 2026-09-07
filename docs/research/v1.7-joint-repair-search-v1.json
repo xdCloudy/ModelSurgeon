@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "v1.7-joint-repair-search-v1",
+  "claim": "unsupported",
+  "claim_boundary": "No physical repair or quantization improvement is claimed by the contract alone.",
+  "model_families": ["llama", "qwen"],
+  "checkpoint_revisions": [],
+  "datasets": [],
+  "tasks": [],
+  "splits": ["train", "validation", "heldout"],
+  "arms": [
+    "no_repair",
+    "fixed_repair",
+    "oracle_budget",
+    "learned_joint_repair"
+  ],
+  "quantization_orders": [
+    "quantization_only",
+    "repair_then_quantize",
+    "quantize_then_repair"
+  ],
+  "seeds": [0, 1, 2],
+  "metrics": [
+    "heldout_quality",
+    "deployment_cost",
+    "repair_cost",
+    "quantization_cost",
+    "artifact_lineage"
+  ],
+  "decision_rule": "Predictions nominate measurements; only accepted measured held-out artifacts enter the final frontier.",
+  "known_skips": ["No licensed representative model bundle was measured in this contract change."],
+  "reproduction": {
+    "commands": ["python -m pytest -q tests/test_joint_repair.py"],
+    "environment": "repository quality gate environment"
+  }
+}
