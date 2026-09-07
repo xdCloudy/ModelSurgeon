@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "record_type": "bounded_intent_compilation",
+  "status": "implemented",
+  "input": "modelsurgeon.conversation.IntentRecord",
+  "output": "modelsurgeon.search.objective_contract.ObjectiveContract.to_record",
+  "outcomes": [
+    "executable",
+    "clarification_required",
+    "unsupported",
+    "refused"
+  ],
+  "supported_field_kinds": [
+    "hard_constraint",
+    "constraint",
+    "soft_objective",
+    "objective",
+    "preference"
+  ],
+  "unsupported_field_kinds": [
+    "budget",
+    "allowed_operation",
+    "deployment_target"
+  ],
+  "executable_requires": [
+    "executable_input_intent",
+    "no_required_ambiguity",
+    "at_least_one_hard_constraint",
+    "at_least_one_soft_objective",
+    "valid_objective_contract",
+    "emitted_spec_matches_compiled_contract_when_present"
+  ],
+  "safety_invariants": [
+    "no_mutation_execution",
+    "no_tensor_selection",
+    "no_invented_hard_constraints",
+    "no_optimizer_strategy_logic",
+    "unsupported_fields_are_not_dropped",
+    "non_executable_results_have_no_spec"
+  ],
+  "diagnostic_fields": [
+    "code",
+    "message",
+    "severity",
+    "field_id",
+    "source_span_ids"
+  ],
+  "canonicalization": "sorted compact UTF-8 JSON with deterministic diagnostic ordering",
+  "unknown_schema_policy": "refuse"
+}

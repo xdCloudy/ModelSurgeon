@@ -1,10 +1,12 @@
 # Conversational control-plane design
 
-Status: the v2.1 intent-record boundary and v2.2 replaceable provider
-contract are implemented in `modelsurgeon.conversation`. Compilation and the
-conversational product remain planned. This document is normative for the
-separation of responsibilities and is not a claim that a conversational
-product is currently implemented.
+Status: the v2.1 canonical intent-record boundary and bounded objective-contract
+compiler are implemented in `modelsurgeon.conversation` and
+`modelsurgeon.search.intent_compiler`, and the v2.2 replaceable provider
+contract is implemented in `modelsurgeon.conversation`. The conversational
+product remains planned. This document is normative for the separation of
+responsibilities and is not a claim that the full conversational product is
+currently implemented.
 
 ## Purpose
 
@@ -47,7 +49,7 @@ The learned Meta-Surgeon and the text LLM are different models with different re
 
 ## Request compilation
 
-v2.1 compiles a request into the existing stable v2 objective and constraint schema. It does not introduce a parallel conversational schema. A compiler result is one of:
+v2.1 compiles a structured intent record into the existing stable v2 objective and constraint schema. It does not introduce a parallel optimization schema. A compiler result is one of:
 
 - `executable`: all required fields validate and the spec is safe to submit;
 - `clarification_required`: a bounded missing or ambiguous field prevents execution;
@@ -56,7 +58,7 @@ v2.1 compiles a request into the existing stable v2 objective and constraint sch
 
 Every result carries the original request, normalized interpretation, confidence/ambiguity information, schema/version identity, deterministic serialization and provenance. Confidence describes interpretation quality only; it is never evidence that a candidate surgery is safe.
 
-Missing hard constraints are unresolved. The compiler never invents a threshold because a provider suggests one, and later negotiation always creates an explicit objective amendment with a visible diff and approval.
+Missing hard constraints are unresolved. The compiler never invents a threshold because a provider suggests one, and later negotiation always creates an explicit objective amendment with a visible diff and approval. Fields that the current objective contract cannot represent, such as budgets, allowed operations, or deployment targets, produce an explicit unsupported result rather than being dropped.
 
 ## Provider abstraction
 
