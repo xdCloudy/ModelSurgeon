@@ -1,0 +1,26 @@
+{
+  "record_type": "repair_resource_cost_predictor_protocol",
+  "schema_version": 1,
+  "protocol_revision": "repair-cost-predictor-v1",
+  "targets": [
+    "tokens",
+    "wall_seconds",
+    "gpu_seconds",
+    "cpu_seconds",
+    "peak_ram_bytes",
+    "peak_vram_bytes",
+    "artifact_bytes",
+    "cache_bytes",
+    "energy_joules"
+  ],
+  "conditional_axes": ["repair_method", "budget_name", "hardware_profile"],
+  "outcomes": ["measured", "unsupported", "failed", "unknown"],
+  "calibration": "validation_absolute_residual_interval",
+  "baselines": ["analytic_lower_bound", "action_mean"],
+  "safety": [
+    "model_hardware_state_candidate_grouped_splits",
+    "upper_bound_hard_budget_preflight",
+    "optional_energy_sensor_absence_is_not_zero"
+  ],
+  "reproduction": "fit_repair_cost_predictors() and RepairCostStudy.preflight()"
+}

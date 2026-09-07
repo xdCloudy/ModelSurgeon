@@ -11,6 +11,9 @@
 - Add conditional repair-recoverability predictors for held-out gain and success probability,
   calibrated intervals, action/budget compatibility, model/state/candidate leakage checks,
   conservative no-repair selection, and retained negative, failed, unsupported, and unknown cells.
+- Add action- and hardware-conditioned repair cost predictors for tokens, time, memory, artifacts,
+  cache bytes, and optional energy, with calibrated upper bounds, grouped leakage checks, and
+  conservative hard-budget preflight that does not treat missing energy sensors as zero.
 - Add a unified bounded repair outcome schema for no-repair, LoRA,
   selected/full fine-tuning, and logit/feature distillation with explicit
   budgets, held-out improvement evidence, teacher/data/tokenizer lineage,
