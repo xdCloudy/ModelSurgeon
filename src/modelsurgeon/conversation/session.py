@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from modelsurgeon.experiments import HardwareProfile, build_default_hardware_profile
 from modelsurgeon.provider_kind import ProviderKind
 
+from .execution import ChatExecutionRecord, ChatOptimizeAdapter, ProgressCallback
 from .inspection import (
     ChatInspectionContext,
     ChatInspectionError,
@@ -134,6 +135,7 @@ class ChatTurnResult:
     provider_result: ProviderResult
     policy_decision: IntentPolicyDecision | None
     spec_preview: SpecPreview | None = None
+    execution: ChatExecutionRecord | None = None
     schema_version: Literal[2] = CHAT_TURN_SCHEMA_VERSION
 
     @property
@@ -165,7 +167,9 @@ class ChatTurnResult:
             "spec_preview": (
                 None if self.spec_preview is None else self.spec_preview.to_record()
             ),
-            "execution": "not_requested",
+            "execution": (
+                "not_requested" if self.execution is None else self.execution.to_record()
+            ),
         }
 
     def canonical_json(self) -> str:
@@ -230,6 +234,7 @@ def bootstrap_chat_session(
     max_wall_seconds: float = 60.0,
     provider_factory: ProviderFactory | None = None,
     hardware_profile_factory: Callable[[str], HardwareProfile] | None = None,
+    execution_adapter: ChatOptimizeAdapter | None = None,
 ) -> ChatSession:
     """Validate, start, and return a bounded chat session.
 
@@ -336,6 +341,7 @@ def bootstrap_chat_session(
             max_input_tokens=max_input_tokens,
             max_output_tokens=max_output_tokens,
         ),
+        execution_adapter,
     )
 
 
@@ -347,6 +353,7 @@ class ChatSession:
         bootstrap: ChatSessionBootstrap,
         provider: TextModelProvider,
         budget: ProviderBudget,
+        execution_adapter: ChatOptimizeAdapter | None = None,
     ) -> None:
         self.bootstrap = bootstrap
         self.provider = provider
@@ -354,6 +361,7 @@ class ChatSession:
         self._turn = 0
         self._closed = False
         self._cancellation = CancellationToken()
+        self.execution_adapter = execution_adapter
 
     @property
     def turns_used(self) -> int:
@@ -405,6 +413,78 @@ class ChatSession:
             provider_result,
             policy,
             preview,
+        )
+
+    def preview_plan(self, turn: ChatTurnResult) -> ChatTurnResult:
+        """Call the trusted read-only optimize planner for one interpreted turn."""
+
+        if self.execution_adapter is None:
+            raise ChatSessionError("execution_unavailable", "chat optimization is not configured")
+        if turn.session_id != self.bootstrap.session_id:
+            raise ChatSessionError("turn_identity", "chat turn belongs to another session")
+        if turn.spec_preview is None:
+            raise ChatSessionError("preview_unavailable", "the turn did not produce a spec preview")
+        try:
+            execution = self.execution_adapter.preview(
+                self.bootstrap.session_id,
+                turn.request_id,
+                turn.spec_preview,
+            )
+        except ValueError as error:
+            if isinstance(error, ChatSessionError):
+                raise
+            raise ChatSessionError("execution_preview_failed", str(error)) from error
+        return ChatTurnResult(
+            turn.session_id,
+            turn.turn,
+            turn.request_id,
+            turn.request,
+            turn.provider_result,
+            turn.policy_decision,
+            turn.spec_preview,
+            execution,
+        )
+
+    def execute_plan(
+        self,
+        turn: ChatTurnResult,
+        approval_id: str | None,
+        *,
+        resume: bool | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> ChatTurnResult:
+        """Submit only the exact confirmed preview to the trusted executor."""
+
+        if self.execution_adapter is None:
+            raise ChatSessionError("execution_unavailable", "chat optimization is not configured")
+        if turn.session_id != self.bootstrap.session_id:
+            raise ChatSessionError("turn_identity", "chat turn belongs to another session")
+        if turn.spec_preview is None:
+            raise ChatSessionError(
+                "execution_unavailable", "the turn did not produce a spec preview"
+            )
+        try:
+            execution = self.execution_adapter.execute(
+                self.bootstrap.session_id,
+                turn.request_id,
+                turn.spec_preview,
+                approval_id,
+                resume=resume,
+                progress_callback=progress_callback,
+            )
+        except ValueError as error:
+            if isinstance(error, ChatSessionError):
+                raise
+            raise ChatSessionError("execution_failed", str(error)) from error
+        return ChatTurnResult(
+            turn.session_id,
+            turn.turn,
+            turn.request_id,
+            turn.request,
+            turn.provider_result,
+            turn.policy_decision,
+            turn.spec_preview,
+            execution,
         )
 
     def cancel(self) -> None:

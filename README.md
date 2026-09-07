@@ -72,7 +72,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
-| Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, passes engine-owned model/hardware inspection context to the compiler, validates typed objectives, and retains explicit outcomes. Execution, universal hosted support, and live provider benchmarks remain outside this slice. |
+| Conversational control plane | **v2.3 chat execution slice experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and can submit confirmed specs through the stable optimize planner/orchestrator with typed progress and retained outcomes. Universal hosted support and live provider benchmarks remain outside this slice. |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational campaign state | **v2.7 canonical state implemented** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Chat transcripts are not authoritative. |
 
@@ -134,7 +134,7 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | Command | Purpose |
 | --- | --- |
 | `inspect` | Load and enumerate a Hugging Face causal language model. |
-| `chat` | Start an experimental, interpretation-only bounded chat session around a local GGUF text model. |
+| `chat` | Start an experimental bounded chat session around a local GGUF text model; optionally preview or execute a confirmed stable optimize plan. |
 | `experiment` | Resolve, evaluate, and roll back one transactional mutation. |
 | `first-surgeon-proof` | Build a leakage-safe proof dataset through a runtime adapter. |
 | `first-surgeon-hf-proof` | Run real HF MLP-channel masks and create the proof dataset. |

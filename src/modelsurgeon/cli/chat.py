@@ -9,7 +9,14 @@ from typing import Annotated
 
 import typer
 
-from modelsurgeon.conversation import ChatSessionError, ChatTurnResult, bootstrap_chat_session
+from modelsurgeon.config_io import load_settings
+from modelsurgeon.conversation import (
+    ChatOptimizeAdapter,
+    ChatProgressEvent,
+    ChatSessionError,
+    ChatTurnResult,
+    bootstrap_chat_session,
+)
 from modelsurgeon.provider_kind import ProviderKind
 
 
@@ -42,7 +49,26 @@ def _render_turn(turn: ChatTurnResult, *, output_json: bool) -> None:
             typer.echo(turn.spec_preview.render())
         else:
             typer.echo(turn.policy_decision.canonical_json())
-        typer.echo("execution: not requested by modelsurgeon chat")
+        if turn.execution is None:
+            typer.echo("execution: not requested by modelsurgeon chat")
+        else:
+            execution = turn.execution
+            typer.echo(
+                f"execution: {execution.outcome.value} "
+                f"plan={execution.plan_id or 'none'} "
+                f"campaign={execution.campaign_id or 'none'}"
+            )
+            if execution.run_id is not None:
+                typer.echo(f"run: {execution.run_id}")
+            if execution.artifact_id is not None:
+                typer.echo(f"artifact: {execution.artifact_id}")
+
+
+def _render_progress(event: ChatProgressEvent, *, output_json: bool) -> None:
+    if output_json:
+        _emit(event.to_record(), output_json=True)
+    else:
+        typer.echo(f"progress: {event.stage} {event.status.value} outcome={event.outcome.value}")
 
 
 def chat_command(
@@ -86,9 +112,89 @@ def chat_command(
         bool,
         typer.Option("--json", help="Emit canonical JSON records"),
     ] = False,
+    target_config: Annotated[
+        Path | None,
+        typer.Option("--target-config", help="Optimization settings for the target model"),
+    ] = None,
+    target_model: Annotated[
+        str | None,
+        typer.Option("--target-model", help="Target model path or immutable identifier"),
+    ] = None,
+    target_revision: Annotated[
+        str | None,
+        typer.Option("--target-revision", help="Immutable target model revision"),
+    ] = None,
+    preview_plan: Annotated[
+        bool,
+        typer.Option(
+            "--preview-plan", help="Call the stable optimize planner after interpretation"
+        ),
+    ] = False,
+    execute: Annotated[
+        bool,
+        typer.Option("--execute", help="Execute an explicitly approved optimize plan"),
+    ] = False,
+    state: Annotated[
+        Path | None,
+        typer.Option("--state", help="Atomic optimize workflow state used for execution/resume"),
+    ] = None,
+    resume: Annotated[
+        bool,
+        typer.Option("--resume", help="Resume the matching interrupted optimize workflow"),
+    ] = False,
+    approval_id: Annotated[
+        str | None,
+        typer.Option("--approval-id", help="Explicit approval bound to the exact interpreted spec"),
+    ] = None,
+    approve: Annotated[
+        list[str] | None,
+        typer.Option("--approve", help="Approve a stable optimize plan boundary; may be repeated"),
+    ] = None,
+    preset: Annotated[
+        str,
+        typer.Option(help="Bounded optimization preset: fast, balanced, or quality"),
+    ] = "balanced",
+    hardware_profile: Annotated[
+        str,
+        typer.Option("--hardware-profile", help="Hardware envelope identifier"),
+    ] = "cpu-small",
+    quality_profile: Annotated[
+        str | None,
+        typer.Option("--quality-profile", help="Quality target profile"),
+    ] = None,
 ) -> None:
     """Start an experimental interpretation-only chat session."""
 
+    execution_adapter: ChatOptimizeAdapter | None = None
+    if preview_plan or execute:
+        overrides: dict[str, object] = {}
+        if target_model is not None:
+            overrides["model.path"] = target_model
+        if target_revision is not None:
+            overrides["model.revision"] = target_revision
+        try:
+            settings = load_settings(target_config, cli_overrides=overrides)
+            execution_adapter = ChatOptimizeAdapter(
+                settings,
+                state_path=state,
+                preset=preset,
+                hardware_profile=hardware_profile,
+                quality_profile=quality_profile,
+                approvals=tuple(approve or ()),
+                resume=resume,
+            )
+        except (OSError, ValueError) as error:
+            payload = {
+                "record_type": "error",
+                "category": "chat",
+                "outcome": "failed",
+                "code": "execution_configuration",
+                "message": str(error),
+            }
+            _emit(payload, output_json=output_json)
+            if not output_json:
+                typer.echo(f"chat error: {error}", err=True)
+            raise typer.Exit(2) from error
     try:
         session = bootstrap_chat_session(
             model,
@@ -99,6 +205,7 @@ def chat_command(
             max_input_tokens=max_input_tokens,
             max_output_tokens=max_output_tokens,
             max_wall_seconds=max_wall_seconds,
+            execution_adapter=execution_adapter,
         )
     except (ChatSessionError, OSError, ValueError) as error:
         payload = {
@@ -127,7 +234,19 @@ def chat_command(
         if len(requests) > session.bootstrap.max_turns:
             raise ChatSessionError("turn_budget", "--request count exceeds --max-turns")
         for item in requests:
-            _render_turn(session.interpret(item), output_json=output_json)
+            turn = session.interpret(item)
+            if preview_plan or execute:
+                turn = session.preview_plan(turn)
+            if execute:
+                turn = session.execute_plan(
+                    turn,
+                    approval_id,
+                    resume=resume,
+                    progress_callback=lambda event: _render_progress(
+                        event, output_json=output_json
+                    ),
+                )
+            _render_turn(turn, output_json=output_json)
         if requests:
             return
         if not output_json:
@@ -143,7 +262,19 @@ def chat_command(
             if prompt.strip().lower() in {"/exit", "/quit", "exit", "quit"}:
                 break
             try:
-                _render_turn(session.interpret(prompt), output_json=output_json)
+                turn = session.interpret(prompt)
+                if preview_plan or execute:
+                    turn = session.preview_plan(turn)
+                if execute:
+                    turn = session.execute_plan(
+                        turn,
+                        approval_id,
+                        resume=resume,
+                        progress_callback=lambda event: _render_progress(
+                            event, output_json=output_json
+                        ),
+                    )
+                _render_turn(turn, output_json=output_json)
             except ChatSessionError as error:
                 payload = {
                     "record_type": "error",

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add the bounded chat-to-optimize execution adapter for issue #451. Confirmed
+  `SpecPreview` submissions now cross the typed dispatcher into the stable
+  optimize planner/orchestrator, with approval and transaction gates,
+  engine-owned streamed progress, deterministic campaign/run identities,
+  retained failure/interruption/cancellation evidence, and no-artifact failure
+  handling. Provider output remains outside measured provenance; unsupported
+  spec fields fail closed.
+
 - Add the v2.7 canonical conversational campaign state store. Campaign/session
   linkage, exact spec and hard constraints, policy and approval state, provider
   context, resource budgets, lifecycle, deterministic versioned transitions,
