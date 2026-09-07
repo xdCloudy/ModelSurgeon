@@ -23,6 +23,12 @@
   authoritative and fail closed. Transcript text, summaries, provider memory,
   secrets, and untrusted tool payloads are not persisted as campaign state.
 
+- Add the bounded v2.7 conversation-summary boundary. Deterministic summaries
+  preserve canonical campaign state and all visible negative/unsupported
+  evidence in separately labelled zones, record transcript omissions and
+  unsupported roles, enforce transcript/byte budgets, and refuse stale,
+  altered, or over-budget rehydration without replaying untrusted chat.
+
 - Add the experimental interpreted `OptimizationSpec` preview boundary for
   conversational requests. It renders the exact canonical objective contract,
   hard constraints, preferences, budgets, allowed operations, unresolved
