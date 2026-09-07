@@ -1,0 +1,22 @@
+{
+  "protocol": "long-interaction-aware-sequence-study-v1",
+  "schema_version": 1,
+  "issue": 391,
+  "families": ["llama", "qwen"],
+  "policies": ["stateless", "additive", "state_aware"],
+  "horizons": [10, 20, 50],
+  "seeds": [11, 23, 47],
+  "adversarial_cases": ["same_layer", "cross_layer", "distribution_shift"],
+  "statistics": ["cumulative_regret", "violations", "evaluations", "rollback_count", "bootstrap_interval"],
+  "decision": "unsupported_pending_licensed_physical_checkpoint_bundle",
+  "reproduction": [
+    "python -m pytest tests/test_long_sequence_study.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The default matrix retains unavailable cells and makes no state-aware improvement claim.",
+    "Measured cells must bind reloadable artifacts and held-out quality/deployment evidence.",
+    "Adversarial interaction results remain explicit even when they trigger rollback or replanning."
+  ]
+}
