@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add the resumable `modelsurgeon benchmark` matrix CLI with deterministic plans, imports, audits, and reports.
 - Add a versioned deployable benchmark evidence schema with explicit terminal
   outcomes, equal-budget identities, metric units, uncertainty, artifact lineage,
   provenance, deterministic reports, and a v0-to-v1 migration.

@@ -16,6 +16,7 @@ from modelsurgeon.adapters.huggingface import (
     HuggingFaceModelError,
     HuggingFaceRevisionError,
 )
+from modelsurgeon.cli.benchmark import benchmark_app
 from modelsurgeon.cli.calibration import calibrate_command
 from modelsurgeon.cli.dataset import generate_dataset_command
 from modelsurgeon.cli.experiment import (
@@ -201,6 +202,7 @@ app.command("calibrate")(calibrate_command)
 app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
+app.add_typer(benchmark_app, name="benchmark")
 
 
 if __name__ == "__main__":  # pragma: no cover
