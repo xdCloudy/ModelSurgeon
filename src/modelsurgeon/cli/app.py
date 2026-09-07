@@ -28,6 +28,7 @@ from modelsurgeon.cli.experiment import (
 )
 from modelsurgeon.cli.features import features_command
 from modelsurgeon.cli.inspection import inspect_huggingface_model
+from modelsurgeon.cli.optimize import optimize_command
 from modelsurgeon.cli.proof import first_surgeon_proof_command
 from modelsurgeon.cli.proof_evidence import first_surgeon_evidence_command
 from modelsurgeon.cli.proof_hf import first_surgeon_hf_proof_command
@@ -202,6 +203,7 @@ app.command("calibrate")(calibrate_command)
 app.command("generate-dataset")(generate_dataset_command)
 app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
+app.command("optimize")(optimize_command)
 app.add_typer(benchmark_app, name="benchmark")
 
 
