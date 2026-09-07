@@ -1,7 +1,8 @@
 # Capability-scoped conversational tool schemas
 
-Status: request schema version 1, result envelope version 2, and the trusted
-dispatcher boundary are implemented in `modelsurgeon.conversation`. They define
+Status: the v2.6 bounded release boundary is frozen: request schema version 1,
+result envelope version 2, and the trusted dispatcher boundary are implemented
+in `modelsurgeon.conversation`. They define
 what a conversational client may request and how an engine may publish a
 grounded result; they do not make the conversational product generally
 available or register a default model executor.

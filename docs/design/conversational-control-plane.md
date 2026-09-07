@@ -1,12 +1,13 @@
 # Conversational control-plane design
 
 Status: the v2.1 canonical intent-record boundary, bounded objective-contract
-compiler, policy evaluator, and equivalence/refusal corpus plus the v2.2
-replaceable provider boundary and the experimental v2.3 chat bootstrap are
-implemented and frozen in
+compiler, policy evaluator, and equivalence/refusal corpus, the v2.2
+replaceable provider boundary, the experimental v2.3 chat bootstrap, and the
+v2.6 bounded conversational tool boundary are implemented and frozen in
 `modelsurgeon.conversation` and `modelsurgeon.search`. The conversational
 product remains experimental and incomplete. The [chat session bootstrap](chat-session-bootstrap.md),
 the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
+the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
 are normative for versioning and replay. This document is not a claim that the

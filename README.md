@@ -25,7 +25,15 @@ It supports two complementary paths:
 > [!WARNING]
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
-The v2.1 conversational intent boundary and the bounded v2.2 replaceable-provider boundary are frozen around the existing `OptimizationSpec` contract; the v2.3–v3.0 roadmap still plans the full conversational product. The provider boundary is control-plane infrastructure, not `modelsurgeon chat`, a universal hosted-provider claim, or optimization evidence. ModelSurgeon retains authority over constraints, surgery, validation and artifact publication. See the [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md). Direct CLI/Python workflows remain the supported automation path.
+The v2.1 conversational intent boundary, v2.2 replaceable-provider boundary,
+and v2.6 bounded tool boundary are frozen around the existing `OptimizationSpec`
+contract. The tool boundary is control-plane infrastructure, not a general
+agent runtime, `modelsurgeon chat` product release, universal hosted-provider
+claim, or optimization evidence. ModelSurgeon retains authority over
+constraints, surgery, validation and artifact publication. See the [v2.6
+release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md)
+and [machine-readable release record](docs/research/v2.6-bounded-conversational-tool-release-v1.json).
+Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
 
@@ -62,6 +70,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, renders the exact interpreted `OptimizationSpec` preview, and retains explicit outcomes. Inspection, execution, universal hosted support, and live provider benchmarks remain outside this slice. See [the preview contract](docs/design/spec-preview.md). |
+| Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 
 Measured evidence currently includes:
 

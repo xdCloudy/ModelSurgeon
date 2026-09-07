@@ -1,0 +1,179 @@
+{
+  "record_type": "bounded_conversational_tool_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.6-bounded-tool-release-v1",
+  "milestone": "v2.6",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 463,
+      "key": "v26-tool-schema",
+      "status": "merged",
+      "commit": "dee384ba2fd785c75dfa4022e890caf5d5e27d8e",
+      "artifacts": [
+        "src/modelsurgeon/conversation/tools.py",
+        "docs/design/conversational-tool-schemas.md"
+      ],
+      "tests": ["tests/test_conversational_tools.py"]
+    },
+    {
+      "issue": 464,
+      "key": "v26-allowlist",
+      "status": "merged",
+      "commit": "cf6940494ac9a10ff6c7a5309da37ae17f3097ae",
+      "artifacts": [
+        "src/modelsurgeon/conversation/dispatcher.py",
+        "tests/test_conversational_dispatcher.py"
+      ],
+      "tests": ["tests/test_conversational_dispatcher.py"]
+    },
+    {
+      "issue": 465,
+      "key": "v26-transaction-boundary",
+      "status": "merged",
+      "commit": "fc35a4c8b8484fc8fe2b2bba02a4383be40feb09",
+      "artifacts": [
+        "src/modelsurgeon/conversation/transaction.py",
+        "tests/test_conversational_transaction_boundary.py"
+      ],
+      "tests": ["tests/test_conversational_transaction_boundary.py"]
+    },
+    {
+      "issue": 466,
+      "key": "v26-grounding",
+      "status": "merged",
+      "commit": "75208c2f4dc9366c7b66606dc642c1b0ac248504",
+      "artifacts": [
+        "src/modelsurgeon/conversation/tools.py",
+        "tests/test_conversational_tools.py"
+      ],
+      "tests": ["tests/test_conversational_tools.py"]
+    },
+    {
+      "issue": 467,
+      "key": "v26-adversarial",
+      "status": "merged",
+      "commit": "f1d99d1435fb05352d3db3cab134c49b608219e8",
+      "artifacts": [
+        "tests/fixtures/conversational_tool_boundary_adversarial_v1.json",
+        "docs/testing/conversational-tool-boundary-adversarial.md"
+      ],
+      "tests": ["tests/test_conversational_adversarial_corpus.py"]
+    }
+  ],
+  "tool_contract": {
+    "request_schema_version": 1,
+    "result_schema_version": 2,
+    "tools": {
+      "inspect_model": "read_only",
+      "preview_plan": "read_only",
+      "query_evidence": "read_only",
+      "execute_approved_plan": "consequential"
+    },
+    "outcomes": [
+      "supported",
+      "unsupported",
+      "failed",
+      "unknown",
+      "refused",
+      "timeout",
+      "cancelled"
+    ],
+    "forbidden_authority": [
+      "shell",
+      "python",
+      "filesystem",
+      "network",
+      "command",
+      "callback",
+      "executor",
+      "tensor",
+      "remove",
+      "delete"
+    ]
+  },
+  "transaction_boundary": {
+    "consequential_requires_approval": true,
+    "read_only_has_participant": false,
+    "failure_outcomes": [
+      "cancelled",
+      "failed",
+      "refused",
+      "timeout",
+      "unknown",
+      "unsupported"
+    ],
+    "retry_policy": "retries are bounded and consequential retries require an explicit idempotency declaration",
+    "replay_policy": "completed request identities are served from a bounded replay ledger"
+  },
+  "adversarial_evidence": {
+    "corpus": [
+      "tests/fixtures/conversational_tool_boundary_adversarial_v1.json"
+    ],
+    "tests": ["tests/test_conversational_adversarial_corpus.py"],
+    "negative_results_retained": true,
+    "process_isolation": "not_claimed"
+  },
+  "evidence_policy": {
+    "fixture_evidence": "contract and boundary evidence only",
+    "live_provider_benchmarks": "not_run",
+    "live_campaigns": "not_run",
+    "live_model_quality": "not_run",
+    "unsupported_cells": [
+      {"cell": "arbitrary_shell_tool", "status": "unsupported", "reason": "not present in the finite allowlist"},
+      {"cell": "arbitrary_python_tool", "status": "unsupported", "reason": "not present in the finite allowlist"},
+      {"cell": "filesystem_tool", "status": "unsupported", "reason": "not present in the finite allowlist"},
+      {"cell": "network_tool", "status": "unsupported", "reason": "not present in the finite allowlist"},
+      {"cell": "provider_selector", "status": "unsupported", "reason": "provider selection is outside the tool request schema"},
+      {"cell": "model_session_tool", "status": "unsupported", "reason": "model-session authority is outside the tool request schema"},
+      {"cell": "direct_tensor_removal", "status": "unsupported", "reason": "consequential requests reference an approved plan only"},
+      {"cell": "hostile_process_containment", "status": "not_claimed", "reason": "handlers run in-process and require a future supervised boundary"}
+    ],
+    "negative_and_inconclusive": "Hosted-provider calls, credentials, live model-quality measurements, live campaigns, shell execution, and hostile-process containment were not run or claimed. Unsupported, unknown, failed, refused, timeout, cancelled, and unverified results remain explicit."
+  },
+  "direct_api_compatibility": {
+    "preserved": true,
+    "policy": "Direct CLI and Python optimization remain independent of conversational tool handlers and provider state.",
+    "tests": [
+      "tests/test_optimization.py",
+      "tests/test_config.py",
+      "tests/test_config_io.py"
+    ]
+  },
+  "schema_and_api": [
+    "src/modelsurgeon/conversation/tools.py",
+    "src/modelsurgeon/conversation/dispatcher.py",
+    "src/modelsurgeon/conversation/transaction.py",
+    "docs/design/conversational-tool-schemas.md"
+  ],
+  "documentation": [
+    "README.md",
+    "ROADMAP.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/release/v2.6-bounded-conversational-tool-boundary.md",
+    "docs/testing/conversational-tool-boundary-adversarial.md",
+    "CHANGELOG.md"
+  ],
+  "reproduction_commands": [
+    "uv run --locked --extra dev python tools/audit_v26_tool_release.py",
+    "uv run --locked --extra dev pytest tests/test_v26_tool_release.py tests/test_conversational_tools.py tests/test_conversational_dispatcher.py tests/test_conversational_transaction_boundary.py tests/test_conversational_adversarial_corpus.py tests/test_optimization.py -q",
+    "uv run --locked --extra dev ruff check .",
+    "uv run --locked --extra dev mypy src",
+    "uv run --locked --extra dev pytest"
+  ],
+  "quality_gate": {
+    "commands": [
+      "uv run --locked --extra dev python tools/audit_v26_tool_release.py",
+      "uv run --locked --extra dev pytest tests/test_v26_tool_release.py tests/test_conversational_tools.py tests/test_conversational_dispatcher.py tests/test_conversational_transaction_boundary.py tests/test_conversational_adversarial_corpus.py tests/test_optimization.py -q",
+      "uv run --locked --extra dev ruff check .",
+      "uv run --locked --extra dev mypy src",
+      "uv run --locked --extra dev pytest"
+    ],
+    "runtime": "project-managed uv environment, Python 3.12",
+    "known_skips": [
+      "No live hosted-provider, credentialed endpoint, campaign, model-quality, shell, or hostile-process run is part of this release boundary."
+    ]
+  }
+}
