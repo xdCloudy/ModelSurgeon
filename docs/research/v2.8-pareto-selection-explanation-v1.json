@@ -1,0 +1,55 @@
+{
+  "record_type": "bounded_pareto_selection_explanation",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.8-pareto-selection-explanation-v1",
+  "status": "bounded_evidence_boundary",
+  "dependency_evidence": [
+    {
+      "key": "v20-selection-evidence",
+      "issue": 428,
+      "status": "merged",
+      "commit": "e40517169573b497b32f3e70dffff31b31013548",
+      "artifacts": ["src/modelsurgeon/experiments/optimization_package.py"]
+    },
+    {
+      "key": "v25-pareto",
+      "issue": 459,
+      "status": "merged",
+      "commit": "5f405827649ffb43c47f2431c1bb7887ff5195f2",
+      "artifacts": ["src/modelsurgeon/explain/pareto_alternatives.py"]
+    },
+    {
+      "key": "v25-amendments",
+      "issue": 460,
+      "status": "merged",
+      "commit": "45daba27316ce01af116d18585ef0523eea72435",
+      "artifacts": ["src/modelsurgeon/search/objective_amendments.py"]
+    },
+    {
+      "key": "v28-evidence-query",
+      "issue": 475,
+      "status": "merged",
+      "commit": "e0b4940a0b3a9d6dda468b46bcc02de303a492bb",
+      "artifacts": ["src/modelsurgeon/conversation/evidence_query.py"]
+    }
+  ],
+  "boundary": {
+    "measured_only_frontier": true,
+    "hard_constraints_before_soft_tradeoffs": true,
+    "selection_reproduces_from_canonical_evidence": true,
+    "selection_outside_frontier": "rejected",
+    "uncertainty_and_ties_visible": true,
+    "negative_evidence_retained": true,
+    "amendment_identity_preserved": true
+  },
+  "api_and_design": [
+    "src/modelsurgeon/explain/pareto_selection.py",
+    "src/modelsurgeon/explain/__init__.py",
+    "docs/design/pareto-selection-explanations.md"
+  ],
+  "examples": ["docs/examples/pareto_selection.py"],
+  "tests": [
+    "tests/test_pareto_selection.py",
+    "tests/golden/pareto_selection_v1.json"
+  ]
+}

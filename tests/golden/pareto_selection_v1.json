@@ -1,0 +1,18 @@
+{
+  "record_type": "measured_pareto_selection_explanation",
+  "schema_version": 1,
+  "frontier_candidate_ids": [
+    "candidate_a",
+    "candidate_tie",
+    "candidate_uncertain"
+  ],
+  "selected_candidate_id": "candidate_uncertain",
+  "outcome": "selected",
+  "statuses": {
+    "candidate_a": "tied_frontier",
+    "candidate_dominated": "dominated",
+    "candidate_tie": "tied_frontier",
+    "candidate_uncertain": "frontier"
+  },
+  "selection_rule_contains": "canonical normalized objective-vector order"
+}
