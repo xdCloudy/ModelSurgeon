@@ -182,6 +182,7 @@ def bounded_subprocess(
     if timeout_seconds <= 0 or grace_seconds <= 0 or max_log_bytes <= 0:
         raise ResilienceError("subprocess bounds must be positive")
     started = time.perf_counter()
+    process_group_flag = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     process = subprocess.Popen(
         list(command),
         cwd=None if cwd is None else Path(cwd),
@@ -189,7 +190,7 @@ def bounded_subprocess(
         stderr=subprocess.STDOUT,
         shell=False,
         start_new_session=os.name != "nt",
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+        creationflags=process_group_flag if os.name == "nt" else 0,
     )
     try:
         output, _ = process.communicate(timeout=timeout_seconds)
@@ -205,7 +206,12 @@ def bounded_subprocess(
                 check=False,
             )
         else:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)  # type: ignore[attr-defined]
+            getpgid = getattr(os, "getpgid", None)
+            killpg = getattr(os, "killpg", None)
+            if getpgid is None or killpg is None:
+                process.terminate()
+            else:
+                killpg(getpgid(process.pid), signal.SIGTERM)
         try:
             output, _ = process.communicate(timeout=grace_seconds)
         except subprocess.TimeoutExpired:
