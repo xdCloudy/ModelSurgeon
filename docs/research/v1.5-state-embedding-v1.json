@@ -1,0 +1,21 @@
+{
+  "record_type": "current_state_embedding_contract",
+  "schema_version": 1,
+  "embedding_version": "state-embedding-v1",
+  "components": [
+    "normalized_architecture_scalars",
+    "axis_status_masks",
+    "layer_width_histograms",
+    "accepted_mutation_set",
+    "ordered_mutation_history",
+    "cumulative_metric_masks",
+    "remaining_constraint_buckets",
+    "evidence_outcome_counts"
+  ],
+  "set_order_policy": "canonicalize before hashing",
+  "history_policy": "retain bounded suffix plus omitted-prefix digest and truncation count",
+  "outcomes": ["measured", "unsupported", "failed", "unknown"],
+  "leakage_policy": "current-state input has no future mutation or held-out target field",
+  "claim_boundary": "Encoding contract only; no downstream model or superiority claim.",
+  "reproduction": "encode_current_state() and StateEmbedding.to_record()"
+}
