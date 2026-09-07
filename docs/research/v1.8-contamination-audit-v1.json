@@ -1,0 +1,24 @@
+{
+  "protocol": "contamination-audit-v1",
+  "schema_version": 1,
+  "issue": 410,
+  "scope": "calibration, repair, adaptation, validation, benchmark, and generated-output corpora",
+  "detectors": ["sha256_exact", "token_shingle_jaccard", "declared_model_ancestry"],
+  "default_ngram_size": 5,
+  "default_near_jaccard_threshold": 0.8,
+  "max_items": 100000,
+  "max_pair_comparisons": 1000000,
+  "unavailable_sources": "unknown_not_clean",
+  "exact_or_ancestry_overlap": "block_claim",
+  "near_overlap": "move_sample_and_new_protocol",
+  "reproduction": [
+    "python -m pytest tests/test_contamination.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The audit cannot infer undisclosed pretraining contamination without source evidence.",
+    "Near-duplicate detection is bounded token-shingle matching, not a claim of semantic equivalence.",
+    "Ancestry findings depend on complete declared lineage manifests."
+  ]
+}
