@@ -42,7 +42,6 @@ from modelsurgeon.conversation.provider import (
     ProviderResult,
     ProviderStreamEvent,
     _failure_result,
-    _required_capabilities,
     result_from_raw_output,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
@@ -335,6 +334,7 @@ def _bounded_limits(advertised: ProviderLimits, configured: ProviderLimits) -> P
         min(advertised.max_concurrent_requests, configured.max_concurrent_requests),
         min(advertised.max_wall_seconds, configured.max_wall_seconds),
         min(advertised.max_stream_events, configured.max_stream_events),
+        min(advertised.max_memory_bytes, configured.max_memory_bytes),
     )
 
 
@@ -348,6 +348,7 @@ def _provider_limits(value: object) -> ProviderLimits:
         "max_concurrent_requests",
         "max_wall_seconds",
         "max_stream_events",
+        "max_memory_bytes",
     }
     if set(value) != required:
         raise EndpointAdapterError("capability limits have unknown or missing fields")
@@ -359,6 +360,7 @@ def _provider_limits(value: object) -> ProviderLimits:
             value["max_concurrent_requests"],
             value["max_wall_seconds"],
             value["max_stream_events"],
+            value["max_memory_bytes"],
         )
     except (TypeError, ValueError, ProviderContractError) as error:
         raise EndpointAdapterError("capability limits are invalid") from error
@@ -756,12 +758,12 @@ class _RemoteEndpointProvider:
         )
 
     def call(self, request: ProviderRequest, *, cancellation: CancellationToken) -> ProviderResult:
-        required = _required_capabilities(request)
-        if not all(item in self._card.capabilities for item in required):
+        operation_capability = ProviderCapability(request.operation.value)
+        if operation_capability not in self._card.capabilities:
             return self._unsupported(
                 request,
                 "endpoint capability was not probed or advertised",
-                required,
+                (operation_capability,),
             )
         if ProviderCapability.STRUCTURED_OUTPUT not in self._card.capabilities:
             return self._unsupported(
