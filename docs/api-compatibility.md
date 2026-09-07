@@ -13,7 +13,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, and partition manifests. |
 | `modelsurgeon.features` | Versioned feature records and bounded feature extraction interfaces. |
 | `modelsurgeon.surgery` | Transactional mutation requests, plans, outcomes, and physical-surgery entry points. |
-| `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, frozen protocol and baseline evidence, quantization-order attribution, physical compression/quality-loss Pareto evidence, structured artifact reconciliation, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
+| `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, frozen protocol and baseline evidence, quantization-order attribution, physical compression/quality-loss Pareto evidence, profile-bound kernel/offload microbenchmarks, structured artifact reconciliation, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
 | `modelsurgeon.surgery` | Transactional mutation plans plus versioned physical artifact outcomes, cumulative lineage reconciliation, reload-bound HF sequences, and bounded native GGUF sequences. |
 | `modelsurgeon.surgery` | Shared format-neutral artifact integrity and rollback gates for HF/GGUF publication. |
 | `modelsurgeon benchmark` | Deterministic plans, resumable runs, immutable imports, audits, reports, and physical HF/GGUF deployment evidence. |

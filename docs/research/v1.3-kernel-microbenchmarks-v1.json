@@ -1,0 +1,21 @@
+{
+  "record_type": "kernel_shape_and_offload_microbenchmark_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.3-kernel-microbenchmarks-v1",
+  "minimum_warmups": 2,
+  "minimum_repetitions": 10,
+  "max_relative_dispersion": 0.2,
+  "metrics": [
+    {"name": "prefill_latency_seconds", "unit": "s"},
+    {"name": "decode_latency_seconds", "unit": "s"},
+    {"name": "throughput_tokens_per_second", "unit": "tokens/s"},
+    {"name": "bandwidth_gbps", "unit": "GB/s"},
+    {"name": "peak_ram_bytes", "unit": "bytes"},
+    {"name": "peak_vram_bytes", "unit": "bytes"}
+  ],
+  "boundary_classes": ["tensor_core", "SIMD", "cache_line", "GGUF_block", "GPU_offload"],
+  "outcomes": ["measured", "unstable", "unsupported", "failed", "unknown"],
+  "claim_boundary": "isolated kernel evidence only; no end-to-end model speedup claim",
+  "negative_result_policy": "retain unstable, unsupported, failed, and unknown cells with reasons",
+  "reproduction": "render_microbenchmark_protocol()"
+}
