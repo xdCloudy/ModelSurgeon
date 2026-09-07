@@ -1,0 +1,19 @@
+{
+  "record_type": "hardware_cost_training_dataset_contract",
+  "schema_version": 1,
+  "dataset_revision": "hardware-cost-v1",
+  "target_metrics": [
+    "load_time_seconds",
+    "prefill_tokens_per_second",
+    "decode_tokens_per_second",
+    "latency_seconds",
+    "peak_ram_bytes",
+    "peak_vram_bytes",
+    "disk_bytes"
+  ],
+  "lineage_group": ["model_revision", "source_artifact_sha256", "hardware_profile_id"],
+  "split_policy": "train/validation/test groups must be disjoint; held-out artifact or hardware lineage cannot cross partitions",
+  "retention_policy": ["measured", "unsupported", "failed", "unknown", "unstable"],
+  "normalization_policy": "partition storage and comparisons by hardware profile/context identity",
+  "reproduction": "build_hardware_cost_example() and HardwareCostDataset()"
+}

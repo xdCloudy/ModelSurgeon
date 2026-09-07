@@ -10,7 +10,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | --- | --- |
 | `modelsurgeon.adapters` | Framework-neutral sources, sessions, capability discovery, family detection, and fail-closed competitor execution records. |
 | `modelsurgeon.graph` | Canonical component IDs, component graphs, validation, serialization, and remapping. |
-| `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, and partition manifests. |
+| `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, hardware cost examples, and profile-partitioned manifests. |
 | `modelsurgeon.features` | Versioned feature records and bounded feature extraction interfaces. |
 | `modelsurgeon.surgery` | Transactional mutation requests, plans, outcomes, and physical-surgery entry points. |
 | `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, frozen protocol and baseline evidence, quantization-order attribution, physical compression/quality-loss Pareto evidence, profile-bound kernel/offload microbenchmarks, structured artifact reconciliation, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
