@@ -1,0 +1,28 @@
+{
+  "audit_id": "audit_1d263f08775c1d5e309ff3b294525261948a455ce03bf1946e1c1f5a74c4a119",
+  "auditor": "ModelSurgeon evaluation maintainers",
+  "checked_on": "2026-08-24",
+  "exclusions": [
+    {
+      "decision": "excluded",
+      "item": "google/gemma-2-2b",
+      "license": "Gemma Terms of Use",
+      "reason": "not admitted to the permissive ladder until its license is explicitly approved for this study",
+      "revision": "license-review-v1.1",
+      "source_url": "https://ai.google.dev/gemma/terms"
+    }
+  ],
+  "policy": "pin source revisions and licenses; exclude disclosed overlap; retain every exclusion",
+  "source_revisions": [
+    "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "f8027fd0eaeea54caa13c31d31b9fdc459c38b49",
+    "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "59f6f375b26bde864a6ca194a9a3044570490064",
+    "8faed761d45a263340a0528343f099c05c9a4323",
+    "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+    "caa1feb0e54d415e2df31207e5f4e273e33509b1",
+    "modelsurgeon-benchmark-datasets-v1.1",
+    "reference-implementation-v1.1",
+    "77e3b4f8bc2f2aedd78202a01b4bee2c7942a298"
+  ]
+}
