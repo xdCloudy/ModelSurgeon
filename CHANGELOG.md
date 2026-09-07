@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add fail-closed hardware-specific alignment rules that separate graph/codec legality
+  from measured preference and require matched training/held-out microbenchmark evidence.
 - Add profile-bound kernel/offload microbenchmark partitions with boundary-crossing shapes,
   ten-repetition confidence envelopes, explicit unstable outcomes, and retained unsupported
   or failed cells.

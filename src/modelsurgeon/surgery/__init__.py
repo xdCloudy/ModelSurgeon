@@ -1,5 +1,19 @@
 """Transactional model mutation APIs."""
 
+from modelsurgeon.surgery.alignment_rules import (
+    ALIGNMENT_RULE_SCHEMA_VERSION,
+    AlignmentAxis,
+    AlignmentConstraint,
+    AlignmentDecision,
+    AlignmentDecisionOutcome,
+    AlignmentEvidence,
+    AlignmentPreference,
+    AlignmentRuleError,
+    AlignmentRuleOutcome,
+    AlignmentRuleSet,
+    build_alignment_rule_set,
+    build_unknown_preference,
+)
 from modelsurgeon.surgery.artifact_integrity import (
     ArtifactIntegrityError,
     ArtifactSourceIntegrity,
@@ -220,6 +234,7 @@ from modelsurgeon.surgery.transaction import (
 )
 
 __all__ = [
+    "ALIGNMENT_RULE_SCHEMA_VERSION",
     "DISTILLATION_REPAIR_SCHEMA_VERSION",
     "GGUF_CUMULATIVE_SCHEMA_VERSION",
     "HIDDEN_DIMENSION_STUDY_SCHEMA_VERSION",
@@ -234,6 +249,15 @@ __all__ = [
     "REDACTED_LOCAL_PATH",
     "SHORT_FINETUNE_SCHEMA_VERSION",
     "AlignedAxisRemovalProposal",
+    "AlignmentAxis",
+    "AlignmentConstraint",
+    "AlignmentDecision",
+    "AlignmentDecisionOutcome",
+    "AlignmentEvidence",
+    "AlignmentPreference",
+    "AlignmentRuleError",
+    "AlignmentRuleOutcome",
+    "AlignmentRuleSet",
     "ArchitectureState",
     "ArtifactFormat",
     "ArtifactIntegrityError",
@@ -365,7 +389,9 @@ __all__ = [
     "TouchedGGUFOutputRange",
     "TransactionState",
     "TransactionalMutation",
+    "build_alignment_rule_set",
     "build_example_physical_outcomes",
+    "build_unknown_preference",
     "compile_physical_mutation_plan",
     "evaluate_coordinated_hidden_dimension_surgery",
     "execute_native_gguf_attention_head_removal",

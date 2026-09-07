@@ -1,0 +1,11 @@
+{
+  "record_type": "hardware_specific_alignment_rules",
+  "schema_version": 1,
+  "axes": ["mlp_width", "query_head_group", "kv_head_group", "hidden_dimension", "layer_count"],
+  "hard_legality": "intersection of graph and codec multiples; empirical evidence cannot relax either constraint",
+  "preference_gate": "measured training and held-out validation microbenchmark results from the same profile and partition",
+  "outcomes": ["measured", "unsupported", "failed", "unknown"],
+  "unseen_policy": "unknown",
+  "claim_boundary": "alignment preference only; graph validation and codec safety remain authoritative",
+  "reproduction": "build_alignment_rule_set(partition, constraints, preferences)"
+}

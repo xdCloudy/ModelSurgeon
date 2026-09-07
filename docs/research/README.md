@@ -30,6 +30,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.2 physical compression and quality-loss Pareto study](v1.2-physical-pareto-study-v1.json)
 - [v1.3 empirical hardware and runtime profile](v1.3-hardware-profile-v1.json)
 - [v1.3 kernel shape and offload microbenchmarks](v1.3-kernel-microbenchmarks-v1.json)
+- [v1.3 hardware-specific alignment rules](v1.3-alignment-rules-v1.json)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
