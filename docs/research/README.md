@@ -23,6 +23,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.0 scientific results and limitations](v1.0-scientific-results.md)
 - [v1.0 Windows and WSL2 consumer evidence](v1.0-windows-wsl-consumer-evidence.md)
 - [v1.1 equal-budget benchmark protocol](v1.1-benchmark-protocol-v1.json)
+- [v2.0 autonomous benchmark status and publication contract](v2.0-autonomous-benchmark.md)
 - [v1.1 contamination and license audit](v1.1-benchmark-contamination-license-audit-v1.json)
 - [v1.1 unstructured baseline evidence](v1.1-unstructured-baseline-evidence-v1.json)
 - [v1.1 structured baseline evidence](v1.1-structured-baseline-evidence-v1.json)

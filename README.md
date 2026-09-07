@@ -41,6 +41,13 @@ The v2.1 conversational intent boundary and the bounded v2.2 replaceable-provide
 
 Current package version: **`1.0.0` (evidence-bounded research release)**. The v0.5–v0.9 research path and the v1.0 release boundary have reproducible repository evidence; production-wide support is not implied.
 
+The v2.0 autonomous benchmark boundary is implemented as a preregistration
+and publication gate. It requires exact checkpoints, held-out splits, equal
+budgets, repeated confidence-bounded measurements, complete artifact lineage,
+and an independent audit/replay before any competitiveness claim can publish.
+The repository does not claim live v2 benchmark results; see the [v2.0
+benchmark status](docs/research/v2.0-autonomous-benchmark.md).
+
 | Area | State | Current capability |
 | --- | --- | --- |
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
