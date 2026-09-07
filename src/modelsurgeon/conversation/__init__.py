@@ -1,5 +1,6 @@
 """Typed conversational control-plane records."""
 
+from .campaign import CanonicalCampaignRecorder
 from .campaign_state import (
     CAMPAIGN_STATE_DB_SCHEMA_VERSION,
     CAMPAIGN_STATE_SCHEMA_VERSION,
@@ -229,6 +230,7 @@ __all__ = [
     "CampaignStateStore",
     "CampaignStateTransition",
     "CancellationToken",
+    "CanonicalCampaignRecorder",
     "CapabilityProbeOutcome",
     "CapabilityProbeResult",
     "ChatExecutionError",

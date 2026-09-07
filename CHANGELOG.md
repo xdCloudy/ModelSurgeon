@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Validate the first supported conversational vertical slice for issue #452.
+  Chat execution now projects the stable optimize run into canonical campaign
+  state with exact spec/plan/source provenance, ordered evidence references,
+  explicit accepted/rejected/unsupported/failed/interrupted outcomes, and no
+  artifact on cancellation or failed promotion.
+
 - Add the bounded chat-to-optimize execution adapter for issue #451. Confirmed
   `SpecPreview` submissions now cross the typed dispatcher into the stable
   optimize planner/orchestrator, with approval and transaction gates,

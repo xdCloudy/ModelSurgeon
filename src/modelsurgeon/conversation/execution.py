@@ -27,6 +27,8 @@ from modelsurgeon.config import (
     OptimizeMetric,
     Settings,
 )
+from modelsurgeon.conversation.campaign import CanonicalCampaignRecorder
+from modelsurgeon.conversation.campaign_state import CampaignLifecycle, CampaignOutcome
 from modelsurgeon.conversation.dispatcher import (
     ToolCancellationToken,
     ToolDispatcher,
@@ -34,6 +36,7 @@ from modelsurgeon.conversation.dispatcher import (
     ToolExecutionError,
     ToolExecutionResponse,
 )
+from modelsurgeon.conversation.isolation import redact_secret_text
 from modelsurgeon.conversation.tools import (
     DEFAULT_TOOL_CATALOG,
     JSONValue,
@@ -63,7 +66,7 @@ from modelsurgeon.optimization_orchestrator import (
 
 if TYPE_CHECKING:
     from modelsurgeon.search.objective_contract import ObjectiveContract
-    from modelsurgeon.search.spec_preview import SpecSubmission
+    from modelsurgeon.search.spec_preview import SpecPreview, SpecSubmission
 
 
 class ChatExecutionError(ValueError):
@@ -498,6 +501,7 @@ class ChatOptimizeAdapter:
         settings: Settings,
         *,
         state_path: str | Path | None = None,
+        campaign_state_path: str | Path | None = None,
         preset: str = "balanced",
         hardware_profile: str = "cpu-small",
         quality_profile: str | None = None,
@@ -511,6 +515,13 @@ class ChatOptimizeAdapter:
             raise ChatExecutionError("runtime", "chat optimize runtime is not trusted")
         self.settings = settings
         self.state_path = None if state_path is None else Path(state_path)
+        self.campaign_state_path: Path | None
+        if campaign_state_path is not None:
+            self.campaign_state_path = Path(campaign_state_path)
+        elif self.state_path is not None:
+            self.campaign_state_path = self.state_path.with_suffix(".campaign.sqlite3")
+        else:
+            self.campaign_state_path = None
         self.preset = preset
         self.hardware_profile = hardware_profile
         self.quality_profile = quality_profile
@@ -523,6 +534,8 @@ class ChatOptimizeAdapter:
         self._progress: dict[str, list[ChatProgressEvent]] = {}
         self._progress_callbacks: dict[str, ProgressCallback] = {}
         self._resume_by_request: dict[str, bool] = {}
+        self._provider_context_by_spec: dict[str, Mapping[str, object]] = {}
+        self._session_by_request: dict[str, str] = {}
         self._dispatcher = ToolDispatcher(
             {
                 "preview_plan": self._preview_handler,
@@ -536,6 +549,8 @@ class ChatOptimizeAdapter:
         session_id: str,
         request_id: str,
         preview: object,
+        *,
+        provider_context: Mapping[str, object] | None = None,
     ) -> ChatExecutionRecord:
         from modelsurgeon.search.spec_preview import SpecPreview
 
@@ -548,6 +563,8 @@ class ChatOptimizeAdapter:
                 ToolOutcome.UNSUPPORTED,
             )
         self._previews[preview.spec_digest] = preview
+        if provider_context is not None:
+            self._provider_context_by_spec[preview.spec_digest] = dict(provider_context)
         definition = DEFAULT_TOOL_CATALOG.definition("preview_plan")
         if definition is None:  # pragma: no cover - frozen catalog invariant
             raise ChatExecutionError("catalog", "preview tool is unavailable")
@@ -568,6 +585,7 @@ class ChatOptimizeAdapter:
         cancellation: ToolCancellationToken | None = None,
         progress_callback: ProgressCallback | None = None,
         resume: bool | None = None,
+        provider_context: Mapping[str, object] | None = None,
     ) -> ChatExecutionRecord:
         from modelsurgeon.search.spec_preview import SpecPreview
 
@@ -580,7 +598,14 @@ class ChatOptimizeAdapter:
                 ToolOutcome.UNSUPPORTED,
             )
         if preview.spec_digest not in self._prepared:
-            self.preview(session_id, request_id, preview)
+            self.preview(
+                session_id,
+                request_id,
+                preview,
+                provider_context=provider_context,
+            )
+        elif provider_context is not None:
+            self._provider_context_by_spec[preview.spec_digest] = dict(provider_context)
         submission = preview.confirm(approval_id=approval_id)
         prepared = self._prepared.get(preview.spec_digest)
         if prepared is None or prepared.plan is None:
@@ -618,6 +643,7 @@ class ChatOptimizeAdapter:
             },
             approval_id=submission.approval_id,
         )
+        self._session_by_request[request.request_id] = session_id
         self._progress[request.request_id] = progress
         self._progress_callbacks[request.request_id] = callback
         selected_resume = self.resume if resume is None else resume
@@ -637,6 +663,7 @@ class ChatOptimizeAdapter:
         finally:
             self._resume_by_request.pop(request.request_id, None)
             self._progress_callbacks.pop(request.request_id, None)
+            self._session_by_request.pop(request.request_id, None)
         return self._record("execute_approved_plan", dispatched.result, tuple(progress))
 
     def _preview_handler(self, context: ToolExecutionContext) -> ToolExecutionResponse:
@@ -710,9 +737,27 @@ class ChatOptimizeAdapter:
                 ToolFailureCode.APPROVAL_MISMATCH, "plan digest is not current"
             )
         context.check_cancelled()
+        if self.campaign_state_path is None:
+            raise ToolExecutionError(
+                ToolFailureCode.INVALID_INPUT, "execution campaign state path is required"
+            )
         progress = self._progress.get(context.request.request_id, [])
         callback = self._progress_callbacks.get(context.request.request_id, progress.append)
-        campaign_id = _campaign_id(plan_id)
+        state_path = self.state_path
+        if state_path is None:
+            raise ToolExecutionError(
+                ToolFailureCode.INVALID_INPUT, "execution state path is required"
+            )
+        selected_resume = self._resume_by_request.get(context.request.request_id, self.resume)
+        recorder = CanonicalCampaignRecorder(
+            self.campaign_state_path,
+            session_id=self._session_for_request(context.request.request_id),
+            plan=prepared.plan,
+            preview=self._preview_for_spec(prepared.spec_digest),
+            provider_context=self._provider_context_by_spec.get(prepared.spec_digest),
+            approval_id=self._submissions[prepared.plan_id].approval_id,
+        )
+        campaign_id = recorder.campaign_id
         runtime = _ProgressRuntime(
             self.runtime,
             context.cancellation,
@@ -720,23 +765,45 @@ class ChatOptimizeAdapter:
             campaign_id,
             plan_id,
         )
-        state_path = self.state_path
-        if state_path is None:
-            raise ToolExecutionError(
-                ToolFailureCode.INVALID_INPUT, "execution state path is required"
+        if prepared.plan.outcome is not OptimizeOutcome.SUPPORTED:
+            detail = redact_secret_text(
+                f"optimize plan is {prepared.plan.outcome.value}; execution is unsupported"
             )
-        selected_resume = self._resume_by_request.get(context.request.request_id, self.resume)
-        run = OptimizeOrchestrator(prepared.plan, state_path).run(
-            runtime,
-            resume=selected_resume,
-            approvals=self.approvals,
-            operator_id="chat",
-            operator_context={"campaign_id": campaign_id},
-        )
+            _state, evidence_id = recorder.retain_outcome(
+                detail,
+                outcome=CampaignOutcome.UNSUPPORTED,
+                lifecycle=CampaignLifecycle.COMPLETED,
+                inconclusive=False,
+            )
+            return self._terminal_response(
+                context,
+                recorder,
+                ToolOutcome.UNSUPPORTED,
+                evidence_id,
+                detail,
+            )
+        recorder.start()
+        try:
+            run = OptimizeOrchestrator(prepared.plan, state_path).run(
+                runtime,
+                resume=selected_resume,
+                approvals=self.approvals,
+                operator_id="chat",
+                operator_context={"campaign_id": campaign_id},
+            )
+        except Exception as error:
+            detail = redact_secret_text(str(error))
+            _state, evidence_id = recorder.retain_failure(detail)
+            return self._terminal_response(
+                context,
+                recorder,
+                ToolOutcome.FAILED,
+                evidence_id,
+                detail,
+            )
+        _state, campaign_evidence_refs = recorder.retain_run(run)
         context.check_cancelled()
-        evidence_refs = tuple(
-            sorted({item.result.evidence_id for item in run.stages if item.result is not None})
-        )
+        evidence_refs = tuple(dict.fromkeys(campaign_evidence_refs))
         output: dict[str, JSONValue] = {
             "run_id": run.run_id,
             "campaign_id": campaign_id,
@@ -755,9 +822,34 @@ class ChatOptimizeAdapter:
             output,
             ToolEvidenceStatus.CANONICAL,
             _digest(run.to_record()),
-            "campaign_evidence_" + _digest(run.to_record())[len("sha256:") :],
+            campaign_evidence_refs[-1],
             artifact_id=artifact_id,
             campaign_id=campaign_id,
+            observed_at=_now(),
+        )
+
+    @staticmethod
+    def _terminal_response(
+        context: ToolExecutionContext,
+        recorder: CanonicalCampaignRecorder,
+        outcome: ToolOutcome,
+        evidence_id: str,
+        detail: str,
+    ) -> ToolExecutionResponse:
+        context.transaction.commit()
+        return ToolExecutionResponse(
+            {
+                "run_id": recorder.run_id,
+                "campaign_id": recorder.campaign_id,
+                "plan_id": recorder.plan.plan_id,
+                "outcome": outcome.value,
+                "evidence_refs": [evidence_id],
+                "reasons": [detail],
+            },
+            ToolEvidenceStatus.CANONICAL,
+            recorder.source_model_digest,
+            evidence_id,
+            campaign_id=recorder.campaign_id,
             observed_at=_now(),
         )
 
@@ -785,6 +877,20 @@ class ChatOptimizeAdapter:
                 "preview", "preview is not executable", ToolOutcome.UNSUPPORTED
             )
         return preview.confirm(approval_id="preview_only")
+
+    def _preview_for_spec(self, spec_digest: str) -> SpecPreview:
+        from modelsurgeon.search.spec_preview import SpecPreview
+
+        preview = self._previews.get(spec_digest)
+        if not isinstance(preview, SpecPreview):
+            raise ChatExecutionError("preview", "spec preview is not registered")
+        return preview
+
+    def _session_for_request(self, request_id: str) -> str:
+        session_id = self._session_by_request.get(request_id)
+        if session_id is None:
+            raise ChatExecutionError("session", "execution request has no trusted session identity")
+        return session_id
 
     @staticmethod
     def _failure_result(

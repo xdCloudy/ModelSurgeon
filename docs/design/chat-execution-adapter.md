@@ -19,7 +19,18 @@ evidence.
    before the handler calls `OptimizeOrchestrator`.
 3. The handler returns only the orchestrator's canonical run/campaign outcome,
    retained evidence IDs, and an accepted immutable artifact ID when the
-   existing promotion gate has accepted one.
+   existing promotion gate has accepted one. The result's evidence references
+   are the IDs retained by the #469 `CampaignStateStore`, not provider output
+   or raw stage labels.
+
+The JSON file passed to `state_path` remains the optimizer's stage cursor and
+resume record. The adapter also writes a sibling
+`<state stem>.campaign.sqlite3` file as the canonical conversational record.
+It binds the session, exact spec, plan, source digest, approval, provider
+capability context, budgets, lifecycle, outcome, and append-only evidence.
+The provider context is limited to the engine-owned identity/capability card;
+transcript text, summaries, secrets, and tool payloads are rejected by the
+campaign-state boundary.
 
 The adapter translates only contract fields representable by the stable
 `Settings` API. Unsupported metrics, plugin objectives, non-weighted modes,
@@ -50,4 +61,9 @@ modelsurgeon chat ./text-model.gguf \
 Execution additionally requires `--execute`, an explicit `--approval-id`, and
 the required stable plan approvals. A missing approval, unsupported input,
 failed campaign, interruption, cancellation, or no-artifact result is retained
-as a typed negative result and never presented as a successful artifact.
+as a typed negative result and never presented as a successful artifact. An
+accepted run is `completed/supported` with an immutable artifact; a rejected
+candidate is `completed/failed` with a retained `decision: rejected` record;
+unsupported plans are `completed/unsupported`; runtime errors are `failed`; and
+interrupted runs are `paused/unknown` and resumable. Cancellation before the
+consequential boundary creates no campaign or artifact state.
