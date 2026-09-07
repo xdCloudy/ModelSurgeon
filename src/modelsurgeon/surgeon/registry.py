@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, cast
 
 from modelsurgeon.experiments.artifacts import (
@@ -53,6 +53,7 @@ class SurgeonEvaluationCard:
     metrics: tuple[tuple[str, float | None], ...]
     split_manifest: Mapping[str, object]
     provenance: Mapping[str, object]
+    compatibility: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.model_kind or not self.target_name or not self.training_models:
@@ -71,6 +72,7 @@ class SurgeonEvaluationCard:
             "metrics": dict(self.metrics),
             "split_manifest": dict(self.split_manifest),
             "provenance": dict(self.provenance),
+            "compatibility": dict(self.compatibility),
         }
 
 
@@ -118,6 +120,7 @@ class SurgeonModelRegistry:
         metrics: Mapping[str, float | None],
         split_manifest: Mapping[str, object],
         provenance: Mapping[str, object],
+        compatibility: Mapping[str, object] | None = None,
     ) -> StoredArtifact:
         if tuple(model.feature_names) != preprocessor.output_feature_names:
             raise SurgeonRegistryError(
@@ -138,6 +141,7 @@ class SurgeonModelRegistry:
             _metric_pairs(metrics),
             dict(split_manifest),
             dict(provenance),
+            {} if compatibility is None else dict(compatibility),
         )
         payload = {
             "schema_version": SURGEON_BUNDLE_SCHEMA_VERSION,
@@ -146,9 +150,7 @@ class SurgeonModelRegistry:
             "target_schema": target_schema.to_record(),
             "card": card.to_record(),
         }
-        return self.artifacts.put_bytes(
-            canonical_identity_json(payload).encode("utf-8")
-        )
+        return self.artifacts.put_bytes(canonical_identity_json(payload).encode("utf-8"))
 
     def load(
         self,
@@ -209,6 +211,7 @@ class SurgeonModelRegistry:
         metrics_raw = card_raw.get("metrics")
         split_raw = card_raw.get("split_manifest")
         provenance_raw = card_raw.get("provenance")
+        compatibility_raw = card_raw.get("compatibility", {})
         model_kind = card_raw.get("model_kind")
         target_name = card_raw.get("target_name")
         if (
@@ -216,6 +219,7 @@ class SurgeonModelRegistry:
             or not isinstance(metrics_raw, Mapping)
             or not isinstance(split_raw, Mapping)
             or not isinstance(provenance_raw, Mapping)
+            or not isinstance(compatibility_raw, Mapping)
             or not isinstance(model_kind, str)
             or not isinstance(target_name, str)
         ):
@@ -233,9 +237,7 @@ class SurgeonModelRegistry:
                 or (quantization is not None and not isinstance(quantization, str))
             ):
                 raise SurgeonRegistryError("training model card identity is malformed")
-            training_models.append(
-                TrainingModelIdentity(identifier, revision, quantization)
-            )
+            training_models.append(TrainingModelIdentity(identifier, revision, quantization))
         parsed_metrics: dict[str, float | None] = {}
         for name, value in metrics_raw.items():
             if not isinstance(name, str):
@@ -253,6 +255,7 @@ class SurgeonModelRegistry:
             _metric_pairs(parsed_metrics),
             dict(split_raw),
             dict(provenance_raw),
+            dict(compatibility_raw),
         )
         return SurgeonBundle(
             model,

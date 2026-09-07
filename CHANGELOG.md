@@ -18,6 +18,10 @@
   model/state scale, family, quantization, hardware, and bounded mutation
   history, with explicit unknown-family and unsupported-MoE masks plus
   compatibility and coverage reports.
+- Add explicit model-lineage graphs and machine-readable surgeon compatibility
+  decisions across ancestry, architecture, features, targets, mutations,
+  codecs, hardware, state versions, and operations, with held-out ancestry
+  leakage rejection and compatibility evidence retained in model cards.
 - Add calibrated state-dependent predictors for safety, quality, latency, memory,
   and non-additive error with grouped state/model/candidate leakage checks,
   validation intervals, separate failure probability, additive/stateless baselines,
