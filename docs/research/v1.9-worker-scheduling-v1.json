@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "title": "Resource-aware local, remote, and multi-GPU worker scheduler",
+  "status": "implemented",
+  "protocol": {
+    "operations": ["evaluate", "mutate", "profile", "package"],
+    "transports": ["local", "explicit_remote"],
+    "result_outcomes": ["supported", "unsupported", "failed", "unknown"],
+    "task_inputs": "sha256 content-addressed",
+    "supported_output": "sha256 content-addressed"
+  },
+  "properties": [
+    "Registration is credential-authenticated and stores only a credential digest.",
+    "Placement checks aggregate RAM, VRAM, disk, CPU, GPU, and concurrency capacity.",
+    "Expired leases retry within a bounded attempt count.",
+    "Stale leases cannot complete and duplicate identical publication is idempotent.",
+    "Unsupported capability and budget cases remain explicit and queued or rejected."
+  ],
+  "negative_cells": [
+    "CPU-only worker cannot receive VRAM work.",
+    "A mismatched registration credential is rejected.",
+    "A conflicting duplicate result cannot overwrite the published result."
+  ]
+}
