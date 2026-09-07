@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add crash-consistent optimize campaign progress with ordered versioned
+  events, idempotent stage completion, pause/cancel/resume recovery, bounded
+  ETA uncertainty, source/accepted-artifact preservation, and redacted
+  diagnostic bundles.
+
 - Add an offline local artifact registry for immutable model, surgeon, and
   evidence objects with stable catalog JSON, aliases, tags, leases, reference-
   aware garbage collection, signed bundle import/export, verification, and

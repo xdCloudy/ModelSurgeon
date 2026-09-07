@@ -23,6 +23,7 @@ _PUBLIC_COMMANDS = (
     "report",
     "optimize",
     "registry",
+    "progress",
     "benchmark",
 )
 

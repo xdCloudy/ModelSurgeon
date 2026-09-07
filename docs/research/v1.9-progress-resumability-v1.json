@@ -1,0 +1,23 @@
+{
+  "record_type": "optimize_progress_resumability_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-progress-resumability-v1",
+  "stages": ["download", "calibration", "search", "surgery", "repair", "evaluation", "publication"],
+  "statuses": ["running", "paused", "cancelled", "completed", "failed", "unknown"],
+  "outcomes": ["supported", "unsupported", "failed", "unknown"],
+  "invariants": [
+    "ordered_contiguous_event_sequences",
+    "idempotent_completed_stage_replay",
+    "atomic_state_replacement",
+    "source_and_last_accepted_artifact_preservation",
+    "secret_and_local_path_redaction"
+  ],
+  "fault_matrix": [
+    "restart_between_events",
+    "pause_during_each_stage",
+    "cancel_after_accepted_artifact",
+    "corrupt_state_file",
+    "insufficient_eta_observations"
+  ],
+  "reproduction": "ProgressStore(root) with deterministic stage fixtures and progress CLI JSON"
+}
