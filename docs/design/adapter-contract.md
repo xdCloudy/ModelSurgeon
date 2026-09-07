@@ -50,3 +50,7 @@ Component descriptors use stable `ComponentId` values and primitive adapter attr
 
 Physical mutation, transactional writing, identity remapping, and graph construction have separate contracts built on this boundary.
 
+External benchmark competitors use the fail-closed subprocess contract in
+`docs/design/competitor-adapter-contract.md`; they must not be treated as
+format adapters or granted support based only on a declared command.
+

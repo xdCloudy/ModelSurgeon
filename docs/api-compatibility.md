@@ -8,7 +8,7 @@ by these namespaces are experimental and may change without a compatibility prom
 
 | Namespace | Stable contract |
 | --- | --- |
-| `modelsurgeon.adapters` | Framework-neutral sources, sessions, capability discovery, and family detection. |
+| `modelsurgeon.adapters` | Framework-neutral sources, sessions, capability discovery, family detection, and fail-closed competitor execution records. |
 | `modelsurgeon.graph` | Canonical component IDs, component graphs, validation, serialization, and remapping. |
 | `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, and partition manifests. |
 | `modelsurgeon.features` | Versioned feature records and bounded feature extraction interfaces. |
