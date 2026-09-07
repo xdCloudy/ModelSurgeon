@@ -1,0 +1,19 @@
+{
+  "protocol": "crash-consistency-v1",
+  "schema_version": 1,
+  "issue": 408,
+  "fault_points": ["source", "staging", "checksum", "fsync", "rename", "disk_full", "oom", "cancellation", "process_death", "timeout", "deadlock"],
+  "invariants": ["source_unchanged", "accepted_unchanged", "owned_staging_only", "bounded_child_termination", "bounded_logs"],
+  "subprocess_policy": "argument arrays, shell disabled, process-tree termination, bounded grace and logs",
+  "negative_and_unknown_results_retained": true,
+  "reproduction": [
+    "python -m pytest tests/test_resilience.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "Controlled faults are not destructive power-loss testing.",
+    "Process-tree termination uses taskkill on Windows and process groups on POSIX; deployment sandboxes may require stronger isolation.",
+    "Disk-full and OOM cases require scheduled environment-specific providers beyond the portable contract."
+  ]
+}

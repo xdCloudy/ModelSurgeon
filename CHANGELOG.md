@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a versioned crash-consistency fault matrix for publication and subprocess
+  boundaries with owned-staging recovery invariants, bounded child-tree termination,
+  clipped logs, and explicit unknown/unsupported evidence.
 - Add a deterministic 2,048-case mutation property-suite contract covering writable
   native GGUF codecs and operations, seeded failure injection, deterministic shrinking,
   source/rollback/reconciliation evidence, and retained unsupported or unknown outcomes.
