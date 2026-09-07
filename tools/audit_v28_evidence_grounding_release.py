@@ -129,7 +129,9 @@ def _check_dependencies(root: Path, record: dict[str, Any]) -> None:
         seen.add(key)
         issue, commit = _DEPENDENCIES[key]
         if item.get("issue") != issue or item.get("status") != "merged":
-            raise EvidenceGroundingReleaseAuditError(f"dependency {key} is not the merged dependency")
+            raise EvidenceGroundingReleaseAuditError(
+                f"dependency {key} is not the merged dependency"
+            )
         if item.get("commit") != commit:
             raise EvidenceGroundingReleaseAuditError(f"dependency {key} identity drifted")
         _files(root, item.get("artifacts"), f"dependency {key}.artifacts")
@@ -159,9 +161,16 @@ def _check_authority(record: dict[str, Any]) -> None:
 def _check_policy(record: dict[str, Any]) -> None:
     policy = _object(record.get("claim_policy"), "claim_policy")
     expected = {
-        "source_traceability": "every factual claim carries an evidence ID and source digest or is marked unavailable",
-        "qualification": "measured values retain units and uncertainty; unmeasured decisions are prediction-only",
-        "negative_evidence": "rejected, rolled_back, failed, unsupported, unknown, and inconclusive rows remain retained",
+        "source_traceability": (
+            "every factual claim carries an evidence ID and source digest or is marked unavailable"
+        ),
+        "qualification": (
+            "measured values retain units and uncertainty; unmeasured decisions are prediction-only"
+        ),
+        "negative_evidence": (
+            "rejected, rolled_back, failed, unsupported, unknown, and inconclusive "
+            "rows remain retained"
+        ),
         "unknown_evidence": "missing or incomplete fields remain unknown and are never inferred",
         "optimizer_proof": "forbidden",
         "unavailable_measurements": "forbidden",
@@ -169,7 +178,9 @@ def _check_policy(record: dict[str, Any]) -> None:
     for key, value in expected.items():
         if policy.get(key) != value:
             raise EvidenceGroundingReleaseAuditError(f"claim policy drifted: {key}")
-    if _require_texts(policy.get("outcome_vocabulary"), "claim_policy.outcome_vocabulary") != _REQUIRED_OUTCOMES:
+    if _require_texts(
+        policy.get("outcome_vocabulary"), "claim_policy.outcome_vocabulary"
+    ) != _REQUIRED_OUTCOMES:
         raise EvidenceGroundingReleaseAuditError("outcome vocabulary is incomplete or drifted")
 
 
@@ -179,7 +190,9 @@ def _check_factuality(root: Path, record: dict[str, Any]) -> None:
     _files(root, [factuality.get("manifest")], "factuality_evidence.manifest")
     audit_factuality_release(root, manifest=manifest)
     if factuality.get("grounded_renderer") != "passed":
-        raise EvidenceGroundingReleaseAuditError("grounded renderer factuality decision is not passed")
+        raise EvidenceGroundingReleaseAuditError(
+            "grounded renderer factuality decision is not passed"
+        )
     if factuality.get("template_only") != "passed":
         raise EvidenceGroundingReleaseAuditError("template-only factuality decision is not passed")
     if factuality.get("unconstrained_text") != "retained_never_shippable_negative_control":
@@ -207,7 +220,10 @@ def _check_limits(record: dict[str, Any]) -> None:
     limitations = _object(record.get("limitations"), "limitations")
     for key in ("supported", "unsupported", "unknown"):
         _require_texts(limitations.get(key), f"limitations.{key}")
-    deferred = _require_texts(limitations.get("deferred_explanation_types"), "limitations.deferred_explanation_types")
+    deferred = _require_texts(
+        limitations.get("deferred_explanation_types"),
+        "limitations.deferred_explanation_types",
+    )
     if not _REQUIRED_DEFERRED_TYPES.issubset(deferred):
         raise EvidenceGroundingReleaseAuditError("deferred explanation types are incomplete")
     if limitations.get("optimizer_proof_claim") != "not_supported":
@@ -221,7 +237,9 @@ def _check_duplicate_scope(record: dict[str, Any]) -> None:
     if review.get("status") != "passed" or review.get("no_duplicate_authority") is not True:
         raise EvidenceGroundingReleaseAuditError("duplicate scope review did not pass")
     issues = _array(review.get("reviewed_issues"), "duplicate_scope_review.reviewed_issues")
-    by_issue = {item.get("issue"): _object(item, "reviewed duplicate-scope issue") for item in issues}
+    by_issue = {
+        item.get("issue"): _object(item, "reviewed duplicate-scope issue") for item in issues
+    }
     for issue in (420, 411, 429):
         item = by_issue.get(issue)
         if item is None or item.get("boundary") != {
@@ -236,7 +254,9 @@ def audit_release(root: Path = Path("."), *, manifest: Path | None = None) -> No
     """Validate and replay the complete v2.8 milestone boundary."""
 
     root = root.resolve()
-    manifest_path = manifest or (root / "docs" / "research" / "v2.8-evidence-grounding-release-v1.json")
+    manifest_path = manifest or (
+        root / "docs" / "research" / "v2.8-evidence-grounding-release-v1.json"
+    )
     record = _read_json(manifest_path, "v2.8 evidence-grounding release manifest")
     if record.get("record_type") != "bounded_evidence_grounding_release":
         raise EvidenceGroundingReleaseAuditError("unexpected v2.8 release record type")
@@ -281,7 +301,9 @@ def audit_release(root: Path = Path("."), *, manifest: Path | None = None) -> No
     for required in required_commands:
         if not any(required in str(command) for command in commands):
             raise EvidenceGroundingReleaseAuditError(f"quality gate is missing {required}")
-    if _text(quality.get("revision"), "quality_gate.revision") != "issue-480-evidence-grounding-release":
+    if _text(quality.get("revision"), "quality_gate.revision") != (
+        "issue-480-evidence-grounding-release"
+    ):
         raise EvidenceGroundingReleaseAuditError("quality-gate revision drifted")
 
 
