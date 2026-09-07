@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add versioned deployable architecture state and symmetric decomposed distance
+  records for depth, widths, heads, hidden/embedding sizes, low rank, sparsity,
+  quantization, placement, mutation order, and physical artifact lineage, with
+  explicit unknown/predicted/unsupported axes and fail-closed import.
 - Add bounded hardware-cost predictors with train-only feature schemas,
   validation-calibrated intervals, held-out model/artifact/hardware checks,
   analytic and mean baselines, explicit OOD rejection, and retained negative
