@@ -21,6 +21,7 @@ _PUBLIC_COMMANDS = (
     "generate-dataset",
     "reproduce",
     "report",
+    "optimize",
     "benchmark",
 )
 

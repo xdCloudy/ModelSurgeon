@@ -1,0 +1,22 @@
+{
+  "record_type": "unified_optimize_plan_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-unified-optimize-plan-v1",
+  "presets": ["fast", "balanced", "quality"],
+  "hardware_profiles": ["cpu-small", "cpu-large", "gpu-12gb", "gpu-24gb"],
+  "quality_profiles": ["fast", "balanced", "quality"],
+  "outcomes": ["supported", "unsupported", "failed", "unknown"],
+  "required_evidence": [
+    "canonical_resolved_config_and_digest",
+    "immutable_source_model_revision",
+    "bounded_resource_budget_and_cost_estimate",
+    "approval_points_and_uncertainties",
+    "artifact_lineage_and_no_source_overwrite_policy"
+  ],
+  "negative_cells": [
+    "missing_model_path_or_revision_is_unknown",
+    "generic_gguf_mutation_is_unsupported",
+    "infeasible_memory_or_disk_limit_is_failed"
+  ],
+  "reproduction": "build_optimize_plan(Settings(...)) and compare canonical_json() plus plan_id"
+}

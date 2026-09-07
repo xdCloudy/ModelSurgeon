@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the unified read-only optimize planning contract with deterministic
+  presets, hardware/quality profiles, dry-run JSON, bounded cost estimates,
+  explicit approvals, source/artifact lineage, and unsupported/failed/unknown
+  outcomes.
+
 - Add read-only public benchmark auditing and falsification records for
   protocol drift, claim coverage, confidence evidence, contamination,
   reproduction, metric cherry-picking, aggregation sensitivity, and negative
