@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add offline-verifiable signed evidence bundles with streaming Merkle checks,
+  detached attestations, key rotation/revocation metadata, explicit redaction
+  and external-reference claim limits, and tamper/missing-member detection.
+
 - Add the complete consumer repair effectiveness/economics study matrix with
   physical-artifact evidence, hierarchical intervals, efficiency metrics, and
   conservative beneficial/harmful/unnecessary/infeasible recommendations.
