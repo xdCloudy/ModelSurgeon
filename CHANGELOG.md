@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add capability-gated heterogeneous architecture states with per-layer widths,
+  low-rank factors, sparsity, and mixed codecs, analytic cost reconciliation,
+  explicit unsupported/failed/unknown outcomes, and staging-based
+  materialize/reload/benchmark evidence that preserves source artifacts.
 - Add bounded calibrated RBF-compatible surrogate acquisition for complete
   architecture states, with mixed-space features, held-out objective and
   feasibility calibration, expected/hypervolume improvement batches, hard
