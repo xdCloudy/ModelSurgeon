@@ -1,0 +1,15 @@
+{
+  "record_type": "state_dependent_predictor_contract",
+  "schema_version": 1,
+  "protocol_revision": "state-predictor-v1",
+  "targets": ["safety_probability", "quality_delta", "latency_delta", "memory_delta", "non_additivity_error"],
+  "model_family": "linear_ridge",
+  "calibration": "validation_absolute_residual_quantile",
+  "baselines": ["stateless_mean", "additive_baseline"],
+  "leakage_keys": ["model_revision", "parent_state_id", "candidate_id"],
+  "failure_policy": "numeric deltas and failure probability are evaluated separately",
+  "ood_policy": "unseen parent state or feature outside train range returns out_of_distribution without a numeric delta",
+  "outcomes": ["measured", "negative_result", "unsupported", "unknown"],
+  "claim_boundary": "No superiority claim without grouped held-out evidence and baseline comparison.",
+  "reproduction": "fit_state_predictors() and StatePredictorStudy.to_record()"
+}
