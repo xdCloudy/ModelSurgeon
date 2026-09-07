@@ -484,7 +484,7 @@ The execution breakdown is intentionally staged so the conversational layer does
 | Milestone | Objective | Entry condition | Exit condition |
 | --- | --- | --- | --- |
 | v2.1 | Compile natural language into the stable `OptimizationSpec`, with provenance and safe ambiguity/refusal states. | v2.0 objective/API contract is frozen. | Deterministic compiler, canonical serialization and rephrasing/refusal evidence. |
-| v2.2 | Make the text model replaceable across local GGUF, compatible endpoints, hosted providers and no-LLM APIs. | v2.0 contracts and v1.9 plugin/runtime boundaries are available. | Provider interface, capability discovery, configuration, isolation and conformance tests. |
+| v2.2 | Make the text model replaceable across local GGUF, compatible endpoints, hosted providers and no-LLM APIs. | v2.0 contracts and v1.9 plugin/runtime boundaries are available. | Frozen provider interface, capability discovery, configuration, isolation, explicit unsupported cells and conformance evidence in the [release boundary](release/v2.2-provider-layer-boundary.md). |
 | v2.3 | Deliver `modelsurgeon chat <model>` as the first inspect → preview → execute vertical slice. | v2.1, v2.2 and v2.0 optimize/release foundations. | Clean-environment acceptance through stable ModelSurgeon APIs. |
 | v2.4 | Handle only the clarification necessary for vague, incomplete or contradictory objectives. | v2.3 chat and v2.1 ambiguity contract. | Deterministic clarification, conflict handling and measurable-target evidence. |
 | v2.5 | Explain measured infeasibility and present Pareto alternatives without silently changing constraints. | v2.4 plus v2.0 evidence/approval primitives. | Grounded alternatives and immutable, user-approved objective amendments. |

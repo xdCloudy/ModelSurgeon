@@ -628,3 +628,7 @@ All notable changes will be documented here. This project follows Keep a Changel
   for local, compatible endpoint, hosted, and no-LLM modes. Shared invocation
   now revalidates provider identity, request provenance, response provenance,
   and structured output before accepting a supported result.
+- Freeze the v2.2 provider-layer release boundary with dependency evidence,
+  explicit no-LLM unsupported cells, core provider-import isolation checks, and
+  a machine-readable release audit. This is control-plane protocol evidence,
+  not live provider or model-quality benchmark evidence.

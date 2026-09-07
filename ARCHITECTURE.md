@@ -42,9 +42,9 @@ flowchart TD
   D --> P
 ```
 
-## Conversational control plane (v2.1 contract frozen; product planned for v2.2–v3.0)
+## Conversational control plane (v2.2 provider boundary frozen; product planned for v2.3–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The bounded v2.1 intent-record, compiler, policy, and corpus contracts are implemented and frozen; the conversational product described below remains planned, and `modelsurgeon chat` is not implemented. The replaceable provider contract and experimental hosted/compatible endpoint adapters are available as bounded control-plane infrastructure, not as an alternate execution authority. See the [frozen conversational intent contract](docs/design/conversational-intent-contract.md) and its [machine-readable release record](docs/research/v2.1-conversational-intent-contract-v1.json).
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The bounded v2.1 intent-record, compiler, policy, and corpus contracts plus the v2.2 replaceable-provider boundary are implemented and frozen; the conversational product remains planned, and `modelsurgeon chat` is not implemented. The provider adapters are bounded control-plane infrastructure, not an alternate execution authority. See the [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md).
 
 ```text
 User request
