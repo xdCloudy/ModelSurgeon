@@ -19,7 +19,7 @@ from modelsurgeon.conversation.intent import IntentRecord, IntentRecordError
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.provider_kind import ProviderKind
 
-TEXT_PROVIDER_SCHEMA_VERSION: Literal[1] = 1
+TEXT_PROVIDER_SCHEMA_VERSION: Literal[2] = 2
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
 _SECRET = re.compile(
@@ -68,6 +68,8 @@ class ProviderFailureCode(StrEnum):
     RATE_LIMITED = "rate_limited"
     PROTOCOL = "protocol"
     LIMIT_EXCEEDED = "limit_exceeded"
+    RESOURCE_EXHAUSTED = "resource_exhausted"
+    INVALID_MODEL = "invalid_model"
     INTERNAL = "internal"
 
 
@@ -147,6 +149,7 @@ class ProviderLimits:
     max_concurrent_requests: int = 1
     max_wall_seconds: float = 60.0
     max_stream_events: int = 4096
+    max_memory_bytes: int = 1 << 30
 
     def __post_init__(self) -> None:
         integer_values = (
@@ -155,6 +158,7 @@ class ProviderLimits:
             self.max_context_tokens,
             self.max_concurrent_requests,
             self.max_stream_events,
+            self.max_memory_bytes,
         )
         if any(isinstance(value, bool) or value <= 0 for value in integer_values):
             raise ProviderContractError("provider limits must be positive integers")
@@ -173,6 +177,7 @@ class ProviderLimits:
             "max_concurrent_requests": self.max_concurrent_requests,
             "max_wall_seconds": self.max_wall_seconds,
             "max_stream_events": self.max_stream_events,
+            "max_memory_bytes": self.max_memory_bytes,
         }
 
 
@@ -242,6 +247,7 @@ class ProviderBudget:
     max_input_tokens: int | None = None
     max_output_tokens: int | None = None
     max_response_bytes: int = 1 << 20
+    max_memory_bytes: int | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.max_wall_seconds, bool) or self.max_wall_seconds <= 0:
@@ -254,6 +260,10 @@ class ProviderBudget:
                 raise ProviderContractError(f"{name} must be positive when set")
         if isinstance(self.max_response_bytes, bool) or self.max_response_bytes <= 0:
             raise ProviderContractError("maximum response bytes must be positive")
+        if self.max_memory_bytes is not None and (
+            isinstance(self.max_memory_bytes, bool) or self.max_memory_bytes <= 0
+        ):
+            raise ProviderContractError("maximum memory bytes must be positive when set")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -261,6 +271,7 @@ class ProviderBudget:
             "max_input_tokens": self.max_input_tokens,
             "max_output_tokens": self.max_output_tokens,
             "max_response_bytes": self.max_response_bytes,
+            "max_memory_bytes": self.max_memory_bytes,
         }
 
 
@@ -273,6 +284,9 @@ class ProviderProvenance:
     request_digest: str
     response_digest: str | None = None
     evidence_refs: tuple[str, ...] = ()
+    model_path: str | None = None
+    runtime_revision: str | None = None
+    configuration_digest: str | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.provider_id, "provenance provider ID")
@@ -281,6 +295,12 @@ class ProviderProvenance:
         if self.response_digest is not None:
             _digest(self.response_digest, "provenance response digest")
         _sorted_unique(self.evidence_refs, "provenance evidence references")
+        if self.model_path is not None:
+            _text(self.model_path, "provenance model path")
+        if self.runtime_revision is not None:
+            _text(self.runtime_revision, "provenance runtime revision")
+        if self.configuration_digest is not None:
+            _digest(self.configuration_digest, "provenance configuration digest")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -289,6 +309,9 @@ class ProviderProvenance:
             "request_digest": self.request_digest,
             "response_digest": self.response_digest,
             "evidence_refs": list(self.evidence_refs),
+            "model_path": self.model_path,
+            "runtime_revision": self.runtime_revision,
+            "configuration_digest": self.configuration_digest,
         }
 
 
@@ -617,6 +640,7 @@ def _failure_result(
     *,
     retryable: bool = False,
     unsupported: tuple[ProviderCapability, ...] = (),
+    provenance: ProviderProvenance | None = None,
 ) -> ProviderResult:
     failure = ProviderFailure(code, request.operation, detail, request.request_id, retryable)
     return ProviderResult(
@@ -624,7 +648,7 @@ def _failure_result(
         request.operation,
         provider.identity,
         outcome,
-        _result_provenance(provider, request),
+        provenance or _result_provenance(provider, request),
         failure=failure,
         unsupported_capabilities=unsupported,
     )
@@ -681,6 +705,50 @@ def invoke_provider(
             ProviderOutcome.UNSUPPORTED,
             ProviderFailureCode.LIMIT_EXCEEDED,
             "request budget exceeds the provider wall-time limit",
+        )
+    limits = provider.capability_card.limits
+    if request.budget.max_input_tokens is not None and (
+        request.budget.max_input_tokens > limits.max_input_tokens
+    ):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.UNSUPPORTED,
+            ProviderFailureCode.LIMIT_EXCEEDED,
+            "request input-token budget exceeds the provider limit",
+        )
+    if request.budget.max_output_tokens is not None and (
+        request.budget.max_output_tokens > limits.max_output_tokens
+    ):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.UNSUPPORTED,
+            ProviderFailureCode.LIMIT_EXCEEDED,
+            "request output-token budget exceeds the provider limit",
+        )
+    if (
+        request.budget.max_input_tokens is not None
+        and request.budget.max_output_tokens is not None
+        and request.budget.max_input_tokens + request.budget.max_output_tokens
+        > limits.max_context_tokens
+    ):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.UNSUPPORTED,
+            ProviderFailureCode.LIMIT_EXCEEDED,
+            "request token budgets exceed the provider context limit",
+        )
+    if request.budget.max_memory_bytes is not None and (
+        request.budget.max_memory_bytes > limits.max_memory_bytes
+    ):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.UNSUPPORTED,
+            ProviderFailureCode.LIMIT_EXCEEDED,
+            "request memory budget exceeds the provider limit",
         )
 
     result: list[ProviderResult] = []
@@ -785,6 +853,8 @@ def result_from_raw_output(
     provider: TextModelProvider,
     request: ProviderRequest,
     payload: object,
+    *,
+    provenance: ProviderProvenance | None = None,
 ) -> ProviderResult:
     """Turn raw provider output into a supported result or retained failure."""
 
@@ -797,13 +867,14 @@ def result_from_raw_output(
             ProviderOutcome.MALFORMED_OUTPUT,
             ProviderFailureCode.MALFORMED_OUTPUT,
             str(error),
+            provenance=provenance,
         )
     return ProviderResult(
         request.request_id,
         request.operation,
         provider.identity,
         ProviderOutcome.SUPPORTED,
-        _result_provenance(provider, request, payload),
+        provenance or _result_provenance(provider, request, payload),
         output=output,
     )
 

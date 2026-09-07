@@ -11,6 +11,14 @@ from .intent import (
     InterpretationStep,
     SourceSpan,
 )
+from .local_gguf import (
+    LOCAL_GGUF_PROVIDER_REVISION,
+    LOCAL_GGUF_STRUCTURED_SCHEMA,
+    LocalGGUFProvider,
+    LocalGGUFProviderConfig,
+    LocalGGUFProviderError,
+    LocalGGUFUnsupportedError,
+)
 from .provider import (
     TEXT_PROVIDER_SCHEMA_VERSION,
     CancellationToken,
@@ -47,6 +55,8 @@ from .provider import (
 
 __all__ = [
     "CONVERSATIONAL_INTENT_SCHEMA_VERSION",
+    "LOCAL_GGUF_PROVIDER_REVISION",
+    "LOCAL_GGUF_STRUCTURED_SCHEMA",
     "TEXT_PROVIDER_SCHEMA_VERSION",
     "AmbiguityRecord",
     "CancellationToken",
@@ -62,6 +72,10 @@ __all__ = [
     "IntentRecordError",
     "InterpretIntentRequest",
     "InterpretationStep",
+    "LocalGGUFProvider",
+    "LocalGGUFProviderConfig",
+    "LocalGGUFProviderError",
+    "LocalGGUFUnsupportedError",
     "NullTextModelProvider",
     "ProviderBudget",
     "ProviderCancelledError",

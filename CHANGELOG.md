@@ -7,6 +7,11 @@
   usable without a text-model installation; provider diagnostics report stable
   no-LLM, missing-key, and unavailable-adapter outcomes without silent fallback.
 
+- Add a bounded offline local GGUF text-model provider with explicit architecture
+  and runtime validation, hard context/memory/time/response budgets, structured
+  output validation, cancellation, deterministic provider provenance, and
+  retained unsupported/failed/timeout/cancelled outcomes.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and
