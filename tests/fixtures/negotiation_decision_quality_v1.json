@@ -1,0 +1,782 @@
+{
+  "schema_version": 1,
+  "protocol_id": "v25-negotiation-decision-quality-v1",
+  "corpus_id": "negotiation-decision-quality-corpus",
+  "corpus_revision": "v2.5-negotiation-decision-quality-v1",
+  "limits": {
+    "max_scenarios": 16,
+    "fixed_evaluation_count": 4,
+    "max_seeds_per_scenario": 3,
+    "max_output_bytes": 1000000
+  },
+  "policies": [
+    "measured_pareto",
+    "prediction_only",
+    "refusal_only"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "infeasible-latency-near-miss",
+      "split": "fixture",
+      "model_fixture": "tiny-hf-smollm2",
+      "source_model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "campaign_id": "campaign_v25_a",
+      "session_id": "session_v25_a",
+      "run_id": "run_v25_a",
+      "fixed_evaluation_count": 4,
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "original_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_6defc520591039eed609eb61340aebaab7cbde8e6cb9f70d5ffcb8c10aee67de",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 100.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.95,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "proposed_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_272984131fe33ef568a484c10967b8ea0cd38c6145bde85ebdba196fd259a958",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 110.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.95,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "candidates": [
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_a_balanced",
+          "evidence_id": "evidence_a_balanced",
+          "status": "measured",
+          "source_model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 101.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.96,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "accepted",
+          "evaluation_id": "evaluation_a_balanced",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_a_failed",
+          "evidence_id": "evidence_a_failed",
+          "status": "failed",
+          "source_model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "failed",
+          "evaluation_id": "evaluation_a_failed",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_a_fast",
+          "evidence_id": "evidence_a_fast",
+          "status": "measured",
+          "source_model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 80.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.94,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "accepted",
+          "evaluation_id": "evaluation_a_fast",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_a_quality",
+          "evidence_id": "evidence_a_quality",
+          "status": "measured",
+          "source_model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 105.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.98,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "rejected",
+          "evaluation_id": "evaluation_a_quality",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        }
+      ],
+      "kind": "infeasible",
+      "target_candidate_id": "candidate_a_quality",
+      "target_recovery_expected": true,
+      "negative": true,
+      "inconclusive": false
+    },
+    {
+      "scenario_id": "infeasible-quality-near-miss",
+      "split": "held_out",
+      "model_fixture": "tiny-gguf-qwen",
+      "source_model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "campaign_id": "campaign_v25_b",
+      "session_id": "session_v25_b",
+      "run_id": "run_v25_b",
+      "fixed_evaluation_count": 4,
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "original_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_6defc520591039eed609eb61340aebaab7cbde8e6cb9f70d5ffcb8c10aee67de",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 100.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.95,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "proposed_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_461bb63a2e829fb9f5ecf4f0671b7af35a2d009460a8ea989d3de13c6fd2e689",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 100.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.93,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "candidates": [
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_b_balanced",
+          "evidence_id": "evidence_b_balanced",
+          "status": "measured",
+          "source_model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 95.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.93,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "accepted",
+          "evaluation_id": "evaluation_b_balanced",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_b_fast",
+          "evidence_id": "evidence_b_fast",
+          "status": "measured",
+          "source_model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 80.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.94,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "rejected",
+          "evaluation_id": "evaluation_b_fast",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_b_inconclusive",
+          "evidence_id": "evidence_b_inconclusive",
+          "status": "inconclusive",
+          "source_model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "inconclusive",
+          "evaluation_id": "evaluation_b_inconclusive",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_b_quality",
+          "evidence_id": "evidence_b_quality",
+          "status": "measured",
+          "source_model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "observations": [
+            {
+              "metric": "latency",
+              "value": 105.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.98,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "predicted_observations": [],
+          "disposition": "rejected",
+          "evaluation_id": "evaluation_b_quality",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        }
+      ],
+      "kind": "infeasible",
+      "target_candidate_id": "candidate_b_fast",
+      "target_recovery_expected": true,
+      "negative": true,
+      "inconclusive": true
+    },
+    {
+      "scenario_id": "prediction-only-trap",
+      "split": "adversarial",
+      "model_fixture": "tiny-hf-smollm2",
+      "source_model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "campaign_id": "campaign_v25_c",
+      "session_id": "session_v25_c",
+      "run_id": "run_v25_c",
+      "fixed_evaluation_count": 4,
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "original_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_6defc520591039eed609eb61340aebaab7cbde8e6cb9f70d5ffcb8c10aee67de",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 100.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.95,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "proposed_contract": null,
+      "candidates": [
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_c_failed",
+          "evidence_id": "evidence_c_failed",
+          "status": "failed",
+          "source_model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "failed",
+          "evaluation_id": "evaluation_c_failed",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_c_inconclusive",
+          "evidence_id": "evidence_c_inconclusive",
+          "status": "inconclusive",
+          "source_model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "inconclusive",
+          "evaluation_id": "evaluation_c_inconclusive",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_c_prediction",
+          "evidence_id": "evidence_c_prediction",
+          "status": "predicted",
+          "source_model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observations": [],
+          "predicted_observations": [
+            {
+              "metric": "latency",
+              "value": 70.0,
+              "unit": "milliseconds",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            },
+            {
+              "metric": "quality",
+              "value": 0.99,
+              "unit": "ratio",
+              "lower": null,
+              "upper": null,
+              "baseline": null,
+              "evidence": []
+            }
+          ],
+          "disposition": "unknown",
+          "evaluation_id": "evaluation_c_prediction",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_c_unsupported",
+          "evidence_id": "evidence_c_unsupported",
+          "status": "unsupported",
+          "source_model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "unknown",
+          "evaluation_id": "evaluation_c_unsupported",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        }
+      ],
+      "kind": "predicted_only",
+      "target_candidate_id": null,
+      "target_recovery_expected": false,
+      "negative": true,
+      "inconclusive": true
+    },
+    {
+      "scenario_id": "unsupported-evaluator-cell",
+      "split": "adversarial",
+      "model_fixture": "tiny-gguf-qwen",
+      "source_model_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "campaign_id": "campaign_v25_d",
+      "session_id": "session_v25_d",
+      "run_id": "run_v25_d",
+      "fixed_evaluation_count": 4,
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "original_contract": {
+        "schema_version": 1,
+        "contract_id": "objective_contract_6defc520591039eed609eb61340aebaab7cbde8e6cb9f70d5ffcb8c10aee67de",
+        "mode": "pareto",
+        "constraints": [
+          {
+            "metric": "latency",
+            "direction": "maximum",
+            "threshold": 100.0,
+            "unit": "milliseconds",
+            "baseline": "absolute"
+          },
+          {
+            "metric": "quality",
+            "direction": "minimum",
+            "threshold": 0.95,
+            "unit": "ratio",
+            "baseline": "absolute"
+          }
+        ],
+        "objectives": [
+          {
+            "metric": "latency",
+            "direction": "minimize",
+            "unit": "milliseconds",
+            "weight": 1.0,
+            "normalization": "identity",
+            "baseline": null,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          },
+          {
+            "metric": "quality",
+            "direction": "maximize",
+            "unit": "ratio",
+            "weight": 1.0,
+            "normalization": "baseline_ratio",
+            "baseline": 1.0,
+            "minimum": null,
+            "maximum": null,
+            "plugin": null
+          }
+        ],
+        "approval_policy": {
+          "require_execution_approval": true,
+          "require_custom_plugin_approval": true,
+          "allowed_plugin_names": []
+        }
+      },
+      "proposed_contract": null,
+      "candidates": [
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_d_failed",
+          "evidence_id": "evidence_d_failed",
+          "status": "failed",
+          "source_model_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "failed",
+          "evaluation_id": "evaluation_d_failed",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_d_inconclusive",
+          "evidence_id": "evidence_d_inconclusive",
+          "status": "inconclusive",
+          "source_model_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "inconclusive",
+          "evaluation_id": "evaluation_d_inconclusive",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_d_unknown",
+          "evidence_id": "evidence_d_unknown",
+          "status": "unknown",
+          "source_model_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "unknown",
+          "evaluation_id": "evaluation_d_unknown",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        },
+        {
+          "schema_version": 1,
+          "candidate_id": "candidate_d_unsupported",
+          "evidence_id": "evidence_d_unsupported",
+          "status": "unsupported",
+          "source_model_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observations": [],
+          "predicted_observations": [],
+          "disposition": "unknown",
+          "evaluation_id": "evaluation_d_unsupported",
+          "provenance": {
+            "fixture": "v25-negotiation"
+          },
+          "resource_usage": null
+        }
+      ],
+      "kind": "unsupported",
+      "target_candidate_id": null,
+      "target_recovery_expected": false,
+      "negative": true,
+      "inconclusive": true
+    }
+  ]
+}
