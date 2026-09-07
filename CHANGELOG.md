@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added a typed, read-only, bounded and replayable canonical evidence query
+  path for conversational explanations, including provenance joins,
+  uncertainty/missing markers, stale snapshot and digest-tamper rejection,
+  explicit negative outcomes, access boundaries, and deterministic direct-report
+  parity coverage.
+
   - Close the v2.7 stateful conversational campaigns milestone for issue #474.
     Reconcile merged #469 canonical campaign state, #470 lifecycle/recovery,
     #471 stale replanning, #472 summary authority, and #473 recovery evidence
