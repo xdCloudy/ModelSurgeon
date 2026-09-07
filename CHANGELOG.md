@@ -8,6 +8,9 @@
 - Add cumulative Hugging Face physical surgery sequencing with atomic child,
   reload, generation, parameter/storage reconciliation, ordered identities, and
   failed-stage rollback evidence.
+- Add cumulative native GGUF sequencing with re-discovery boundaries, untouched
+  payload identity checks, RAM/scratch limits, reload/generation evidence, and
+  fail-closed child cleanup.
 - Add the resumable `modelsurgeon benchmark` matrix CLI with deterministic plans, imports, audits, and reports.
 - Add matched BF16/F16/Q8_0/Q6_K/Q5_K_M/Q4_K_M quantization baseline records with explicit unsupported-tool evidence and loss-decomposition fields.
 - Add the v1.1 artifact-bound competitor Pareto study record with uncertainty gates, complete deployment metrics, and explicit no-claim evidence.

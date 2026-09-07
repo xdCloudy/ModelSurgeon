@@ -25,6 +25,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.1 structured baseline evidence](v1.1-structured-baseline-evidence-v1.json)
 - [v1.2 physical deployment benchmark protocol and evidence contract](v1.2-deployment-benchmark-evidence-v1.json)
 - [v1.2 Hugging Face cumulative surgery evidence](v1.2-hf-cumulative-surgery-v1.json)
+- [v1.2 GGUF cumulative surgery evidence](v1.2-gguf-cumulative-surgery-v1.json)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.

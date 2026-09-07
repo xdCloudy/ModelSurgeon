@@ -1,0 +1,9 @@
+{
+  "record_type": "gguf_cumulative_surgery_evidence",
+  "schema_version": 1,
+  "status": "contract_and_fixture_integration",
+  "edit_families": ["mlp_width", "attention_heads", "transformer_layers", "low_rank"],
+  "gates": ["native_executor", "payload_identity", "reload", "generation_smoke", "memory_limit", "scratch_limit"],
+  "negative_cells": "Unsupported family, codec, or runtime combinations remain explicit executor outcomes.",
+  "claim_boundary": "The cumulative coordinator and payload/resource contract are verified; pinned Llama/Qwen multi-level native measurements remain a separately retained hardware experiment."
+}
