@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a deterministic cross-model transfer suite with leave-one-checkpoint,
+  leave-one-size, leave-one-family, zero-target, and few-shot folds, strict
+  lineage-safe source/target separation, complete per-fold metric evidence,
+  resumable results, and versioned research protocol documentation.
 - Add a fixed-budget ranking-objective study for pointwise, pairwise, listwise,
   and sequence methods with identical held-out lists, censored evidence,
   ranking/regret/calibration/frontier metrics, resource accounting, and a
