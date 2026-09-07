@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "transfer-suite-v1",
+  "title": "ModelSurgeon cross-model transfer suite",
+  "status": "preregistered",
+  "protocols": [
+    "leave_one_checkpoint",
+    "leave_one_size",
+    "leave_one_family",
+    "zero_target",
+    "few_shot"
+  ],
+  "required_metrics": [
+    "ranking",
+    "calibration",
+    "numeric_error",
+    "frontier_quality"
+  ],
+  "controls": [
+    "cold_start",
+    "within_target",
+    "grouped_bootstrap_confidence_intervals",
+    "deterministic_fold_identity",
+    "resumable_fold_results"
+  ],
+  "leakage_guards": [
+    "target_rows_excluded_from_source_fitting",
+    "target_statistics_excluded_from_source_fitting",
+    "target_vocabularies_excluded_from_source_fitting",
+    "target_ancestry_groups_disjoint_from_source",
+    "held_out_test_ids_disjoint_from_adaptation_ids"
+  ],
+  "provenance": [
+    "model_revision",
+    "checkpoint_id",
+    "family",
+    "size",
+    "lineage_group_id",
+    "seed",
+    "bootstrap_repetitions",
+    "confidence",
+    "evaluation_count",
+    "failure_evidence"
+  ]
+}
