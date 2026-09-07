@@ -93,6 +93,38 @@ measurement but never establish feasibility. Rejected and rolled-back
 evidence remains visible, and changing a hard constraint requires a separate
 approved objective amendment.
 
+## Explain measured Pareto alternatives
+
+Use `build_pareto_alternatives` to explain the trade-offs among measured,
+hard-constraint-feasible candidates in the same canonical archive. Each
+alternative includes its candidate/evidence IDs, measured objective values,
+metric deltas, uncertainty, constraint violations, disposition, provenance,
+and frontier or dominance context. Unsupported, failed, unknown, and
+inconclusive evidence remains in `retained_evidence` and is never promoted to
+the frontier. The complete example is
+[`docs/examples/pareto_alternatives.py`](../examples/pareto_alternatives.py).
+
+```python
+result = build_pareto_alternatives(
+    contract,
+    archive,
+    provenance=FeasibilityProvenance(
+        "spec_2026_09_07",
+        source_model_digest,
+        archive.archive_id,
+        approval_id="approval_123",
+    ),
+)
+print(render_pareto_explanation(result, format="direct"))
+print(render_pareto_explanation(result, format="chat"))
+```
+
+Dominance is conservative over objective intervals and only compares complete
+measured candidates with an accepted disposition that pass hard constraints.
+Ties, overlapping uncertainty, and rejected or rolled-back dispositions are
+explicit. Candidate and output resource bounds fail closed;
+the result is never truncated to manufacture a smaller frontier.
+
 ## HF and GGUF boundaries
 
 For Hugging Face/safetensors, inspect a revision-pinned source with the

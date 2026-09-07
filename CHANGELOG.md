@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add measured Pareto alternatives and trade-off explanations for issue #459.
+  The read-only projection reuses canonical feasibility evidence, shows
+  metric deltas, uncertainty, hard-constraint violations, frontier/tie/
+  dominance context, provenance, and resource bounds, and keeps unsupported,
+  failed, unknown, inconclusive, rejected, and rolled-back evidence visible.
+  Direct, chat, HTML, and offline-explorer representations share one
+  deterministic record; no unvalidated or dominated candidate is promoted.
+
 - Close the v2.4 clarification and ambiguity milestone for issue #457. Freeze
   the necessary-only question policy, fail-closed contradiction and preference
   handling, typed measurable-target boundary, deterministic replay/provenance,

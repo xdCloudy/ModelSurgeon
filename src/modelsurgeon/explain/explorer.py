@@ -11,6 +11,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.explain.pareto_alternatives import ParetoAlternativesExplanation
 
 EXPLORER_SCHEMA_VERSION = 1
 
@@ -135,8 +136,10 @@ def pareto_front(
             other_cost = other_metrics[cost_metric]
             other_quality = other_metrics[quality_metric]
             assert other_cost is not None and other_quality is not None
-            if other_cost <= candidate_cost and other_quality >= candidate_quality and (
-                other_cost < candidate_cost or other_quality > candidate_quality
+            if (
+                other_cost <= candidate_cost
+                and other_quality >= candidate_quality
+                and (other_cost < candidate_cost or other_quality > candidate_quality)
             ):
                 dominated = True
                 break
@@ -186,6 +189,7 @@ def generate_explorer(
     cost_metric: str = "cost",
     quality_metric: str = "quality",
     max_cells: int = 100_000,
+    pareto_explanation: ParetoAlternativesExplanation | None = None,
 ) -> ExplorerArtifact:
     """Generate an offline static explorer from canonical evidence cells."""
 
@@ -207,12 +211,41 @@ def generate_explorer(
         "quality_metric": quality_metric,
         "cells": [cell.to_record() for cell in cells],
         "pareto_cell_ids": list(pareto_ids),
+        "pareto_explanation": (
+            None if pareto_explanation is None else pareto_explanation.to_record()
+        ),
     }
     embedded = _safe_json_script(data)
     rows = "".join(_row(cell, set(pareto_ids)) for cell in cells)
+    alternative_section = ""
+    if pareto_explanation is not None:
+        frontier = ", ".join(pareto_explanation.frontier_candidate_ids) or "none"
+        alternative_rows = "".join(
+            "<tr>"
+            f'<th scope="row">{html.escape(item.candidate_id)}</th>'
+            f'<td><a href="#source-{html.escape(item.evidence_id)}">'
+            f"{html.escape(item.evidence_id)}</a></td>"
+            f"<td>{html.escape(item.status.value)}</td>"
+            f"<td>{'yes' if item.on_frontier else 'no'}</td>"
+            f"<td>{html.escape(', '.join(item.uncertainty_metrics) or 'none')}</td>"
+            f"<td>{html.escape(', '.join(item.dominated_by_candidate_ids) or 'none')}</td>"
+            "</tr>"
+            for item in pareto_explanation.alternatives
+        )
+        alternative_section = (
+            '<section id="pareto-alternatives"><h2>Measured Pareto alternatives</h2>'
+            f"<p>Frontier: {html.escape(frontier)}</p>"
+            "<table><caption>Measured alternatives and trade-offs</caption><thead><tr>"
+            '<th scope="col">Candidate</th><th scope="col">Evidence</th>'
+            '<th scope="col">Frontier context</th><th scope="col">On frontier</th>'
+            '<th scope="col">Uncertainty</th><th scope="col">Dominated by</th>'
+            f"</tr></thead><tbody>{alternative_rows}</tbody></table>"
+            "<p>Unsupported, failed, unknown, and inconclusive evidence is retained "
+            "in the canonical Pareto record and is not promoted to the frontier.</p></section>"
+        )
     page = (
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f"<title>{html.escape(title)}</title><style>"
         ":root{font:16px system-ui,sans-serif;color:#172033;background:#f7f9fc}"
         "body{max-width:1500px;margin:2rem auto;padding:0 1rem}"
@@ -226,17 +259,17 @@ def generate_explorer(
         f"<h1>{html.escape(title)}</h1>"
         f"<p>Canonical source: <code>{html.escape(source_report_id)}</code>; "
         f"cells: {len(cells)}; Pareto cells: {len(pareto_ids)}</p>"
-        "<label for=\"status-filter\">Filter status</label> "
-        "<select id=\"status-filter\"><option value=\"all\">all</option>"
+        '<label for="status-filter">Filter status</label> '
+        '<select id="status-filter"><option value="all">all</option>'
         "<option>supported</option><option>negative</option><option>unsupported</option>"
         "<option>failed</option><option>unknown</option></select>"
         "<table><caption>Canonical benchmark evidence cells</caption><thead><tr>"
-        "<th scope=\"col\">Cell</th><th scope=\"col\">Status</th>"
-        "<th scope=\"col\">Immutable source</th><th scope=\"col\">Metrics</th>"
-        "<th scope=\"col\">Lineage</th><th scope=\"col\">Architecture diff</th>"
-        "<th scope=\"col\">Pareto</th>"
-        "<th scope=\"col\">Failure or limitation</th></tr></thead><tbody>"
-        f"{rows}</tbody></table>"
+        '<th scope="col">Cell</th><th scope="col">Status</th>'
+        '<th scope="col">Immutable source</th><th scope="col">Metrics</th>'
+        '<th scope="col">Lineage</th><th scope="col">Architecture diff</th>'
+        '<th scope="col">Pareto</th>'
+        '<th scope="col">Failure or limitation</th></tr></thead><tbody>'
+        f"{rows}</tbody></table>{alternative_section}"
         f'<script type="application/json" id="modelsurgeon-explorer-data">{embedded}</script>'
         "<script>(function(){const s=document.getElementById('status-filter');"
         "const rows=[...document.querySelectorAll('tbody tr')];"
