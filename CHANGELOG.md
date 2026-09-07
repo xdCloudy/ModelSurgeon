@@ -6,6 +6,10 @@
   and sequence methods with identical held-out lists, censored evidence,
   ranking/regret/calibration/frontier metrics, resource accounting, and a
   confidence-bounded recommendation policy.
+- Add a bounded structural-model study for MLP, set, and graph surgeon paths
+  with model/state-held-out splits, five-seed deterministic inference,
+  resource accounting, topology/order/parameter ablations, and fail-closed
+  complexity selection.
 - Add calibrated state-dependent predictors for safety, quality, latency, memory,
   and non-additive error with grouped state/model/candidate leakage checks,
   validation intervals, separate failure probability, additive/stateless baselines,
