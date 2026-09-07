@@ -70,7 +70,8 @@ def audit_release(root: Path = ROOT, *, version: str) -> None:
         expected_hash = entry.get("sha256")
         if not isinstance(expected_hash, str) or len(expected_hash) != 64:
             raise ReleaseAuditError(f"reference manifest has no valid SHA-256: {entry['path']}")
-        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        canonical = path.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
+        actual_hash = hashlib.sha256(canonical).hexdigest()
         if actual_hash != expected_hash:
             raise ReleaseAuditError(
                 f"reference manifest hash mismatch for {entry['path']}: {actual_hash}"
