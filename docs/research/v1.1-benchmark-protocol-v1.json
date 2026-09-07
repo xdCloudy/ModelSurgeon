@@ -1,0 +1,29 @@
+{
+  "protocol_id": "protocol_d0a846ef00f22f2f77cc1dd9f3ae6b517a5019e0ade71df92194c8439f0c908e",
+  "schema_version": 1,
+  "manifest_source": "modelsurgeon.evaluation.benchmark_protocol:DEFAULT_BENCHMARK_PROTOCOL",
+  "ladder_id": "dcb64f73295bcba8af2999e3e2bd5cdc189f48a2b5ce99962d22c3f92f94edb0",
+  "audit_id": "audit_1d263f08775c1d5e309ff3b294525261948a455ce03bf1946e1c1f5a74c4a119",
+  "model_rungs": ["100M", "300M", "500M", "1B", "1.5B", "3B", "7B"],
+  "methods": ["reference_dense", "modelsurgeon_equal_budget"],
+  "tasks": [
+    "heldout_perplexity",
+    "arc",
+    "hellaswag",
+    "winogrande",
+    "mmlu_successor",
+    "gsm8k",
+    "code"
+  ],
+  "cell_count": 98,
+  "applicability_counts": {"supported": 14, "unknown": 84},
+  "compression_targets": ["dense_reference", "gguf_q4_k_m"],
+  "metric_categories": ["quality", "artifact", "runtime", "cost", "reliability"],
+  "seeds": [11, 23, 47],
+  "bootstrap_resamples": 2000,
+  "confidence_level": 0.95,
+  "power_limitation_declared": true,
+  "precision_limitation_declared": true,
+  "negative_and_unknown_cells_retained": true,
+  "canonical_render_command": "uv run python -c \"from modelsurgeon.evaluation.benchmark_protocol import render_benchmark_protocol; print(render_benchmark_protocol(), end='')\""
+}

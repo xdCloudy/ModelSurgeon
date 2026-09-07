@@ -2,7 +2,8 @@
 
 ModelSurgeon is experimental research software. The supported Python API is deliberately
 small: import from the package-level namespaces below and use only names listed in each
-namespace's `__all__`. Implementation submodules, private names, and objects not exported
+namespace's `__all__`. The evaluation namespace includes the versioned benchmark
+evidence and preregistered protocol contracts. Implementation submodules, private names, and objects not exported
 by these namespaces are experimental and may change without a compatibility promise.
 
 | Namespace | Stable contract |
@@ -24,7 +25,7 @@ storage implementation imports are intentionally not stable public API.
 
 ## Compatibility rules
 
-- Persisted records and artifacts carry an explicit schema version. Readers reject unknown
+- Persisted records, protocol manifests, and artifacts carry an explicit schema version. Readers reject unknown
   or incompatible versions rather than guessing a meaning.
 - Additive Python fields or record properties may be introduced in a compatible release.
   Removing, renaming, or changing the meaning of an exported object or serialized field

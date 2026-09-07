@@ -5,6 +5,9 @@
 - Add a versioned deployable benchmark evidence schema with explicit terminal
   outcomes, equal-budget identities, metric units, uncertainty, artifact lineage,
   provenance, deterministic reports, and a v0-to-v1 migration.
+- Freeze the v1.1 equal-budget competitive benchmark protocol with content-addressed
+  model/task/method decisions, exact metric and budget contracts, retained unknown cells,
+  preregistered statistical limits, and an explicit contamination/license audit.
 
 ## 1.0.0 - 2026-09-07
 
