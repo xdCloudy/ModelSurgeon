@@ -1,0 +1,13 @@
+{
+  "record_type": "surgeon_lineage_compatibility_contract",
+  "schema_version": 1,
+  "protocol_revision": "surgeon-compatibility-v1",
+  "lineage_policy": "explicit model revisions, aliases, and parent IDs; cycles and unresolved parents fail closed",
+  "heldout_policy": "transitive ancestry closures may not overlap train and held-out model sets",
+  "dimensions": ["ancestry", "architecture", "features", "targets", "mutations", "codec", "hardware", "state", "operations"],
+  "decision_levels": ["exact", "compatible", "adaptable", "unsupported", "unknown"],
+  "adaptation_policy": "adaptable decisions require explicit caller permission",
+  "model_card_policy": "serialized compatibility decisions are retained with surgeon evaluation cards",
+  "claim_boundary": "No inference compatibility claim when required evidence is missing, unsupported, or incompatible.",
+  "reproduction": "decide_compatibility() and validate_heldout_lineage()"
+}
