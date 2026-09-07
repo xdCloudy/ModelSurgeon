@@ -10,6 +10,7 @@ product remains experimental and incomplete. The [chat session bootstrap](chat-s
 the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
 the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
 the [canonical campaign state design](conversational-campaign-state.md),
+the [conversation summary boundary](conversational-summary.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
 are normative for versioning and replay. This document is not a claim that the
@@ -110,7 +111,7 @@ Python, filesystem or network tool merely because a model requested it.
 
 ## Canonical campaign state
 
-Conversation history is an ephemeral view. The authoritative state is the structured campaign store: objective/spec identity, plan version, lifecycle state, approval state, evidence cursor, accepted lineage, budgets and artifact identities. Summaries may reduce transcript cost but may not erase hard constraints, approvals, failures, negative evidence or provenance.
+Conversation history is an ephemeral view. The authoritative state is the structured campaign store: objective/spec identity, plan version, lifecycle state, approval state, evidence cursor, accepted lineage, budgets and artifact identities. The bounded [conversation summary boundary](conversational-summary.md) keeps canonical state/evidence separate from untrusted transcript text, records explicit omission markers, and refuses stale or over-budget rehydration. Summaries may reduce transcript cost but may not erase hard constraints, approvals, failures, negative evidence or provenance.
 
 On pause, resume, reconnect, restart or new evidence, the engine validates state and detects stale context through the WAL-backed `CampaignStateStore`. A material plan or objective change creates a new versioned identity, visible diff and (when consequential) a new approval. Old evidence remains queryable and is not silently relabeled as current.
 

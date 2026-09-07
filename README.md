@@ -75,6 +75,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Conversational control plane | **v2.3 chat execution slice experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and can submit confirmed specs through the stable optimize planner/orchestrator with typed progress and retained outcomes. Universal hosted support and live provider benchmarks remain outside this slice. |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational campaign state | **v2.7 canonical state implemented** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Chat transcripts are not authoritative. |
+| Conversational summaries | **v2.7 bounded non-authoritative view** | Deterministic, budgeted transcript summaries keep canonical state/evidence separate, mark omissions and unsupported roles, preserve negative evidence, and refuse stale or over-budget rehydration. |
 
 Measured evidence currently includes:
 
