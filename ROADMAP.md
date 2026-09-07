@@ -137,7 +137,7 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 ## v2.5 — Constraint Negotiation and Infeasibility Explanation
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/26). **Closed by issue #461.** The bounded exit is recorded in the [v2.5 decision-quality protocol](docs/design/negotiation-decision-quality.md) and [machine-readable research record](docs/research/v2.5-negotiation-decision-quality-v1.json): four typed fixture campaigns, three deterministic seeds, fixed evaluation count, measured-only Pareto grounding, immutable amendment traceability, retained negative/inconclusive cells, and a prediction-only control that is never shippable. Silent constraint changes fail closed; live model-quality evidence and general language negotiation remain unclaimed.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/26). **Closed by issue #462.** The bounded exit is recorded in the [v2.5 constraint-negotiation release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [machine-readable release record](docs/research/v2.5-constraint-negotiation-release-v1.json), which reconcile #458–#461 with the v2.0 approval boundary: grounded non-destructive infeasibility, measured-only Pareto alternatives, immutable user-approved amendments, preserved direct-API objective history, deterministic replay, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation, live model-quality evidence, and general language negotiation remain unclaimed.
 
 ## v2.6 — Bounded Conversational Tool Calling (boundary frozen)
 

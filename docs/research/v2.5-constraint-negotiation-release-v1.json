@@ -1,0 +1,228 @@
+{
+  "record_type": "bounded_constraint_negotiation_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.5-constraint-negotiation-release-v1",
+  "milestone": "v2.5",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 422,
+      "key": "v20-approval-boundary",
+      "status": "merged",
+      "commit": "f6775eff7ed9bc69f5b4e5ab830c7ffc4880888b",
+      "artifacts": [
+        "src/modelsurgeon/search/objective_contract.py",
+        "src/modelsurgeon/experiments/optimization_package.py",
+        "docs/research/v2.0-autonomous-optimizer-release-v1.json"
+      ],
+      "tests": ["tests/test_objective_contract.py", "tests/test_optimization_package.py"]
+    },
+    {
+      "issue": 458,
+      "key": "v25-infeasibility",
+      "status": "merged",
+      "commit": "c6f5059bdba31087d691c25dfdf2aade0c15699a",
+      "artifacts": [
+        "src/modelsurgeon/explain/infeasibility.py",
+        "docs/design/measured-infeasibility-explanation.md"
+      ],
+      "tests": ["tests/test_infeasibility.py"]
+    },
+    {
+      "issue": 459,
+      "key": "v25-pareto",
+      "status": "merged",
+      "commit": "5f405827649ffb43c47f2431c1bb7887ff5195f2",
+      "artifacts": [
+        "src/modelsurgeon/explain/pareto_alternatives.py",
+        "docs/design/pareto-alternatives.md"
+      ],
+      "tests": ["tests/test_pareto_alternatives.py"]
+    },
+    {
+      "issue": 460,
+      "key": "v25-amendments",
+      "status": "merged",
+      "commit": "45daba27316ce01af116d18585ef0523eea72435",
+      "artifacts": [
+        "src/modelsurgeon/search/objective_amendments.py",
+        "docs/design/objective-amendments.md"
+      ],
+      "tests": ["tests/test_objective_amendments.py"]
+    },
+    {
+      "issue": 461,
+      "key": "v25-decision-quality",
+      "status": "merged",
+      "commit": "c4b6cd1027823b65f869bd60d86ee416138cbbc8",
+      "artifacts": [
+        "src/modelsurgeon/conversation/negotiation_study.py",
+        "docs/design/negotiation-decision-quality.md",
+        "docs/research/v2.5-negotiation-decision-quality-v1.json"
+      ],
+      "tests": ["tests/test_negotiation_study.py"]
+    }
+  ],
+  "release_boundary": {
+    "automatic_constraint_relaxation": "not_supported",
+    "hard_constraints": "preserved_until_explicit_approved_amendment",
+    "source_model": "immutable",
+    "pareto_evidence": "measured_only",
+    "amendments": "user_approved_immutable_reproducible",
+    "prediction_only": "retained_never_shippable",
+    "negative_and_inconclusive": "retained"
+  },
+  "v20_approval_boundary": {
+    "release_record": "docs/research/v2.0-autonomous-optimizer-release-v1.json",
+    "require_execution_approval": true,
+    "require_custom_plugin_approval": true,
+    "approval_scope": "exact_visible_diff",
+    "approval_expiry": "enforced",
+    "stale_replay": "fail_closed"
+  },
+  "infeasibility": {
+    "non_destructive": true,
+    "hard_constraint_relaxation": "never_automatic",
+    "source_model_immutable": true,
+    "candidate_statuses": ["failed", "inconclusive", "measured", "predicted", "unknown", "unsupported"],
+    "outcomes_retained": ["failed", "inconclusive", "negative", "prediction_only", "supported", "unknown", "unsupported"],
+    "api_and_design": [
+      "src/modelsurgeon/explain/infeasibility.py",
+      "docs/design/measured-infeasibility-explanation.md"
+    ]
+  },
+  "pareto": {
+    "measured_only": true,
+    "relaxes_constraints": false,
+    "retains_terminal_evidence": true,
+    "api_and_design": [
+      "src/modelsurgeon/explain/pareto_alternatives.py",
+      "docs/design/pareto-alternatives.md"
+    ]
+  },
+  "amendments": {
+    "approval_required": true,
+    "immutable": true,
+    "reproducible": true,
+    "original_contract_retained": true,
+    "original_evidence_retained": true,
+    "material_change_new_campaign": true,
+    "direct_api_history": "append_only",
+    "api_and_design": [
+      "src/modelsurgeon/search/objective_amendments.py",
+      "docs/design/objective-amendments.md"
+    ]
+  },
+  "decision_quality_evidence": {
+    "research_record": "docs/research/v2.5-negotiation-decision-quality-v1.json",
+    "fixture": "tests/fixtures/negotiation_decision_quality_v1.json",
+    "corpus_revision": "v2.5-negotiation-decision-quality-v1",
+    "run_id": "negotiation_study_run_43d878642595fabbfe77c4f6c2ac604381346ac66a1a62d25477a60fe15bf3c1",
+    "retained_cell_count": 36,
+    "measured_pareto_metrics": {
+      "policy": "measured_pareto",
+      "cell_count": 12,
+      "constraint_preservation_hits": 12,
+      "constraint_preservation_rate": 1.0,
+      "measured_alternative_grounding_hits": 18,
+      "measured_alternative_claims": 18,
+      "measured_alternative_grounding_rate": 1.0,
+      "amendment_attempts": 6,
+      "amendment_traceability_hits": 6,
+      "amendment_traceability_rate": 1.0,
+      "amendment_accuracy_hits": 6,
+      "amendment_accuracy_rate": 1.0,
+      "recoverable_targets": 6,
+      "feasible_target_recovery_hits": 6,
+      "feasible_target_recovery_rate": 1.0,
+      "misleading_claims": 0,
+      "alternative_claims": 18,
+      "misleading_claim_rate": 0.0,
+      "interaction_cost_total": 42,
+      "mean_interaction_cost": 3.5,
+      "negative_cells": 12,
+      "inconclusive_cells": 9,
+      "silent_constraint_changes": 0,
+      "errors": 0
+    },
+    "prediction_only_control": {
+      "shippable": false,
+      "measured_alternative_grounding_rate": 0.0,
+      "misleading_claim_rate": 1.0,
+      "decision": "never_shippable"
+    },
+    "documentation": [
+      "docs/design/negotiation-decision-quality.md",
+      "docs/examples/negotiation_decision_quality.py"
+    ]
+  },
+  "direct_api_compatibility": {
+    "preserved": true,
+    "objective_history": "preserved",
+    "tests": [
+      "tests/test_infeasibility.py",
+      "tests/test_pareto_alternatives.py",
+      "tests/test_objective_amendments.py",
+      "tests/test_negotiation_study.py",
+      "tests/test_v25_constraint_negotiation_release.py"
+    ]
+  },
+  "duplicate_scope_review": {
+    "status": "passed",
+    "no_duplicate_authority": true,
+    "reviewed_boundaries": ["v2.0 approval", "v2.4 clarification", "v2.6 typed tools", "v2.7 campaign state"],
+    "notes": [
+      "v2.5 consumes typed direct APIs and does not create a second optimizer authority.",
+      "v2.4 remains the clarification boundary; v2.6 remains the tool boundary.",
+      "Release evidence is additive and does not replace the v2.0 approval record."
+    ]
+  },
+  "resource_budgets": {
+    "study_max_bytes": 256000,
+    "max_scenarios": 16,
+    "max_seeds_per_scenario": 3,
+    "fixed_evaluations_per_scenario": 4,
+    "max_output_bytes": 1000000
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "README.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md",
+    "docs/design/negotiation-decision-quality.md",
+    "docs/design/measured-infeasibility-explanation.md",
+    "docs/design/pareto-alternatives.md",
+    "docs/design/objective-amendments.md",
+    "docs/release/v2.5-constraint-negotiation-boundary.md",
+    "CHANGELOG.md"
+  ],
+  "reproduction_commands": [
+    "uv run python tools/run_negotiation_quality_study.py",
+    "uv run python tools/run_negotiation_quality_study.py --json",
+    "uv run python tools/audit_v25_negotiation_quality.py",
+    "uv run python tools/audit_v25_constraint_negotiation_release.py",
+    "uv run python docs/examples/negotiation_decision_quality.py"
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "environment": "project-managed uv runtime, CPython 3.12.13",
+    "revision": "issue-462-constraint-negotiation-release working tree based on c4b6cd1027823b65f869bd60d86ee416138cbbc8",
+    "commands": [
+      "git diff --check",
+      "uv run ruff check src tests",
+      "uv run mypy src/modelsurgeon",
+      "uv run pytest -q",
+      "uv run python tools/audit_v25_constraint_negotiation_release.py",
+      "uv run python docs/examples/negotiation_decision_quality.py"
+    ],
+    "outcomes": [
+      "all declared commands passed",
+      "the 36-cell replay remained byte-stable",
+      "no live provider, model-quality, deployment, or network benchmark was claimed"
+    ],
+    "known_skips": [
+      "No live provider, credential, HF/GGUF model-quality, deployment-compatibility, fluent-language, or hostile-process run is part of this boundary.",
+      "Optional torch, safetensors, LightGBM, CUDA, and llama.cpp tests remain environment-gated where dependencies are unavailable."
+    ]
+  }
+}
