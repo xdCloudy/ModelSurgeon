@@ -41,6 +41,14 @@ from .endpoint import (
     SecretResolver,
     UrllibEndpointTransport,
 )
+from .inspection import (
+    CHAT_INSPECTION_SCHEMA_VERSION,
+    ChatInspectionContext,
+    ChatInspectionError,
+    ChatInspectionOutcome,
+    inspect_local_chat_model,
+    no_provider_inspection_context,
+)
 from .intent import (
     CONVERSATIONAL_INTENT_SCHEMA_VERSION,
     AmbiguityRecord,
@@ -146,6 +154,7 @@ from .transaction import (
 )
 
 __all__ = [
+    "CHAT_INSPECTION_SCHEMA_VERSION",
     "CHAT_SESSION_SCHEMA_VERSION",
     "CHAT_TURN_SCHEMA_VERSION",
     "CONVERSATIONAL_INTENT_SCHEMA_VERSION",
@@ -168,6 +177,9 @@ __all__ = [
     "CancellationToken",
     "CapabilityProbeOutcome",
     "CapabilityProbeResult",
+    "ChatInspectionContext",
+    "ChatInspectionError",
+    "ChatInspectionOutcome",
     "ChatSession",
     "ChatSessionBootstrap",
     "ChatSessionError",
@@ -264,7 +276,9 @@ __all__ = [
     "decode_provider_output",
     "default_tool_definitions",
     "deterministic_tool_request_id",
+    "inspect_local_chat_model",
     "invoke_provider",
+    "no_provider_inspection_context",
     "redact_secret_text",
     "redact_untrusted_value",
     "request_digest",

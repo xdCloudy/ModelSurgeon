@@ -13,6 +13,14 @@ from modelsurgeon.conversation import ChatSessionError, ChatTurnResult, bootstra
 from modelsurgeon.provider_kind import ProviderKind
 
 
+def _error_outcome(error: ChatSessionError) -> str:
+    if error.code in {"unsupported_architecture", "provider_unavailable", "provider_unsupported"}:
+        return "unknown"
+    if error.code.startswith("unsupported_"):
+        return "unsupported"
+    return "failed"
+
+
 def _emit(value: Mapping[str, object], *, output_json: bool, message: str | None = None) -> None:
     if output_json:
         typer.echo(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
@@ -93,7 +101,13 @@ def chat_command(
             max_wall_seconds=max_wall_seconds,
         )
     except (ChatSessionError, OSError, ValueError) as error:
-        payload = {"record_type": "error", "category": "chat", "message": str(error)}
+        payload = {
+            "record_type": "error",
+            "category": "chat",
+            "outcome": _error_outcome(error) if isinstance(error, ChatSessionError) else "failed",
+            "code": error.code if isinstance(error, ChatSessionError) else "chat_error",
+            "message": str(error),
+        }
         _emit(payload, output_json=output_json)
         if not output_json:
             typer.echo(f"chat error: {error}", err=True)
@@ -131,14 +145,26 @@ def chat_command(
             try:
                 _render_turn(session.interpret(prompt), output_json=output_json)
             except ChatSessionError as error:
-                payload = {"record_type": "error", "category": "chat", "message": str(error)}
+                payload = {
+                    "record_type": "error",
+                    "category": "chat",
+                    "outcome": _error_outcome(error),
+                    "code": error.code,
+                    "message": str(error),
+                }
                 _emit(payload, output_json=output_json)
                 raise typer.Exit(2) from error
         else:
             if not output_json:
                 typer.echo("chat turn budget exhausted")
     except ChatSessionError as error:
-        payload = {"record_type": "error", "category": "chat", "message": str(error)}
+        payload = {
+            "record_type": "error",
+            "category": "chat",
+            "outcome": _error_outcome(error),
+            "code": error.code,
+            "message": str(error),
+        }
         _emit(payload, output_json=output_json)
         if not output_json:
             typer.echo(f"chat error: {error}", err=True)
