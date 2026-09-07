@@ -193,6 +193,16 @@ from .pareto import (
     ParetoObjectiveValue,
     conservatively_dominates,
 )
+from .physical_strategy import (
+    PHYSICAL_STRATEGY_SCHEMA_VERSION,
+    PhysicalStrategyCandidate,
+    PhysicalStrategyDecision,
+    PhysicalStrategyError,
+    PhysicalStrategyKind,
+    PhysicalStrategyOutcome,
+    PhysicalStrategyRequest,
+    select_physical_strategy,
+)
 from .policies import (
     PredictedSearchCandidate,
     SearchDecision,
@@ -252,6 +262,7 @@ __all__ = [
     "JOINT_REPAIR_SEARCH_SCHEMA_VERSION",
     "MULTI_AXIS_SEQUENCE_SCHEMA_VERSION",
     "OBJECTIVE_CONTRACT_SCHEMA_VERSION",
+    "PHYSICAL_STRATEGY_SCHEMA_VERSION",
     "SELECTOR_SCHEMA_VERSION",
     "SURROGATE_SCHEMA_VERSION",
     "AcceptedCheckpoint",
@@ -384,6 +395,12 @@ __all__ = [
     "ParetoCandidate",
     "ParetoObjectiveValue",
     "PendingSearchEvaluation",
+    "PhysicalStrategyCandidate",
+    "PhysicalStrategyDecision",
+    "PhysicalStrategyError",
+    "PhysicalStrategyKind",
+    "PhysicalStrategyOutcome",
+    "PhysicalStrategyRequest",
     "PlacementState",
     "PredictedSearchCandidate",
     "QuantizationState",
@@ -437,6 +454,7 @@ __all__ = [
     "objectives_from_config",
     "rank_hardware_candidates",
     "record_joint_repair_evidence",
+    "select_physical_strategy",
     "select_strategy",
     "validate_plugin_objective",
 ]

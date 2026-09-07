@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "title": "Measured physical repair and quantization strategy decision",
+  "scope": "final physical artifact selection",
+  "required_controls": ["no_repair", "quantization_only"],
+  "required_measurements": [
+    "quality",
+    "deployment_cost",
+    "optimization_cost",
+    "artifact_bytes"
+  ],
+  "required_provenance": [
+    "repair",
+    "teacher",
+    "dataset",
+    "quantization",
+    "artifact",
+    "deployment"
+  ],
+  "outcomes": ["selected", "unsupported", "failed", "unknown"],
+  "promotion_rule": "measured compatible candidate, distinct immutable artifact, complete provenance, and all hard budgets pass",
+  "selection_order": [
+    "quality descending",
+    "deployment_cost ascending",
+    "optimization_cost ascending",
+    "artifact_bytes ascending",
+    "candidate_id ascending"
+  ]
+}

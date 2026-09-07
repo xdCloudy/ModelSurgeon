@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a measured physical-strategy decision contract that requires no-repair and
+  quantization-only controls, immutable artifact identity, complete provenance,
+  and deployment/optimization/artifact budgets before selecting a repair result;
+  incompatible, unknown, and failed outcomes remain explicit.
+
 - Add an approved campaign coordinator and fail-closed promotion gate around
   lease-aware execution, requiring complete measured evidence, passed hard
   constraints, committed transactions, immutable child artifacts, and stable
