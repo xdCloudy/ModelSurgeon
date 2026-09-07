@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add the v2.0 autonomous benchmark release-candidate contract with exact
+  protocol identities, bounded matrices, retained negative/unsupported cells,
+  confidence-bounded competitiveness claims, complete reference-artifact
+  mutation/repair/quantization/runtime/license/rollback lineage, and a
+  fail-closed independent-audit/replay publication decision. No live benchmark
+  evidence is claimed or bundled.
+
 - Freeze the v2.1 conversational intent contract around the existing
   `OptimizationSpec`/`ObjectiveContract` schema, with a machine-readable
   compatibility record, explicit current-versus-planned availability, and a
