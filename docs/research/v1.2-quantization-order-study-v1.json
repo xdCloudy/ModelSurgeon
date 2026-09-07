@@ -1,0 +1,11 @@
+{
+  "record_type": "quantization_order_study_protocol",
+  "schema_version": 1,
+  "families": ["llama", "qwen"],
+  "compression_levels": ["10_percent", "20_percent"],
+  "codecs": ["Q8_0", "Q6_K", "Q4_K_M"],
+  "seeds": [0, 1, 2],
+  "arms": ["quantization_only", "surgery_then_quantize", "quantize_then_surgery", "high_precision_surgery"],
+  "metrics": ["quality", "artifact_size_bytes", "decode_tokens_per_second", "peak_ram_bytes", "optimization_seconds"],
+  "claim_boundary": "Only complete matched four-arm cells produce an arm preference or effect attribution; unsupported and non-equivalent cells remain non-numeric."
+}
