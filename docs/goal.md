@@ -479,6 +479,21 @@ Potential milestones include:
 - prompt-injection and tool-boundary hardening;
 - chat as the primary user experience by v3.0 while preserving direct CLI/Python access.
 
+The execution breakdown is intentionally staged so the conversational layer does not outrun the deterministic engine:
+
+| Milestone | Objective | Entry condition | Exit condition |
+| --- | --- | --- | --- |
+| v2.1 | Compile natural language into the stable `OptimizationSpec`, with provenance and safe ambiguity/refusal states. | v2.0 objective/API contract is frozen. | Deterministic compiler, canonical serialization and rephrasing/refusal evidence. |
+| v2.2 | Make the text model replaceable across local GGUF, compatible endpoints, hosted providers and no-LLM APIs. | v2.0 contracts and v1.9 plugin/runtime boundaries are available. | Provider interface, capability discovery, configuration, isolation and conformance tests. |
+| v2.3 | Deliver `modelsurgeon chat <model>` as the first inspect → preview → execute vertical slice. | v2.1, v2.2 and v2.0 optimize/release foundations. | Clean-environment acceptance through stable ModelSurgeon APIs. |
+| v2.4 | Handle only the clarification necessary for vague, incomplete or contradictory objectives. | v2.3 chat and v2.1 ambiguity contract. | Deterministic clarification, conflict handling and measurable-target evidence. |
+| v2.5 | Explain measured infeasibility and present Pareto alternatives without silently changing constraints. | v2.4 plus v2.0 evidence/approval primitives. | Grounded alternatives and immutable, user-approved objective amendments. |
+| v2.6 | Bound every text-model action behind typed, capability-scoped tools and budgets. | v2.2 provider contracts and v1.9/v2.0 plugin, transaction and provenance work. | Allowlists, read-only/consequential separation, grounded results and adversarial tests. |
+| v2.7 | Persist campaign state and recover across pause, resume, reconnect, restart and stale context. | v2.3, v2.6, v1.9 resumability and v2.0 campaign state. | Structured campaign state remains authoritative and recovery is deterministic. |
+| v2.8 | Explain measured outcomes, uncertainty, failures, rollbacks and selection decisions from canonical evidence. | v2.6 grounding, v2.7 state and v2.0 evidence packages. | Every factual claim is traceable; negative evidence remains visible. |
+| v2.9 | Add scoped approvals, plan diffs, provider/tool isolation, injection resistance and fail-closed policy precedence. | v2.6, v2.8 and v1.8-v2.0 security/provenance primitives. | Reviewed conversational control plane with explicit residual risk. |
+| v3.0 | Make conversation the primary UX while preserving direct CLI/Python automation and local-first operation. | v2.1-v2.9 exit criteria and v2.0 release evidence. | Integrated setup, diagnostics, campaign, explanation, approval, migration, packaging and end-to-end acceptance. |
+
 The key invariant is that the text LLM may **interpret, plan, explain and request actions**, but it may not override hard constraints, fabricate measurements, or promote unvalidated artifacts.
 
 ### v3.1 and beyond: improve the surgeon itself

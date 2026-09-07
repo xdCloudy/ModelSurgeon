@@ -25,6 +25,8 @@ It supports two complementary paths:
 > [!WARNING]
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
+The v2.1–v3.0 roadmap plans a conversational control plane around the deterministic engine. Those milestones are not current product capabilities: the text LLM will eventually compile intent, request bounded API operations and explain measured evidence, while ModelSurgeon retains authority over constraints, surgery, validation and artifact publication. Direct CLI/Python workflows remain the supported automation path.
+
 ## Why ModelSurgeon?
 
 | Principle | What it means in practice |
@@ -49,6 +51,7 @@ Current package version: **`0.0.1` (pre-alpha)**. The v0.5–v0.9 research path 
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **In progress** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
+| Conversational control plane | **Planned** | v2.1–v3.0 work covers intent compilation, replaceable providers, bounded tools, state, evidence-grounded explanations and approvals; `modelsurgeon chat` is not yet a current capability. |
 
 Measured evidence currently includes:
 

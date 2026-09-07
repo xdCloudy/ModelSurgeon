@@ -42,6 +42,37 @@ flowchart TD
   D --> P
 ```
 
+## Conversational control plane (planned for v2.1–v3.0)
+
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The conversational product described below is planned roadmap work; its presence in this document does not mean that `modelsurgeon chat` or a provider layer is currently implemented.
+
+```text
+User request
+    ↓
+Text LLM / conversational harness
+    ↓  (typed, bounded request)
+validated OptimizationSpec
+    ↓
+ModelSurgeon deterministic execution engine
+    ↕
+learned Meta-Surgeon predictions (never acceptance authority)
+    ↓
+canonical measured evidence and deployable artifacts
+    ↓
+Text LLM explanation with evidence references
+    ↓
+User
+```
+
+The planned boundary has four non-negotiable properties:
+
+- The text LLM interprets intent, asks necessary questions, requests allowlisted operations and explains results. It does not select tensors, override hard constraints, fabricate measurements or promote an unvalidated artifact.
+- `OptimizationSpec`, campaign state, approval state and evidence records are structured ModelSurgeon state. Chat history and provider output are not authoritative state.
+- The deterministic engine owns model/hardware inspection, capability checks, candidate generation, mutation, rollback, evaluation, budgets, acceptance, artifact publication and provenance. The learned Meta-Surgeon can rank or predict within those policies, but its predictions are not measurements.
+- Consequential calls pass through typed capabilities, transaction boundaries, existing approval gates and fail-closed validation. Provider secrets and untrusted text/metadata/tool output remain outside trusted evidence fields.
+
+The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4–v2.5 add clarification and explicit negotiation; v2.6 formalizes tools; v2.7–v2.8 add canonical state and evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported.
+
 ## Package architecture
 
 | Package | Responsibility |

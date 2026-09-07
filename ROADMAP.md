@@ -24,6 +24,19 @@ flowchart LR
   Q --> R[v1.8 Scientific Rigor]
   R --> S[v1.9 Production Ecosystem]
   S --> T[v2.0 Autonomous Optimizer]
+  T --> U[v2.1 OptimizationSpec Compiler]
+  U --> V[v2.2 Provider Layer]
+  U --> W[v2.3 Chat Vertical Slice]
+  V --> W
+  W --> X[v2.4 Clarification]
+  X --> Y[v2.5 Constraint Negotiation]
+  V --> Z[v2.6 Bounded Tools]
+  Z --> AA[v2.7 Stateful Campaigns]
+  AA --> AB[v2.8 Evidence Explanations]
+  AB --> AC[v2.9 Approval + Security]
+  AC --> AD[v3.0 Conversational Product]
+  Y --> AD
+  W --> AD
 ```
 
 ## v0.1 — Foundation
@@ -106,6 +119,46 @@ Deliver a resumable `optimize` workflow, worker scheduling, artifact registry, s
 
 Turn a constrained user objective and hardware profile into an auditable capability space, strategy, mutation/evaluation/repair/quantization workflow and deployable alternatives. Exit with human approval gates, deterministic replay, a competitive reference benchmark, signed release artifacts and a scientific report that clearly separates verified, experimental, unsupported and unknown capabilities.
 
+## v2.1 — Natural-language OptimizationSpec Compiler
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/22). Compile plain-English intent into the stable v2 `OptimizationSpec` contract. Entry is the frozen v2.0 objective/API boundary, especially #422; exit is deterministic serialization, provenance, confidence/ambiguity/refusal behavior and rephrasing tests. This is a control-plane compiler only: it cannot choose tensors, relax hard constraints or promote artifacts. It is the contract consumed by the provider and clarification milestones.
+
+## v2.2 — Replaceable Text-model Provider Layer
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/23). Make the conversational model replaceable across local GGUF, compatible endpoints, supported hosted providers and no-LLM direct APIs. Entry is the v2 contract plus v1.9 plugin/runtime interfaces; exit is provider capability discovery, configuration, isolation, failure semantics and conformance evidence. Core execution remains provider-neutral and local-first remains a first-class target.
+
+## v2.3 — `modelsurgeon chat` Vertical Slice
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/24). Deliver the first supported `modelsurgeon chat <model>` workflow: inspect the selected model and hardware, compile and show the interpreted spec, then call stable ModelSurgeon APIs. Entry is v2.1, v2.2 and the v2.0 optimize/release foundation; exit is a clean-environment inspect → preview → execute acceptance path. The chat harness is not a second optimizer.
+
+## v2.4 — Conversational Clarification and Ambiguity Handling
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/25). Add a deterministic, necessary-only clarification state machine for vague, incomplete or contradictory requests. Entry is the v2.3 vertical slice and v2.1 ambiguity contract; exit is safe handling of missing metrics, deployment targets, conflicting constraints and preference ordering, with measurable-question and refusal evidence. The system must avoid both silent guessing and unnecessary interrogation.
+
+## v2.5 — Constraint Negotiation and Infeasibility Explanation
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/26). Explain when measured candidates cannot satisfy the declared objective, show grounded Pareto alternatives and record any user-approved amendment immutably. Entry is v2.4 plus v2.0 evidence/approval primitives; exit is explicit infeasibility, measured alternatives, preserved original constraints and reproducible amendment history. Predictions are never presented as measurements and constraints are never loosened silently.
+
+## v2.6 — Bounded Conversational Tool Calling
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/27). Formalize the typed, capability-scoped API boundary between text models and ModelSurgeon. Entry is v2.2 provider contracts and v1.9/v2.0 plugin, transaction, approval and provenance work; exit is allowlisted schemas, budgets, read-only/consequential separation, grounded result envelopes and adversarial boundary tests. Arbitrary shell/code execution is outside the tool surface.
+
+## v2.7 — Stateful Conversational Campaigns
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/28). Persist canonical campaign state while supporting pause, resume, cancel, reconnect, restart, stale-context detection and bounded history summarization. Entry is v2.3, v2.6, v1.9 resumability and v2.0 campaign state; exit is deterministic recovery with structured state authoritative over chat history. New evidence or plan changes must create visible versioned transitions.
+
+## v2.8 — Evidence-grounded Explanations
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/29). Explain accepted, rejected, rolled-back, failed, unsupported, uncertain and Pareto outcomes using canonical evidence. Entry is v2.6 result grounding, v2.7 state and v2.0 evidence packages; exit is claim-to-evidence traceability, explicit uncertainty and retained negative results. The conversational layer may summarize evidence but cannot manufacture it.
+
+## v2.9 — Approval Gates and Conversational Security Hardening
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/30). Harden the complete control plane with scoped approvals, expiry, plan diffs, provider/tool isolation, redaction, prompt-injection resistance, adversarial tests and fail-closed policy precedence. Entry is v2.6, v2.8 and v1.8-v2.0 security/provenance primitives; exit is a reviewed residual-risk posture with no conversational bypass around hard constraints, evidence or transaction boundaries.
+
+## v3.0 — Conversational ModelSurgeon Product Release
+
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/31). Make conversation the primary supported UX while retaining direct CLI/Python automation. Entry is the v2.1-v2.9 stack and v2.0 release evidence; exit is an integrated local-first product workflow with setup, provider selection, diagnostics, campaign management, grounded explanations, approvals, migration guarantees, packaging guidance and end-to-end security/reproducibility acceptance. `Surgeon Tensors/` remains the learned Meta-Surgeon, `Text LLM/` remains the replaceable conversational model, and `Models/` remains user/target model data. v3.1+ returns the main research emphasis to the learned Meta-Surgeon.
+
 ## Central critical path
 
 ```text
@@ -135,6 +188,16 @@ configuration and safety contracts
   -> hostile-input and signed-evidence audit
   -> resumable production optimize workflow
   -> autonomous objective-to-artifact v2.0 release
+  -> plain-English intent to validated OptimizationSpec
+  -> replaceable text-model provider boundary
+  -> inspect/preview/execute chat vertical slice
+  -> necessary clarification and contradiction handling
+  -> measured infeasibility and approved amendments
+  -> bounded typed tools and grounded results
+  -> canonical stateful campaigns and recovery
+  -> evidence-grounded explanations
+  -> scoped approvals and conversational security hardening
+  -> integrated conversational v3.0 product with direct APIs preserved
 ```
 
 ## Scientific questions
