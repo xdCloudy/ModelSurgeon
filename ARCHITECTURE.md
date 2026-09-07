@@ -196,6 +196,12 @@ Objectives are user-defined combinations of quality, parameter, latency, memory 
 - Original checkpoints are read-only by default; destinations must differ and publish atomically.
 - Remote model code is opt-in and recorded.
 - `modelsurgeon reproduce RUN_ID` reconstructs config, revisions, seed, environment and commands.
+- Optimize approvals bind to a canonical plan digest, material plan diff,
+  operator identity/context, and expiry; a changed plan requires a new diff and
+  decision. Persisted optimize evidence can be replayed without model
+  execution, and final runs can be emitted as signed, offline-verifiable
+  packages that retain unavailable external inputs and non-deterministic
+  tolerances.
 - GPU CI is optional and scheduled; PR CI uses tiny CPU fixtures.
 
 ## Architectural decisions

@@ -14,6 +14,7 @@ import json
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -25,10 +26,11 @@ from modelsurgeon.experiments.coordinator import (
     PromotionOutcome,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.experiments.optimization_package import diff_plans, plan_digest
 from modelsurgeon.optimization import OptimizeOutcome, OptimizePlan
 from modelsurgeon.surgery.contracts import TransactionState
 
-ORCHESTRATOR_SCHEMA_VERSION = 1
+ORCHESTRATOR_SCHEMA_VERSION = 2
 
 
 class OptimizeOrchestratorError(RuntimeError):
@@ -201,11 +203,30 @@ class ApprovalRecord:
     approved: bool
     recorded_by: str
     plan_id: str
+    plan_digest: str
+    diff_id: str
+    expires_at: str
+    operator_context: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.code, "approval code")
         _text(self.recorded_by, "approval recorder")
         _text(self.plan_id, "approval plan ID")
+        if len(self.plan_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.plan_digest
+        ):
+            raise OptimizeOrchestratorError("approval plan digest must be a lowercase SHA-256")
+        _text(self.diff_id, "approval diff ID")
+        try:
+            expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise OptimizeOrchestratorError(
+                "approval expiry must be an ISO-8601 timestamp"
+            ) from error
+        if expiry.tzinfo is None:
+            raise OptimizeOrchestratorError("approval expiry must include a timezone")
+        if self.operator_context != tuple(sorted(self.operator_context)):
+            raise OptimizeOrchestratorError("approval operator context must be canonical")
 
     @property
     def approval_id(self) -> str:
@@ -216,6 +237,10 @@ class ApprovalRecord:
                     "approved": self.approved,
                     "recorded_by": self.recorded_by,
                     "plan_id": self.plan_id,
+                    "plan_digest": self.plan_digest,
+                    "diff_id": self.diff_id,
+                    "expires_at": self.expires_at,
+                    "operator_context": dict(self.operator_context),
                 }
             ).encode()
         ).hexdigest()
@@ -227,8 +252,18 @@ class ApprovalRecord:
             "approved": self.approved,
             "recorded_by": self.recorded_by,
             "plan_id": self.plan_id,
+            "plan_digest": self.plan_digest,
+            "diff_id": self.diff_id,
+            "expires_at": self.expires_at,
+            "operator_context": {key: value for key, value in self.operator_context},
             "approval_id": self.approval_id,
         }
+
+    @property
+    def active(self) -> bool:
+        return datetime.now(UTC) < datetime.fromisoformat(
+            self.expires_at.replace("Z", "+00:00")
+        ).astimezone(UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +294,8 @@ class OptimizeRun:
 
     run_id: str
     plan_id: str
+    plan_digest: str
+    plan_record: Mapping[str, object]
     source_artifact_digest: str
     status: WorkflowStatus
     outcome: WorkflowOutcome
@@ -274,6 +311,17 @@ class OptimizeRun:
     def __post_init__(self) -> None:
         _text(self.run_id, "run ID")
         _text(self.plan_id, "plan ID")
+        if len(self.plan_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.plan_digest
+        ):
+            raise OptimizeOrchestratorError("run plan digest must be a lowercase SHA-256")
+        if (
+            not isinstance(self.plan_record, Mapping)
+            or self.plan_record.get("plan_id") != self.plan_id
+        ):
+            raise OptimizeOrchestratorError("run must retain its canonical plan record")
+        if plan_digest(self.plan_record) != self.plan_digest:
+            raise OptimizeOrchestratorError("retained plan record does not match its digest")
         _digest(self.source_artifact_digest, "source artifact digest")
         if self.schema_version != ORCHESTRATOR_SCHEMA_VERSION:
             raise OptimizeOrchestratorError("unsupported orchestrator schema version")
@@ -300,6 +348,8 @@ class OptimizeRun:
             "schema_version": self.schema_version,
             "run_id": self.run_id,
             "plan_id": self.plan_id,
+            "plan_digest": self.plan_digest,
+            "plan_record": dict(self.plan_record),
             "source_artifact_digest": self.source_artifact_digest,
             "status": self.status.value,
             "outcome": self.outcome.value,
@@ -412,6 +462,8 @@ def _new_run(plan: OptimizePlan) -> OptimizeRun:
     return OptimizeRun(
         _run_id(plan),
         plan.plan_id,
+        plan_digest(plan),
+        plan.to_record(),
         _source_digest(plan),
         WorkflowStatus.RUNNING,
         WorkflowOutcome.UNKNOWN,
@@ -496,6 +548,15 @@ def _run_from_record(value: object) -> OptimizeRun:
             _stored_bool(item["approved"], "approval status"),
             str(item["recorded_by"]),
             str(item["plan_id"]),
+            str(item["plan_digest"]),
+            str(item["diff_id"]),
+            str(item["expires_at"]),
+            tuple(
+                (str(key), str(value))
+                for key, value in sorted(
+                    _record_mapping(item.get("operator_context", {}), "operator context").items()
+                )
+            ),
         )
         for item in (_record_mapping(item, "approval") for item in approvals_raw)
     )
@@ -512,6 +573,8 @@ def _run_from_record(value: object) -> OptimizeRun:
         return OptimizeRun(
             str(raw["run_id"]),
             str(raw["plan_id"]),
+            str(raw["plan_digest"]),
+            _record_mapping(raw["plan_record"], "plan record"),
             str(raw["source_artifact_digest"]),
             WorkflowStatus(str(raw["status"])),
             WorkflowOutcome(str(raw["outcome"])),
@@ -598,11 +661,16 @@ class OptimizeOrchestrator:
             if not resume:
                 raise OptimizeOrchestratorError("state exists; pass --resume to continue it")
             run = self.store.load()
-            if run.plan_id != self.plan.plan_id or run.source_artifact_digest != _source_digest(
-                self.plan
+            if (
+                run.plan_id != self.plan.plan_id
+                or run.plan_digest != plan_digest(self.plan)
+                or run.source_artifact_digest != _source_digest(self.plan)
             ):
+                changed = diff_plans(run.plan_record, self.plan)
                 raise OptimizeOrchestratorError(
-                    "resume state does not match the supplied optimize plan"
+                    "resume state does not match the supplied optimize plan; "
+                    f"material_diff={changed.material} diff_id={changed.diff_id} "
+                    f"changed_paths={','.join(changed.changed_paths) or 'none'}"
                 )
             return run
         if resume:
@@ -616,15 +684,38 @@ class OptimizeOrchestrator:
         run: OptimizeRun,
         approvals: Sequence[str],
         overrides: Mapping[str, str],
+        approval_expires_at: str | None,
+        operator_id: str,
+        operator_context: Mapping[str, str],
     ) -> OptimizeRun:
         required = set(_approval_codes(self.plan))
         existing = {item.code: item for item in run.approvals}
+        current_plan_digest = plan_digest(self.plan)
+        initial_diff_id = diff_plans(self.plan, self.plan).diff_id
+        expiry = approval_expires_at or (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        context = tuple(sorted((str(key), str(value)) for key, value in operator_context.items()))
         for code in approvals:
             if code not in {item.code for item in self.plan.approvals} and not code.startswith(
                 "override:"
             ):
                 raise OptimizeOrchestratorError(f"unknown approval code: {code}")
-            existing[code] = ApprovalRecord(code, True, "cli", self.plan.plan_id)
+            prior = existing.get(code)
+            if prior is not None:
+                if prior.plan_digest != current_plan_digest or prior.diff_id != initial_diff_id:
+                    raise OptimizeOrchestratorError(
+                        f"approval {code} is bound to a different plan diff"
+                    )
+                continue
+            existing[code] = ApprovalRecord(
+                code,
+                True,
+                operator_id,
+                self.plan.plan_id,
+                current_plan_digest,
+                initial_diff_id,
+                expiry,
+                context,
+            )
         recorded_approvals = tuple(existing[key] for key in sorted(existing))
         override_records: list[OverrideRecord] = list(run.overrides)
         for name, value in sorted(overrides.items()):
@@ -637,7 +728,17 @@ class OptimizeOrchestrator:
             )
             if candidate not in override_records:
                 override_records.append(candidate)
-        missing = sorted(required - {item.code for item in recorded_approvals if item.approved})
+        missing = sorted(
+            required
+            - {
+                item.code
+                for item in recorded_approvals
+                if item.approved
+                and item.plan_id == self.plan.plan_id
+                and item.plan_digest == current_plan_digest
+                and item.active
+            }
+        )
         if missing:
             return replace(
                 run,
@@ -690,9 +791,19 @@ class OptimizeOrchestrator:
         resume: bool = False,
         approvals: Sequence[str] = (),
         overrides: Mapping[str, str] | None = None,
+        approval_expires_at: str | None = None,
+        operator_id: str = "cli",
+        operator_context: Mapping[str, str] | None = None,
     ) -> OptimizeRun:
         run = self._load_or_start(resume=resume)
-        run = self._record_inputs(run, approvals, {} if overrides is None else overrides)
+        run = self._record_inputs(
+            run,
+            approvals,
+            {} if overrides is None else overrides,
+            approval_expires_at,
+            operator_id,
+            {} if operator_context is None else operator_context,
+        )
         self.store.save(run)
         if run.status is WorkflowStatus.PAUSED:
             return run
