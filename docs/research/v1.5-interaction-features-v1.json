@@ -1,0 +1,20 @@
+{
+  "record_type": "interaction_feature_extraction_contract",
+  "schema_version": 1,
+  "extractor_version": "1",
+  "source_phase": "pre_mutation",
+  "features": [
+    "activation_overlap",
+    "gradient_overlap",
+    "redundancy_score",
+    "topology_distance",
+    "mutation_order_length",
+    "order_sensitive",
+    "cumulative_error"
+  ],
+  "missingness": "named_missing_features_are_not_zero_filled",
+  "resource_policy": "explicit_cell_cap_with_linear_workspace_estimate_and_ram_vram_time_limits",
+  "leakage_policy": "no post-mutation vectors or separate target sample stream are accepted",
+  "claim_boundary": "Feature records do not establish a trained state model or a superiority claim.",
+  "reproduction": "extract_interaction_features() and InteractionFeatureRecord.to_record()"
+}
