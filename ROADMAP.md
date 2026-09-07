@@ -129,7 +129,7 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 ## v2.3 — `modelsurgeon chat` Vertical Slice
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/24). Deliver the first supported `modelsurgeon chat <model>` workflow: inspect the selected model and hardware, compile and show the interpreted spec, then call stable ModelSurgeon APIs. Entry is v2.1, v2.2 and the v2.0 optimize/release foundation; exit is a clean-environment inspect → preview → execute acceptance path. The chat harness is not a second optimizer.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/24). Deliver the first supported `modelsurgeon chat <model>` workflow: inspect the selected model and hardware, compile and show the interpreted spec, then call stable ModelSurgeon APIs. Entry is v2.1, v2.2 and the v2.0 optimize/release foundation; exit is a clean-environment inspect → preview → execute acceptance path. The supported slice now records the exact campaign in the #469 canonical state store, including accepted, rejected, unsupported, failed, interrupted, cancelled, and no-artifact outcomes. The chat harness is not a second optimizer.
 
 ## v2.4 — Conversational Clarification and Ambiguity Handling
 

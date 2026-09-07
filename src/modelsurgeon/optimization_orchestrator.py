@@ -439,6 +439,12 @@ def _source_digest(plan: OptimizePlan) -> str:
     return "sha256:" + hashlib.sha256(_canonical(payload).encode()).hexdigest()
 
 
+def source_artifact_digest(plan: OptimizePlan) -> str:
+    """Return the immutable source-model digest used by an optimize run."""
+
+    return _source_digest(plan)
+
+
 def _run_id(plan: OptimizePlan) -> str:
     return (
         "optimize_run_"
@@ -448,6 +454,12 @@ def _run_id(plan: OptimizePlan) -> str:
             ).encode()
         ).hexdigest()
     )
+
+
+def optimize_run_id(plan: OptimizePlan) -> str:
+    """Return the deterministic run identity for an optimize plan."""
+
+    return _run_id(plan)
 
 
 def _new_run(plan: OptimizePlan) -> OptimizeRun:
@@ -460,7 +472,7 @@ def _new_run(plan: OptimizePlan) -> OptimizeRun:
         for index, stage in enumerate(STAGE_ORDER)
     )
     return OptimizeRun(
-        _run_id(plan),
+        optimize_run_id(plan),
         plan.plan_id,
         plan_digest(plan),
         plan.to_record(),
@@ -1005,4 +1017,6 @@ __all__ = [
     "WorkflowOutcome",
     "WorkflowStatus",
     "load_optimize_runtime",
+    "optimize_run_id",
+    "source_artifact_digest",
 ]

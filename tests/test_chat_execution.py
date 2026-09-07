@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
+from modelsurgeon.adapters import ModelFormat
 from modelsurgeon.config import (
     ConstraintConfig,
     ModelConfig,
@@ -21,6 +23,9 @@ from modelsurgeon.config import (
     ObjectiveNormalization as ConfigObjectiveNormalization,
 )
 from modelsurgeon.conversation import (
+    CampaignLifecycle,
+    CampaignOutcome,
+    CampaignStateStore,
     ChatOptimizeAdapter,
     ToolCancellationToken,
     ToolOutcome,
@@ -89,9 +94,22 @@ class _Runtime:
         )
 
 
-def _adapter(tmp_path: Path, runtime: _Runtime, *, resume: bool = False) -> ChatOptimizeAdapter:
+class _FailingRuntime(_Runtime):
+    def run_stage(self, context: StageContext) -> StageResult:
+        if context.stage is OptimizeStage.PROFILE:
+            raise RuntimeError("runtime fixture failed")
+        return super().run_stage(context)
+
+
+def _adapter(
+    tmp_path: Path,
+    runtime: _Runtime,
+    *,
+    resume: bool = False,
+    settings: Settings | None = None,
+) -> ChatOptimizeAdapter:
     return ChatOptimizeAdapter(
-        Settings(model=ModelConfig(path="models/tiny", revision="revision-1")),
+        settings or Settings(model=ModelConfig(path="models/tiny", revision="revision-1")),
         state_path=tmp_path / "chat-run.json",
         runtime=runtime,
         approvals=_APPROVALS,
@@ -257,3 +275,121 @@ def test_chat_execution_cancellation_is_typed_and_creates_no_state(tmp_path: Pat
     assert result.outcome is ToolOutcome.CANCELLED
     assert result.artifact_id is None
     assert not (tmp_path / "chat-run.json").exists()
+
+
+def test_accepted_execution_projects_canonical_campaign_evidence(tmp_path: Path) -> None:
+    adapter = _adapter(tmp_path, _Runtime())
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+
+    result = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert result.outcome is ToolOutcome.SUPPORTED
+    assert result.campaign_id is not None
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load(result.campaign_id)
+        evidence = store.evidence(result.campaign_id)
+    assert state.lifecycle is CampaignLifecycle.COMPLETED
+    assert state.outcome is CampaignOutcome.SUPPORTED
+    assert state.approval.status.value == "approved"
+    assert tuple(item.evidence_id for item in evidence) == result.evidence_refs
+    assert evidence[-1].artifact_digest is not None
+    assert evidence[-1].provenance["decision"] == "accepted"
+    assert result.tool_result.provenance.evidence_id == evidence[-1].evidence_id
+
+
+def test_rejected_candidate_retains_negative_evidence_without_artifact(tmp_path: Path) -> None:
+    adapter = _adapter(tmp_path, _Runtime(feasible=False))
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+
+    result = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert result.outcome is ToolOutcome.FAILED
+    assert result.artifact_id is None
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load_for_session("chat-session")
+        evidence = store.evidence(state.campaign_id)
+    assert state.lifecycle is CampaignLifecycle.COMPLETED
+    assert state.outcome is CampaignOutcome.FAILED
+    assert evidence[-1].provenance["decision"] == "rejected"
+    assert all(item.artifact_digest is None for item in evidence)
+
+
+def test_unsupported_plan_is_retained_and_never_enters_the_runtime(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        model=ModelConfig(
+            path="models/tiny.gguf", revision="revision-1", format=ModelFormat.GGUF
+        )
+    )
+    runtime = _Runtime()
+    adapter = _adapter(tmp_path, runtime, settings=settings)
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+
+    result = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert result.outcome is ToolOutcome.UNSUPPORTED
+    assert runtime.calls == []
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load_for_session("chat-session")
+        evidence = store.evidence(state.campaign_id)
+    assert state.lifecycle is CampaignLifecycle.COMPLETED
+    assert state.outcome is CampaignOutcome.UNSUPPORTED
+    assert evidence[-1].inconclusive is False
+
+
+def test_runtime_failure_is_retained_as_failed_campaign_evidence(tmp_path: Path) -> None:
+    adapter = _adapter(tmp_path, _FailingRuntime())
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+
+    result = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert result.outcome is ToolOutcome.FAILED
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load_for_session("chat-session")
+        evidence = store.evidence(state.campaign_id)
+    assert state.lifecycle is CampaignLifecycle.FAILED
+    assert state.outcome is CampaignOutcome.FAILED
+    assert evidence[-1].inconclusive is True
+    assert evidence[-1].artifact_digest is None
+
+
+def test_interrupted_campaign_is_paused_and_resume_reuses_canonical_identity(
+    tmp_path: Path,
+) -> None:
+    first = _adapter(tmp_path, _Runtime(interrupt_once=True))
+    preview = _preview()
+    first.preview("chat-session", "chat-request", preview)
+    paused = first.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    resumed_adapter = _adapter(tmp_path, _Runtime(), resume=True)
+    resumed_adapter.preview("chat-session", "chat-request", preview)
+    resumed = resumed_adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert paused.outcome is ToolOutcome.UNKNOWN
+    assert resumed.outcome is ToolOutcome.SUPPORTED
+    assert paused.campaign_id == resumed.campaign_id
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load(resumed.campaign_id or "missing")
+    assert state.lifecycle is CampaignLifecycle.COMPLETED
+    assert state.outcome is CampaignOutcome.SUPPORTED
+
+
+def test_chat_campaign_projection_matches_direct_run_identity(tmp_path: Path) -> None:
+    adapter = _adapter(tmp_path, _Runtime())
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+    result = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    run = json.loads((tmp_path / "chat-run.json").read_text(encoding="utf-8"))
+    with CampaignStateStore(tmp_path / "chat-run.campaign.sqlite3") as store:
+        state = store.load(result.campaign_id or "missing")
+    assert state.run_id == run["run_id"]
+    plan_context = state.policy_state["plan"]
+    assert isinstance(plan_context, dict)
+    assert plan_context["plan_id"] == run["plan_id"]
+    assert state.source_model_digest == run["source_artifact_digest"]

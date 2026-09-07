@@ -429,6 +429,12 @@ class ChatSession:
                 self.bootstrap.session_id,
                 turn.request_id,
                 turn.spec_preview,
+                provider_context={
+                    "record_type": "chat_provider_context",
+                    "provider": dict(self.bootstrap.provider),
+                    "capability_card": dict(self.bootstrap.capability_card),
+                    "runtime_revision": self.bootstrap.runtime_revision,
+                },
             )
         except ValueError as error:
             if isinstance(error, ChatSessionError):
@@ -471,6 +477,12 @@ class ChatSession:
                 approval_id,
                 resume=resume,
                 progress_callback=progress_callback,
+                provider_context={
+                    "record_type": "chat_provider_context",
+                    "provider": dict(self.bootstrap.provider),
+                    "capability_card": dict(self.bootstrap.capability_card),
+                    "runtime_revision": self.bootstrap.runtime_revision,
+                },
             )
         except ValueError as error:
             if isinstance(error, ChatSessionError):
