@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+  - Close the v2.5 constraint-negotiation and infeasibility milestone for
+    issue #462. Reconcile the #458 measured infeasibility, #459 measured
+    Pareto, #460 immutable amendment, and #461 decision-quality APIs with the
+    v2.0 approval boundary. Add a versioned release boundary/evidence manifest,
+    fail-closed release audit, end-to-end acceptance coverage, direct objective
+    history checks, duplicate-scope review, and retained negative,
+    unsupported, prediction-only, and inconclusive outcomes. Automatic
+    constraint relaxation is not supported. See the [v2.5 release
+    boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and
+    [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json).
+
   - Add deterministic stale-context detection and evidence-driven conversational
     replanning for issue #471. Replans bind spec, evidence, provider, resource,
     approval, plan, and transaction context; no-op refreshes keep the existing

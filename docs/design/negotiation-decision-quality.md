@@ -82,4 +82,7 @@ The following cells are explicit non-claims or unsupported boundaries:
 
 The exact dependency commits, run ID, metrics, negative/inconclusive counts,
 documentation paths, and quality-gate commands are frozen in the v2.5
-research release record.
+research record. The milestone-level reconciliation with the v2.0 approval
+boundary, direct API compatibility, and duplicate-scope review is frozen in
+the [v2.5 constraint-negotiation release boundary](../release/v2.5-constraint-negotiation-boundary.md)
+and its [versioned evidence manifest](../research/v2.5-constraint-negotiation-release-v1.json).
