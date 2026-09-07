@@ -1,0 +1,23 @@
+{
+  "record_type": "deployable_architecture_state_contract",
+  "schema_version": 1,
+  "state_axes": [
+    "depth",
+    "layer_widths",
+    "query_heads",
+    "kv_heads",
+    "hidden_size",
+    "embedding_size",
+    "low_rank_factors",
+    "sparsity",
+    "quantization",
+    "placement",
+    "artifact_lineage",
+    "mutation_order"
+  ],
+  "axis_statuses": ["known", "predicted", "unknown", "unsupported"],
+  "identity": "sha256 of canonical versioned state; no implicit equivalence across quantization, placement, or mutation order",
+  "distance": "versioned symmetric normalized axis decomposition; unknown axes produce unknown rather than an extrapolated total",
+  "materialization": ["complete", "predicted", "not_yet_materialized", "unsupported", "unknown"],
+  "reproduction": "DeployableArchitectureState.to_record(), deployable_state_from_record(), architecture_distance()"
+}
