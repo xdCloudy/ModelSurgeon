@@ -17,7 +17,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.surgery` | Transactional mutation plans plus versioned physical artifact outcomes, cumulative lineage reconciliation, reload-bound HF sequences, and bounded native GGUF sequences. |
 | `modelsurgeon.surgery` | Shared format-neutral artifact integrity and rollback gates for HF/GGUF publication. |
 | `modelsurgeon benchmark` | Deterministic plans, resumable runs, immutable imports, audits, reports, and physical HF/GGUF deployment evidence. |
-| `modelsurgeon.experiments` | Experiment identity, persistence, artifacts, resource budgets, and reproducibility records. |
+| `modelsurgeon.experiments` | Experiment identity, persistence, artifacts, resource budgets, reproducibility records, and immutable empirical hardware/runtime profiles. |
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, and ranking contracts. |
 | `modelsurgeon.search` | Constraints, objectives, Pareto archives, policies, and resumable search state. |
 | `modelsurgeon.explain` | Decision summaries, attribution records, and deterministic reports. |

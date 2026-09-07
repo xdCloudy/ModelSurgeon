@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add immutable empirical hardware/runtime profiles with bounded bandwidth, transfer,
+  GEMM, load, and llama.cpp probe protocols, repeated summaries, explicit unavailable
+  capabilities, and environment-drift rejection.
 - Add the v1.2 physical compression and quality-loss Pareto study contract with a
   preregistered five-target matrix, physical HF/GGUF lineage gates, deployment metric
   reconciliation, retained negative cells, and conservative interval frontiers.
