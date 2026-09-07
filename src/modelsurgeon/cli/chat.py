@@ -136,7 +136,7 @@ def chat_command(
     ] = False,
     state: Annotated[
         Path | None,
-        typer.Option("--state", help="Atomic optimize workflow state used for execution/resume"),
+        typer.Option("--state", help="Durable canonical campaign state database"),
     ] = None,
     resume: Annotated[
         bool,

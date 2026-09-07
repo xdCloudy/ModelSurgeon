@@ -34,6 +34,13 @@ The source-model digest is not an update field, so campaign transitions cannot
 silently retarget source data. Hard constraints are retained inside the exact
 spec record and are normalized into deterministic order.
 
+Lifecycle commands are explicit and replayable: `pause` preserves the latest
+committed stage, `resume` requires a still-active approval, `cancel` is
+terminal, `reconnect` is a read-only identity lookup, and `restart` marks an
+unfinished paused campaign runnable again. Repeating a command with the same
+operation ID returns the committed snapshot rather than writing a duplicate
+transition. Invalid terminal transitions and stale versions fail closed.
+
 ## Evidence retention
 
 Evidence is append-only and cursor-addressed. Supported, unsupported, failed,
@@ -45,6 +52,14 @@ The canonical state schema is versioned independently from the SQLite schema.
 Unknown schema versions, migration checksum drift, malformed JSON, state
 digest/version mismatches, and corrupt databases are rejected rather than
 silently migrated or repaired.
+
+The execution adapter coordinates this store with the existing deterministic
+orchestrator. Canonical campaign state is stored at the adapter's `state_path`;
+the orchestrator's stage cursor is kept in the sibling
+`<state stem>.execution.json` file. Recovery validates session, spec, plan,
+source-model, approval, and budget linkage before allowing the stage cursor to
+continue, so reconnecting cannot duplicate completed mutation or evaluation
+work.
 
 ## Boundary example
 
