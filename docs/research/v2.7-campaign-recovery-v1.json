@@ -1,0 +1,94 @@
+{
+  "record_type": "bounded_campaign_recovery_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.7-campaign-recovery-v1",
+  "milestone": "v2.7",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 470,
+      "key": "v27-lifecycle",
+      "status": "merged",
+      "commit": "270bf0e9e1e5aca953d5640938173ca29f319e3e",
+      "artifacts": [
+        "src/modelsurgeon/conversation/campaign_state.py",
+        "docs/design/conversational-campaign-state.md"
+      ],
+      "tests": ["tests/test_campaign_state.py"]
+    },
+    {
+      "issue": 471,
+      "key": "v27-stale",
+      "status": "merged",
+      "commit": "8b3eadce4e72ffef80e809f858834fcd8e3aaab0",
+      "artifacts": [
+        "src/modelsurgeon/conversation/replanning.py",
+        "docs/design/stale-conversational-replanning.md"
+      ],
+      "tests": ["tests/test_replanning.py"]
+    },
+    {
+      "issue": 472,
+      "key": "v27-summary",
+      "status": "merged",
+      "commit": "67a737159d7c5d63daab7c52efda4664bfd910d9",
+      "artifacts": [
+        "src/modelsurgeon/conversation/summary.py",
+        "docs/design/conversational-summary.md"
+      ],
+      "tests": ["tests/test_conversation_summary.py"]
+    }
+  ],
+  "protocol": {
+    "fixture": "tests/fixtures/campaign_recovery_matrix_v1.json",
+    "cell_count": 12,
+    "process_restart": "tested_subprocess_reopen",
+    "fault_injection": "bounded_sql_write_checkpoints",
+    "ui_reconnect_correctness": "not_claimed"
+  },
+  "guarantees": [
+    "approval_is_required_for_resume",
+    "hard_constraints_are_preserved",
+    "transaction_boundaries_are_atomic",
+    "identical_inputs_have_identical_next_action",
+    "negative_and_inconclusive_evidence_is_retained",
+    "resource_budgets_and_provenance_are_preserved",
+    "ui_reconnect_is_not_correctness_evidence"
+  ],
+  "negative_and_inconclusive": {
+    "retained": true,
+    "failed_cells_visible": true,
+    "unsupported_live_provider": "not_run",
+    "model_quality": "not_run",
+    "hostile_process_containment": "not_claimed"
+  },
+  "tests": [
+    "tests/test_campaign_recovery.py",
+    "tests/test_v27_campaign_recovery.py"
+  ],
+  "documentation": [
+    "docs/design/campaign-recovery-matrix.md"
+  ],
+  "examples": [
+    "docs/examples/campaign_recovery.py"
+  ],
+  "reproduction_commands": [
+    "uv run python tools/audit_v27_campaign_recovery.py",
+    "uv run pytest tests/test_campaign_recovery.py tests/test_v27_campaign_recovery.py -q",
+    "uv run ruff check src tests",
+    "uv run mypy src/modelsurgeon",
+    "uv run pytest -q"
+  ],
+  "quality_gate": {
+    "commands": [
+      "git diff --check",
+      "uv run ruff check src tests",
+      "uv run mypy src/modelsurgeon",
+      "uv run pytest -q"
+    ],
+    "runtime": "project-managed uv environment, Python 3.12",
+    "known_skips": [
+      "No live provider, live model-quality campaign, hostile-process containment, or UI reconnect correctness is claimed."
+    ]
+  }
+}

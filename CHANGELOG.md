@@ -2,16 +2,27 @@
 
 ## Unreleased
 
-  - Close the v2.5 constraint-negotiation and infeasibility milestone for
-    issue #462. Reconcile the #458 measured infeasibility, #459 measured
-    Pareto, #460 immutable amendment, and #461 decision-quality APIs with the
+    - Close the v2.5 constraint-negotiation and infeasibility milestone for
+      issue #462. Reconcile the #458 measured infeasibility, #459 measured
+      Pareto, #460 immutable amendment, and #461 decision-quality APIs with the
     v2.0 approval boundary. Add a versioned release boundary/evidence manifest,
     fail-closed release audit, end-to-end acceptance coverage, direct objective
     history checks, duplicate-scope review, and retained negative,
     unsupported, prediction-only, and inconclusive outcomes. Automatic
     constraint relaxation is not supported. See the [v2.5 release
-    boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and
-    [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json).
+      boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and
+      [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json).
+
+    - Add the bounded v2.7 campaign recovery and determinism matrix for issue
+      #473. Twelve deterministic fixture cells compare canonical state, evidence
+    cursors, artifacts, next actions, budgets, provenance, and direct/store
+    versus summary/chat recovery across pause, resume, cancel, reconnect,
+    restart, stale plans, expired approvals, transcript loss, partial evidence,
+    subprocess reopen, and injected atomic-write faults. Failed and
+    inconclusive cells remain visible; UI reconnect and hostile-process
+    correctness remain explicitly unclaimed. See the [campaign recovery
+      matrix](docs/design/campaign-recovery-matrix.md) and [v2.7 recovery
+      record](docs/research/v2.7-campaign-recovery-v1.json).
 
   - Add deterministic stale-context detection and evidence-driven conversational
     replanning for issue #471. Replans bind spec, evidence, provider, resource,

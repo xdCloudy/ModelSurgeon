@@ -74,6 +74,13 @@ The planned boundary has four non-negotiable properties:
 
 The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
 
+The v2.7 recovery guarantee is tested by a bounded fixture matrix, not by a
+successful UI reconnect. Recovery compares canonical state, evidence cursors,
+retained artifacts, actions, budgets, provenance, hard constraints and source
+identity through both direct/store and summary/chat paths. Atomic fault
+checkpoints and a separate-process reopen are included; hostile-process
+containment and UI correctness remain outside the claim.
+
 ### v2.5 negotiation decision-quality boundary
 
 The v2.5 control plane replays typed fixture campaigns through refusal-only,
