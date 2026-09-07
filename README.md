@@ -11,7 +11,7 @@
 
 **Local-first, evidence-driven structural optimization for Hugging Face and GGUF models.**
 
-[Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
+[Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the end-to-end guides](docs/user-guides/README.md) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
 
 </div>
 
