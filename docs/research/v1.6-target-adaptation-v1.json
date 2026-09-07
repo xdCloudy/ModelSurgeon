@@ -1,0 +1,27 @@
+{
+  "record_type": "target_adaptation_protocol",
+  "schema_version": 1,
+  "protocol_revision": "target-adaptation-v1",
+  "target_example_budgets": [0, 8, 16, 32, 64, 128],
+  "selection_seeds": [0, 1, 2, 3, 4],
+  "modes": [
+    "zero_shot",
+    "shift_correction",
+    "frozen_head",
+    "linear_adapter",
+    "full_bounded"
+  ],
+  "comparators": ["cold_start", "oracle_within_target"],
+  "required_evidence": [
+    "learning_curve",
+    "frontier_quality",
+    "evaluation_savings",
+    "target_training_cost",
+    "target_evaluation_cost",
+    "grouped_intervals",
+    "parent_child_artifact_lineage"
+  ],
+  "leakage_policy": "zero-shot consumes no target labels or target preprocessing statistics; few-shot consumes only its declared support set",
+  "outcome_policy": "negative, unsupported, failed, interrupted, and rolled-back outcomes are retained",
+  "reproduction": "plan_target_adaptation() followed by record_target_adaptation_result()"
+}

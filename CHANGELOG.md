@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded zero-shot and few-shot target adaptation records for budgets
+  0/8/16/32/64/128 with five seeded support selectors, explicit compatibility
+  gates, target-test leakage protection, immutable parent/child lineage,
+  learning curves, cost evidence, and retained rollback or negative outcomes.
 - Add a versioned dense Llama/Qwen/Mistral/Gemma meta-surgeon transfer matrix
   with raw and architecture-normalized views, cold/within-target/meta controls,
   explicit checkpoint/size/family/corpus axes, five separate evidence metrics,
