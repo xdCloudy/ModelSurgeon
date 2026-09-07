@@ -1,0 +1,26 @@
+{
+  "protocol_id": "baseline_protocol_d22086836d3b996a8ddad3ae78536494dd7180ffa0d7e11e9e4a77ad7d6646ae",
+  "schema_version": 1,
+  "methods": {
+    "wanda": {
+      "revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+      "license": "MIT",
+      "source_url": "https://github.com/locuslab/wanda"
+    },
+    "sparsegpt": {
+      "revision": "147d2159dc4f3e9f73e47b32c04d7b3708f44436",
+      "license": "Apache-2.0",
+      "source_url": "https://github.com/IST-DASLab/sparsegpt"
+    }
+  },
+  "models": ["100M:Llama", "500M:Qwen"],
+  "sparsity_targets": [0.2, 0.5],
+  "seeds": [11, 23, 47],
+  "cell_count": 24,
+  "outcome_counts": {"unsupported": 24},
+  "compatibility_counts": {"unknown_safetensors": 4, "unsupported_gguf": 4},
+  "comparison_controls": ["magnitude_mean_absolute", "seeded_random"],
+  "negative_or_unavailable_cells_retained": true,
+  "performance_claim": null,
+  "diagnosis": "External Wanda and SparseGPT executables are not bundled in this repository or CI; execute through the revision-pinned subprocess adapter before claiming a measured result."
+}

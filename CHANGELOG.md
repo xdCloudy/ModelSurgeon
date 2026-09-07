@@ -11,6 +11,9 @@
 - Add a fail-closed subprocess competitor adapter contract with executable-version and
   artifact-bound support claims, transactional output publication, read-only source checks,
   bounded logs/artifacts, resource telemetry, and distinct failure outcomes.
+- Add revision-pinned Wanda and SparseGPT equal-budget baseline records for two model families,
+  matched 20%/50% sparsity and three-seed cells, explicit magnitude/random controls, and a
+  retained unsupported evidence matrix when external executables are unavailable.
 
 ## 1.0.0 - 2026-09-07
 
