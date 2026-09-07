@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the bounded long interaction-aware sequence study contract across two
+  families, stateless/additive/state-aware policies, horizons 10/20/50, and
+  three seeds, retaining checkpoint/artifact lineage, regret/violation/cost
+  evidence, adversarial interaction classes, rollback outcomes, and explicit
+  unsupported or negative claims.
 - Add the closed multi-axis architecture Pareto study contract with complete
   family/hardware/method/budget/seed matrices, conservative deployable
   frontiers, quality-cost hypervolume, paired deterministic bootstrap
