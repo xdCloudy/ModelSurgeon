@@ -20,6 +20,7 @@ from modelsurgeon.conversation.tools import (
     DEFAULT_TOOL_CATALOG,
     MAX_TOOL_RESULT_BYTES,
     JSONValue,
+    ToolAccess,
     ToolBudget,
     ToolCatalog,
     ToolContractError,
@@ -33,6 +34,11 @@ from modelsurgeon.conversation.tools import (
     ToolRequest,
     ToolResult,
     tool_request_digest,
+)
+from modelsurgeon.conversation.transaction import (
+    ToolTransactionBoundary,
+    ToolTransactionContext,
+    ToolTransactionError,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
 
@@ -50,6 +56,7 @@ class ToolExecutionError(Exception):
         detail: str,
         *,
         retryable: bool = False,
+        idempotent: bool = False,
         raw_payload: Mapping[str, JSONValue] | None = None,
     ) -> None:
         super().__init__(detail)
@@ -58,6 +65,7 @@ class ToolExecutionError(Exception):
             detail if isinstance(detail, str) and detail.strip() else "tool execution failed"
         )
         self.retryable = retryable
+        self.idempotent = idempotent
         self.raw_payload = raw_payload
 
 
@@ -119,6 +127,7 @@ class ToolExecutionReceipt:
     attempts: int
     usage: ToolUsage
     replayed: bool = False
+    transaction_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.attempts <= 0:
@@ -164,10 +173,12 @@ class ToolExecutionContext:
         budget: ToolBudget,
         cancellation: ToolCancellationToken,
         clock: Callable[[], float],
+        transaction: ToolTransactionContext,
     ) -> None:
         self.request = request
         self.budget = budget
         self.cancellation = cancellation
+        self.transaction = transaction
         self._clock = clock
         self._started_at = clock()
         # Entering a handler is one bounded evaluation. Nested work must be
@@ -186,6 +197,10 @@ class ToolExecutionContext:
     @property
     def evaluation_count(self) -> int:
         return self._evaluation_count
+
+    @property
+    def transaction_id(self) -> str:
+        return self.transaction.transaction_id
 
     def check_cancelled(self) -> None:
         if self.cancellation.cancelled:
@@ -258,6 +273,7 @@ class ToolDispatcher:
         budget_ceiling: ToolBudget | None = None,
         max_retries: int = 0,
         max_replay_entries: int = 1024,
+        transaction_boundary: ToolTransactionBoundary | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if (
@@ -277,6 +293,7 @@ class ToolDispatcher:
         self.budget_ceiling = budget_ceiling
         self.max_retries = max_retries
         self.max_replay_entries = max_replay_entries
+        self.transaction_boundary = transaction_boundary or ToolTransactionBoundary()
         self._clock = clock
         self._handlers: dict[str, ToolHandler] = {}
         for name, handler in (handlers or {}).items():
@@ -385,6 +402,7 @@ class ToolDispatcher:
                     prior_receipt.attempts,
                     prior_receipt.usage,
                     replayed=True,
+                    transaction_id=prior_receipt.transaction_id,
                 )
                 return ToolDispatchResult(negotiation, request, prior_result, receipt)
             if request.request_id in self._inflight:
@@ -423,9 +441,36 @@ class ToolDispatcher:
         attempts = 0
         last_failure: ToolExecutionError | None = None
         for attempts in range(1, self.max_retries + 2):
+            try:
+                transaction = self.transaction_boundary.begin(request, definition, attempts)
+            except ToolTransactionError as error:
+                result = self._failure_result(
+                    request,
+                    definition,
+                    ToolOutcome.REFUSED,
+                    ToolFailureCode.TRANSACTION_UNAVAILABLE,
+                    str(error),
+                )
+                return result, self._receipt(attempts, None, started, 0)
+            context = ToolExecutionContext(
+                request,
+                request.budget,
+                cancellation,
+                self._clock,
+                transaction,
+            )
             if attempts > 1 and self._clock() - started >= request.budget.max_wall_seconds:
                 cancellation.cancel()
-                context = ToolExecutionContext(request, request.budget, cancellation, self._clock)
+                close_error = self._close_transaction(context, cancelled=True)
+                if close_error is not None:
+                    result = self._failure_result(
+                        request,
+                        definition,
+                        ToolOutcome.FAILED,
+                        close_error.code,
+                        close_error.detail,
+                    )
+                    return result, self._receipt(attempts - 1, context, started, 0)
                 result = self._failure_result(
                     request,
                     definition,
@@ -434,7 +479,6 @@ class ToolDispatcher:
                     "tool wall-time budget was exhausted",
                 )
                 return result, self._receipt(attempts - 1, context, started, 0)
-            context = ToolExecutionContext(request, request.budget, cancellation, self._clock)
             outcome_queue: queue.Queue[tuple[object, BaseException | None]] = queue.Queue(maxsize=1)
             worker = threading.Thread(
                 target=self._invoke_handler,
@@ -446,7 +490,16 @@ class ToolDispatcher:
                 elapsed = max(0.0, self._clock() - started)
                 remaining = request.budget.max_wall_seconds - elapsed
                 if cancellation.cancelled:
-                    cancellation.cancel()
+                    close_error = self._close_transaction(context, cancelled=True)
+                    if close_error is not None:
+                        result = self._failure_result(
+                            request,
+                            definition,
+                            ToolOutcome.FAILED,
+                            close_error.code,
+                            close_error.detail,
+                        )
+                        return result, self._receipt(attempts, context, started, 0)
                     result = self._failure_result(
                         request,
                         definition,
@@ -457,6 +510,16 @@ class ToolDispatcher:
                     return result, self._receipt(attempts, context, started, 0)
                 if remaining <= 0:
                     cancellation.cancel()
+                    close_error = self._close_transaction(context, cancelled=True)
+                    if close_error is not None:
+                        result = self._failure_result(
+                            request,
+                            definition,
+                            ToolOutcome.FAILED,
+                            close_error.code,
+                            close_error.detail,
+                        )
+                        return result, self._receipt(attempts, context, started, 0)
                     result = self._failure_result(
                         request,
                         definition,
@@ -469,6 +532,16 @@ class ToolDispatcher:
             elapsed = max(0.0, self._clock() - started)
             if elapsed > request.budget.max_wall_seconds:
                 cancellation.cancel()
+                close_error = self._close_transaction(context, cancelled=True)
+                if close_error is not None:
+                    result = self._failure_result(
+                        request,
+                        definition,
+                        ToolOutcome.FAILED,
+                        close_error.code,
+                        close_error.detail,
+                    )
+                    return result, self._receipt(attempts, context, started, 0)
                 result = self._failure_result(
                     request,
                     definition,
@@ -477,17 +550,37 @@ class ToolDispatcher:
                     "tool wall-time budget was exhausted",
                 )
                 return result, self._receipt(attempts, context, started, 0)
+            value: object
+            handler_error: BaseException | None
             try:
-                value, error = outcome_queue.get_nowait()
+                value, handler_error = outcome_queue.get_nowait()
             except queue.Empty:
-                error = ToolExecutionError(
+                value = None
+                handler_error = ToolExecutionError(
                     ToolFailureCode.EXECUTION_FAILED,
                     "tool handler returned no result",
                 )
-                value = None
-            if error is not None:
-                failure = self._as_execution_error(error)
-                if failure.retryable and attempts <= self.max_retries:
+            if handler_error is not None:
+                failure = self._as_execution_error(handler_error)
+                close_error = self._close_transaction(
+                    context, cancelled=failure.code is ToolFailureCode.CANCELLED
+                )
+                if close_error is not None:
+                    failure = close_error
+                if (
+                    definition.access is ToolAccess.CONSEQUENTIAL
+                    and failure.retryable
+                    and not failure.idempotent
+                ):
+                    failure = ToolExecutionError(
+                        ToolFailureCode.RETRY_NOT_SAFE,
+                        "consequential retry was rejected because idempotency was not declared",
+                    )
+                if (
+                    failure.retryable
+                    and failure.code not in {ToolFailureCode.CANCELLED, ToolFailureCode.TIMEOUT}
+                    and attempts <= self.max_retries
+                ):
                     last_failure = failure
                     continue
                 result = self._failure_result(
@@ -527,6 +620,18 @@ class ToolDispatcher:
                         ToolFailureCode.BUDGET_EXCEEDED,
                         "tool evaluation budget was exhausted",
                     )
+                if context.transaction.state.value == "active":
+                    if definition.access is ToolAccess.CONSEQUENTIAL:
+                        raise ToolExecutionError(
+                            ToolFailureCode.TRANSACTION_REQUIRED,
+                            "consequential tool handler must explicitly commit its transaction",
+                        )
+                    context.transaction.commit()
+                if context.transaction.state.value != "committed":
+                    raise ToolExecutionError(
+                        ToolFailureCode.TRANSACTION_FAILED,
+                        "tool transaction did not reach committed state",
+                    )
                 provenance = ToolProvenance(
                     definition.owner,
                     definition.tool_id,
@@ -550,18 +655,23 @@ class ToolDispatcher:
                         ToolFailureCode.BUDGET_EXCEEDED,
                         "tool result hard size limit was exhausted",
                     )
-            except ToolExecutionError as execution_failure:
+            except ToolExecutionError as error:
+                failure = error
+                close_error = self._close_transaction(context)
+                if close_error is not None:
+                    failure = close_error
                 result = self._failure_result(
                     request,
                     definition,
-                    _failure_outcome(execution_failure.code, ToolOutcome.FAILED),
-                    execution_failure.code,
-                    execution_failure.detail,
-                    retryable=execution_failure.retryable,
-                    raw_payload=execution_failure.raw_payload,
+                    _failure_outcome(failure.code, ToolOutcome.FAILED),
+                    failure.code,
+                    failure.detail,
+                    retryable=failure.retryable,
+                    raw_payload=failure.raw_payload,
                 )
                 return result, self._receipt(attempts, context, started, 0)
             except (ToolContractError, TypeError, ValueError):
+                self._close_transaction(context)
                 result = self._failure_result(
                     request,
                     definition,
@@ -584,8 +694,16 @@ class ToolDispatcher:
             retryable=exhausted.retryable,
             raw_payload=exhausted.raw_payload,
         )
-        context = ToolExecutionContext(request, request.budget, cancellation, self._clock)
-        return result, self._receipt(attempts, context, started, 0)
+        return result, self._receipt(attempts, None, started, 0)
+
+    def _close_transaction(
+        self, context: ToolExecutionContext, *, cancelled: bool = False
+    ) -> ToolExecutionError | None:
+        try:
+            self.transaction_boundary.close_failure(context.transaction, cancelled=cancelled)
+        except ToolTransactionError as error:
+            return ToolExecutionError(ToolFailureCode.TRANSACTION_FAILED, str(error))
+        return None
 
     @staticmethod
     def _invoke_handler(
@@ -601,7 +719,7 @@ class ToolDispatcher:
     def _receipt(
         self,
         attempts: int,
-        context: ToolExecutionContext,
+        context: ToolExecutionContext | None,
         started: float,
         output_bytes: int,
         *,
@@ -611,11 +729,12 @@ class ToolDispatcher:
             attempts,
             ToolUsage(
                 max(0.0, self._clock() - started),
-                context.memory_bytes,
-                context.evaluation_count,
+                0 if context is None else context.memory_bytes,
+                0 if context is None else context.evaluation_count,
                 output_bytes,
             ),
             replayed,
+            None if context is None else context.transaction_id,
         )
 
     @staticmethod

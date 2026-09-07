@@ -11,6 +11,7 @@ from modelsurgeon.conversation import (
     ToolCancellationToken,
     ToolDispatcher,
     ToolEvidenceStatus,
+    ToolExecutionContext,
     ToolExecutionError,
     ToolExecutionResponse,
     ToolFailureCode,
@@ -123,9 +124,10 @@ def test_approval_is_bound_to_arguments_and_trusted_policy() -> None:
 
     calls = 0
 
-    def handler(_context: object) -> dict[str, object]:
+    def handler(context: ToolExecutionContext) -> dict[str, object]:
         nonlocal calls
         calls += 1
+        context.transaction.commit()
         return {
             "run_id": "run.fixture",
             "outcome": "supported",

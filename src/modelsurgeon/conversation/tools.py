@@ -124,6 +124,10 @@ class ToolFailureCode(StrEnum):
     APPROVAL_INVALID = "approval_invalid"
     TIMEOUT = "timeout"
     CANCELLED = "cancelled"
+    TRANSACTION_UNAVAILABLE = "transaction_unavailable"
+    TRANSACTION_REQUIRED = "transaction_required"
+    TRANSACTION_FAILED = "transaction_failed"
+    RETRY_NOT_SAFE = "retry_not_safe"
     INTERNAL = "internal"
 
 
