@@ -3,6 +3,8 @@
 Conversation summaries are bounded, non-authoritative transport views. They
 reduce transcript cost without becoming a second campaign store or an input
 that can alter a plan.
+The milestone-level authority and recovery claims are frozen in the [v2.7
+stateful campaign release boundary](../release/v2.7-stateful-campaigns-boundary.md).
 
 ## Authority zones
 

@@ -1,0 +1,194 @@
+{
+  "record_type": "bounded_stateful_campaign_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.7-stateful-campaign-release-v1",
+  "milestone": "v2.7",
+  "status": "closed",
+  "dependency_evidence": [
+    {
+      "issue": 469,
+      "key": "v27-canonical-state",
+      "status": "merged",
+      "commit": "0049ccdc5a4771ee0fc38d0b23a1d1fb2aac262f",
+      "artifacts": [
+        "src/modelsurgeon/conversation/campaign_state.py",
+        "docs/design/conversational-campaign-state.md",
+        "docs/design/conversational-control-plane.md"
+      ],
+      "tests": ["tests/test_campaign_state.py"]
+    },
+    {
+      "issue": 470,
+      "key": "v27-lifecycle",
+      "status": "merged",
+      "commit": "270bf0e9e1e5aca953d5640938173ca29f319e3e",
+      "artifacts": [
+        "src/modelsurgeon/conversation/campaign_state.py",
+        "src/modelsurgeon/conversation/execution.py",
+        "docs/design/chat-execution-adapter.md"
+      ],
+      "tests": ["tests/test_campaign_state.py", "tests/test_chat_execution.py"]
+    },
+    {
+      "issue": 471,
+      "key": "v27-stale",
+      "status": "merged",
+      "commit": "8b3eadce4e72ffef80e809f858834fcd8e3aaab0",
+      "artifacts": [
+        "src/modelsurgeon/conversation/replanning.py",
+        "docs/design/stale-conversational-replanning.md",
+        "docs/examples/stale_replanning.py"
+      ],
+      "tests": ["tests/test_replanning.py"]
+    },
+    {
+      "issue": 472,
+      "key": "v27-summary",
+      "status": "merged",
+      "commit": "67a737159d7c5d63daab7c52efda4664bfd910d9",
+      "artifacts": [
+        "src/modelsurgeon/conversation/summary.py",
+        "docs/design/conversational-summary.md"
+      ],
+      "tests": ["tests/test_conversation_summary.py"]
+    },
+    {
+      "issue": 473,
+      "key": "v27-recovery-matrix",
+      "status": "merged",
+      "commit": "535a13b5802e88db1c9c98d3344b47f26bc2f702",
+      "artifacts": [
+        "tests/fixtures/campaign_recovery_matrix_v1.json",
+        "docs/design/campaign-recovery-matrix.md",
+        "docs/research/v2.7-campaign-recovery-v1.json",
+        "tools/audit_v27_campaign_recovery.py"
+      ],
+      "tests": ["tests/test_campaign_recovery.py", "tests/test_v27_campaign_recovery.py"]
+    }
+  ],
+  "state_schema": {
+    "record_type": "conversational_campaign_state",
+    "schema_version": 1,
+    "authoritative_fields": [
+      "campaign_id",
+      "session_id",
+      "run_id",
+      "source_model_digest",
+      "spec",
+      "policy_state",
+      "approval",
+      "evidence_cursor",
+      "provider_context",
+      "budget",
+      "lifecycle",
+      "outcome",
+      "state_version",
+      "last_transition_id",
+      "provenance"
+    ],
+    "transition_policy": "expected_version_atomic_wal",
+    "evidence_policy": "append_only_cursor_addressed"
+  },
+  "authority_boundary": {
+    "structured_campaign_apis": "authoritative",
+    "canonical_campaign_store": "authoritative",
+    "chat_transcript": "not_authoritative",
+    "conversation_summary": "bounded_non_authoritative",
+    "provider_output": "not_authoritative",
+    "ui_reconnect": "not_correctness_evidence"
+  },
+  "recovery_evidence": {
+    "matrix_manifest": "docs/research/v2.7-campaign-recovery-v1.json",
+    "matrix_fixture": "tests/fixtures/campaign_recovery_matrix_v1.json",
+    "cell_count": 12,
+    "comparison": [
+      "canonical_state_digest",
+      "evidence_cursor",
+      "retained_evidence_and_artifacts",
+      "next_action",
+      "hard_constraints",
+      "resource_budget",
+      "source_model_digest",
+      "provenance"
+    ],
+    "process_restart": "tested_subprocess_reopen",
+    "atomic_faults": "bounded_sql_write_checkpoints_rollback"
+  },
+  "stale_expired_boundary": {
+    "stale_replan": "fail_closed_rebuild_from_canonical_state",
+    "expired_approval": "record_expiry_then_refuse_resume",
+    "cancelled_replay": "fail_closed",
+    "altered_summary": "fail_closed"
+  },
+  "operational_limitations": {
+    "writer_model": "single_store_owner_per_campaign",
+    "in_process_lock": "local_only",
+    "multi_writer_concurrency": "unsupported_release_guarantee",
+    "distributed_recovery": "unsupported",
+    "hostile_process_containment": "not_claimed",
+    "live_provider_and_model_quality": "not_run"
+  },
+  "duplicate_scope_review": {
+    "status": "passed",
+    "no_duplicate_authority": true,
+    "reviewed_issues": [
+      {"issue": 415, "boundary": "progress cursor and resumability remain the execution-layer authority"},
+      {"issue": 427, "boundary": "autonomous orchestration remains the planner/runner authority"},
+      {"issue": 428, "boundary": "approval and reproducibility packages remain the approval/artifact authority"}
+    ]
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "docs/goal.md",
+    "ARCHITECTURE.md",
+    "README.md",
+    "CHANGELOG.md",
+    "docs/design/conversational-campaign-state.md",
+    "docs/design/campaign-recovery-matrix.md",
+    "docs/design/stale-conversational-replanning.md",
+    "docs/design/conversational-summary.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/release/v2.7-stateful-campaigns-boundary.md"
+  ],
+  "tests": [
+    "tests/test_v27_campaign_release.py",
+    "tests/test_campaign_recovery.py",
+    "tests/test_campaign_state.py",
+    "tests/test_replanning.py",
+    "tests/test_conversation_summary.py",
+    "tests/test_v27_campaign_recovery.py"
+  ],
+  "examples": [
+    "docs/examples/campaign_recovery.py",
+    "docs/examples/stale_replanning.py"
+  ],
+  "reproduction_commands": [
+    "uv run --locked --extra dev python tools/audit_v27_campaign_release.py",
+    "uv run --locked --extra dev python docs/examples/campaign_recovery.py",
+    "uv run --locked --extra dev python docs/examples/stale_replanning.py",
+    "uv run --locked --extra dev pytest tests/test_v27_campaign_release.py tests/test_campaign_recovery.py tests/test_replanning.py tests/test_conversation_summary.py tests/test_campaign_state.py -q",
+    "git diff --check",
+    "uv run --locked --extra dev ruff check src tests",
+    "uv run --locked --extra dev mypy src/modelsurgeon",
+    "uv run --locked --extra dev pytest -q"
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "commands": [
+      "git diff --check",
+      "uv run --locked --extra dev ruff check src tests",
+      "uv run --locked --extra dev mypy src/modelsurgeon",
+      "uv run --locked --extra dev pytest -q"
+    ],
+    "revision": "issue-474-campaign-release",
+    "outcomes": [
+      "release audit passed",
+      "recovery and stale-replay examples passed",
+      "focused acceptance tests passed",
+      "full gate passed"
+    ],
+    "known_skips": [
+      "Multi-writer concurrency, distributed recovery, hostile-process containment, live providers, and model-quality recovery are unsupported or unclaimed."
+    ]
+  }
+}

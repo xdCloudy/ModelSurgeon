@@ -143,9 +143,9 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 [GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/27). The bounded exit is recorded in the [release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md) and [machine-readable release record](docs/research/v2.6-bounded-conversational-tool-release-v1.json): four allowlisted capability-scoped tools, strict schemas and budgets, read-only/consequential separation, approval and transaction gates, grounded result envelopes, deterministic replay, and adversarial boundary tests. Arbitrary shell/code execution, live provider/campaign evidence, and hostile-process containment remain outside the boundary.
 
-## v2.7 — Stateful Conversational Campaigns
+## v2.7 — Stateful Conversational Campaigns (closed)
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/28). Persist canonical campaign state while supporting pause, resume, cancel, reconnect, restart, stale-context detection and bounded history summarization. Entry is v2.3, v2.6, v1.9 resumability and v2.0 campaign state; exit is deterministic recovery with structured state authoritative over chat history. New evidence or plan changes must create visible versioned transitions.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/28). **Closed by issue #474.** The versioned [v2.7 stateful campaign release boundary](docs/release/v2.7-stateful-campaigns-boundary.md) reconciles merged #469 canonical state, #470 lifecycle/recovery, #471 stale replanning, #472 summary authority, and #473 recovery evidence. The exit is deterministic recovery with structured state authoritative over chat history, stale/expired paths failing closed, and unsupported multi-writer/distributed recovery stated explicitly.
 
 ## v2.8 — Evidence-grounded Explanations
 

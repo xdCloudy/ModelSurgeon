@@ -42,9 +42,9 @@ flowchart TD
   D --> P
 ```
 
-## Conversational control plane (v2.7 canonical state implemented; product planned for v2.8–v3.0)
+## Conversational control plane (v2.7 stateful campaigns closed; product planned for v2.8–v3.0)
 
-The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, v2.6 typed tool boundary, and v2.7 canonical campaign state store are implemented and frozen. The conversational product remains planned; the tool boundary and state store are not a general agent runtime or an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md), and [canonical campaign state design](docs/design/conversational-campaign-state.md).
+The repository currently exposes structured ModelSurgeon APIs and CLI workflows. The v2.0 autonomous optimizer release boundary freezes the evidence, compatibility, and claim policy; the bounded v2.1 intent-record, compiler, policy, and corpus contracts, v2.2 replaceable-provider boundary, v2.6 typed tool boundary, and the **closed v2.7 stateful campaign boundary** are implemented and frozen. The conversational product remains planned; the tool boundary and state store are not a general agent runtime or an alternate execution authority. See the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md), [v2.2 release boundary](docs/release/v2.2-provider-layer-boundary.md), [v2.6 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md), the [v2.7 release boundary](docs/release/v2.7-stateful-campaigns-boundary.md), and [canonical campaign state design](docs/design/conversational-campaign-state.md).
 
 ```text
 User request
@@ -72,7 +72,7 @@ The planned boundary has four non-negotiable properties:
 - Consequential calls pass through typed capabilities, transaction boundaries, existing approval gates and fail-closed validation. Provider secrets and untrusted text/metadata/tool output remain outside trusted evidence fields.
 - The v2.3 vertical slice keeps the optimizer's JSON stage cursor separate from the #469 WAL-backed campaign record. Accepted, rejected, unsupported, failed, paused, cancelled and no-artifact outcomes retain canonical engine evidence; only an accepted immutable digest can cross the artifact boundary.
 
-The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
+The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; **v2.7 closes canonical campaign state and bounded recovery**; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
 
 The v2.7 recovery guarantee is tested by a bounded fixture matrix, not by a
 successful UI reconnect. Recovery compares canonical state, evidence cursors,
@@ -80,6 +80,13 @@ retained artifacts, actions, budgets, provenance, hard constraints and source
 identity through both direct/store and summary/chat paths. Atomic fault
 checkpoints and a separate-process reopen are included; hostile-process
 containment and UI correctness remain outside the claim.
+
+The v2.7 release guarantee is local and bounded: one owning store instance per
+campaign, with a process-local lock and SQLite WAL durability across the tested
+reopen boundary. Multi-writer concurrency, distributed coordination or
+cross-host recovery are unsupported release guarantees. The boundary composes
+with #415 progress resumability, #427 autonomous orchestration and #428
+approval/reproducibility packages without replacing their authorities.
 
 ### v2.5 negotiation decision-quality boundary
 

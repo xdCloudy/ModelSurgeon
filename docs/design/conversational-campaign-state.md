@@ -20,6 +20,12 @@ session identities. A process restart therefore loads the latest committed
 canonical record without replaying chat, and losing a transcript does not lose
 the campaign.
 
+The closed v2.7 boundary is recorded in the [stateful campaign release
+boundary](../release/v2.7-stateful-campaigns-boundary.md) and its
+[machine-readable evidence manifest](../research/v2.7-stateful-campaign-release-v1.json).
+The direct structured campaign APIs and this store remain authoritative;
+conversation summaries and chat transcripts are transport/context only.
+
 ## Versioned transitions
 
 State is stored in SQLite with WAL journaling and a checksummed schema
@@ -80,4 +86,6 @@ with CampaignStateStore("campaign-state.sqlite3") as store:
 
 The store persists campaign state and canonical evidence only. It does not
 execute model operations, choose tensors, relax constraints, or turn provider
-output into evidence.
+output into evidence. Its lock is process-local and the release supports one
+owning store instance per campaign. Multi-writer concurrency, distributed
+coordination, and cross-host recovery are outside the v2.7 guarantee.
