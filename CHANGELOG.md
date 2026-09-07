@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Close the v2.4 clarification and ambiguity milestone for issue #457. Freeze
+  the necessary-only question policy, fail-closed contradiction and preference
+  handling, typed measurable-target boundary, deterministic replay/provenance,
+  resource limits, supported language/metric cells, and known skips in the
+  [v2.4 release boundary](docs/release/v2.4-clarification-boundary.md) and
+  machine-readable release record. Retain the 44-cell study, including
+  negative and inconclusive results; no general natural-language understanding
+  or autonomous objective negotiation is claimed.
+
 - Validate the first supported conversational vertical slice for issue #452.
   Chat execution now projects the stable optimize run into canonical campaign
   state with exact spec/plan/source provenance, ordered evidence references,

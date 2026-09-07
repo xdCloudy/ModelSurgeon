@@ -72,7 +72,27 @@ The planned boundary has four non-negotiable properties:
 - Consequential calls pass through typed capabilities, transaction boundaries, existing approval gates and fail-closed validation. Provider secrets and untrusted text/metadata/tool output remain outside trusted evidence fields.
 - The v2.3 vertical slice keeps the optimizer's JSON stage cursor separate from the #469 WAL-backed campaign record. Accepted, rejected, unsupported, failed, paused, cancelled and no-artifact outcomes retain canonical engine evidence; only an accepted immutable digest can cross the artifact boundary.
 
-The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4–v2.5 add clarification and explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
+The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 adds explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
+
+### v2.4 clarification boundary
+
+The v2.4 layer is a deterministic control-plane state machine around the
+existing `IntentRecord` and `IntentPolicyDecision`; it is not a second
+objective schema or an alternate surgery authority. It asks only for a
+necessary executable field, required ambiguity, low-confidence required field,
+or explicit soft-preference ordering. Refused contradictions and unsupported
+fields do not receive questions. Typed answers create derived intents with
+clarification provenance and are recompiled through the same fail-closed policy
+before an `OptimizationSpec` can appear.
+
+State, question, answer, transition, policy, study-result, and run identities
+are derived from canonical JSON. Replay re-evaluates the root intent and answer
+sequence and rejects altered policy or state. Hard constraints, source-model
+immutability, deterministic IDs/provenance, engine-owned resource budgets,
+measurement, acceptance, rollback, and publication remain outside the
+clarification layer. The supported language and metric cells, bounded study
+limits, known skips, and non-claims are frozen in the
+[v2.4 release boundary](docs/release/v2.4-clarification-boundary.md).
 
 The request-version-1/result-version-2 tool boundary and trusted dispatcher are documented in
 [`docs/design/conversational-tool-schemas.md`](docs/design/conversational-tool-schemas.md).

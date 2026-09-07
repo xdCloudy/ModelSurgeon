@@ -49,3 +49,6 @@ provider. They produce `ambiguous-preference-ordering` and
 conflicting field IDs. A typed answer may select one of those existing soft
 fields; it cannot remove or weaken any hard constraint. The resulting intent is
 recompiled and re-evaluated before a spec can appear in a preview.
+
+The v2.4 supported-question policy, metric vocabulary, unsupported cells, and
+known non-claims are frozen in the [release boundary](../release/v2.4-clarification-boundary.md).

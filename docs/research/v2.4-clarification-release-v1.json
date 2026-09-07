@@ -1,0 +1,231 @@
+{
+  "record_type": "bounded_clarification_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.4-clarification-release-v1",
+  "milestone": "v2.4",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 453,
+      "key": "v24-clarification-state",
+      "status": "merged",
+      "commit": "f6fd437b3ebf7d7282d936c88711aeb51c2d8ceb",
+      "artifacts": [
+        "src/modelsurgeon/conversation/clarification.py",
+        "docs/design/clarification-state-machine.md"
+      ],
+      "tests": ["tests/test_clarification.py"]
+    },
+    {
+      "issue": 454,
+      "key": "v24-contradictions",
+      "status": "merged",
+      "commit": "09241f4f9bc8997debeb7d07681b68e03144c598",
+      "artifacts": [
+        "src/modelsurgeon/search/intent_compiler.py",
+        "src/modelsurgeon/search/intent_policy.py",
+        "docs/design/intent-policy.md"
+      ],
+      "tests": [
+        "tests/test_clarification.py",
+        "tests/test_intent_compiler.py",
+        "tests/test_intent_policy.py"
+      ]
+    },
+    {
+      "issue": 455,
+      "key": "v24-measurable-targets",
+      "status": "merged",
+      "commit": "94781c862df2a41e0594299da25ecf4e5c71acb8",
+      "artifacts": [
+        "src/modelsurgeon/conversation/targets.py",
+        "docs/design/measurable-target-elicitation.md"
+      ],
+      "tests": ["tests/test_measurable_targets.py"]
+    },
+    {
+      "issue": 456,
+      "key": "v24-research",
+      "status": "merged",
+      "commit": "4b836287d76e4839a9882dccfa38a8a0ac2f0cc0",
+      "artifacts": [
+        "src/modelsurgeon/conversation/clarification_study.py",
+        "tests/fixtures/clarification_measurement_v1.json",
+        "docs/design/clarification-measurement.md"
+      ],
+      "tests": ["tests/test_clarification_study.py"]
+    }
+  ],
+  "clarification_contract": {
+    "schema_version": 1,
+    "states": [
+      "ambiguous",
+      "cancelled",
+      "contradictory",
+      "executable",
+      "incomplete",
+      "repeated",
+      "unsupported"
+    ],
+    "outcome_precedence": [
+      "refused",
+      "unsupported",
+      "clarification_required",
+      "executable"
+    ],
+    "question_categories": [
+      "conflicting-soft-objective",
+      "low-confidence",
+      "missing-hard-constraint",
+      "unresolved-ambiguity",
+      "vague"
+    ],
+    "typed_answers_only": true,
+    "hard_constraints_mutable_by_answer": false,
+    "contradictory_hard_constraints_receive_questions": false,
+    "provider_or_optimizer_called_by_boundary": false,
+    "general_natural_language_understanding": "not_claimed",
+    "autonomous_objective_negotiation": "not_claimed"
+  },
+  "target_policy": {
+    "recognized_measures": [
+      "disk_size",
+      "latency",
+      "memory",
+      "parameter_count",
+      "perplexity",
+      "quality",
+      "throughput"
+    ],
+    "complete_requires": [
+      "metric",
+      "direction",
+      "unit",
+      "typed_threshold_for_hard_constraints",
+      "executable_policy"
+    ],
+    "unknown_metric_outcome": "unsupported",
+    "default_threshold": null,
+    "default_baseline": null,
+    "deployment_compatibility_claim": "not_inferred"
+  },
+  "evidence": {
+    "protocol_id": "v24-clarification-measurement-v1",
+    "protocol_record": "tests/fixtures/clarification_measurement_v1.json",
+    "source_corpus": "tests/fixtures/intent_compiler_corpus_v1.json",
+    "retained_case_count": 11,
+    "retained_cell_count": 44,
+    "policies": [
+      "schema_driven",
+      "schema_only",
+      "minimal_question",
+      "over_questioning"
+    ],
+    "schema_driven_metrics": {
+      "necessary_question_recall": 1.0,
+      "unnecessary_question_rate": 0.0,
+      "silent_constraint_invention_rate": 0.0,
+      "executable_spec_precision": 1.0,
+      "executable_spec_recall": 1.0,
+      "exact_spec_equivalence_rate": 1.0,
+      "refusal_correctness_rate": 1.0
+    },
+    "run_id": "clarification_study_run_9d8144b2aafceceea092c8914aeadb2ce7e95a00ae7d7f3be57b3e6c1a3e46ae",
+    "negative_and_inconclusive_retained": true,
+    "live_provider_benchmarks": "not_run",
+    "live_model_quality": "not_run",
+    "provider_replay_seeds": []
+  },
+  "limits": {
+    "max_cases": 64,
+    "max_questions_per_case": 16,
+    "max_provider_replay_seeds": 3,
+    "hostile_process_containment": "not_claimed"
+  },
+  "authority_and_identity": {
+    "hard_constraints_preserved": true,
+    "source_model_immutable": true,
+    "provenance_retained": true,
+    "execution_authority": "deterministic_modelsurgeon_engine",
+    "canonical_identity_fields": [
+      "question_id",
+      "answer_digest",
+      "state_id",
+      "decision_id",
+      "result_id",
+      "run_id"
+    ]
+  },
+  "unsupported_cells": [
+    {
+      "cell": "unknown_metric",
+      "status": "unsupported",
+      "reason": "the target assessor retains unknown metric labels and does not coerce them"
+    },
+    {
+      "cell": "budget_field_in_v2_objective",
+      "status": "unsupported",
+      "reason": "the v2.1 objective record cannot represent it"
+    },
+    {
+      "cell": "allowed_operation_field_in_v2_objective",
+      "status": "unsupported",
+      "reason": "the v2.1 objective record cannot represent it"
+    },
+    {
+      "cell": "deployment_target_execution",
+      "status": "unsupported",
+      "reason": "clarification can elicit a target but does not verify compatibility"
+    },
+    {
+      "cell": "raw_provider_text_answer",
+      "status": "unsupported",
+      "reason": "the state machine accepts only bounded typed JSON answers"
+    },
+    {
+      "cell": "arbitrary_language_or_locale",
+      "status": "not_claimed",
+      "reason": "the boundary stores original text but does not promise general language understanding"
+    },
+    {
+      "cell": "autonomous_negotiation",
+      "status": "not_claimed",
+      "reason": "constraint amendments belong to a later explicit negotiation milestone"
+    }
+  ],
+  "direct_api_compatibility": {
+    "preserved": true,
+    "tests": ["tests/test_optimization.py", "tests/test_config.py"]
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "README.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md",
+    "docs/design/clarification-state-machine.md",
+    "docs/design/clarification-measurement.md",
+    "docs/design/measurable-target-elicitation.md",
+    "docs/design/intent-policy.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/release/v2.4-clarification-boundary.md",
+    "CHANGELOG.md"
+  ],
+  "reproduction_commands": [
+    "python tools/run_clarification_study.py",
+    "python tools/run_clarification_study.py --json",
+    "python tools/audit_v24_clarification_release.py"
+  ],
+  "quality_gate": {
+    "commands": [
+      "git diff --check",
+      ".venv\\Scripts\\python.exe -m ruff check src tests",
+      ".venv\\Scripts\\python.exe -m mypy src/modelsurgeon",
+      ".venv\\Scripts\\python.exe -m pytest -q"
+    ],
+    "runtime": "project-managed Python 3.12 environment",
+    "known_skips": [
+      "No live provider, hosted credential, general-language, model-quality, deployment-compatibility, or autonomous-negotiation run is part of this release boundary.",
+      "Optional torch, safetensors, LightGBM, CUDA, and llama.cpp tests remain environment-gated skips where their dependencies are unavailable."
+    ]
+  }
+}
