@@ -1,0 +1,23 @@
+{
+  "record_type": "empirical_hardware_runtime_profile_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.3-hardware-profile-v1",
+  "minimum_warmups": 2,
+  "minimum_repetitions": 7,
+  "probes": [
+    {"kind": "bandwidth", "unit": "GB/s", "budget_seconds": 60},
+    {"kind": "transfer", "unit": "GB/s", "budget_seconds": 60},
+    {"kind": "gemm", "unit": "TFLOP/s", "budget_seconds": 120},
+    {"kind": "model_load", "unit": "GB/s", "budget_seconds": 300},
+    {"kind": "llama_cpp_offload", "unit": "tokens/s", "budget_seconds": 300}
+  ],
+  "target_classes": ["cpu_only", "low_vram", "laptop", "workstation"],
+  "reference_targets": [
+    {"name": "reference-windows-cpu", "os": "Windows", "cuda": null, "status": "declared_target"},
+    {"name": "reference-wsl-cpu", "os": "WSL2", "cuda": null, "status": "declared_target"},
+    {"name": "reference-rtx3060-workstation", "gpu": "NVIDIA RTX 3060", "vram_bytes": null, "status": "populate_from_inventory"}
+  ],
+  "drift_policy": "reject measured probe when normalized hardware context or available environment fingerprint changes",
+  "negative_result_policy": "retain unsupported, failed, and unknown probe outcomes with reasons; never infer unavailable sensor values",
+  "reproduction": "build_default_hardware_profile() and render_hardware_profile_protocol()"
+}
