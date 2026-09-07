@@ -1,0 +1,30 @@
+{
+  "record_type": "local_artifact_registry_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-local-artifact-registry-v1",
+  "artifact_kinds": ["model", "surgeon", "evidence"],
+  "outcomes": ["verified", "incomplete", "unsigned", "failed", "unsupported", "unknown"],
+  "operations": [
+    "list",
+    "inspect",
+    "verify",
+    "tag",
+    "export",
+    "import",
+    "garbage_collect",
+    "compare"
+  ],
+  "safety_invariants": [
+    "source_accepted_leased_referenced_and_externally_unresolved_objects_are_gc_protected",
+    "aliases_never_change_object_identity",
+    "imports_verify_complete_bundle_digest_schema_license_and_signature_before_visibility",
+    "no_implicit_network_transfer"
+  ],
+  "negative_cells": [
+    "tampered_payload_rejected",
+    "incomplete_bundle_rejected",
+    "unsigned_evidence_rejected_by_default",
+    "incompatible_license_rejected"
+  ],
+  "reproduction": "LocalArtifactRegistry(root) with deterministic payload fixtures and registry CLI JSON"
+}
