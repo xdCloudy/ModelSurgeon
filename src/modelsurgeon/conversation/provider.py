@@ -676,6 +676,14 @@ def invoke_provider(
     """
 
     token = cancellation or CancellationToken()
+    if token.cancelled:
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.CANCELLED,
+            ProviderFailureCode.CANCELLED,
+            "provider request was cancelled before start",
+        )
     missing = tuple(
         capability
         for capability in _required_capabilities(request)
@@ -689,14 +697,6 @@ def invoke_provider(
             ProviderFailureCode.PROTOCOL,
             "provider does not advertise the required capability",
             unsupported=missing,
-        )
-    if token.cancelled:
-        return _failure_result(
-            provider,
-            request,
-            ProviderOutcome.CANCELLED,
-            ProviderFailureCode.CANCELLED,
-            "provider request was cancelled before start",
         )
     if request.budget.max_wall_seconds > provider.capability_card.limits.max_wall_seconds:
         return _failure_result(
@@ -802,6 +802,14 @@ def invoke_provider(
             "provider returned no result",
         )
     returned = result[0]
+    if not isinstance(returned, ProviderResult):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.MALFORMED_OUTPUT,
+            ProviderFailureCode.PROTOCOL,
+            "provider returned a value outside the result contract",
+        )
     if returned.request_id != request.request_id or returned.operation is not request.operation:
         return _failure_result(
             provider,
@@ -810,6 +818,47 @@ def invoke_provider(
             ProviderFailureCode.PROTOCOL,
             "provider result identity does not match the request",
         )
+    if returned.provider != provider.identity:
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.MALFORMED_OUTPUT,
+            ProviderFailureCode.PROTOCOL,
+            "provider result identity does not match the selected provider",
+        )
+    if returned.provenance.provider_revision != provider.capability_card.provider_revision:
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.MALFORMED_OUTPUT,
+            ProviderFailureCode.PROTOCOL,
+            "provider result provenance revision does not match the capability card",
+        )
+    if returned.provenance.request_digest != request_digest(request):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.MALFORMED_OUTPUT,
+            ProviderFailureCode.PROTOCOL,
+            "provider result provenance does not match the request",
+        )
+    if returned.outcome is ProviderOutcome.SUPPORTED:
+        try:
+            if returned.output is None or returned.provenance.response_digest is None:
+                raise ProviderContractError("supported result is missing validated provenance")
+            # Re-decode the typed value at the shared boundary.  This prevents
+            # an implementation from constructing an executable-looking
+            # output without passing the same untrusted-output decoder used by
+            # adapter implementations.
+            decode_provider_output(request, returned.output.to_record())
+        except (AttributeError, ProviderContractError, TypeError, ValueError):
+            return _failure_result(
+                provider,
+                request,
+                ProviderOutcome.MALFORMED_OUTPUT,
+                ProviderFailureCode.PROTOCOL,
+                "provider returned output that failed shared validation",
+            )
     return returned
 
 
