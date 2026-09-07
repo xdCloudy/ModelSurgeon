@@ -24,3 +24,4 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.1 unstructured baseline evidence](v1.1-unstructured-baseline-evidence-v1.json)
 - [v1.1 structured baseline evidence](v1.1-structured-baseline-evidence-v1.json)
 
+- v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
