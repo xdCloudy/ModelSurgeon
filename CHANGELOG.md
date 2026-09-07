@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded hardware-cost predictors with train-only feature schemas,
+  validation-calibrated intervals, held-out model/artifact/hardware checks,
+  analytic and mean baselines, explicit OOD rejection, and retained negative
+  or unsupported evidence cells.
 - Add profile-partitioned hardware cost dataset records that retain repeated deployment
   distributions, artifact checksums, runtime configuration, benchmark provenance, and
   leakage-safe model/artifact/hardware lineage splits.
