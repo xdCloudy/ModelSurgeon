@@ -14,13 +14,13 @@ from modelsurgeon.optimization import (
     build_optimize_plan,
     write_optimize_plan,
 )
-from modelsurgeon.provider_kind import ProviderKind
 from modelsurgeon.optimization_orchestrator import (
     OptimizeOrchestrator,
     OptimizeOrchestratorError,
     PreflightRuntime,
     load_optimize_runtime,
 )
+from modelsurgeon.provider_kind import ProviderKind
 
 
 def optimize_command(
