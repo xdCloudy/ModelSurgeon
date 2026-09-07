@@ -8,6 +8,9 @@
 - Add bounded immutable teacher-target chunks with model/tokenizer/example compatibility keys,
   checksum validation, resumable publication, cache hit/miss byte telemetry, and deterministic
   random/domain-balanced/diversity/recoverability selection that excludes held-out examples.
+- Add conditional repair-recoverability predictors for held-out gain and success probability,
+  calibrated intervals, action/budget compatibility, model/state/candidate leakage checks,
+  conservative no-repair selection, and retained negative, failed, unsupported, and unknown cells.
 - Add a unified bounded repair outcome schema for no-repair, LoRA,
   selected/full fine-tuning, and logit/feature distillation with explicit
   budgets, held-out improvement evidence, teacher/data/tokenizer lineage,
