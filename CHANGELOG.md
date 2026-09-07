@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+_No unreleased changes._
+
+## 1.0.0 - 2026-09-07
+
 - Define the supported package-level Python API, experimental implementation boundary, and
   schema-versioning compatibility policy for the v1.0 stabilization work.
 - Smoke-test plain, non-interactive help for every public CLI command and document

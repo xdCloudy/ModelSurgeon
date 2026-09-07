@@ -39,7 +39,7 @@ The v2.1–v3.0 roadmap plans a conversational control plane around the determin
 
 ## Project status
 
-Current package version: **`0.0.1` (pre-alpha)**. The v0.5–v0.9 research path has reproducible repository evidence; **v1.0 stabilization is in progress**.
+Current package version: **`1.0.0` (evidence-bounded research release)**. The v0.5–v0.9 research path and the v1.0 release boundary have reproducible repository evidence; production-wide support is not implied.
 
 | Area | State | Current capability |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Current package version: **`0.0.1` (pre-alpha)**. The v0.5–v0.9 research path 
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
-| Public/release surface | **In progress** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
+| Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | Conversational control plane | **Planned** | v2.1–v3.0 work covers intent compilation, replaceable providers, bounded tools, state, evidence-grounded explanations and approvals; `modelsurgeon chat` is not yet a current capability. |
 
 Measured evidence currently includes:
