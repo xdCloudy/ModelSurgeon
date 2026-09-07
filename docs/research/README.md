@@ -22,4 +22,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.1 equal-budget benchmark protocol](v1.1-benchmark-protocol-v1.json)
 - [v1.1 contamination and license audit](v1.1-benchmark-contamination-license-audit-v1.json)
 - [v1.1 unstructured baseline evidence](v1.1-unstructured-baseline-evidence-v1.json)
+- [v1.1 structured baseline evidence](v1.1-structured-baseline-evidence-v1.json)
 
