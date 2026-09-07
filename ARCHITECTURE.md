@@ -230,6 +230,12 @@ Deterministic experiment IDs derive from canonical configuration and immutable i
 
 For native quantized surgery, every experiment can include a matched requantization control: decode and re-encode the affected region without surgery. Evaluation reports separate baseline quantization loss, surgery loss and their interaction.
 
+Canonical evidence queries also provide a deterministic negative-evidence
+explanation projection. It joins allowlisted mutation, evaluation and rollback
+records, preserves metric direction/unit/threshold/uncertainty and full
+lineage, and emits explicit incomplete/unknown fields. Unsupported is not
+failed, unknown is not rejected, and rollback is never an acceptance claim.
+
 ## Surgeon training and active learning
 
 The model ladder is heuristic, linear/logistic, LightGBM/XGBoost, small MLP, then set/sequence/GNN/transformer only if validation shows simpler models saturate. Targets include delta loss/perplexity/behaviour/latency/parameters and probability of satisfying a constraint. Quantization, feature precision, estimated quantization error and hardware are input features.

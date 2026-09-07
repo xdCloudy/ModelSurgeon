@@ -18,6 +18,7 @@ from modelsurgeon.conversation import (
     new_campaign_state,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.explain import explain_negative_evidence
 
 
 def digest(value: object) -> str:
@@ -48,19 +49,48 @@ def main() -> None:
         "evidence_example",
         state.source_model_digest,
         CampaignOutcome.SUPPORTED,
-        "measured fixture accepted",
+        "measured fixture rejected: quality retention was below the hard threshold",
         {
             "record_type": "example_measurement",
-            "decision": "accepted",
+            "decision": "rejected",
             "measurements": {
                 "quality": {
-                    "value": 0.97,
-                    "unit": "score",
-                    "uncertainty": {"confidence": 0.95, "sample_count": 3},
+                    "value": 0.91,
+                    "unit": "ratio",
+                    "uncertainty": {
+                        "lower_bound": 0.89,
+                        "upper_bound": 0.93,
+                        "confidence": 0.95,
+                        "sample_count": 3,
+                    },
                 }
             },
+            "mutation_record": {
+                "record_type": "canonical_mutation",
+                "mutation_id": "mutation_example",
+            },
+            "evaluation_record": {
+                "record_type": "canonical_evaluation",
+                "evaluation_id": "evaluation_example",
+                "constraint_evaluation": {
+                    "passed": False,
+                    "results": [
+                        {
+                            "constraint": {
+                                "metric": "quality",
+                                "comparison": "minimum",
+                                "threshold": 0.95,
+                                "unit": "ratio",
+                            },
+                            "observed": 0.91,
+                            "passed": False,
+                            "reason": "threshold_violation",
+                        }
+                    ],
+                },
+            },
         },
-        artifact_digest="sha256:" + "b" * 64,
+        artifact_digest=None,
     )
     state = replace(
         state,
@@ -75,6 +105,7 @@ def main() -> None:
     )
     response = EvidenceQueryEngine(snapshot).query(query)
     print(json.dumps(response.to_record(), indent=2, sort_keys=True))
+    print(explain_negative_evidence(snapshot, query).to_text(), end="")
 
 
 if __name__ == "__main__":

@@ -102,6 +102,49 @@ query = EvidenceQuery(
 response = EvidenceQueryEngine(snapshot).query(query)
 ```
 
+## Negative-evidence explanations
+
+`explain_negative_evidence(snapshot, query)` builds a deterministic
+`NegativeEvidenceReport` from the same query response. It adds the known
+canonical mutation, evaluation, and rollback records to each row, then
+renders measured metrics with their value, unit, comparison direction,
+threshold, and retained uncertainty. The explanation keeps the evidence ID,
+source digest, mutation/evaluation/rollback IDs, parent links, and artifact
+digests together so a factual statement can be replayed from the snapshot.
+
+Negative outcomes are deliberately not interchangeable:
+
+| Outcome | Meaning | What the explanation may say |
+| --- | --- | --- |
+| `rejected` | Measured evidence did not satisfy a hard qualification rule. | Name the observed metric, direction, threshold, uncertainty, and failed reason. |
+| `rolled_back` | The candidate state was reverted after the lifecycle decision. | State the rollback and its lineage; rollback never implies acceptance. |
+| `failed` | Execution or evaluation failed. | Preserve the failure detail; do not call it unsupported or untried. |
+| `unsupported` | The requested operation is outside the verified capability boundary. | Say it was unsupported, distinct from failed, without inventing measurements. |
+| `unknown` | The retained record cannot establish the outcome. | Emit an explicit unknown/incomplete qualification rather than rejection. |
+| `inconclusive` | Evidence exists but cannot support a qualifying decision. | Preserve the measurements and uncertainty while marking the decision inconclusive. |
+
+Missing mutation/evaluation/rollback records, metrics, or qualification
+reasons are listed in `unknown_fields` and make the explanation
+`incomplete`. They are never reconstructed from provider text, predictions,
+or absent fields. `NegativeEvidenceReport.from_record()` validates the
+deterministic report and explanation IDs for exact replay.
+
+Example:
+
+```python
+from modelsurgeon.conversation import EvidenceQuery
+from modelsurgeon.explain import NegativeEvidenceReport, explain_negative_evidence
+
+report = explain_negative_evidence(
+    snapshot,
+    EvidenceQuery(snapshot.campaign.campaign_id),
+)
+print(report.to_text())
+assert report.canonical_json() == NegativeEvidenceReport.from_record(
+    report.to_record()
+).canonical_json()
+```
+
 The response is evidence, not an explanation. A text model may summarize the
 response, but every factual claim must retain the relevant evidence ID or be
 marked unavailable.
