@@ -130,3 +130,6 @@ tool output budgets are smaller and explicit.
 This boundary does not add shell, Python, filesystem, network, provider,
 model-session, or generic callback authority to the text model. Direct
 CLI/Python callers remain independent of this boundary.
+
+The deterministic adversarial corpus and its limitations are documented in
+[`conversational-tool-boundary-adversarial.md`](../testing/conversational-tool-boundary-adversarial.md).
