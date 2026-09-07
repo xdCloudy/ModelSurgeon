@@ -1,0 +1,15 @@
+{
+  "record_type": "structural_surgeon_model_study",
+  "schema_version": 1,
+  "protocol_revision": "structural-models-v1",
+  "model_families": ["mlp_baseline", "set_transformer", "graph_surgeon"],
+  "required_seeds": 5,
+  "heldout_policy": "model revision, parent state, and lineage group are disjoint across train, validation, and test",
+  "metrics": ["mae", "rmse", "ranking_accuracy"],
+  "resource_metrics": ["parameter_count", "peak_memory_bytes", "inference_latency_milliseconds"],
+  "ablations": ["no_graph_topology", "no_order_history", "no_parameter_count"],
+  "selection_policy": "select added structure only when its held-out MAE interval is entirely below the MLP baseline and resource budgets pass",
+  "censoring": "unsupported, failed, and unknown outcomes are retained but excluded from fitting and measured metrics",
+  "claim_boundary": "No structural-model superiority claim without held-out uncertainty and explicit resource accounting.",
+  "reproduction": "evaluate_structural_models()"
+}
