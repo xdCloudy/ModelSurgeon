@@ -1,0 +1,163 @@
+{
+  "record_type": "provider_layer_release_boundary",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.2-provider-layer-release-v1",
+  "milestone": "v2.2",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 442,
+      "key": "v22-provider-contract",
+      "status": "merged",
+      "commit": "e7b147f",
+      "artifacts": [
+        "src/modelsurgeon/conversation/provider.py",
+        "docs/design/text-model-provider-interface.md"
+      ],
+      "tests": ["tests/test_provider_interface.py"]
+    },
+    {
+      "issue": 443,
+      "key": "v22-local-provider",
+      "status": "merged",
+      "commit": "aebc455",
+      "artifacts": [
+        "src/modelsurgeon/conversation/local_gguf.py",
+        "docs/user-guides/native-gguf.md"
+      ],
+      "tests": ["tests/test_local_gguf_provider.py"]
+    },
+    {
+      "issue": 444,
+      "key": "v22-remote-provider",
+      "status": "merged",
+      "commit": "2de080d",
+      "artifacts": [
+        "src/modelsurgeon/conversation/endpoint.py",
+        "docs/design/hosted-provider-adapters.md"
+      ],
+      "tests": ["tests/test_endpoint_adapters.py"]
+    },
+    {
+      "issue": 445,
+      "key": "v22-direct-api-config",
+      "status": "merged",
+      "commit": "6e60519",
+      "artifacts": [
+        "src/modelsurgeon/config.py",
+        "src/modelsurgeon/cli/provider.py",
+        "docs/research/v2.2-direct-api-config-v1.json"
+      ],
+      "tests": [
+        "tests/test_provider_configuration.py",
+        "tests/test_optimization.py"
+      ]
+    },
+    {
+      "issue": 446,
+      "key": "v22-conformance",
+      "status": "merged",
+      "commit": "9fd83bf",
+      "artifacts": [
+        "src/modelsurgeon/conversation/conformance.py",
+        "docs/testing/provider-conformance.md"
+      ],
+      "tests": ["tests/test_provider_conformance.py"]
+    }
+  ],
+  "conformance_matrix": {
+    "provider_kinds": ["local", "compatible_endpoint", "hosted", "none"],
+    "capabilities": [
+      "structured_output",
+      "refusal",
+      "timeout",
+      "cancellation",
+      "token_budget",
+      "resource_budget",
+      "provenance"
+    ],
+    "cells": [
+      {"kind": "local", "capability": "structured_output", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "refusal", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "timeout", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "cancellation", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "token_budget", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "resource_budget", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "local", "capability": "provenance", "status": "supported", "rationale": "deterministic offline fixture"},
+      {"kind": "compatible_endpoint", "capability": "structured_output", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "refusal", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "timeout", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "cancellation", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "token_budget", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "resource_budget", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "compatible_endpoint", "capability": "provenance", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "structured_output", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "refusal", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "timeout", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "cancellation", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "token_budget", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "resource_budget", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "hosted", "capability": "provenance", "status": "supported", "rationale": "deterministic transport fixture"},
+      {"kind": "none", "capability": "structured_output", "status": "unsupported", "rationale": "unsupported because no-LLM mode has no text-model capability"},
+      {"kind": "none", "capability": "refusal", "status": "supported", "rationale": "explicit unsupported result is retained as a refusal"},
+      {"kind": "none", "capability": "timeout", "status": "unsupported", "rationale": "unsupported because no request is executed in no-LLM mode"},
+      {"kind": "none", "capability": "cancellation", "status": "supported", "rationale": "pre-cancelled requests return an explicit cancellation outcome"},
+      {"kind": "none", "capability": "token_budget", "status": "unsupported", "rationale": "unsupported because no-LLM mode advertises no request capability"},
+      {"kind": "none", "capability": "resource_budget", "status": "unsupported", "rationale": "unsupported because no-LLM mode advertises no request capability"},
+      {"kind": "none", "capability": "provenance", "status": "supported", "rationale": "explicit refusal retains deterministic provider provenance"}
+    ]
+  },
+  "direct_api_no_llm": {
+    "default_provider_kind": "none",
+    "guarantees": [
+      "direct CLI and Python optimization do not resolve a provider",
+      "no conversational state is created by direct optimization",
+      "provider configuration cannot override hard optimization policy",
+      "invalid provider configuration fails with a stable diagnostic"
+    ],
+    "evidence_tests": [
+      "tests/test_provider_configuration.py",
+      "tests/test_optimization.py",
+      "tests/test_config.py",
+      "tests/test_config_io.py"
+    ]
+  },
+  "core_execution_isolation": {
+    "modules": [
+      "src/modelsurgeon/config.py",
+      "src/modelsurgeon/config_io.py",
+      "src/modelsurgeon/optimization.py",
+      "src/modelsurgeon/optimization_orchestrator.py",
+      "src/modelsurgeon/provider_kind.py"
+    ],
+    "forbidden_import_prefixes": [
+      "modelsurgeon.conversation",
+      "modelsurgeon.providers"
+    ],
+    "policy": "core planning and execution must not import provider adapters or provider composition"
+  },
+  "evidence_policy": {
+    "fixture_results": "protocol evidence only; not optimization quality evidence",
+    "live_provider_benchmarks": "not_run",
+    "negative_and_inconclusive": "Hosted service calls, credentials, model-quality scores, and live runtime benchmarks were not run. The no-LLM structured-output, timeout, token-budget, and resource-budget cells remain explicitly unsupported."
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "README.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/design/configuration.md",
+    "docs/design/text-model-provider-interface.md",
+    "docs/testing/provider-conformance.md",
+    "docs/release/v2.2-provider-layer-boundary.md"
+  ],
+  "quality_gate": {
+    "commands": [
+      "uv run --locked --extra dev ruff check .",
+      "uv run --locked --extra dev mypy src",
+      "uv run --locked --extra dev pytest"
+    ],
+    "runtime": "project-managed uv environment, Python 3.12"
+  }
+}

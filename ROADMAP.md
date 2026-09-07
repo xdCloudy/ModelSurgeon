@@ -123,9 +123,9 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 [GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/22). Compile plain-English intent into the stable v2 `OptimizationSpec` contract. Entry is the frozen v2.0 objective/API boundary, especially #422; the bounded exit is recorded in [`docs/design/conversational-intent-contract.md`](docs/design/conversational-intent-contract.md) and [`docs/research/v2.1-conversational-intent-contract-v1.json`](docs/research/v2.1-conversational-intent-contract-v1.json): deterministic serialization, provenance, confidence/ambiguity/refusal behavior, retained negative evidence, and rephrasing/refusal tests. This is a control-plane compiler only: it cannot choose tensors, relax hard constraints or promote artifacts. `modelsurgeon chat` and the later provider, clarification, state, tool-execution, and explanation layers remain planned work.
 
-## v2.2 — Replaceable Text-model Provider Layer
+## v2.2 — Replaceable Text-model Provider Layer (boundary frozen)
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/23). Make the conversational model replaceable across local GGUF, compatible endpoints, supported hosted providers and no-LLM direct APIs. Entry is the v2 contract plus v1.9 plugin/runtime interfaces; exit is provider capability discovery, configuration, isolation, failure semantics and conformance evidence. Core execution remains provider-neutral and local-first remains a first-class target.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/23). Make the conversational model replaceable across local GGUF, compatible endpoints, supported hosted providers and no-LLM direct APIs. The bounded exit is recorded in [`docs/release/v2.2-provider-layer-boundary.md`](docs/release/v2.2-provider-layer-boundary.md) and its machine-readable release record: provider capability discovery, configuration, isolation, failure semantics, explicit unsupported cells and conformance evidence. Core execution remains provider-neutral and local-first remains a first-class target. `modelsurgeon chat`, universal hosted support and live provider benchmarks remain later work.
 
 ## v2.3 — `modelsurgeon chat` Vertical Slice
 
