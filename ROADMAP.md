@@ -133,7 +133,7 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 ## v2.4 — Conversational Clarification and Ambiguity Handling
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/25). Add a deterministic, necessary-only clarification state machine for vague, incomplete or contradictory requests. Entry is the v2.3 vertical slice and v2.1 ambiguity contract; exit is safe handling of missing metrics, deployment targets, conflicting constraints and preference ordering, with measurable-question and refusal evidence. The system must avoid both silent guessing and unnecessary interrogation.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/25). **Closed by issue #457.** The bounded exit is recorded in the [v2.4 clarification release boundary](docs/release/v2.4-clarification-boundary.md) and its [machine-readable evidence record](docs/research/v2.4-clarification-release-v1.json): a deterministic, necessary-only clarification state machine for vague or incomplete requests; fail-closed contradiction and preference handling; typed measurable-target elicitation; deterministic replay and provenance; bounded resource limits; and retained negative/inconclusive study cells. Supported questions are limited to the frozen policy matrix; general natural-language understanding and autonomous objective negotiation remain unclaimed.
 
 ## v2.5 — Constraint Negotiation and Infeasibility Explanation
 

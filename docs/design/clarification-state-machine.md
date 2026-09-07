@@ -62,3 +62,8 @@ Chat turns expose the state as `turn.clarification`. `ChatSession.answer()` /
 `answer_clarification()` and `cancel_clarification()` are deterministic
 control-plane operations; they never call a provider or an optimizer and they
 discard no canonical evidence.
+
+The frozen supported-question and limitation matrix is maintained in the
+[v2.4 release boundary](../release/v2.4-clarification-boundary.md). It is the
+normative record for what the state machine may ask, what remains unsupported,
+and which evidence is explicitly not claimed.

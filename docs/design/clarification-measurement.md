@@ -79,3 +79,8 @@ behavior. These fixture results do not justify provider-dependent thresholds
 or a relaxation of hard-constraint handling. The complete negative and
 inconclusive cells remain reproducible with `--json` and are covered by
 `tests/test_clarification_study.py`.
+
+The milestone-level release record freezes the supported language/metric cells,
+resource limits, known skips, dependency commits, and non-claims alongside
+this protocol: see the [v2.4 clarification release boundary](../release/v2.4-clarification-boundary.md)
+and [`v2.4-clarification-release-v1.json`](../research/v2.4-clarification-release-v1.json).

@@ -18,6 +18,9 @@ and [machine-readable release record](../research/v2.1-conversational-intent-con
 are normative for versioning and replay. This document is not a claim that the
 full conversational product is currently implemented.
 
+The v2.4 milestone closure is recorded in the [clarification release boundary](../release/v2.4-clarification-boundary.md)
+and [`v2.4-clarification-release-v1.json`](../research/v2.4-clarification-release-v1.json).
+
 ## Purpose
 
 ModelSurgeon’s long-term product experience lets a user describe an optimization goal in plain English while keeping scientific execution deterministic, measurable and auditable. The conversational layer is therefore a control plane around ModelSurgeon, not a second optimizer and not an authority on tensor safety.
