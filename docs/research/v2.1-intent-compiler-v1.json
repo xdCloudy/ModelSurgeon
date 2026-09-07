@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "title": "Bounded deterministic intent compiler",
+  "status": "implemented",
+  "input": "modelsurgeon.conversation.IntentRecord",
+  "output": "modelsurgeon.conversation.OptimizationSpec",
+  "contract_boundary": "modelsurgeon.search.objective_contract.ObjectiveContract",
+  "outcomes": ["executable", "clarification_required", "unsupported", "refused"],
+  "bounded_namespaces": ["objective", "constraint", "budget", "operations", "deployment", "approval"],
+  "safety_invariants": [
+    "original request text is never parsed by the compiler",
+    "missing hard constraints are unresolved, never invented",
+    "unknown metrics and operations fail closed",
+    "non-executable results carry no emitted spec",
+    "compiler does not execute mutations or select tensors",
+    "canonical spec serialization is deterministic"
+  ],
+  "replay": "same canonical intent fields produce byte-identical spec JSON"
+}

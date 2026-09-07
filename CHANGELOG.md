@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the bounded deterministic conversational intent compiler with structured
+  diagnostics, explicit refusal, and canonical `OptimizationSpec` output.
+
 - Add versioned conversational intent records that preserve the original
   request, source spans, normalized units, ambiguity and interpretation links,
   provider/tool provenance, and an exact emitted-spec digest or fail-closed

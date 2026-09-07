@@ -1,5 +1,20 @@
 """Typed conversational control-plane records."""
 
+from .compiler import (
+    OPTIMIZATION_SPEC_SCHEMA_VERSION,
+    BudgetLimit,
+    CompilationDiagnostic,
+    CompilationOutcome,
+    CompilationResult,
+    CompilerDiagnostic,
+    CompilerOutcome,
+    DiagnosticSeverity,
+    IntentCompiler,
+    OptimizationSpec,
+    OptimizationSpecCompiler,
+    compile_intent,
+    compile_intent_record,
+)
 from .intent import (
     CONVERSATIONAL_INTENT_SCHEMA_VERSION,
     AmbiguityRecord,
@@ -14,12 +29,25 @@ from .intent import (
 
 __all__ = [
     "CONVERSATIONAL_INTENT_SCHEMA_VERSION",
+    "OPTIMIZATION_SPEC_SCHEMA_VERSION",
     "AmbiguityRecord",
+    "BudgetLimit",
+    "CompilationDiagnostic",
+    "CompilationOutcome",
+    "CompilationResult",
+    "CompilerDiagnostic",
+    "CompilerOutcome",
+    "DiagnosticSeverity",
+    "IntentCompiler",
     "IntentField",
     "IntentOutcome",
     "IntentProvenance",
     "IntentRecord",
     "IntentRecordError",
     "InterpretationStep",
+    "OptimizationSpec",
+    "OptimizationSpecCompiler",
     "SourceSpan",
+    "compile_intent",
+    "compile_intent_record",
 ]
