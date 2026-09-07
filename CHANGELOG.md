@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an offline signed pretrained meta-surgeon registry with complete model
+  cards, source evidence and compatibility metadata, HMAC content identities,
+  pre-deserialization schema guards, local resolve/list/verify APIs, and
+  immutable adapted-child lineage.
 - Add fail-closed transfer-confidence decisions with compatibility and
   capability preflight, deterministic abstention reasons, support/distance/
   uncertainty/calibration thresholds, and selective-risk coverage/cost curves
