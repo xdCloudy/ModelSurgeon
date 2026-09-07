@@ -83,9 +83,9 @@ explicit; direct CLI/Python APIs do not depend on a provider.
 ## Tool boundary
 
 The text model receives only typed, capability-scoped operations. The request
-version-1/result-version-2 schema contract is documented in
+version-1/result-version-2 schema and trusted dispatcher contract is documented in
 [`conversational-tool-schemas.md`](conversational-tool-schemas.md) and exposed
-by `modelsurgeon.conversation.tools`. Each operation declares:
+by `modelsurgeon.conversation`. Each operation declares:
 
 - schema and version;
 - read-only or consequential classification;
@@ -95,7 +95,12 @@ by `modelsurgeon.conversation.tools`. Each operation declares:
 - cancellation/idempotency behavior; and
 - supported, unsupported, failed and unknown result states.
 
-Read-only inspection and evidence queries cannot mutate artifacts. Consequential calls route through ModelSurgeon’s existing transaction, rollback, acceptance, approval and provenance boundaries. There is no general shell, Python, filesystem or network tool merely because a model requested it.
+Read-only inspection and evidence queries cannot mutate artifacts. Consequential
+calls route through ModelSurgeon’s existing transaction, rollback, acceptance,
+approval and provenance boundaries. The dispatcher validates the request and
+approval policy before calling a trusted engine adapter, enforces the declared
+budgets and retains deterministic replay results. There is no general shell,
+Python, filesystem or network tool merely because a model requested it.
 
 ## Canonical campaign state
 

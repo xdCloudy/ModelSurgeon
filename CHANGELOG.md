@@ -21,7 +21,9 @@
 - Add version-1 capability-scoped conversational tool schemas with strict
   allowlisting, deterministic request/tool IDs, bounded budgets, typed
   negotiation/refusal results, approval-gated consequential calls, and no
-  direct tensor-removal or arbitrary command authority.
+  direct tensor-removal or arbitrary command authority. Add the trusted
+  dispatcher boundary with request validation, replay protection, bounded
+  retries, cancellation, budget enforcement, and engine-owned provenance.
 
 - Add version-2 grounded tool-result envelopes with deterministic result IDs,
   engine-supplied canonical/unverified/unavailable provenance, source,

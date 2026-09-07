@@ -73,10 +73,11 @@ The planned boundary has four non-negotiable properties:
 
 The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4–v2.5 add clarification and explicit negotiation; v2.6 formalizes tools; v2.7–v2.8 add canonical state and evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen v2.1 boundary does not imply availability of those later layers.
 
-The request-version-1/result-version-2, schema-only tool boundary is documented in
+The request-version-1/result-version-2 tool boundary and trusted dispatcher are documented in
 [`docs/design/conversational-tool-schemas.md`](docs/design/conversational-tool-schemas.md).
-It is a finite allowlist and pre-execution negotiation contract; it does not
-add a tool executor or direct tensor-removal authority to the text model.
+It is a finite allowlist and fail-closed pre-execution and dispatch contract;
+it does not add arbitrary command execution or direct tensor-removal authority
+to the text model.
 
 ## Package architecture
 
