@@ -24,6 +24,10 @@
   limitations.
 - Add end-to-end Hugging Face/safetensors and native GGUF user guides covering pinned inputs,
   bounded experiments, safe publication, Q4_K_M edits, resume, reproduction, and failure recovery.
+- Add approval-gated release automation for verified sdist/wheel builds, clean Python 3.12
+  installation, changelog generation, GitHub artifact attestations, and PyPI trusted publishing.
+- Declare the existing NumPy runtime requirement so clean wheel installations can import the
+  complete public CLI surface.
 - Add `modelsurgeon calibrate` for strict revision-pinned calibration plans, bounded tokenization,
   content-addressed atomic cache publication, dry-run isolation, and interruption-safe refresh.
 - Add `modelsurgeon generate-dataset` to start or resume a trusted mutation campaign and emit

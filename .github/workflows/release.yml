@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the released commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: uv build --out-dir dist
+      - name: Verify package metadata and release tag
+        run: uv run python tools/verify_release_artifacts.py --dist dist --tag "${{ github.event.release.tag_name }}"
+      - name: Generate release notes
+        run: >-
+          uv run python tools/generate_release_notes.py
+          --changelog CHANGELOG.md
+          --version "${{ github.event.release.tag_name }}"
+          --output release-notes.md
+      - name: Install the wheel in a clean Python 3.12 environment
+        shell: bash
+        run: |
+          uv venv .release-venv --python 3.12
+          uv pip install --python .release-venv/bin/python dist/*.whl
+          .release-venv/bin/python -c "import modelsurgeon; from modelsurgeon.cli.app import app; print(modelsurgeon.__name__, type(app).__name__)"
+      - name: Upload release inputs
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ github.event.release.tag_name }}
+          path: |
+            dist
+            release-notes.md
+          if-no-files-found: error
+
+  attest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download release inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: release-${{ github.event.release.tag_name }}
+          path: release
+      - name: Attest release archives
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/dist/*
+
+  publish:
+    needs: [build, attest]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/modelsurgeon/
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Download release inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: release-${{ github.event.release.tag_name }}
+          path: release
+      - name: Publish verified artifacts to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: release/dist/
+      - name: Attach archives and generated changelog to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release edit "$RELEASE_TAG" --notes-file release/release-notes.md
+          gh release upload "$RELEASE_TAG" release/dist/* --clobber
