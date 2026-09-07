@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "protocol_revision": "v1.8-replay-environments-v1",
+  "claim": "unsupported",
+  "claim_boundary": "Replay preflight and migration contracts are tested locally; representative cross-platform bundle replays await licensed artifacts and clean hosts.",
+  "environment_kinds": ["native", "docker", "nix_exploratory"],
+  "replay_matrix": ["windows-native", "wsl-native", "linux-docker", "nix-exploratory"],
+  "required_checks": [
+    "exact-command",
+    "seed-and-input-digest",
+    "environment-lock",
+    "hardware-passthrough",
+    "deterministic-cursor",
+    "ordered-schema-migration",
+    "metric-tolerance"
+  ],
+  "known_skips": [
+    "No clean external machine or GPU container is provisioned by this contract change.",
+    "Nix is exploratory and never treated as a mandatory bit-identical environment."
+  ],
+  "reproduction": {
+    "commands": ["python -m pytest -q tests/test_replay_environment.py"],
+    "environment": "repository quality gate environment"
+  }
+}
