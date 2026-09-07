@@ -1,6 +1,10 @@
 # Conversational control-plane design
 
-Status: planned for v2.1–v3.0. This document is normative for the separation of responsibilities; it is not a claim that the conversational product is currently implemented.
+Status: the v2.1 canonical intent-record boundary is implemented in
+`modelsurgeon.conversation`; compilation, providers, and the conversational
+product remain planned. This document is normative for the separation of
+responsibilities and is not a claim that the full conversational product is
+currently implemented.
 
 ## Purpose
 

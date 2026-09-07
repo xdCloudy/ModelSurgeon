@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add versioned conversational intent records that preserve the original
+  request, source spans, normalized units, ambiguity and interpretation links,
+  provider/tool provenance, and an exact emitted-spec digest or fail-closed
+  non-executable outcome with canonical JSON round trips.
+
 - Add a measured physical-strategy decision contract that requires no-repair and
   quantization-only controls, immutable artifact identity, complete provenance,
   and deployment/optimization/artifact budgets before selecting a repair result;

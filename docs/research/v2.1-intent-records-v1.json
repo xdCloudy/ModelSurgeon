@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "title": "Canonical conversational intent and provenance records",
+  "status": "implemented",
+  "outcomes": ["executable", "clarification_required", "unsupported", "refused"],
+  "required_record_sections": [
+    "original_request",
+    "source_spans",
+    "normalized_fields",
+    "ambiguities",
+    "interpretation_steps",
+    "provenance",
+    "outcome"
+  ],
+  "executable_requires": ["emitted_spec", "no_required_ambiguity"],
+  "non_executable_requires": ["no_emitted_spec", "diagnostic"],
+  "canonicalization": "sorted compact UTF-8 JSON with strict field sets",
+  "unknown_schema_policy": "refuse",
+  "confidence_policy": "interpretation metadata only; never safety or optimization evidence"
+}
