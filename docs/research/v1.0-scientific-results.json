@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "record_type": "v1.0_scientific_results_manifest",
+  "release": "v1.0",
+  "run_id_definition": "Each run_id is a content-addressed alias for an immutable persisted machine-readable report; it identifies the evidence artifact and is not a new experimental rerun.",
+  "artifacts": [
+    {"run_id": "run_v08_q1_22c8a0f14068a779", "artifact": "v0.8-q1-static-study.json", "sha256": "22c8a0f14068a7792a7756a0bd5612d904eaaa73b0859f1de0d4775b0744bd7e", "evidence": "v0.8-q1-static-feature-evidence.md"},
+    {"run_id": "run_v08_q2_3f0379957e221045", "artifact": "v0.8-q2-activation-study.json", "sha256": "3f0379957e221045d568bab9b7dadf4593306a11c28b502dc3a6fdeb33001e4e", "evidence": "v0.8-q2-activation-feature-evidence.md"},
+    {"run_id": "run_v08_q3_5a3a1899a017a5c6", "artifact": "v0.8-q3-gradient-study.json", "sha256": "5a3a1899a017a5c652cb0c2d886019a5322ed510356512d289a7d8812f5bdf5b", "evidence": "v0.8-q3-gradient-feature-evidence.md"},
+    {"run_id": "run_v08_q4_25669a86b765182a", "artifact": "v0.8-q4-pruning-baselines.json", "sha256": "25669a86b765182a6ad64440549b2233351dca1679977aef460d1157be4ba6fc", "evidence": "v0.8-q4-pruning-baseline-evidence.md"},
+    {"run_id": "run_v08_q5_2873bcbd7d44d694", "artifact": "v0.8-q5-cross-model-transfer.json", "sha256": "2873bcbd7d44d6947e7db94c46f89ac494f2dcbe50f351899ac91b9abe5f7ccd", "evidence": "v0.8-q5-cross-model-transfer-evidence.md"},
+    {"run_id": "run_v08_q6_c931808c2601833d", "artifact": "v0.8-q6-cross-family-transfer.json", "sha256": "c931808c2601833d38da89b9bc0edf3de4f469fc9ebd59929e87acf903c242f8", "evidence": "v0.8-q6-cross-family-transfer-evidence.md"},
+    {"run_id": "run_v08_q7_5a0b1827185c4fed", "artifact": "v0.8-q7-multi-model-active-learning.json", "sha256": "5a0b1827185c4fed46e27010989cb7c0610333ec55b4b55d480e944dbeb2cc52", "evidence": "v0.8-q7-active-learning-evidence.md"},
+    {"run_id": "run_v08_q8_1eb57f43b3547237", "artifact": "v0.8-q8-iterative-pruning.json", "sha256": "1eb57f43b35472372ce1b809fef6f52790401dbfc4d66124f0b4c67f232aaf81", "evidence": "v0.8-q8-iterative-pruning-evidence.md"},
+    {"run_id": "run_v08_quant_context_d8e05acaf856a272", "artifact": "v0.8-quantization-context-ablation.json", "sha256": "d8e05acaf856a272e714ea5bcdeb94690c65772cad5a6f1fb8678d1cbf8dea69", "evidence": "v0.8-quantization-context-evidence.md"},
+    {"run_id": "run_v08_quant_loss_e17e29f0b10e9c54", "artifact": "v0.8-quantization-loss-study.json", "sha256": "e17e29f0b10e9c5419c65747b6259dd8a9974a4debea4af5b0df6b2191ab4273", "evidence": "v0.8-quantization-loss-evidence.md"},
+    {"run_id": "run_v08_quant_features_e0457bedc3c4151e", "artifact": "v0.8-quantized-feature-reliability.json", "sha256": "e0457bedc3c4151e9444a84336061b313b71991b22e1c1840906a8732c390f36", "evidence": "v0.8-quantized-feature-reliability-evidence.md"},
+    {"run_id": "run_v08_scale_3f05c9f40ec8a7b0", "artifact": "v0.8-scale-study.json", "sha256": "3f05c9f40ec8a7b0c970185919f7372097e89ddb59daabf346432866f5db7959", "evidence": "v0.8-consumer-scale-evidence.md"},
+    {"run_id": "run_v10_performance_dc6983615e0ffcb4", "artifact": "v1.0-performance-regression-evidence.md", "sha256": "dc6983615e0ffcb4fda7f9dec719cb3ec9019c693fdbe04f1ca36a2501a6c0b0", "evidence": "v1.0-performance-regression-evidence.md"}
+  ],
+  "claims": [
+    {"claim_id": "q1_static_baseline", "run_ids": ["run_v08_q1_22c8a0f14068a779"], "claim": "Static weight statistics alone did not reliably discriminate safe masks; this is a baseline, not a sufficient predictor."},
+    {"claim_id": "q2_activation_null", "run_ids": ["run_v08_q2_3f0379957e221045"], "claim": "Activation summaries produced no statistically resolved paired gain in the bounded three-model study."},
+    {"claim_id": "q3_gradient_signal", "run_ids": ["run_v08_q3_5a3a1899a017a5c6"], "claim": "Gradient summaries added a strong held-out ranking and regression signal on the three target models."},
+    {"claim_id": "q4_ranker_baseline", "run_ids": ["run_v08_q4_25669a86b765182a"], "claim": "The learned ranker selected zero violations in the tested equal-budget folds, while magnitude and random baselines violated the threshold."},
+    {"claim_id": "q5_unseen_model", "run_ids": ["run_v08_q5_2873bcbd7d44d694"], "claim": "Cross-model ranking transferred to one unseen checkpoint, but probability calibration degraded."},
+    {"claim_id": "q6_cross_family", "run_ids": ["run_v08_q6_c931808c2601833d"], "claim": "Held-out-family ranking remained useful, while cross-family ΔPPL regression was not supported."},
+    {"claim_id": "q7_active_learning", "run_ids": ["run_v08_q7_5a0b1827185c4fed"], "claim": "Active acquisition reduced experiments for Qwen2.5-0.5B but did not establish a model-general advantage over random."},
+    {"claim_id": "q8_iterative_masking", "run_ids": ["run_v08_q8_1eb57f43b3547237"], "claim": "Iterative masking slightly improved the bounded cumulative quality result at higher study cost and did not produce latency gains."},
+    {"claim_id": "quantized_features", "run_ids": ["run_v08_quant_features_e0457bedc3c4151e"], "claim": "Locally dequantized RMS-like features retained high rank correlation, while signed means and sparsity require error-aware handling."},
+    {"claim_id": "quantization_loss", "run_ids": ["run_v08_quant_loss_e17e29f0b10e9c54"], "claim": "Requantization loss decreased with precision and was approximately additive with the fixed surgery in the sampled tensor study."},
+    {"claim_id": "consumer_scale", "run_ids": ["run_v08_scale_3f05c9f40ec8a7b0"], "claim": "The seven-model ladder completed the bounded protocol on one consumer host; the largest model required CPU offload."},
+    {"claim_id": "performance_guardrails", "run_ids": ["run_v10_performance_dc6983615e0ffcb4"], "claim": "The v1.0 performance profiles passed their 18 measured budgets on the reference workstation."}
+  ],
+  "limitation_categories": ["prediction", "masking", "physical-surgery", "quantization", "hardware", "reproducibility"]
+}

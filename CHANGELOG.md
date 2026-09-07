@@ -17,6 +17,9 @@
   from persisted runs or candidates, with redacted provenance and actionable incomplete-ID errors.
 - Add `modelsurgeon features` for manifest-selected, CPU-safe, record-budgeted feature extraction,
   component filtering, atomic partition reuse, and explicit per-extractor skip reasons.
+- Publish the v1.0 scientific results ledger with content-addressed evidence run IDs, Q1–Q8 and
+  quantization findings, consumer-hardware costs, and explicit prediction/masking/physical-surgery
+  limitations.
 - Add `modelsurgeon generate-dataset` to start or resume a trusted mutation campaign and emit
   validated, leakage-safe JSONL splits with a standalone progress and failure manifest.
 - Add `modelsurgeon reproduce RUN_ID` with schema-v2 resolved recipes, exact-command dry
