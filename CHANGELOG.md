@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add versioned hardware-conditioned quality, safety, and utility predictors with
+  explicit CPU/GPU/offload/quantization context, pre-mutation-only features,
+  unsupported profile gates, and held-out-profile null-result ablations.
 - Add a versioned crash-consistency fault matrix for publication and subprocess
   boundaries with owned-staging recovery invariants, bounded child-tree termination,
   clipped logs, and explicit unknown/unsupported evidence.
