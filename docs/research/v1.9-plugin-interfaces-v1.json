@@ -1,0 +1,26 @@
+{
+  "record_type": "plugin_interface_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v1.9-plugin-interfaces-v1",
+  "kinds": ["evaluator", "runtime", "transformation", "search_policy", "objective", "registry_provider"],
+  "outcomes": ["supported", "unsupported", "failed", "unknown", "timeout", "crash", "malformed_output"],
+  "discovery": "entry-point metadata only until explicit allowlist loading",
+  "safety": [
+    "primitive_identity_bound_requests",
+    "trusted_in_process_capability_required",
+    "subprocess_wall_and_output_budgets",
+    "fail_closed_api_capability_dependency_negotiation",
+    "malformed_output_never_promoted"
+  ],
+  "conformance_matrix": [
+    "supported_capability",
+    "api_major_version_skew",
+    "missing_dependency",
+    "duplicate_name",
+    "untrusted_in_process_request",
+    "subprocess_timeout",
+    "subprocess_crash",
+    "malformed_output"
+  ],
+  "reproduction": "PluginCapabilityCard, PluginRequest, negotiate_plugin(), and bounded invocation fixtures"
+}
