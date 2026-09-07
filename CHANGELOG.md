@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a typed resource-aware worker scheduler for local CPU/GPU and explicitly
+  registered remote workers, with authenticated capability profiles,
+  content-addressed task inputs/results, deterministic placement, campaign
+  quotas, heartbeat recovery, and idempotent publication.
+
 - Add a versioned objective contract that separates fail-closed hard
   constraints from weighted, lexicographic, or Pareto soft objectives,
   retains uncertainty and evidence, and gates custom objective plugins on
