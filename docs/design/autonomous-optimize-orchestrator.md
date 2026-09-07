@@ -47,9 +47,22 @@ the run. If Pareto evidence is missing, incomplete, fails hard constraints, or
 does not provide a feasible candidate, the run completes with an explicit
 failure and no accepted artifact.
 
-Approvals are bound to the plan ID and retained in the state. Overrides are
-accepted only with a matching `override:<name>` approval and are passed to the
-runtime as data, never interpreted as commands.
+Approvals are bound to the canonical plan digest, the content-addressed plan
+diff, an operator identity, a non-secret operator context, and an explicit
+expiry. An approval for an older state is never reused: resume rejects a
+material plan change and reports the deterministic diff ID and changed paths.
+Overrides are accepted only with a matching `override:<name>` approval and are
+passed to the runtime as data, never interpreted as commands.
 
-The schema is `autonomous_optimize_run`, version 1. Source paths and secrets
+The persisted stage evidence can be replayed without loading a model. The
+replay digest and selected candidate are derived from canonical evidence and
+stable candidate tie-breaks, so identical evidence produces the same strategy
+decision ID and final candidate. `modelsurgeon optimize --package` emits a
+directory containing the plan, run, decision evidence, and an offline-verifiable
+Merkle index. A package must be signed with `--package-key-id` and
+`--package-key-env`; unavailable external artifacts and non-deterministic
+tolerances are retained in the manifest and reduce the claim to bounded
+reproducibility.
+
+The schema is `autonomous_optimize_run`, version 2. Source paths and secrets
 remain outside the state contract; artifact lineage uses content digests.

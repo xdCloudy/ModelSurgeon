@@ -1,0 +1,28 @@
+{
+  "record_type": "approval_reproducibility_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.0-approval-reproducibility-v1",
+  "approval_requirements": [
+    "canonical_plan_digest",
+    "material_plan_diff_id",
+    "expiry",
+    "immutable_operator_identity",
+    "secret_free_operator_context"
+  ],
+  "replay_requirements": [
+    "canonical_decision_evidence_digest",
+    "stable_candidate_tie_break",
+    "reproduced_strategy_decision_id",
+    "reproduced_final_candidate_id"
+  ],
+  "package_requirements": [
+    "canonical_plan_and_run_records",
+    "decision_evidence",
+    "signed_merkle_index",
+    "offline_verification",
+    "declared_unavailable_external_artifacts",
+    "declared_non_deterministic_tolerances"
+  ],
+  "claim_boundary": "external or non-deterministic evidence reduces the claim to bounded_reproducibility",
+  "negative_rule": "tampered, unsigned, or missing evidence is never promoted to a verified package"
+}

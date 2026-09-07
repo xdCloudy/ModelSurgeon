@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from modelsurgeon.config import ModelConfig, Settings
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeInterrupted,
     OptimizeOrchestrator,
+    OptimizeOrchestratorError,
     OptimizeStage,
     StageContext,
     StageResult,
@@ -116,3 +119,22 @@ def test_no_feasible_result_is_a_failure_without_promotion(tmp_path: Path) -> No
     assert run.outcome is WorkflowOutcome.FAILED
     assert run.accepted_artifact_digest is None
     assert "no feasible measured candidate" in " ".join(run.reasons)
+
+
+def test_resume_rejects_material_plan_change_with_diff_evidence(tmp_path: Path) -> None:
+    state = tmp_path / "run.json"
+    first = OptimizeOrchestrator(_plan(), state).run(
+        _Runtime(interrupt_once=True), approvals=_approvals()
+    )
+    assert first.plan_digest
+    assert first.plan_record["plan_id"] == first.plan_id
+    assert first.approvals[0].expires_at
+    changed = build_optimize_plan(
+        Settings(model=ModelConfig(path="models/changed", revision="revision-1")),
+        dry_run=False,
+    )
+
+    with pytest.raises(OptimizeOrchestratorError, match="material_diff=True"):
+        OptimizeOrchestrator(changed, state).run(
+            _Runtime(), resume=True, approvals=_approvals()
+        )

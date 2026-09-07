@@ -191,7 +191,25 @@ uv run modelsurgeon optimize \
 Repeat with `--resume` after an interruption. A missing runtime, unsupported
 capability, incomplete evidence, or absent feasible candidate remains an
 explicit `unknown`, `unsupported`, or `failed` result; no best model is guessed.
-See the [orchestrator contract](docs/design/autonomous-optimize-orchestrator.md).
+Resume state retains the plan digest and snapshot. Material plan changes are
+rejected with a deterministic diff, and approvals expire rather than silently
+carrying forward. To produce a signed final package, provide a key through an
+environment variable (the key is never written to the package):
+
+```bash
+MODELSURGEON_PACKAGE_KEY='local signing secret' uv run modelsurgeon optimize \
+  --execute --state artifacts/optimize/run.json \
+  --package artifacts/optimize/package \
+  --package-key-id local-key \
+  --package-key-env MODELSURGEON_PACKAGE_KEY \
+  --approve plan_review --approve source_model \
+  --approve resource_budget --approve artifact_write
+```
+
+The package contains canonical plan, run, and decision evidence plus a signed
+Merkle index. Offline verification reports `verified`, `incomplete` for
+declared unavailable external artifacts, or `failed`; it never fills missing
+evidence by inference. See the [orchestrator contract](docs/design/autonomous-optimize-orchestrator.md).
 
 </details>
 

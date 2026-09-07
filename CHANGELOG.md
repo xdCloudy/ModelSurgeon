@@ -34,6 +34,12 @@
   promotion. Missing or infeasible final evidence now produces an explicit
   negative outcome without an accepted artifact.
 
+- Bind optimize approvals to canonical plan digests and material plan diffs,
+  retain expiry and secret-free operator context, replay identical decision
+  evidence deterministically, and emit signed offline-verifiable final
+  reproducibility packages with explicit external-artifact and non-determinism
+  claim limits.
+
 - Add fail-closed hosted and compatible endpoint adapters with secret-free
   endpoint configuration, external credential references, capability probing,
   structured-output negotiation, bounded retries/rate-limit handling, model
