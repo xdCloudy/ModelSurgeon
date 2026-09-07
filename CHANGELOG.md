@@ -29,6 +29,12 @@
   unsupported roles, enforce transcript/byte budgets, and refuse stale,
   altered, or over-budget rehydration without replaying untrusted chat.
 
+- Add bounded v2.4 measurable-target elicitation. Vague quality, latency,
+  throughput, memory, and deployment requests receive deterministic targeted
+  questions; complete objective schemas proceed, while unsupported metrics stay
+  explicit and no thresholds, baselines, units, or compatibility claims are
+  invented.
+
 - Add the experimental interpreted `OptimizationSpec` preview boundary for
   conversational requests. It renders the exact canonical objective contract,
   hard constraints, preferences, budgets, allowed operations, unresolved
