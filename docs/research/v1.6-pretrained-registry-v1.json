@@ -1,0 +1,25 @@
+{
+  "record_type": "pretrained_meta_surgeon_registry_protocol",
+  "schema_version": 1,
+  "protocol_revision": "pretrained-registry-v1",
+  "required_card_fields": [
+    "source_models",
+    "source_evidence_digests",
+    "feature_schema_version",
+    "target_schema_version",
+    "state_schema_version",
+    "supported_mutations",
+    "supported_codecs",
+    "supported_hardware",
+    "calibration_policy",
+    "compatibility",
+    "license",
+    "metrics",
+    "limitations"
+  ],
+  "integrity": ["content_addressed_bundle", "hmac_sha256_card_signature"],
+  "resolution": "offline_card_verification_before_model_deserialization",
+  "lineage": "adapted children retain immutable parent bundle and request identity",
+  "negative_cases": ["incomplete_card", "incompatible_schema", "tampered_signature", "missing_bundle"],
+  "reproduction": "PretrainedSurgeonRegistry.publish(), verify(), resolve(), list_cards()"
+}
