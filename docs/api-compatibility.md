@@ -14,6 +14,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.features` | Versioned feature records and bounded feature extraction interfaces. |
 | `modelsurgeon.surgery` | Transactional mutation requests, plans, outcomes, and physical-surgery entry points. |
 | `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, frozen protocol and baseline evidence, structured artifact reconciliation, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
+| `modelsurgeon.surgery` | Transactional mutation plans plus versioned physical artifact outcomes and cumulative lineage reconciliation. |
 | `modelsurgeon benchmark` | Deterministic plans, resumable runs, immutable imports, audits, and reports for bounded competitor matrices. |
 | `modelsurgeon.experiments` | Experiment identity, persistence, artifacts, resource budgets, and reproducibility records. |
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, and ranking contracts. |
