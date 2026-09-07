@@ -431,6 +431,30 @@ class EvidenceUncertainty:
             "sample_count": self.sample_count,
         }
 
+    @classmethod
+    def from_record(cls, value: object) -> EvidenceUncertainty:
+        record = _mapping(value, "evidence uncertainty")
+        expected = {
+            "lower_bound",
+            "upper_bound",
+            "confidence",
+            "standard_error",
+            "sample_count",
+        }
+        if set(record) != expected:
+            raise EvidenceQueryError("evidence uncertainty has missing or unknown fields")
+        return cls(
+            None if record["lower_bound"] is None else cast(float, record["lower_bound"]),
+            None if record["upper_bound"] is None else cast(float, record["upper_bound"]),
+            None if record["confidence"] is None else cast(float, record["confidence"]),
+            None
+            if record["standard_error"] is None
+            else cast(float, record["standard_error"]),
+            None
+            if record["sample_count"] is None
+            else cast(int, record["sample_count"]),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class EvidenceMeasurement:
@@ -461,6 +485,24 @@ class EvidenceMeasurement:
             if self.uncertainty is None
             else self.uncertainty.to_record(),
         }
+
+    @classmethod
+    def from_record(cls, value: object) -> EvidenceMeasurement:
+        record = _mapping(value, "evidence measurement")
+        expected = {"metric", "value", "unit", "uncertainty"}
+        if set(record) != expected:
+            raise EvidenceQueryError("evidence measurement has missing or unknown fields")
+        uncertainty = (
+            None
+            if record["uncertainty"] is None
+            else EvidenceUncertainty.from_record(record["uncertainty"])
+        )
+        return cls(
+            cast(str, record["metric"]),
+            cast(float, record["value"]),
+            None if record["unit"] is None else cast(str, record["unit"]),
+            uncertainty,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -688,6 +730,69 @@ class EvidenceQueryRecord:
             record["record_digest"] = self.record_digest
         return record
 
+    @classmethod
+    def from_record(cls, value: object) -> EvidenceQueryRecord:
+        record = _mapping(value, "evidence query record")
+        expected = {
+            "evidence_id",
+            "campaign_id",
+            "outcome",
+            "source_outcome",
+            "source_digest",
+            "detail",
+            "artifact_digest",
+            "inconclusive",
+            "measurements",
+            "provenance_refs",
+            "observed_at",
+            "missing_fields",
+            "unavailable_fields",
+            "state_version",
+            "fields",
+            "record_digest",
+        }
+        if set(record) != expected:
+            raise EvidenceQueryIntegrityError(
+                "evidence query record has missing or unknown fields"
+            )
+        measurements = record["measurements"]
+        provenance_refs = record["provenance_refs"]
+        missing_fields = record["missing_fields"]
+        unavailable_fields = record["unavailable_fields"]
+        if not isinstance(measurements, list) or not isinstance(provenance_refs, list):
+            raise EvidenceQueryIntegrityError("evidence query record arrays are invalid")
+        if not isinstance(missing_fields, list) or not isinstance(unavailable_fields, list):
+            raise EvidenceQueryIntegrityError("evidence query missing-field arrays are invalid")
+        try:
+            outcome = EvidenceQueryOutcome(cast(str, record["outcome"]))
+            source_outcome = CampaignOutcome(cast(str, record["source_outcome"]))
+        except ValueError as error:
+            raise EvidenceQueryIntegrityError(
+                "evidence query record has an unknown outcome"
+            ) from error
+        result = cls(
+            cast(str, record["evidence_id"]),
+            cast(str, record["campaign_id"]),
+            outcome,
+            source_outcome,
+            cast(str, record["source_digest"]),
+            None if record["detail"] is None else cast(str, record["detail"]),
+            None
+            if record["artifact_digest"] is None
+            else cast(str, record["artifact_digest"]),
+            cast(bool, record["inconclusive"]),
+            tuple(EvidenceMeasurement.from_record(item) for item in measurements),
+            tuple(cast(str, item) for item in provenance_refs),
+            None if record["observed_at"] is None else cast(str, record["observed_at"]),
+            tuple(cast(str, item) for item in missing_fields),
+            tuple(cast(str, item) for item in unavailable_fields),
+            cast(int, record["state_version"]),
+            _mapping(record["fields"], "evidence query record fields"),
+        )
+        if record["record_digest"] != result.record_digest:
+            raise EvidenceQueryIntegrityError("evidence query record digest does not match")
+        return result
+
 
 @dataclass(frozen=True, slots=True)
 class EvidenceQueryResponse:
@@ -777,6 +882,76 @@ class EvidenceQueryResponse:
 
     def canonical_json(self) -> str:
         return _canonical(self.to_record(), "query response")
+
+    @classmethod
+    def from_record(
+        cls, value: object, *, snapshot: EvidenceSnapshot | None = None
+    ) -> EvidenceQueryResponse:
+        record = _mapping(value, "evidence query response")
+        expected = {
+            "record_type",
+            "schema_version",
+            "query",
+            "snapshot_id",
+            "snapshot_digest",
+            "status",
+            "records",
+            "missing_fields",
+            "unavailable_fields",
+            "resource_usage",
+            "source_precedence",
+            "response_digest",
+        }
+        if set(record) != expected or record["record_type"] != "canonical_evidence_query_response":
+            raise EvidenceQueryIntegrityError(
+                "evidence query response has missing or unknown fields"
+            )
+        if record["schema_version"] != EVIDENCE_QUERY_SCHEMA_VERSION:
+            raise EvidenceQueryIntegrityError("unsupported evidence query response schema")
+        if snapshot is None:
+            raise EvidenceQueryIntegrityError(
+                "a canonical response record must be paired with its evidence snapshot"
+            )
+        records = record["records"]
+        missing_fields = record["missing_fields"]
+        unavailable_fields = record["unavailable_fields"]
+        source_precedence = record["source_precedence"]
+        if not isinstance(records, list) or not isinstance(missing_fields, list):
+            raise EvidenceQueryIntegrityError("evidence query response arrays are invalid")
+        if not isinstance(unavailable_fields, list) or not isinstance(source_precedence, list):
+            raise EvidenceQueryIntegrityError("evidence query response arrays are invalid")
+        resource_usage = _mapping(record["resource_usage"], "query resource usage")
+        if not all(
+            isinstance(item, int) and not isinstance(item, bool) and item >= 0
+            for item in resource_usage.values()
+        ):
+            raise EvidenceQueryIntegrityError(
+                "query resource usage values must be non-negative integers"
+            )
+        try:
+            status = EvidenceQueryStatus(cast(str, record["status"]))
+        except ValueError as error:
+            raise EvidenceQueryIntegrityError(
+                "evidence query response status is invalid"
+            ) from error
+        result = cls(
+            EvidenceQuery.from_record(record["query"]),
+            snapshot,
+            status,
+            tuple(EvidenceQueryRecord.from_record(item) for item in records),
+            tuple(cast(str, item) for item in missing_fields),
+            tuple(cast(str, item) for item in unavailable_fields),
+            {key: cast(int, value) for key, value in resource_usage.items()},
+        )
+        if (
+            record["snapshot_id"] != result.snapshot.snapshot_id
+            or record["snapshot_digest"] != result.snapshot.snapshot_digest
+            or record["response_digest"] != result.response_digest
+        ):
+            raise EvidenceQueryIntegrityError("evidence query response digest does not match")
+        if tuple(cast(str, item) for item in source_precedence) != SOURCE_PRECEDENCE:
+            raise EvidenceQueryIntegrityError("evidence query source precedence is invalid")
+        return result
 
 
 def _plain_digest(value: object) -> str:
