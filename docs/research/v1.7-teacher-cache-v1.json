@@ -1,0 +1,31 @@
+{
+  "record_type": "bounded_teacher_cache_and_repair_selection_protocol",
+  "schema_version": 1,
+  "protocol_revision": "teacher-cache-v1",
+  "cache_identity": [
+    "teacher_model_id",
+    "teacher_model_revision",
+    "tokenizer_digest",
+    "example_revision",
+    "target_kind",
+    "target_schema",
+    "encoding"
+  ],
+  "target_kinds": ["logits", "features"],
+  "encodings": ["fp32", "int8"],
+  "selection_strategies": [
+    "random",
+    "domain_balanced",
+    "diversity",
+    "predicted_recoverability"
+  ],
+  "budgets": ["token_count", "example_count", "serialized_bytes"],
+  "safety": [
+    "immutable_chunk_checksums",
+    "resumable_consecutive_chunks",
+    "heldout_validation_and_test_exclusion",
+    "exact_hit_miss_byte_telemetry"
+  ],
+  "benchmark": "Compare four selection strategies at equal token budgets on at least two models; retain variance, cache cost, and all failed or unsupported cells.",
+  "reproduction": "TeacherCacheStore and select_repair_examples()"
+}
