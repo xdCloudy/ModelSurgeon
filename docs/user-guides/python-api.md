@@ -61,6 +61,38 @@ availability can use `modelsurgeon.providers.provider_diagnostics(settings)`.
 Provider configuration is metadata and a bounded request budget only: it does
 not override hard optimization constraints or provide execution authority.
 
+## Explain measured infeasibility
+
+Use the read-only feasibility API when a bounded search has no accepted
+candidate. It distinguishes missing, predicted-only, unsupported, failed, and
+inconclusive evidence from a measured hard-constraint violation. The complete
+example is [`docs/examples/infeasibility_explanation.py`](../examples/infeasibility_explanation.py).
+
+```python
+archive = CanonicalEvidenceArchive.build(contract, candidate_evidence)
+result = build_feasibility_explanation(
+    contract,
+    archive,
+    provenance=FeasibilityProvenance(
+        "spec_2026_09_07",
+        source_model_digest,
+        archive.archive_id,
+        approval_id="approval_123",
+    ),
+)
+if result.outcome is FeasibilityOutcome.INFEASIBLE:
+    for constraint in result.unmet_constraints:
+        print(constraint.constraint.metric, constraint.candidate_ids)
+else:
+    print(result.outcome.value, result.next_actions)
+```
+
+Near misses are measured candidates only and are ordered by conservative
+constraint distance, then candidate ID. Predictions can nominate a follow-up
+measurement but never establish feasibility. Rejected and rolled-back
+evidence remains visible, and changing a hard constraint requires a separate
+approved objective amendment.
+
 ## HF and GGUF boundaries
 
 For Hugging Face/safetensors, inspect a revision-pinned source with the
