@@ -8,6 +8,9 @@
 - Freeze the v1.1 equal-budget competitive benchmark protocol with content-addressed
   model/task/method decisions, exact metric and budget contracts, retained unknown cells,
   preregistered statistical limits, and an explicit contamination/license audit.
+- Add a fail-closed subprocess competitor adapter contract with executable-version and
+  artifact-bound support claims, transactional output publication, read-only source checks,
+  bounded logs/artifacts, resource telemetry, and distinct failure outcomes.
 
 ## 1.0.0 - 2026-09-07
 

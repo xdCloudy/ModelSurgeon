@@ -15,6 +15,17 @@ from modelsurgeon.adapters.base import (
     UnsupportedCapabilityError,
     require_capability,
 )
+from modelsurgeon.adapters.competitor import (
+    COMPETITOR_ADAPTER_SCHEMA_VERSION,
+    CompetitorAdapterError,
+    CompetitorBudget,
+    CompetitorIdentity,
+    CompetitorOutcome,
+    CompetitorProvenance,
+    CompetitorRunResult,
+    CompetitorTelemetry,
+    SubprocessCompetitorAdapter,
+)
 from modelsurgeon.adapters.family import (
     ArchitectureDetectionError,
     ArchitectureEvidence,
@@ -26,10 +37,18 @@ from modelsurgeon.adapters.family import (
 )
 
 __all__ = [
+    "COMPETITOR_ADAPTER_SCHEMA_VERSION",
     "AdapterCapability",
     "AdapterIdentity",
     "ArchitectureDetectionError",
     "ArchitectureEvidence",
+    "CompetitorAdapterError",
+    "CompetitorBudget",
+    "CompetitorIdentity",
+    "CompetitorOutcome",
+    "CompetitorProvenance",
+    "CompetitorRunResult",
+    "CompetitorTelemetry",
     "ComponentDescriptor",
     "ConflictingArchitectureError",
     "FamilySelection",
@@ -40,6 +59,7 @@ __all__ = [
     "ModelSource",
     "MutationSupport",
     "OpenOptions",
+    "SubprocessCompetitorAdapter",
     "TensorChunk",
     "TensorDescriptor",
     "UnknownArchitectureError",
