@@ -77,7 +77,9 @@ The request-version-1/result-version-2 tool boundary and trusted dispatcher are 
 [`docs/design/conversational-tool-schemas.md`](docs/design/conversational-tool-schemas.md).
 It is a finite allowlist and fail-closed pre-execution and dispatch contract;
 it does not add arbitrary command execution or direct tensor-removal authority
-to the text model.
+to the text model. Provider/tool trust zones, secret handling, and the explicit
+process-isolation limitation are documented in
+[`docs/design/provider-tool-isolation.md`](docs/design/provider-tool-isolation.md).
 
 ## Package architecture
 

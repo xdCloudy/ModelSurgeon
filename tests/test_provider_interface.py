@@ -35,6 +35,7 @@ from modelsurgeon.conversation import (
     ProviderResult,
     ProviderStreamEvent,
     SourceSpan,
+    TrustZone,
     invoke_provider,
     request_digest,
     result_from_raw_output,
@@ -254,3 +255,82 @@ def test_explanation_request_is_typed_evidence_only() -> None:
     assert request.to_record()["operation"] == "explain_evidence"
     with pytest.raises(ProviderContractError, match="at least one"):
         ExplanationRequest("request-11", ())
+
+
+def test_provider_input_is_copied_and_capability_drift_fails_closed() -> None:
+    request = ExplanationRequest(
+        "request-12",
+        ({"record_type": "evidence", "value": "keep"},),
+        budget=ProviderBudget(1.0),
+    )
+
+    class MutatingProvider(FixtureProvider):
+        def call(
+            self, request: ProviderRequest, *, cancellation: CancellationToken
+        ) -> ProviderResult:
+            assert isinstance(request, ExplanationRequest)
+            result = result_from_raw_output(
+                self,
+                request,
+                {
+                    "operation": request.operation.value,
+                    "text": "safe explanation",
+                    "evidence_refs": [],
+                },
+            )
+            request.evidence_records[0]["value"] = "provider-mutation"  # type: ignore[index]
+            return result
+
+    mutating = MutatingProvider()
+    result = invoke_provider(mutating, request)
+    assert result.outcome is ProviderOutcome.FAILED
+    assert result.failure is not None
+    assert result.failure.code is ProviderFailureCode.ISOLATION_FAILURE
+    assert request.evidence_records[0]["value"] == "keep"
+    assert result.trust_zone is TrustZone.UNTRUSTED_PROVIDER
+
+    class DriftingProvider(FixtureProvider):
+        def call(
+            self, request: ProviderRequest, *, cancellation: CancellationToken
+        ) -> ProviderResult:
+            self.capability_card = ProviderCapabilityCard(
+                IDENTITY,
+                ProviderKind.LOCAL,
+                "provider-revision-drifted",
+                CARD.capabilities,
+                CARD.limits,
+                CARD.structured_output_schemas,
+            )
+            return result_from_raw_output(
+                self,
+                request,
+                {"operation": request.operation.value, "text": "safe", "evidence_refs": []},
+            )
+
+    drifted = invoke_provider(
+        DriftingProvider(),
+        ExplanationRequest(
+            "request-13", ({"record_type": "evidence"},), budget=ProviderBudget(1.0)
+        ),
+    )
+    assert drifted.outcome is ProviderOutcome.FAILED
+    assert drifted.failure is not None
+    assert drifted.failure.code is ProviderFailureCode.ISOLATION_FAILURE
+
+
+def test_provider_output_and_diagnostics_redact_secret_forms() -> None:
+    request = ExplanationRequest(
+        "request-14", ({"record_type": "evidence"},), budget=ProviderBudget(1.0)
+    )
+    result = result_from_raw_output(
+        FixtureProvider(),
+        request,
+        {
+            "operation": request.operation.value,
+            "text": "authorization=Bearer-secret-token",
+            "evidence_refs": [],
+        },
+    )
+    assert result.output is not None
+    assert "Bearer-secret-token" not in result.output.text
+    assert "<redacted>" in result.output.text

@@ -10,6 +10,7 @@ from enum import StrEnum
 
 from modelsurgeon.config import ProviderConfig, Settings
 from modelsurgeon.conversation import NullTextModelProvider, TextModelProvider
+from modelsurgeon.conversation.isolation import redact_secret_text, redact_untrusted_value
 from modelsurgeon.provider_kind import ProviderKind
 
 PROVIDER_DIAGNOSTIC_SCHEMA_VERSION = 1
@@ -25,8 +26,8 @@ class ProviderConfigurationError(ValueError):
 
     def __init__(self, code: str, message: str) -> None:
         self.code = code
-        self.message = message
-        super().__init__(f"{code}: {message}")
+        self.message = redact_secret_text(message)
+        super().__init__(f"{code}: {self.message}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +48,7 @@ class ProviderDiagnostic:
             "schema_version": PROVIDER_DIAGNOSTIC_SCHEMA_VERSION,
             "status": self.status.value,
             "code": self.code,
-            "message": self.message,
+            "message": redact_secret_text(self.message),
             "kind": self.kind.value,
             "provider_id": self.provider_id,
             "model_id": self.model_id,
@@ -55,7 +56,9 @@ class ProviderDiagnostic:
         }
 
     def canonical_json(self) -> str:
-        return json.dumps(self.to_record(), sort_keys=True, separators=(",", ":"))
+        return json.dumps(
+            redact_untrusted_value(self.to_record()), sort_keys=True, separators=(",", ":")
+        )
 
 
 def provider_diagnostics(

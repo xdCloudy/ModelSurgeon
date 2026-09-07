@@ -22,6 +22,7 @@ from modelsurgeon.conversation import (
     ToolProvenance,
     ToolRequest,
     ToolResult,
+    TrustZone,
     deterministic_tool_request_id,
     tool_request_digest,
 )
@@ -292,6 +293,35 @@ def test_negative_result_keeps_raw_payload_outside_trusted_fields() -> None:
         "value": 99,
     }
     assert ToolResult.from_record(record) == result
+
+
+def test_tool_result_redacts_secret_metadata_without_promoting_it() -> None:
+    definition = DEFAULT_TOOL_CATALOG.definition("inspect_model")
+    assert definition is not None
+    request = ToolRequest.create(definition, {"model_ref": "fixture.model"})
+    result = ToolResult(
+        request.request_id,
+        request.name,
+        ToolOutcome.UNSUPPORTED,
+        ToolProvenance(
+            definition.owner,
+            definition.tool_id,
+            tool_request_digest(request),
+            evidence_status=ToolEvidenceStatus.UNAVAILABLE,
+        ),
+        failure=ToolFailure(
+            ToolFailureCode.UNSUPPORTED_CAPABILITY,
+            "authorization=Bearer-secret-token",
+            request.request_id,
+        ),
+        raw_payload={"diagnostic": "token=top-secret", "status": "measured"},
+    )
+    record = result.to_record()
+    encoded = result.canonical_json()
+    assert "Bearer-secret-token" not in encoded
+    assert "top-secret" not in encoded
+    assert record["provenance"]["evidence_status"] == "unavailable"
+    assert result.trust_zone is TrustZone.UNTRUSTED_TOOL
 
 
 def test_canonical_and_unavailable_provenance_require_consistent_fields() -> None:

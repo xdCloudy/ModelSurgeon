@@ -118,6 +118,13 @@ separate field, while trusted outcome and provenance fields remain unchanged.
 Failed, unknown, unsupported, timed-out, cancelled, and refused states are
 not converted into success or omitted.
 
+Tool results are marked as untrusted tool-zone data until a trusted engine
+adapter promotes them. Handler requests are copied before invocation, and
+failure details, output diagnostics, and retained raw payloads are recursively
+redacted. An isolation failure (including an uncopyable request or a boundary
+metadata failure) is retained as a failed result; it cannot publish output or
+trusted provenance.
+
 ## Versioning and limits
 
 Request version 1 and result version 2 are fail-closed. `ToolRequest.from_record()`

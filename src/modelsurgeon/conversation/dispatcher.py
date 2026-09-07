@@ -13,6 +13,7 @@ import queue
 import threading
 import time
 from collections.abc import Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -334,6 +335,7 @@ class ToolDispatcher:
 
         if not isinstance(request, ToolRequest):
             raise ToolContractError("tool dispatcher requires a typed ToolRequest")
+        request_digest = tool_request_digest(request)
         negotiation = self.catalog.negotiate(request)
         definition = negotiation.tool or self.catalog.definition(request.name)
         if negotiation.outcome is not ToolOutcome.SUPPORTED or definition is None:
@@ -356,9 +358,21 @@ class ToolDispatcher:
                     "consequential dispatch requires a trusted approval policy",
                 )
             try:
-                approved = self.approval_policy(request)
+                approved = self.approval_policy(deepcopy(request))
             except Exception:
                 approved = False
+            try:
+                unchanged = tool_request_digest(request) == request_digest
+            except (ToolContractError, TypeError, ValueError):
+                unchanged = False
+            if not unchanged:
+                return self._finish_failure(
+                    request,
+                    definition,
+                    ToolOutcome.FAILED,
+                    ToolFailureCode.ISOLATION_FAILURE,
+                    "approval policy changed the trusted tool request",
+                )
             if approved is not True:
                 return self._finish_failure(
                     request,
@@ -385,7 +399,6 @@ class ToolDispatcher:
                 "tool execution was cancelled",
             )
 
-        request_digest = tool_request_digest(request)
         with self._lock:
             replay = self._completed.get(request.request_id)
             if replay is not None:
@@ -452,8 +465,19 @@ class ToolDispatcher:
                     str(error),
                 )
                 return result, self._receipt(attempts, None, started, 0)
+            try:
+                handler_request = deepcopy(request)
+            except (TypeError, ValueError):
+                result = self._failure_result(
+                    request,
+                    definition,
+                    ToolOutcome.FAILED,
+                    ToolFailureCode.ISOLATION_FAILURE,
+                    "tool request could not be isolated from the handler",
+                )
+                return result, self._receipt(attempts, None, started, 0)
             context = ToolExecutionContext(
-                request,
+                handler_request,
                 request.budget,
                 cancellation,
                 self._clock,

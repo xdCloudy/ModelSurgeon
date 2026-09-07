@@ -52,6 +52,13 @@ from .intent import (
     InterpretationStep,
     SourceSpan,
 )
+from .isolation import (
+    IsolationFailure,
+    TrustZone,
+    copy_untrusted_json,
+    redact_secret_text,
+    redact_untrusted_value,
+)
 from .local_gguf import (
     LOCAL_GGUF_PROVIDER_REVISION,
     LOCAL_GGUF_STRUCTURED_SCHEMA,
@@ -169,6 +176,7 @@ __all__ = [
     "IntentRecordError",
     "InterpretIntentRequest",
     "InterpretationStep",
+    "IsolationFailure",
     "LocalGGUFProvider",
     "LocalGGUFProviderConfig",
     "LocalGGUFProviderError",
@@ -232,11 +240,15 @@ __all__ = [
     "ToolTransactionParticipant",
     "ToolTransactionState",
     "ToolUsage",
+    "TrustZone",
     "UrllibEndpointTransport",
+    "copy_untrusted_json",
     "decode_provider_output",
     "default_tool_definitions",
     "deterministic_tool_request_id",
     "invoke_provider",
+    "redact_secret_text",
+    "redact_untrusted_value",
     "request_digest",
     "result_from_raw_output",
     "tool_request_digest",

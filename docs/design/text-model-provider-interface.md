@@ -104,3 +104,16 @@ raw text, extra fields, invalid schemas, and command-like content never become
 an executable request. The returned intent still passes through the same
 ModelSurgeon policy, compilation, approval, and deterministic execution path as
 every other provider.
+
+Provider requests are copied before invocation and provider identity/capability
+metadata is snapshotted. Mutation of the private request, metadata drift, or
+an unavailable capability record fails closed with an observable
+`isolation_failure` diagnostic. Provider results remain in the untrusted
+provider trust zone; typed validation does not promote provider policy,
+approval, artifact, or evidence fields into trusted engine state.
+
+Credentials use indirect references and are resolved only at transport time.
+Failures and diagnostics are recursively redacted. This is not process
+isolation: in-process provider implementations are not an operating-system
+sandbox. Hostile adapters require a separately supervised process/service and
+an audited IPC contract, which is outside the current evidence boundary.

@@ -11,20 +11,23 @@ import hashlib
 import re
 import threading
 from collections.abc import Iterator, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, Protocol, runtime_checkable
 
 from modelsurgeon.conversation.intent import IntentRecord, IntentRecordError
+from modelsurgeon.conversation.isolation import (
+    TrustZone,
+    redact_secret_text,
+    redact_untrusted_value,
+)
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.provider_kind import ProviderKind
 
 TEXT_PROVIDER_SCHEMA_VERSION: Literal[2] = 2
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
-_SECRET = re.compile(
-    r"(?i)(\b(?:api[_-]?key|authorization|password|secret|token)\b\s*[:=]\s*)([^\s,;]+)"
-)
 
 type JSONValue = (
     bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"] | None
@@ -70,6 +73,7 @@ class ProviderFailureCode(StrEnum):
     LIMIT_EXCEEDED = "limit_exceeded"
     RESOURCE_EXHAUSTED = "resource_exhausted"
     INVALID_MODEL = "invalid_model"
+    ISOLATION_FAILURE = "isolation_failure"
     INTERNAL = "internal"
 
 
@@ -111,7 +115,7 @@ def _capabilities(values: tuple[ProviderCapability, ...]) -> None:
 
 
 def _redact(value: str) -> str:
-    return _SECRET.sub(r"\1<redacted>", value)
+    return redact_secret_text(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,8 +313,12 @@ class ProviderProvenance:
             "request_digest": self.request_digest,
             "response_digest": self.response_digest,
             "evidence_refs": list(self.evidence_refs),
-            "model_path": self.model_path,
-            "runtime_revision": self.runtime_revision,
+            "model_path": None
+            if self.model_path is None
+            else redact_secret_text(self.model_path),
+            "runtime_revision": None
+            if self.runtime_revision is None
+            else redact_secret_text(self.runtime_revision),
             "configuration_digest": self.configuration_digest,
         }
 
@@ -435,6 +443,12 @@ class ExplanationProviderOutput:
     def __post_init__(self) -> None:
         _text(self.text, "explanation text")
         _sorted_unique(self.evidence_refs, "explanation evidence references")
+        object.__setattr__(self, "text", redact_secret_text(self.text))
+        object.__setattr__(
+            self,
+            "evidence_refs",
+            tuple(redact_secret_text(item) for item in self.evidence_refs),
+        )
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -462,12 +476,13 @@ class ProviderFailure:
         _text(self.detail, "provider failure detail")
         _identifier(self.request_id, "provider failure request ID")
         _sorted_unique(self.redacted_fields, "provider failure redacted fields")
+        object.__setattr__(self, "detail", _redact(self.detail))
 
     def to_record(self) -> dict[str, object]:
         return {
             "code": self.code.value,
             "operation": self.operation.value,
-            "detail": _redact(self.detail),
+            "detail": self.detail,
             "request_id": self.request_id,
             "retryable": self.retryable,
             "redacted_fields": list(self.redacted_fields),
@@ -484,6 +499,12 @@ class ProviderResult:
     output: ProviderOutput | None = None
     failure: ProviderFailure | None = None
     unsupported_capabilities: tuple[ProviderCapability, ...] = ()
+
+    @property
+    def trust_zone(self) -> TrustZone:
+        """Provider results are untrusted until a trusted engine promotes them."""
+
+        return TrustZone.UNTRUSTED_PROVIDER
 
     def __post_init__(self) -> None:
         _identifier(self.request_id, "provider result request ID")
@@ -617,11 +638,20 @@ def _result_provenance(
     provider: TextModelProvider,
     request: ProviderRequest,
     response: object | None = None,
+    *,
+    identity: ProviderModelIdentity | None = None,
+    provider_revision: str | None = None,
 ) -> ProviderProvenance:
     response_digest = None if response is None else _sha256_json(response)
+    result_identity = provider.identity if identity is None else identity
+    revision = (
+        provider.capability_card.provider_revision
+        if provider_revision is None
+        else provider_revision
+    )
     return ProviderProvenance(
-        provider.identity.provider_id,
-        provider.capability_card.provider_revision,
+        result_identity.provider_id,
+        revision,
         request_digest(request),
         response_digest,
     )
@@ -641,14 +671,23 @@ def _failure_result(
     retryable: bool = False,
     unsupported: tuple[ProviderCapability, ...] = (),
     provenance: ProviderProvenance | None = None,
+    identity: ProviderModelIdentity | None = None,
+    provider_revision: str | None = None,
 ) -> ProviderResult:
     failure = ProviderFailure(code, request.operation, detail, request.request_id, retryable)
+    result_identity = provider.identity if identity is None else identity
     return ProviderResult(
         request.request_id,
         request.operation,
-        provider.identity,
+        result_identity,
         outcome,
-        provenance or _result_provenance(provider, request),
+        provenance
+        or _result_provenance(
+            provider,
+            request,
+            identity=result_identity,
+            provider_revision=provider_revision,
+        ),
         failure=failure,
         unsupported_capabilities=unsupported,
     )
@@ -676,6 +715,23 @@ def invoke_provider(
     """
 
     token = cancellation or CancellationToken()
+    try:
+        selected_identity = provider.identity
+        selected_card = provider.capability_card
+        isolated_request = deepcopy(request)
+    except (AttributeError, TypeError, ValueError):
+        # A provider that cannot expose stable metadata or a private request
+        # copy is not allowed to run with trusted state.
+        fallback_identity = ProviderModelIdentity("unknown-provider", "unknown-model", "unknown")
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.FAILED,
+            ProviderFailureCode.ISOLATION_FAILURE,
+            "provider request or capability metadata could not be isolated",
+            identity=fallback_identity,
+            provider_revision="isolation-boundary",
+        )
     if token.cancelled:
         return _failure_result(
             provider,
@@ -687,7 +743,7 @@ def invoke_provider(
     missing = tuple(
         capability
         for capability in _required_capabilities(request)
-        if capability not in provider.capability_card.capabilities
+        if capability not in selected_card.capabilities
     )
     if missing:
         return _failure_result(
@@ -698,7 +754,7 @@ def invoke_provider(
             "provider does not advertise the required capability",
             unsupported=missing,
         )
-    if request.budget.max_wall_seconds > provider.capability_card.limits.max_wall_seconds:
+    if request.budget.max_wall_seconds > selected_card.limits.max_wall_seconds:
         return _failure_result(
             provider,
             request,
@@ -706,7 +762,7 @@ def invoke_provider(
             ProviderFailureCode.LIMIT_EXCEEDED,
             "request budget exceeds the provider wall-time limit",
         )
-    limits = provider.capability_card.limits
+    limits = selected_card.limits
     if request.budget.max_input_tokens is not None and (
         request.budget.max_input_tokens > limits.max_input_tokens
     ):
@@ -756,7 +812,7 @@ def invoke_provider(
 
     def run() -> None:
         try:
-            result.append(provider.call(request, cancellation=token))
+            result.append(provider.call(isolated_request, cancellation=token))
         except BaseException as exc:  # failures become explicit boundary data
             error.append(exc)
 
@@ -801,6 +857,20 @@ def invoke_provider(
             ProviderFailureCode.PROTOCOL,
             "provider returned no result",
         )
+    try:
+        request_unchanged = request_digest(isolated_request) == request_digest(request)
+    except (AttributeError, TypeError, ValueError):
+        request_unchanged = False
+    if not request_unchanged:
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.FAILED,
+            ProviderFailureCode.ISOLATION_FAILURE,
+            "provider mutated its isolated request state",
+            identity=selected_identity,
+            provider_revision=selected_card.provider_revision,
+        )
     returned = result[0]
     if not isinstance(returned, ProviderResult):
         return _failure_result(
@@ -818,7 +888,30 @@ def invoke_provider(
             ProviderFailureCode.PROTOCOL,
             "provider result identity does not match the request",
         )
-    if returned.provider != provider.identity:
+    try:
+        current_identity = provider.identity
+        current_card = provider.capability_card
+    except (AttributeError, TypeError, ValueError):
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.FAILED,
+            ProviderFailureCode.ISOLATION_FAILURE,
+            "provider identity or capability metadata became unavailable",
+            identity=selected_identity,
+            provider_revision=selected_card.provider_revision,
+        )
+    if current_identity != selected_identity or current_card != selected_card:
+        return _failure_result(
+            provider,
+            request,
+            ProviderOutcome.FAILED,
+            ProviderFailureCode.ISOLATION_FAILURE,
+            "provider identity or capability metadata changed during the request",
+            identity=selected_identity,
+            provider_revision=selected_card.provider_revision,
+        )
+    if returned.provider != selected_identity:
         return _failure_result(
             provider,
             request,
@@ -826,7 +919,7 @@ def invoke_provider(
             ProviderFailureCode.PROTOCOL,
             "provider result identity does not match the selected provider",
         )
-    if returned.provenance.provider_revision != provider.capability_card.provider_revision:
+    if returned.provenance.provider_revision != selected_card.provider_revision:
         return _failure_result(
             provider,
             request,
@@ -874,7 +967,7 @@ def decode_provider_output(request: ProviderRequest, payload: object) -> Provide
         if set(payload) != {"operation", "intent"}:
             raise ProviderContractError("interpretation output has unknown fields")
         try:
-            encoded = _canonical(payload["intent"])
+            encoded = _canonical(redact_untrusted_value(payload["intent"]))
             return IntentProviderOutput(IntentRecord.from_json(encoded))
         except (IntentRecordError, ProviderContractError) as error:
             raise ProviderContractError("provider returned an invalid intent record") from error
