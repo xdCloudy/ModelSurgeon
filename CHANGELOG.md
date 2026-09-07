@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a stable Python API quickstart, executable notebook, profile reference,
+  consumer troubleshooting decision tree, and explicit HF/GGUF support
+  boundaries for fresh-environment workflows.
+
 - Add a typed resource-aware worker scheduler for local CPU/GPU and explicitly
   registered remote workers, with authenticated capability profiles,
   content-addressed task inputs/results, deterministic placement, campaign
