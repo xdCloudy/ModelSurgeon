@@ -1,5 +1,14 @@
 """Typed conversational control-plane records."""
 
+from .conformance import (
+    PROVIDER_CONFORMANCE_MATRIX,
+    PROVIDER_CONFORMANCE_SCHEMA_VERSION,
+    ProviderConformanceCapability,
+    ProviderConformanceCell,
+    ProviderConformanceError,
+    ProviderConformanceMatrix,
+    ProviderConformanceStatus,
+)
 from .endpoint import (
     ENDPOINT_ADAPTER_SCHEMA_VERSION,
     AuthReference,
@@ -107,6 +116,8 @@ __all__ = [
     "LOCAL_GGUF_STRUCTURED_SCHEMA",
     "MAX_TOOL_INPUT_BYTES",
     "MAX_TOOL_RESULT_BYTES",
+    "PROVIDER_CONFORMANCE_MATRIX",
+    "PROVIDER_CONFORMANCE_SCHEMA_VERSION",
     "TEXT_PROVIDER_SCHEMA_VERSION",
     "TOOL_RESULT_SCHEMA_VERSION",
     "TOOL_SCHEMA_VERSION",
@@ -146,6 +157,11 @@ __all__ = [
     "ProviderCancelledError",
     "ProviderCapability",
     "ProviderCapabilityCard",
+    "ProviderConformanceCapability",
+    "ProviderConformanceCell",
+    "ProviderConformanceError",
+    "ProviderConformanceMatrix",
+    "ProviderConformanceStatus",
     "ProviderContractError",
     "ProviderFailure",
     "ProviderFailureCode",

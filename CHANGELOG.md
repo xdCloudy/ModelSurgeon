@@ -618,3 +618,7 @@ All notable changes will be documented here. This project follows Keep a Changel
 - Initial package, configuration, logging, component identity, architecture walking, Hugging Face loading, CLI, tests, and CI.
 - v0.1–v1.0 architecture and finite GitHub roadmap.
 - Immutable hierarchical configuration with model, calibration, feature, objective, hardware, and safety sections.
+- Add a versioned provider conformance matrix and deterministic offline tests
+  for local, compatible endpoint, hosted, and no-LLM modes. Shared invocation
+  now revalidates provider identity, request provenance, response provenance,
+  and structured output before accepting a supported result.
