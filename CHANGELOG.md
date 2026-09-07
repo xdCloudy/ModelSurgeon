@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded multi-axis architecture candidate spaces with canonical state and
+  placement identities, lazy seed-ranked retention, static hardware/legality
+  pruning, deterministic page resumes, and explicit rejection counts.
 - Add a bounded multi-machine hardware-selection study contract with three-profile
   coverage, repeated host/run evidence, deterministic hardware-aware versus blind
   comparisons, provenance capture, and explicit negative or inconclusive claims.
