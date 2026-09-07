@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded Pareto-beam and constrained evolutionary architecture policies
+  over complete legal candidate states, with uncertainty-conservative dominance,
+  deterministic seeded mutation/crossover, elitism and diversity, explicit
+  retained evidence outcomes, and serializable resume state.
 - Add a resumable architecture-search lifecycle with explicit predicted,
   reserved, materialized, evaluated, accepted, rejected, and failed stages,
   atomic digest-checked snapshots, measured-only frontier promotion, and
