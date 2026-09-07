@@ -16,7 +16,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, frozen protocol and baseline evidence, structured artifact reconciliation, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
 | `modelsurgeon.surgery` | Transactional mutation plans plus versioned physical artifact outcomes and cumulative lineage reconciliation. |
 | `modelsurgeon.surgery` | Shared format-neutral artifact integrity and rollback gates for HF/GGUF publication. |
-| `modelsurgeon benchmark` | Deterministic plans, resumable runs, immutable imports, audits, and reports for bounded competitor matrices. |
+| `modelsurgeon benchmark` | Deterministic plans, resumable runs, immutable imports, audits, reports, and physical HF/GGUF deployment evidence. |
 | `modelsurgeon.experiments` | Experiment identity, persistence, artifacts, resource budgets, and reproducibility records. |
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, and ranking contracts. |
 | `modelsurgeon.search` | Constraints, objectives, Pareto archives, policies, and resumable search state. |
