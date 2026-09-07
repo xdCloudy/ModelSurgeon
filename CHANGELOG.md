@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a fixed-budget ranking-objective study for pointwise, pairwise, listwise,
+  and sequence methods with identical held-out lists, censored evidence,
+  ranking/regret/calibration/frontier metrics, resource accounting, and a
+  confidence-bounded recommendation policy.
 - Add calibrated state-dependent predictors for safety, quality, latency, memory,
   and non-additive error with grouped state/model/candidate leakage checks,
   validation intervals, separate failure probability, additive/stateless baselines,
