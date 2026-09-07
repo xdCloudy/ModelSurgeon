@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a fail-closed multi-axis architecture sequence compiler that revalidates
+  state IDs, axis status, identity remaps, hardware alignment, ordered mutation
+  history, and cumulative parameter/storage reconciliation before mutation.
 - Add versioned deployable architecture state and symmetric decomposed distance
   records for depth, widths, heads, hidden/embedding sizes, low rank, sparsity,
   quantization, placement, mutation order, and physical artifact lineage, with

@@ -45,7 +45,9 @@ def _state(
             4096,
             "outcome_" + "c" * 64,
         ),
-        ("mutation-a", "mutation-b"),
+        parameter_count=1_000,
+        storage_bytes=4_096,
+        mutation_order=(),
     )
 
 

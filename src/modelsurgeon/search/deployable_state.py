@@ -7,7 +7,7 @@ import json
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final, cast
 
@@ -258,6 +258,8 @@ class DeployableArchitectureState:
     quantization: QuantizationState | None
     placement: PlacementState | None
     artifact: ArtifactLineage
+    parameter_count: int | None = field(default=None, kw_only=True)
+    storage_bytes: int | None = field(default=None, kw_only=True)
     mutation_order: tuple[str, ...] = ()
     predicted_axes: tuple[ArchitectureAxis, ...] = ()
     unknown_axes: tuple[ArchitectureAxis, ...] = ()
@@ -271,6 +273,10 @@ class DeployableArchitectureState:
             raise DeployableStateError("unsupported deployable state schema version")
         if self.depth is not None:
             _positive(self.depth, "depth")
+        if self.parameter_count is not None:
+            _positive(self.parameter_count, "parameter count")
+        if self.storage_bytes is not None:
+            _positive(self.storage_bytes, "logical storage bytes")
         if self.layer_widths is not None:
             indexes = tuple(item.layer_index for item in self.layer_widths)
             if indexes != tuple(range(len(indexes))):
@@ -357,6 +363,8 @@ class DeployableArchitectureState:
             "model_revision": self.model_revision,
             "axes": self._axes_record(include_status=True),
             "artifact": self.artifact.to_record(),
+            "parameter_count": self.parameter_count,
+            "storage_bytes": self.storage_bytes,
             "mutation_order": list(self.mutation_order),
         }
 
@@ -778,10 +786,12 @@ def deployable_state_from_record(raw: Mapping[str, object]) -> DeployableArchite
         quantization,
         placement,
         artifact,
-        tuple(mutation_order),
-        predicted,
-        unknown,
-        unsupported,
+        parameter_count=_record_optional_int(value.get("parameter_count"), "parameter count"),
+        storage_bytes=_record_optional_int(value.get("storage_bytes"), "logical storage bytes"),
+        mutation_order=tuple(mutation_order),
+        predicted_axes=predicted,
+        unknown_axes=unknown,
+        unsupported_axes=unsupported,
     )
     if value.get("state_id") != state.state_id:
         raise DeployableStateError("state ID does not match its canonical content")

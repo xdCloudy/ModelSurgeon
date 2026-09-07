@@ -1,0 +1,9 @@
+{
+  "record_type": "multi_axis_sequence_compiler_contract",
+  "schema_version": 1,
+  "operations": ["depth", "layer_widths", "query_heads", "kv_heads", "low_rank_factors", "quantization", "hidden_size", "embedding_size"],
+  "pre_mutation_gates": ["current_state_id", "ordered_mutation_id", "axis_status", "identity_remap", "hardware_alignment"],
+  "reconciliation": ["final_state_id", "parameter_delta", "storage_delta", "active_identities", "invalidated_identities"],
+  "failure_policy": "reject before mutation with first failing step and named invariant",
+  "reproduction": "compile_multi_axis_sequence() and ArchitectureSequenceCompilation.to_record()"
+}
