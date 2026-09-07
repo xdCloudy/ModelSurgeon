@@ -24,6 +24,19 @@ from modelsurgeon.datasets.calibration import (
     SelectionConfig,
     TokenizerIdentity,
 )
+from modelsurgeon.datasets.contamination import (
+    CONTAMINATION_AUDIT_SCHEMA_VERSION,
+    CONTAMINATION_PROTOCOL_REVISION,
+    ContaminationAuditError,
+    ContaminationAuditReport,
+    ContaminationPolicy,
+    ContaminationStatus,
+    CorpusItem,
+    CorpusSource,
+    FindingAction,
+    FindingKind,
+    audit_corpora,
+)
 from modelsurgeon.datasets.grouped_splits import (
     GROUPED_SPLIT_ALGORITHM,
     GROUPED_SPLIT_VERSION,
@@ -129,6 +142,8 @@ from modelsurgeon.datasets.validation import (
 
 __all__ = [
     "CALIBRATION_SCHEMA_VERSION",
+    "CONTAMINATION_AUDIT_SCHEMA_VERSION",
+    "CONTAMINATION_PROTOCOL_REVISION",
     "DATASET_BUILDER_VERSION",
     "DATASET_VALIDATOR_VERSION",
     "GROUPED_SPLIT_ALGORITHM",
@@ -146,6 +161,12 @@ __all__ = [
     "CalibrationContract",
     "CalibrationManifest",
     "CalibrationSample",
+    "ContaminationAuditError",
+    "ContaminationAuditReport",
+    "ContaminationPolicy",
+    "ContaminationStatus",
+    "CorpusItem",
+    "CorpusSource",
     "DatasetBuildError",
     "DatasetBuildExclusion",
     "DatasetBuildExclusionReason",
@@ -160,6 +181,8 @@ __all__ = [
     "DeltaTargetPolicy",
     "ExperimentFeatureJoin",
     "FeatureInputRevisionSource",
+    "FindingAction",
+    "FindingKind",
     "GroupedSplitConfig",
     "GroupedSplitManifest",
     "GroupedSplitMode",
@@ -219,6 +242,7 @@ __all__ = [
     "SplitRatios",
     "TokenizedCalibrationSample",
     "TokenizerIdentity",
+    "audit_corpora",
     "audit_dataset_leakage",
     "build_cumulative_interaction",
     "build_hardware_cost_example",

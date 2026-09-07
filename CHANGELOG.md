@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a bounded corpus contamination audit for exact and near-duplicate text,
+  generated outputs, declared model ancestry, licenses, unavailable sources,
+  remediation protocol identities, and retained unknown limitations.
 - Add a versioned cross-platform stability contract with metric tolerance provenance,
   exact environment and artifact identities, within-tolerance/expected-variation/drift
   classifications, unsupported and unknown cell retention, and additive report migration.
