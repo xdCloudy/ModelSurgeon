@@ -1,0 +1,15 @@
+{
+  "protocol_id": "structured_protocol_9106b399716143f0b78c52489606c36086829a3774e638991f695f9e8886154d",
+  "schema_version": 1,
+  "methods": ["llm_pruner", "slice_gpt", "short_gpt", "minitron"],
+  "models": ["100M:llama", "500M:qwen"],
+  "operations": ["width", "head", "depth", "rotation_low_rank"],
+  "compression_targets": [0.1, 0.2],
+  "seeds": [11, 23, 47],
+  "cell_count": 192,
+  "outcome_counts": {"unsupported": 192},
+  "compatibility_counts": {"unknown": 11, "unsupported": 53},
+  "reloadable_generation_cells": 0,
+  "performance_claim": null,
+  "diagnosis": "Pinned upstream executables are not bundled in this repository or CI; Minitron also has no declared SPDX license in GitHub metadata."
+}

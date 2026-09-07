@@ -14,6 +14,9 @@
 - Add revision-pinned Wanda and SparseGPT equal-budget baseline records for two model families,
   matched 20%/50% sparsity and three-seed cells, explicit magnitude/random controls, and a
   retained unsupported evidence matrix when external executables are unavailable.
+- Add independent LLM-Pruner, SliceGPT, ShortGPT, and Minitron-style structured baseline cards
+  with 10%/20% physical targets, operation matrices, license exclusions, and reload/generation-
+  bound artifact reconciliation.
 
 ## 1.0.0 - 2026-09-07
 
