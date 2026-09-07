@@ -1,0 +1,19 @@
+{
+  "protocol": "multi-axis-candidate-spaces-v1",
+  "schema_version": 1,
+  "issue": 378,
+  "generator": "lazy-seed-ranked-bounded-product",
+  "identity": ["base_state_id", "axis_assignments", "hardware_profile_id"],
+  "static_rules": ["parameter_ceiling", "storage_ceiling", "source_distance_ceiling", "axis_divisibility", "hardware_ceiling"],
+  "resume": "canonical retained sequence with integer page cursor",
+  "reproduction": [
+    "python -m pytest tests/test_candidate_space.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "Descriptors are static compiler inputs; they are not measured evaluations or mutation plans.",
+    "The checked-in fixtures use tiny synthetic domains and do not represent a production model ladder.",
+    "Real integrations must compile emitted states before accepting or publishing them."
+  ]
+}

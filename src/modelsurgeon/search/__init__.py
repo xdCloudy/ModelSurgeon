@@ -1,5 +1,18 @@
 """Constrained and multi-objective candidate search primitives."""
 
+from .candidate_space import (
+    CANDIDATE_SPACE_SCHEMA_VERSION,
+    ArchitectureCandidate,
+    ArchitectureCandidateSpace,
+    ArchitectureChoice,
+    AxisDomain,
+    CandidateGenerationPage,
+    CandidateOutcome,
+    CandidateSpaceConfig,
+    CandidateSpaceError,
+    CandidateSpaceRules,
+    HardwareRule,
+)
 from .constraints import (
     BaselineReference,
     ConstraintEvaluation,
@@ -101,19 +114,29 @@ from .resume import (
 from .sequence import MutationSequenceState, SequenceMutationPlan
 
 __all__ = [
+    "CANDIDATE_SPACE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_DISTANCE_SCHEMA_VERSION",
     "DEPLOYABLE_STATE_SCHEMA_VERSION",
     "HARDWARE_OBJECTIVE_SCHEMA_VERSION",
     "MULTI_AXIS_SEQUENCE_SCHEMA_VERSION",
     "AcceptedCheckpoint",
     "ArchitectureAxis",
+    "ArchitectureCandidate",
+    "ArchitectureCandidateSpace",
+    "ArchitectureChoice",
     "ArchitectureDistance",
     "ArchitectureMutationRequest",
     "ArchitectureSequenceCompilation",
     "ArtifactContainerFormat",
     "ArtifactLineage",
+    "AxisDomain",
     "AxisStatus",
     "BaselineReference",
+    "CandidateGenerationPage",
+    "CandidateOutcome",
+    "CandidateSpaceConfig",
+    "CandidateSpaceError",
+    "CandidateSpaceRules",
     "CheckpointLineageStore",
     "CompiledArchitectureSequence",
     "CompiledArchitectureStep",
@@ -137,6 +160,7 @@ __all__ = [
     "HardwareLineageRecord",
     "HardwareMetric",
     "HardwareObjectiveError",
+    "HardwareRule",
     "HardwareSearchReport",
     "HardwareSearchResume",
     "LayerWidth",
