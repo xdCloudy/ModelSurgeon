@@ -1,0 +1,112 @@
+{
+  "record_type": "bounded_campaign_recovery_matrix",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.7-campaign-recovery-v1",
+  "cells": [
+    {
+      "cell_id": "pause_resume",
+      "failure_mode": "operator_pause",
+      "expected_outcome": "supported",
+      "expected_action": "execute_next_stage",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "cancel",
+      "failure_mode": "operator_cancel",
+      "expected_outcome": "cancelled",
+      "expected_action": "stop_cancelled",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "reconnect",
+      "failure_mode": "session_reconnect",
+      "expected_outcome": "supported",
+      "expected_action": "start",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "restart",
+      "failure_mode": "process_restart",
+      "expected_outcome": "supported",
+      "expected_action": "execute_next_stage",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "stale_plan",
+      "failure_mode": "new_evidence_after_plan",
+      "expected_outcome": "failed",
+      "expected_action": "rebuild_stale_plan",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "expired_approval",
+      "failure_mode": "approval_expired_before_resume",
+      "expected_outcome": "failed",
+      "expected_action": "await_fresh_approval",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "transcript_loss",
+      "failure_mode": "untrusted_transcript_loss",
+      "expected_outcome": "supported_with_loss",
+      "expected_action": "start",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "partial_evidence",
+      "failure_mode": "inconclusive_measurement",
+      "expected_outcome": "unknown",
+      "expected_action": "review_evidence",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "fault_transition_after_sql",
+      "failure_mode": "fault_after_transition_write",
+      "expected_outcome": "unknown",
+      "expected_action": "start",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "fault_evidence_after_sql",
+      "failure_mode": "fault_after_evidence_write",
+      "expected_outcome": "unknown",
+      "expected_action": "start",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "process_restart",
+      "failure_mode": "child_process_reopen",
+      "expected_outcome": "supported",
+      "expected_action": "resume",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    },
+    {
+      "cell_id": "direct_chat_recovery",
+      "failure_mode": "authority_channel_comparison",
+      "expected_outcome": "supported",
+      "expected_action": "start",
+      "direct_recovery": "canonical_store",
+      "chat_recovery": "summary_view"
+    }
+  ],
+  "required_guarantees": [
+    "approval_is_required_for_resume",
+    "hard_constraints_are_preserved",
+    "transaction_boundaries_are_atomic",
+    "identical_inputs_have_identical_next_action",
+    "negative_and_inconclusive_evidence_is_retained",
+    "resource_budgets_and_provenance_are_preserved",
+    "ui_reconnect_is_not_correctness_evidence"
+  ]
+}

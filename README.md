@@ -36,6 +36,9 @@ provider context, lifecycle and retained evidence without persisting chat
 transcripts. See the [v2.6
 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md)
 and [canonical campaign state design](docs/design/conversational-campaign-state.md).
+The bounded [campaign recovery matrix](docs/design/campaign-recovery-matrix.md)
+proves direct/store and summary/chat recovery against the same canonical
+snapshot; UI reconnect is not correctness evidence.
 Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
@@ -77,6 +80,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational campaign state | **v2.7 canonical state implemented** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Chat transcripts are not authoritative. |
 | Conversational summaries | **v2.7 bounded non-authoritative view** | Deterministic, budgeted transcript summaries keep canonical state/evidence separate, mark omissions and unsupported roles, preserve negative evidence, and refuse stale or over-budget rehydration. |
+| Campaign recovery evidence | **v2.7 bounded matrix** | Twelve fixture cells cover lifecycle commands, stale plans, expired approvals, transcript loss, partial evidence, atomic fault checkpoints, subprocess restart, and direct/chat equivalence. Failed and inconclusive cells remain visible; hostile process and UI correctness are not claimed. |
 | Clarification and ambiguity handling | **v2.4 bounded milestone closed** | Necessary-only typed questions, fail-closed contradiction handling, explicit soft-preference selection, deterministic replay/provenance, and retained negative/inconclusive evidence. General natural-language understanding and autonomous negotiation are not claimed. See the [v2.4 release boundary](docs/release/v2.4-clarification-boundary.md). |
 | Measurable target elicitation | **v2.4 bounded clarification** | Vague quality, latency, throughput, memory, and deployment requests receive targeted measurable questions; complete specs proceed, while unsupported metrics remain explicit and no thresholds or baselines are invented. The [clarification measurement protocol](docs/design/clarification-measurement.md) retains bounded safety evidence. |
 
