@@ -11,6 +11,13 @@
   digest-bound spec submission. No mutation, optimizer execution, or live
   provider/model evidence is claimed.
 
+- Freeze the v2.6 bounded conversational tool-calling release boundary with a
+  machine-readable dependency/evidence record, a fail-closed release audit,
+  explicit four-tool allowlist and outcome vocabulary, direct-API compatibility
+  checks, and documented live-evidence/process-isolation limitations. Tighten
+  dispatcher lifecycle ordering so final result-envelope validation completes
+  before an automatically managed read-only transaction is committed.
+
 - Add the v2.6 adversarial conversational tool-boundary corpus for shell/code,
   traversal, secret-exfiltration, prompt-injection, malformed-schema, forged
   measurement, contradictory-provenance, and replay attacks. Tighten schema

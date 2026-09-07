@@ -644,17 +644,13 @@ class ToolDispatcher:
                         ToolFailureCode.BUDGET_EXCEEDED,
                         "tool evaluation budget was exhausted",
                     )
-                if context.transaction.state.value == "active":
-                    if definition.access is ToolAccess.CONSEQUENTIAL:
-                        raise ToolExecutionError(
-                            ToolFailureCode.TRANSACTION_REQUIRED,
-                            "consequential tool handler must explicitly commit its transaction",
-                        )
-                    context.transaction.commit()
-                if context.transaction.state.value != "committed":
+                if (
+                    context.transaction.state.value == "active"
+                    and definition.access is ToolAccess.CONSEQUENTIAL
+                ):
                     raise ToolExecutionError(
-                        ToolFailureCode.TRANSACTION_FAILED,
-                        "tool transaction did not reach committed state",
+                        ToolFailureCode.TRANSACTION_REQUIRED,
+                        "consequential tool handler must explicitly commit its transaction",
                     )
                 provenance = ToolProvenance(
                     definition.owner,
@@ -678,6 +674,19 @@ class ToolDispatcher:
                     raise ToolExecutionError(
                         ToolFailureCode.BUDGET_EXCEEDED,
                         "tool result hard size limit was exhausted",
+                    )
+                if context.transaction.state.value == "active":
+                    try:
+                        context.transaction.commit()
+                    except ToolTransactionError as error:
+                        raise ToolExecutionError(
+                            ToolFailureCode.TRANSACTION_FAILED,
+                            str(error),
+                        ) from error
+                if context.transaction.state.value != "committed":
+                    raise ToolExecutionError(
+                        ToolFailureCode.TRANSACTION_FAILED,
+                        "tool transaction did not reach committed state",
                     )
             except ToolExecutionError as error:
                 failure = error

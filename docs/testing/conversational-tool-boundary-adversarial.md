@@ -1,5 +1,11 @@
 # Conversational tool-boundary adversarial corpus
 
+This corpus is one of the release checks in the [v2.6 bounded tool release
+record](../research/v2.6-bounded-conversational-tool-release-v1.json). The
+unsupported cells are deliberate: no arbitrary shell/code tool, provider
+selector, live hosted-provider call, live campaign, or hostile-process
+containment is part of this evidence.
+
 The versioned fixture
 [`conversational_tool_boundary_adversarial_v1.json`](../../tests/fixtures/conversational_tool_boundary_adversarial_v1.json)
 is the deterministic v2.6 corpus for the typed conversational dispatcher. It

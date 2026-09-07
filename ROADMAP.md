@@ -139,9 +139,9 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 [GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/26). Explain when measured candidates cannot satisfy the declared objective, show grounded Pareto alternatives and record any user-approved amendment immutably. Entry is v2.4 plus v2.0 evidence/approval primitives; exit is explicit infeasibility, measured alternatives, preserved original constraints and reproducible amendment history. Predictions are never presented as measurements and constraints are never loosened silently.
 
-## v2.6 — Bounded Conversational Tool Calling
+## v2.6 — Bounded Conversational Tool Calling (boundary frozen)
 
-[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/27). Formalize the typed, capability-scoped API boundary between text models and ModelSurgeon. Entry is v2.2 provider contracts and v1.9/v2.0 plugin, transaction, approval and provenance work; exit is allowlisted schemas, budgets, read-only/consequential separation, grounded result envelopes and adversarial boundary tests. Arbitrary shell/code execution is outside the tool surface.
+[GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/27). The bounded exit is recorded in the [release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md) and [machine-readable release record](docs/research/v2.6-bounded-conversational-tool-release-v1.json): four allowlisted capability-scoped tools, strict schemas and budgets, read-only/consequential separation, approval and transaction gates, grounded result envelopes, deterministic replay, and adversarial boundary tests. Arbitrary shell/code execution, live provider/campaign evidence, and hostile-process containment remain outside the boundary.
 
 ## v2.7 — Stateful Conversational Campaigns
 
