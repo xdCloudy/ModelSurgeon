@@ -9,12 +9,14 @@ import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from modelsurgeon.datasets.interaction import InteractionExample
 from modelsurgeon.features.schema import FeatureSampleContext
 from modelsurgeon.features.topology import TopologyFeatures
 from modelsurgeon.graph import ComponentId
+
+if TYPE_CHECKING:
+    from modelsurgeon.datasets.interaction import InteractionExample
 
 INTERACTION_FEATURE_EXTRACTOR_VERSION: Final[str] = "1"
 INTERACTION_FEATURE_PHASE: Final[str] = "pre_mutation"
