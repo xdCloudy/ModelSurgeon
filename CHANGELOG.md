@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded joint surgery, repair, and quantization search contracts with
+  hard resource budgets, compatibility gates, immutable lineage, rollback and
+  terminal outcomes, conservative acquisition, and measured-only promotion.
+
 - Add the bounded long interaction-aware sequence study contract across two
   families, stateless/additive/state-aware policies, horizons 10/20/50, and
   three seeds, retaining checkpoint/artifact lineage, regret/violation/cost
