@@ -12,6 +12,7 @@ the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
 the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
 the [canonical campaign state design](conversational-campaign-state.md),
 the [conversation summary boundary](conversational-summary.md),
+the [measurable target boundary](measurable-target-elicitation.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
 are normative for versioning and replay. This document is not a claim that the
@@ -66,6 +67,11 @@ v2.1 compiles a structured intent record into the existing stable v2 objective a
 - `refused`: the request conflicts with hard policy, cannot be represented safely or attempts to bypass a boundary.
 
 Every result carries the original request, normalized interpretation, confidence/ambiguity information, schema/version identity, deterministic serialization and provenance. Confidence describes interpretation quality only; it is never evidence that a candidate surgery is safe.
+
+Vague performance, quality, memory or deployment language is handled by the
+bounded [measurable target boundary](measurable-target-elicitation.md). It
+asks only for a supported metric that is necessary to proceed; it never
+invents a threshold, baseline, unit or deployment-compatibility claim.
 
 Missing hard constraints are unresolved. The compiler never invents a threshold because a provider suggests one, and later negotiation always creates an explicit objective amendment with a visible diff and approval. Fields that the current objective contract cannot represent, such as budgets, allowed operations, or deployment targets, produce an explicit unsupported result rather than being dropped.
 

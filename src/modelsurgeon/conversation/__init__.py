@@ -173,6 +173,13 @@ from .summary import (
     rehydrate_conversation,
     summarize_conversation,
 )
+from .targets import (
+    MEASURABLE_TARGET_SCHEMA_VERSION,
+    MeasurableTargetAssessment,
+    MeasurableTargetError,
+    MeasurableTargetStatus,
+    assess_measurable_targets,
+)
 from .tools import (
     CONVERSATIONAL_TOOL_SCHEMA_VERSION,
     DEFAULT_TOOL_CATALOG,
@@ -225,6 +232,7 @@ __all__ = [
     "LOCAL_GGUF_STRUCTURED_SCHEMA",
     "MAX_TOOL_INPUT_BYTES",
     "MAX_TOOL_RESULT_BYTES",
+    "MEASURABLE_TARGET_SCHEMA_VERSION",
     "PROVIDER_CONFORMANCE_MATRIX",
     "PROVIDER_CONFORMANCE_SCHEMA_VERSION",
     "TEXT_PROVIDER_SCHEMA_VERSION",
@@ -303,6 +311,9 @@ __all__ = [
     "LocalGGUFProviderConfig",
     "LocalGGUFProviderError",
     "LocalGGUFUnsupportedError",
+    "MeasurableTargetAssessment",
+    "MeasurableTargetError",
+    "MeasurableTargetStatus",
     "NullTextModelProvider",
     "ProgressCallback",
     "ProviderBudget",
@@ -366,6 +377,7 @@ __all__ = [
     "TrustZone",
     "UrllibEndpointTransport",
     "apply_clarification_answer",
+    "assess_measurable_targets",
     "bootstrap_chat_session",
     "build_clarification_state",
     "copy_untrusted_json",
