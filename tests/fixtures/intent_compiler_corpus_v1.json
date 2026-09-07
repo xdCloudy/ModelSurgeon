@@ -130,13 +130,12 @@
         "compiler_spec": null,
         "policy_spec": null,
         "compiler_diagnostic_codes": [
-          "intent-diagnostic",
-          "invalid-objective-contract"
+          "contradictory-hard-constraints",
+          "intent-diagnostic"
         ],
         "policy_diagnostic_codes": [
           "contradictory-hard-constraints",
           "intent-diagnostic",
-          "invalid-objective-contract",
           "policy-outcome"
         ],
         "ambiguity_categories": [],

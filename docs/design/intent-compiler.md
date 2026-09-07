@@ -29,3 +29,13 @@ the intent record, must exactly match the contract compiled from typed fields.
 The result schema is versioned in
 `docs/research/v2.1-intent-compiler-v1.json`. Unknown or changed schemas should
 be introduced with a new version and compatibility tests.
+
+Before constructing the contract, the compiler emits deterministic conflict
+witnesses. A contradictory hard-bound witness contains the smallest stable pair
+of fields whose minimum exceeds its maximum; unrelated constraints are not
+silently discarded. Repeated hard terms that the v1 contract cannot represent
+are refused with a `conflicting-hard-constraints` diagnostic. Repeated soft
+preferences for one metric are emitted as
+`ambiguous-preference-ordering` and remain non-executable until the user
+selects one. The witness retains all involved field IDs and source spans, and
+the policy layer adds the intent's provenance references.

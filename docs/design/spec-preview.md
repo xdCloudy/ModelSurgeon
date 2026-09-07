@@ -12,6 +12,12 @@ operations, unresolved field IDs, policy diagnostics, and request/provider/tool
 provenance. Unsupported fields remain visible and block execution. A
 non-executable outcome never carries a spec.
 
+Conflict diagnostics are part of this canonical preview rather than a hidden
+provider decision. A hard contradiction is refused with its minimal field/span
+witness. An ambiguous soft preference remains unresolved until an explicit
+clarification selection is recompiled; no preview or confirmation can infer an
+ordering or relax a hard constraint.
+
 The `spec_digest` is the digest of the exact serialized `spec` object, while
 `spec_identity` is the existing `ObjectiveContract.contract_id`. A changed
 constraint, preference, approval policy, or plugin binding therefore changes

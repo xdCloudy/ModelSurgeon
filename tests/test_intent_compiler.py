@@ -180,3 +180,84 @@ def test_compiler_result_diagnostics_are_canonical() -> None:
 
     codes = [item.code for item in result.diagnostics]
     assert codes == sorted(codes)
+
+
+def test_contradictory_hard_constraints_retain_a_minimal_witness() -> None:
+    fields = (
+        *_fields(),
+        IntentField(
+            "constraint.quality.upper",
+            {
+                "kind": "hard_constraint",
+                "metric": "quality",
+                "direction": "maximum",
+                "threshold": 0.80,
+                "unit": "ratio",
+            },
+            "ratio",
+            1.0,
+            ("request",),
+            True,
+        ),
+        IntentField(
+            "constraint.quality.unrelated",
+            {
+                "kind": "hard_constraint",
+                "metric": "quality",
+                "direction": "minimum",
+                "threshold": 0.99,
+                "unit": "ratio",
+            },
+            "ratio",
+            1.0,
+            ("request",),
+            True,
+        ),
+    )
+    result = compile_intent_record(
+        _intent(
+            tuple(sorted(fields, key=lambda item: item.field_id)),
+            emitted_spec=_spec(),
+        )
+    )
+
+    assert result.outcome is IntentOutcome.REFUSED
+    conflict = next(
+        item for item in result.diagnostics if item.code == "contradictory-hard-constraints"
+    )
+    assert conflict.related_field_ids == (
+        "constraint.quality",
+        "constraint.quality.upper",
+    )
+    assert conflict.source_span_ids == ("request",)
+
+
+def test_duplicate_preferences_are_unresolved_not_ordered_by_input() -> None:
+    fields = (
+        *_fields(),
+        IntentField(
+            "objective.latency.alternate",
+            {
+                "kind": "preference",
+                "metric": "latency",
+                "direction": "maximize",
+                "unit": "milliseconds",
+                "normalization": "identity",
+            },
+            "milliseconds",
+            1.0,
+            ("request",),
+        ),
+    )
+    result = compile_intent_record(
+        _intent(tuple(sorted(fields, key=lambda item: item.field_id)), emitted_spec=_spec())
+    )
+
+    assert result.outcome is IntentOutcome.REFUSED
+    conflict = next(
+        item for item in result.diagnostics if item.code == "ambiguous-preference-ordering"
+    )
+    assert conflict.related_field_ids == (
+        "objective.latency",
+        "objective.latency.alternate",
+    )

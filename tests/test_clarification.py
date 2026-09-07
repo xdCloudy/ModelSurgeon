@@ -242,3 +242,45 @@ def test_already_executable_and_unsupported_intent_do_not_ask_questions() -> Non
     refused = ClarificationMachine().start(unsupported)
     assert refused.status is ClarificationStatus.UNSUPPORTED
     assert refused.questions == ()
+
+
+def test_preference_conflict_requires_explicit_selection_and_preserves_hard_constraint() -> None:
+    alternate = IntentField(
+        "objective.latency.alternate",
+        {
+            "kind": "preference",
+            "metric": "latency",
+            "direction": "maximize",
+            "unit": "milliseconds",
+            "normalization": "identity",
+        },
+        "milliseconds",
+        0.99,
+        ("request",),
+    )
+    intent = _intent(
+        tuple(sorted((_hard(), _soft(), alternate), key=lambda item: item.field_id)),
+        outcome=IntentOutcome.EXECUTABLE,
+        emitted_spec=_spec(),
+    )
+    state = ClarificationMachine().start(intent)
+
+    assert state.status is ClarificationStatus.AMBIGUOUS
+    question = next(
+        item for item in state.questions if item.category == "conflicting-soft-objective"
+    )
+    assert question.alternatives == (
+        "objective.latency",
+        "objective.latency.alternate",
+    )
+
+    completed = ClarificationMachine().answer(
+        state, ClarificationAnswer(question.question_id, "objective.latency")
+    )
+    assert completed.status is ClarificationStatus.EXECUTABLE
+    assert completed.policy.contract is not None
+    assert completed.policy.contract.constraints[0].metric == "quality"
+    assert tuple(item.field_id for item in completed.intent.fields) == (
+        "constraint.quality",
+        "objective.latency",
+    )

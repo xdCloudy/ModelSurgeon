@@ -537,6 +537,7 @@ class ClarificationMachine:
         fields = {item.field_id: item for item in state.intent.fields}
         existing = fields.get(question.field_id)
         value = answer.value
+        selected_field_id: str | None = None
         if question.alternatives and isinstance(value, str) and value not in question.alternatives:
             raise _UnsupportedAnswer("answer is not one of the declared alternatives")
         if question.category in {"missing-hard-constraint", "missing-soft-objective"}:
@@ -544,6 +545,19 @@ class ClarificationMachine:
                 value,
                 "hard_constraint" if question.category.endswith("constraint") else "soft_objective",
             )
+        elif question.category == "conflicting-soft-objective":
+            if not isinstance(value, str) or value not in question.alternatives:
+                raise _UnsupportedAnswer(
+                    "preference clarification must select one declared field"
+                )
+            selected_field_id = value
+            for field_id in question.alternatives:
+                if field_id != selected_field_id:
+                    fields.pop(field_id, None)
+            existing = fields.get(selected_field_id)
+            if existing is None or _kind(existing.value) != "soft_objective":
+                raise _UnsupportedAnswer("selected preference field is no longer available")
+            value = existing.value
         elif existing is None:
             raise _UnsupportedAnswer("answer does not provide the required typed declaration")
         elif isinstance(value, Mapping):
@@ -552,7 +566,7 @@ class ClarificationMachine:
             value = existing.value
         else:
             raise _UnsupportedAnswer("answer must be a typed JSON object")
-        if existing is not None:
+        if existing is not None and selected_field_id is None:
             old_kind = _kind(existing.value)
             new_kind = _kind(value)
             if old_kind == "hard_constraint" and new_kind != "hard_constraint":
@@ -567,7 +581,7 @@ class ClarificationMachine:
                 existing.source_span_ids,
                 existing.required,
             )
-        else:
+        elif selected_field_id is None:
             if not isinstance(value, Mapping):
                 raise _UnsupportedAnswer("new declarations must be typed objects")
             metric = value.get("metric")
@@ -598,13 +612,29 @@ class ClarificationMachine:
             tuple(sorted(set((*state.intent.provenance.evidence_refs, answer_ref)))),
         )
         step_id = "step-clarification-" + answer.answer_digest[len("sha256:") : 24]
-        answered_field_id = question.field_id
+        answered_field_id = selected_field_id or question.field_id
         if existing is None:
             answered_field_id = next(
                 item.field_id for item in fields.values() if item not in state.intent.fields
             )
+        remaining_field_ids = set(fields)
+        preserved_steps = tuple(
+            InterpretationStep(
+                step.step_id,
+                step.operation,
+                step.input_span_ids,
+                tuple(
+                    field_id
+                    for field_id in step.output_field_ids
+                    if field_id in remaining_field_ids
+                ),
+                step.confidence,
+                step.provenance_refs,
+            )
+            for step in state.intent.interpretation_steps
+        )
         steps = (
-            *state.intent.interpretation_steps,
+            *preserved_steps,
             InterpretationStep(
                 step_id,
                 "clarification_answer",
@@ -729,6 +759,11 @@ def _status_for_policy(policy: IntentPolicyDecision) -> ClarificationStatus:
         if item.required
     ):
         return ClarificationStatus.AMBIGUOUS
+    if any(
+        item.code in {"ambiguous-preference-ordering", "conflicting-soft-objectives"}
+        for item in policy.diagnostics
+    ):
+        return ClarificationStatus.AMBIGUOUS
     return ClarificationStatus.INCOMPLETE
 
 
@@ -836,12 +871,16 @@ def _necessary_questions(
         elif diagnostic.code == "low-confidence-required-field" and field_id is not None:
             category = "low-confidence"
             prompt = f"Confirm or correct the typed value for required field {field_id}."
-        elif diagnostic.code == "conflicting-soft-objectives":
+        elif diagnostic.code in {
+            "ambiguous-preference-ordering",
+            "conflicting-soft-objectives",
+        }:
             category = "conflicting-soft-objective"
             field_id = field_id or "clarification.soft-objective"
+            alternatives = diagnostic.related_field_ids
             prompt = (
-                "Choose one soft objective; multiple preferences for the same metric "
-                "are not executable."
+                "Choose one of the declared soft preferences; the ordering is ambiguous "
+                "and cannot be inferred."
             )
         if category is not None and field_id is not None:
             candidates.append(

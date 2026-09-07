@@ -8,12 +8,12 @@ mutation, tensor selection, or optimizer strategy code.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import cast
 
-from modelsurgeon.conversation import IntentOutcome, IntentRecord
+from modelsurgeon.conversation import IntentField, IntentOutcome, IntentRecord
 
 from .objective_contract import (
     ConstraintDirection,
@@ -53,6 +53,7 @@ class CompilerDiagnostic:
     severity: DiagnosticSeverity = DiagnosticSeverity.ERROR
     field_id: str | None = None
     source_span_ids: tuple[str, ...] = ()
+    related_field_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.code.strip() or not self.message.strip():
@@ -61,15 +62,22 @@ class CompilerDiagnostic:
             raise IntentCompilerError("compiler diagnostic field ID cannot be blank")
         if self.source_span_ids != tuple(sorted(set(self.source_span_ids))):
             raise IntentCompilerError("compiler diagnostic source spans must be sorted and unique")
+        if self.related_field_ids != tuple(sorted(set(self.related_field_ids))):
+            raise IntentCompilerError(
+                "compiler diagnostic related fields must be sorted and unique"
+            )
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "code": self.code,
             "message": self.message,
             "severity": self.severity.value,
             "field_id": self.field_id,
             "source_span_ids": list(self.source_span_ids),
         }
+        if self.related_field_ids:
+            record["related_field_ids"] = list(self.related_field_ids)
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,6 +219,12 @@ def compile_intent_record(intent: IntentRecord) -> IntentCompilation:
                 )
             )
 
+    conflicts = _detect_conflicts(intent.fields)
+    if conflicts:
+        diagnostics.extend(conflicts)
+        if any(item.code == "contradictory-hard-constraints" for item in conflicts):
+            return _result(intent, IntentOutcome.REFUSED, diagnostics)
+
     if unsupported:
         diagnostics.extend(unsupported)
         return _result(intent, IntentOutcome.UNSUPPORTED, diagnostics)
@@ -291,6 +305,136 @@ def _result(
 
 def _diagnostic_sort_key(item: CompilerDiagnostic) -> tuple[str, str, str, str]:
     return (item.code, item.field_id or "", item.message, item.severity.value)
+
+
+def _detect_conflicts(fields: Sequence[IntentField]) -> list[CompilerDiagnostic]:
+    """Return minimal, deterministic witnesses for unrepresentable term conflicts.
+
+    The compiler does not resolve a conflict by input order, sentence order, or
+    confidence.  A pair of hard bounds is contradictory only when the minimum
+    exceeds the maximum.  Other repeated terms are still refused because the
+    v1 objective contract cannot preserve duplicate metric terms.  Soft terms
+    for one metric are unresolved preference ordering, not an inferred winner.
+    """
+
+    hard: dict[str, list[tuple[IntentField, Mapping[str, object]]]] = {}
+    soft: dict[str, list[tuple[IntentField, Mapping[str, object]]]] = {}
+    for field in fields:
+        value = field.value
+        if not isinstance(value, Mapping):
+            continue
+        raw_kind = value.get("kind", value.get("type", value.get("declaration")))
+        if not isinstance(raw_kind, str):
+            continue
+        kind = {
+            "constraint": "hard_constraint",
+            "hard_constraint": "hard_constraint",
+            "hard-constraint": "hard_constraint",
+            "objective": "soft_objective",
+            "soft_objective": "soft_objective",
+            "soft-objective": "soft_objective",
+            "preference": "soft_objective",
+        }.get(raw_kind)
+        metric = value.get("metric")
+        if kind is None or not isinstance(metric, str) or not metric.strip():
+            continue
+        entry = (field, value)
+        (hard if kind == "hard_constraint" else soft).setdefault(metric, []).append(entry)
+
+    diagnostics: list[CompilerDiagnostic] = []
+    for metric, terms in sorted(hard.items()):
+        ordered = sorted(terms, key=lambda item: item[0].field_id)
+        minimums = [item for item in ordered if item[1].get("direction") == "minimum"]
+        maximums = [item for item in ordered if item[1].get("direction") == "maximum"]
+        crossing_pairs: list[
+            tuple[
+                tuple[IntentField, Mapping[str, object]],
+                tuple[IntentField, Mapping[str, object]],
+            ]
+        ] = []
+        for minimum in minimums:
+            minimum_value = _numeric(minimum[1].get("threshold"))
+            if minimum_value is None:
+                continue
+            for maximum in maximums:
+                maximum_value = _numeric(maximum[1].get("threshold"))
+                comparable = (
+                    minimum[1].get("unit") == maximum[1].get("unit")
+                    and minimum[1].get("baseline", "absolute")
+                    == maximum[1].get("baseline", "absolute")
+                )
+                if comparable and maximum_value is not None and minimum_value > maximum_value:
+                    crossing_pairs.append((minimum, maximum))
+        if crossing_pairs:
+            left, right = min(
+                crossing_pairs,
+                key=lambda pair: (pair[0][0].field_id, pair[1][0].field_id),
+            )
+            diagnostics.append(
+                _conflict_diagnostic(
+                    "contradictory-hard-constraints",
+                    f"hard constraints for metric {metric!r} require a value at least "
+                    f"{left[1].get('threshold')} and at most {right[1].get('threshold')}",
+                    (left[0], right[0]),
+                )
+            )
+        elif len(ordered) > 1:
+            diagnostics.append(
+                _conflict_diagnostic(
+                    "conflicting-hard-constraints",
+                    f"multiple hard constraints target metric {metric!r}; the v1 "
+                    "contract cannot preserve duplicate metric terms",
+                    tuple(item[0] for item in ordered[:2]),
+                )
+            )
+
+    for metric, terms in sorted(soft.items()):
+        ordered = sorted(terms, key=lambda item: item[0].field_id)
+        if len(ordered) > 1:
+            directions = tuple(sorted({str(item[1].get("direction")) for item in ordered}))
+            direction_detail = (
+                f" with directions {', '.join(directions)}" if directions else ""
+            )
+            diagnostics.append(
+                _conflict_diagnostic(
+                    "ambiguous-preference-ordering",
+                    f"multiple soft preferences target metric {metric!r}{direction_detail}; "
+                    "the user must select one explicitly",
+                    tuple(item[0] for item in ordered[:2]),
+                )
+            )
+    return diagnostics
+
+
+def _conflict_diagnostic(
+    code: str,
+    message: str,
+    fields: tuple[IntentField, ...],
+) -> CompilerDiagnostic:
+    first = fields[0]
+    field_ids = tuple(sorted(item.field_id for item in fields))
+    source_span_ids = tuple(
+        sorted(
+            {
+                span_id
+                for item in fields
+                for span_id in item.source_span_ids
+            }
+        )
+    )
+    return CompilerDiagnostic(
+        code,
+        message,
+        field_id=first.field_id,
+        source_span_ids=source_span_ids,
+        related_field_ids=field_ids,
+    )
+
+
+def _numeric(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
 
 
 def _parse_field(

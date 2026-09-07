@@ -145,6 +145,7 @@ def test_contradiction_precedes_confidence_and_never_emits_spec() -> None:
                 "direction": "maximum",
                 "threshold": 0.8,
                 "unit": "ratio",
+                "baseline": "immutable_source",
             },
         ),
     )
@@ -167,3 +168,51 @@ def test_required_ambiguity_is_provenance_linked_and_safe() -> None:
     assert decision.contract is None
     assert decision.ambiguities[0].source_span_ids == ("span-request",)
     assert decision.diagnostics[0].provenance_refs == ("evidence:request",)
+
+
+def test_rephrased_contradictions_have_the_same_canonical_witness() -> None:
+    fields = (
+        *_valid_fields(),
+        _field(
+            "constraint.quality.upper",
+            {
+                "kind": "hard_constraint",
+                "metric": "quality",
+                "direction": "maximum",
+                "threshold": 0.80,
+                "unit": "ratio",
+                "baseline": "immutable_source",
+            },
+        ),
+    )
+    first = evaluate_intent_policy(_record(fields))
+    second_intent = _record(fields)
+    second = evaluate_intent_policy(
+        IntentRecord(
+            "Preserve at least 0.98 quality, but quality must stay under 0.80.",
+            (SourceSpan(
+                "span-request",
+                0,
+                len("Preserve at least 0.98 quality, but quality must stay under 0.80."),
+                "Preserve at least 0.98 quality, but quality must stay under 0.80.",
+            ),),
+            second_intent.fields,
+            second_intent.ambiguities,
+            second_intent.interpretation_steps,
+            second_intent.provenance,
+            second_intent.outcome,
+            second_intent.diagnostics,
+            second_intent.emitted_spec,
+        )
+    )
+
+    first_conflict = next(
+        item for item in first.diagnostics if item.code == "contradictory-hard-constraints"
+    )
+    second_conflict = next(
+        item for item in second.diagnostics if item.code == "contradictory-hard-constraints"
+    )
+    assert first.outcome is second.outcome is IntentOutcome.REFUSED
+    assert first_conflict.related_field_ids == second_conflict.related_field_ids
+    assert first_conflict.source_span_ids == second_conflict.source_span_ids
+    assert first_conflict.provenance_refs == second_conflict.provenance_refs

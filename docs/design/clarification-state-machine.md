@@ -13,7 +13,7 @@ questions only for executable gaps:
 - missing hard constraints or soft objectives;
 - required unresolved ambiguities;
 - low-confidence required fields; and
-- conflicting soft preferences.
+- ambiguous preference ordering.
 
 Contradictory and unsupported policy outcomes do not receive a question. They
 remain fail-closed. Prompts, question IDs, alternatives, source references and
@@ -41,6 +41,14 @@ existing compiler helpers, and runs the existing policy evaluator again. Only a
 new `executable` policy decision may expose a spec. Unsupported schema values,
 contradictory declarations, repeated answers and cancelled sessions are
 retained as deterministic transitions without execution.
+
+For an ambiguous preference ordering, the necessary question contains the
+canonical IDs of the competing soft fields. The answer must select one of
+those fields explicitly. The machine removes only the unselected soft
+preferences from the derived interpretation; hard constraints, source spans,
+provenance, and rejected attempts remain retained. Contradictory hard
+constraints do not receive a question: they remain refused until the user
+submits a new, explicit amended intent.
 
 ## Replay and integration
 
