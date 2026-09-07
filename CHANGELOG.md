@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add deterministic replay environment contracts for native, Docker, and
+  exploratory Nix locks, mismatch preflight, resumable cursors, ordered schema
+  migration copies, and tolerance-aware metric comparison.
+
 - Add offline-verifiable signed evidence bundles with streaming Merkle checks,
   detached attestations, key rotation/revocation metadata, explicit redaction
   and external-reference claim limits, and tamper/missing-member detection.
