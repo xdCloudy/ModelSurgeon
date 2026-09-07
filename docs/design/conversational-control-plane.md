@@ -2,12 +2,14 @@
 
 Status: the v2.1 canonical intent-record boundary, bounded objective-contract
 compiler, policy evaluator, and equivalence/refusal corpus, the v2.2
-replaceable provider boundary, the experimental v2.3 chat bootstrap, and the
-v2.6 bounded conversational tool boundary are implemented and frozen in
+replaceable provider boundary, the experimental v2.3 chat bootstrap, the
+v2.6 bounded conversational tool boundary, and the v2.7 canonical campaign
+state store are implemented and frozen in
 `modelsurgeon.conversation` and `modelsurgeon.search`. The conversational
 product remains experimental and incomplete. The [chat session bootstrap](chat-session-bootstrap.md),
 the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
 the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
+the [canonical campaign state design](conversational-campaign-state.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
 are normative for versioning and replay. This document is not a claim that the
@@ -110,7 +112,7 @@ Python, filesystem or network tool merely because a model requested it.
 
 Conversation history is an ephemeral view. The authoritative state is the structured campaign store: objective/spec identity, plan version, lifecycle state, approval state, evidence cursor, accepted lineage, budgets and artifact identities. Summaries may reduce transcript cost but may not erase hard constraints, approvals, failures, negative evidence or provenance.
 
-On pause, resume, reconnect, restart or new evidence, the engine validates state and detects stale context. A material plan or objective change creates a new versioned identity, visible diff and (when consequential) a new approval. Old evidence remains queryable and is not silently relabeled as current.
+On pause, resume, reconnect, restart or new evidence, the engine validates state and detects stale context through the WAL-backed `CampaignStateStore`. A material plan or objective change creates a new versioned identity, visible diff and (when consequential) a new approval. Old evidence remains queryable and is not silently relabeled as current.
 
 ## Evidence-grounded explanations
 

@@ -26,13 +26,16 @@ It supports two complementary paths:
 > ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
 The v2.1 conversational intent boundary, v2.2 replaceable-provider boundary,
-and v2.6 bounded tool boundary are frozen around the existing `OptimizationSpec`
+v2.6 bounded tool boundary, and v2.7 canonical campaign state store are frozen around the existing `OptimizationSpec`
 contract. The tool boundary is control-plane infrastructure, not a general
 agent runtime, `modelsurgeon chat` product release, universal hosted-provider
 claim, or optimization evidence. ModelSurgeon retains authority over
-constraints, surgery, validation and artifact publication. See the [v2.6
+constraints, surgery, validation and artifact publication. The state store
+persists campaign linkage, spec/constraint identity, approvals, budgets,
+provider context, lifecycle and retained evidence without persisting chat
+transcripts. See the [v2.6
 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md)
-and [machine-readable release record](docs/research/v2.6-bounded-conversational-tool-release-v1.json).
+and [canonical campaign state design](docs/design/conversational-campaign-state.md).
 Direct CLI/Python workflows remain the supported automation path.
 
 ## Why ModelSurgeon?
@@ -71,6 +74,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, passes engine-owned model/hardware inspection context to the compiler, validates typed objectives, and retains explicit outcomes. Execution, universal hosted support, and live provider benchmarks remain outside this slice. |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
+| Conversational campaign state | **v2.7 canonical state implemented** | WAL-backed restart/reconnect store with deterministic versioned transitions, spec/approval invalidation, optimistic stale-context checks, provider/resource context, and append-only supported/unsupported/failed/unknown/inconclusive evidence. Chat transcripts are not authoritative. |
 
 Measured evidence currently includes:
 
