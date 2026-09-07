@@ -22,6 +22,8 @@
 - Publish the v1.0 scientific results ledger with content-addressed evidence run IDs, Q1–Q8 and
   quantization findings, consumer-hardware costs, and explicit prediction/masking/physical-surgery
   limitations.
+- Add end-to-end Hugging Face/safetensors and native GGUF user guides covering pinned inputs,
+  bounded experiments, safe publication, Q4_K_M edits, resume, reproduction, and failure recovery.
 - Add `modelsurgeon calibrate` for strict revision-pinned calibration plans, bounded tokenization,
   content-addressed atomic cache publication, dry-run isolation, and interruption-safe refresh.
 - Add `modelsurgeon generate-dataset` to start or resume a trusted mutation campaign and emit
