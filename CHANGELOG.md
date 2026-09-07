@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the versioned mutation interaction dataset contract for single, ordered-pair,
+  and cumulative evidence, additive/non-additive reconciliation, explicit terminal
+  outcomes, topology distance, provenance, and lineage-safe leakage rejection.
 - Add a fail-closed multi-axis architecture sequence compiler that revalidates
   state IDs, axis status, identity remaps, hardware alignment, ordered mutation
   history, and cumulative parameter/storage reconciliation before mutation.

@@ -1,0 +1,14 @@
+{
+  "record_type": "mutation_interaction_dataset_contract",
+  "schema_version": 1,
+  "protocol_revision": "mutation-interaction-v1",
+  "kinds": ["single", "ordered_pair", "cumulative"],
+  "outcomes": ["measured", "unsupported", "failed", "unknown"],
+  "reconciliation": "observed cumulative metrics minus the sum of independently measured single metrics",
+  "leakage_keys": ["model_revision", "source_artifact_digest", "corpus_id", "root_state_id", "ancestor_state_id"],
+  "split_policy": "disjoint lineage groups with cross-partition leakage rejection",
+  "sequence_budget": {"minimum_mutations": 2, "research_target_maximum": 20},
+  "required_provenance": ["benchmark_record_ids", "protocol_revision", "tool_revision", "command", "configuration"],
+  "claim_boundary": "The dataset records evidence and does not by itself establish a trained state model or universal hardware claim.",
+  "reproduction": "build_pairwise_interaction(), build_cumulative_interaction(), and InteractionDataset.to_record()"
+}
