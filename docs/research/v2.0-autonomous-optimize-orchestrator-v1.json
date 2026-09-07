@@ -1,0 +1,17 @@
+{
+  "record_type": "autonomous_optimize_orchestrator_protocol",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.0-autonomous-optimize-orchestrator-v1",
+  "stages": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery", "repair", "quantization", "deployment_benchmark", "pareto", "report"],
+  "required_evidence": [
+    "immutable_plan_identity",
+    "ordered_stage_cursor_and_attempts",
+    "recorded_approvals_and_overrides",
+    "source_and_child_artifact_lineage",
+    "measured_complete_constraint_passing_pareto_evidence"
+  ],
+  "outcomes": ["supported", "unsupported", "failed", "unknown"],
+  "resume_rule": "skip completed stages, retry only incomplete stage, reject changed plan identity",
+  "negative_rule": "no feasible measured candidate produces failed outcome and no accepted artifact",
+  "runtime_boundary": "trusted module:factory implementing run_stage(context)"
+}

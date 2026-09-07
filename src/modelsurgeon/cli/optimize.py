@@ -15,6 +15,12 @@ from modelsurgeon.optimization import (
     write_optimize_plan,
 )
 from modelsurgeon.provider_kind import ProviderKind
+from modelsurgeon.optimization_orchestrator import (
+    OptimizeOrchestrator,
+    OptimizeOrchestratorError,
+    PreflightRuntime,
+    load_optimize_runtime,
+)
 
 
 def optimize_command(
@@ -81,9 +87,29 @@ def optimize_command(
         bool,
         typer.Option(
             "--execute",
-            help="Print an approval-gated execution plan; never mutates in this release",
+            help="Execute the bounded workflow through a trusted runtime adapter",
         ),
     ] = False,
+    state: Annotated[
+        Path | None,
+        typer.Option("--state", help="Atomic JSON workflow state used for resume"),
+    ] = None,
+    resume: Annotated[
+        bool,
+        typer.Option("--resume", help="Resume the matching incomplete workflow"),
+    ] = False,
+    approve: Annotated[
+        list[str] | None,
+        typer.Option("--approve", help="Record approval code; may be repeated"),
+    ] = None,
+    override: Annotated[
+        list[str] | None,
+        typer.Option("--override", help="Set approved runtime override as name=value"),
+    ] = None,
+    runtime: Annotated[
+        str | None,
+        typer.Option("--runtime", help="Trusted runtime factory as module:factory"),
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", help="Persist the canonical plan JSON without overwriting"),
@@ -93,7 +119,7 @@ def optimize_command(
         typer.Option("--json", help="Emit the complete plan as JSON"),
     ] = False,
 ) -> None:
-    """Resolve configuration and produce one deterministic optimization plan."""
+    """Plan or execute one bounded, resumable optimization workflow."""
 
     overrides: dict[str, object] = {}
     if model is not None:
@@ -124,6 +150,10 @@ def optimize_command(
             {key: value for key, value in provider_overrides.items() if value is not None}
         )
     try:
+        if resume and not execute:
+            raise OptimizePlanError("--resume requires --execute")
+        if (approve or override) and not execute:
+            raise OptimizePlanError("--approve and --override require --execute")
         settings = load_settings(config, cli_overrides=overrides)
         plan = build_optimize_plan(
             settings,
@@ -132,9 +162,44 @@ def optimize_command(
             quality_profile=quality_profile,
             dry_run=not execute,
         )
+        run_record = None
+        if execute:
+            if state is None:
+                raise OptimizePlanError("--state is required with --execute")
+            override_values: dict[str, str] = {}
+            for item in override or []:
+                name, separator, value = item.partition("=")
+                if not separator or not name.strip() or not value.strip():
+                    raise OptimizePlanError("--override values must use name=value syntax")
+                override_values[name.strip()] = value
+            selected_runtime = (
+                PreflightRuntime() if runtime is None else load_optimize_runtime(runtime)
+            )
+            run_record = OptimizeOrchestrator(plan, state).run(
+                selected_runtime,
+                resume=resume,
+                approvals=tuple(approve or ()),
+                overrides=override_values,
+            )
         if output is not None:
-            write_optimize_plan(output, plan, allow_overwrite=settings.safety.allow_overwrite)
-    except (ConfigurationFileError, OptimizePlanError, OSError, ValueError) as error:
+            if run_record is None:
+                write_optimize_plan(output, plan, allow_overwrite=settings.safety.allow_overwrite)
+            else:
+                if output.exists() and not settings.safety.allow_overwrite:
+                    raise OptimizePlanError(
+                        f"refusing to overwrite existing run artifact: {output}"
+                    )
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(
+                    run_record.canonical_json() + "\n", encoding="utf-8", newline="\n"
+                )
+    except (
+        ConfigurationFileError,
+        OptimizePlanError,
+        OptimizeOrchestratorError,
+        OSError,
+        ValueError,
+    ) as error:
         if output_json:
             typer.echo(
                 json.dumps(
@@ -147,7 +212,18 @@ def optimize_command(
             typer.echo(f"optimize error: {error}", err=True)
         raise typer.Exit(2) from error
 
-    if output_json:
+    if run_record is not None:
+        if output_json:
+            typer.echo(run_record.canonical_json())
+        else:
+            typer.echo(
+                f"{run_record.outcome.value} {run_record.run_id} "
+                f"status={run_record.status.value} "
+                f"cursor={run_record.cursor}/{len(run_record.stages)}"
+            )
+            for reason in run_record.reasons:
+                typer.echo(f"reason: {reason}")
+    elif output_json:
         typer.echo(plan.canonical_json())
     else:
         typer.echo(

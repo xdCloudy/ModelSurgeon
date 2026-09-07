@@ -17,6 +17,12 @@
   negotiation/refusal results, approval-gated consequential calls, and no
   direct tensor-removal or arbitrary command authority.
 
+- Add a bounded autonomous `optimize --execute` orchestrator with a deterministic
+  stage DAG/cursor, atomic resume state, recorded approvals and overrides,
+  trusted runtime adapters, retained alternatives, and fail-closed measured-only
+  promotion. Missing or infeasible final evidence now produces an explicit
+  negative outcome without an accepted artifact.
+
 - Add a fail-closed conversational intent policy evaluator with explicit
   confidence categories, ambiguity/refusal diagnostics, hard-constraint and
   preference conflict detection, deterministic safety precedence, and

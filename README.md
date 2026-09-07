@@ -121,6 +121,7 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `features` | Extract bounded, cacheable model features through a trusted runtime. |
 | `calibrate` | Build or reuse a revision-pinned, content-addressed calibration manifest ([contract](docs/design/calibration-cli.md)). |
 | `generate-dataset` | Run or resume a campaign and emit leakage-safe JSONL splits. |
+| `optimize` | Plan or execute a bounded, resumable autonomous optimization workflow. |
 | `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
 | `report` | Render deterministic JSON or offline HTML evidence reports. |
 
@@ -160,6 +161,37 @@ uv run modelsurgeon first-surgeon-evidence ./proof-data/examples.jsonl \
 ```
 
 The campaign refuses to publish when a split is empty or the leakage audit finds contamination. See the [proof protocol](docs/first-surgeon-proof.md) and [evidence contract](docs/first-surgeon-evidence.md).
+
+</details>
+
+<details>
+<summary><strong>Run the bounded autonomous optimizer</strong></summary>
+
+Execution requires a trusted runtime adapter and explicit approvals. The adapter
+owns model-specific profiling, mutation, evaluation, repair, quantization, and
+deployment measurement; the orchestrator owns state, budgets, lineage, and
+promotion safety.
+
+```bash
+uv run modelsurgeon optimize \
+  --model HuggingFaceTB/SmolLM2-135M \
+  --revision <immutable-revision> \
+  --preset balanced \
+  --hardware-profile cpu-small \
+  --execute \
+  --state artifacts/optimize/run.json \
+  --runtime my_project.runtime:factory \
+  --approve plan_review \
+  --approve source_model \
+  --approve resource_budget \
+  --approve artifact_write \
+  --json
+```
+
+Repeat with `--resume` after an interruption. A missing runtime, unsupported
+capability, incomplete evidence, or absent feasible candidate remains an
+explicit `unknown`, `unsupported`, or `failed` result; no best model is guessed.
+See the [orchestrator contract](docs/design/autonomous-optimize-orchestrator.md).
 
 </details>
 
