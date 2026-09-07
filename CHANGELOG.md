@@ -10,6 +10,10 @@
   with model/state-held-out splits, five-seed deterministic inference,
   resource accounting, topology/order/parameter ablations, and fail-closed
   complexity selection.
+- Add state-bound interaction-aware acquisition with utility, safety,
+  uncertainty, interaction uncertainty, diversity, cumulative resource caps,
+  stale-parent rejection, retained negative outcomes, and bounded
+  replan/rollback decisions.
 - Add calibrated state-dependent predictors for safety, quality, latency, memory,
   and non-additive error with grouped state/model/candidate leakage checks,
   validation intervals, separate failure probability, additive/stateless baselines,
