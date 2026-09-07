@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import product
 
 from modelsurgeon.adapters.family import ModelFamily
-from modelsurgeon.experiments.identity import canonical_identity_json
 
 RUNTIME_EXPORT_SCHEMA_VERSION = 1
+
+
+def _canonical(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 class RuntimeExportError(ValueError):
@@ -56,7 +60,7 @@ class RuntimeExportState:
     @property
     def state_id(self) -> str:
         digest = hashlib.sha256(
-            canonical_identity_json(self._identity_record()).encode()
+            _canonical(self._identity_record()).encode()
         ).hexdigest()
         return f"state_{digest}"
 
@@ -261,9 +265,7 @@ class RuntimeExportMatrix:
 
     @property
     def matrix_id(self) -> str:
-        return hashlib.sha256(
-            canonical_identity_json(self._identity_record()).encode()
-        ).hexdigest()
+        return hashlib.sha256(_canonical(self._identity_record()).encode()).hexdigest()
 
     def _identity_record(self) -> dict[str, object]:
         ordered = sorted(self.cells, key=lambda cell: cell.cell_id)
