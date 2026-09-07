@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add deterministic strategy selection for required strong baselines, surgeon,
+  acquisition, search policy, budgets, and approval-visible alternatives, with
+  a rule-based fallback until held-out meta-evidence is validated.
+
 - Add automatic capability and candidate-space planning with compatibility
   matrix checks, plugin/runtime refusals, deterministic model/hardware/objective
   identity, explicit exclusions, and dry-run candidate/evaluation/artifact

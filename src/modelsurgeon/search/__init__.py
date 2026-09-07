@@ -210,6 +210,16 @@ from .resume import (
     SearchRngState,
 )
 from .sequence import MutationSequenceState, SequenceMutationPlan
+from .strategy_selector import (
+    SELECTOR_SCHEMA_VERSION,
+    EvidenceLevel,
+    StrategyOption,
+    StrategyOutcome,
+    StrategySelection,
+    StrategySelectionRequest,
+    StrategySelectorError,
+    select_strategy,
+)
 from .surrogate import (
     SURROGATE_SCHEMA_VERSION,
     AcquisitionKind,
@@ -242,6 +252,7 @@ __all__ = [
     "JOINT_REPAIR_SEARCH_SCHEMA_VERSION",
     "MULTI_AXIS_SEQUENCE_SCHEMA_VERSION",
     "OBJECTIVE_CONTRACT_SCHEMA_VERSION",
+    "SELECTOR_SCHEMA_VERSION",
     "SURROGATE_SCHEMA_VERSION",
     "AcceptedCheckpoint",
     "AcquisitionKind",
@@ -306,6 +317,7 @@ __all__ = [
     "DistanceComponent",
     "DistanceStatus",
     "EvaluationStatus",
+    "EvidenceLevel",
     "EvidenceStatus",
     "ExclusionStatus",
     "HardConstraint",
@@ -389,6 +401,11 @@ __all__ = [
     "SequenceMutationPlan",
     "SoftObjective",
     "SparsityEntry",
+    "StrategyOption",
+    "StrategyOutcome",
+    "StrategySelection",
+    "StrategySelectionRequest",
+    "StrategySelectorError",
     "SurrogateArchitecturePolicy",
     "SurrogateBudget",
     "SurrogateConfig",
@@ -420,5 +437,6 @@ __all__ = [
     "objectives_from_config",
     "rank_hardware_candidates",
     "record_joint_repair_evidence",
+    "select_strategy",
     "validate_plugin_objective",
 ]
