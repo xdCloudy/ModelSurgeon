@@ -1,0 +1,13 @@
+{
+  "record_type": "hf_cumulative_surgery_evidence",
+  "schema_version": 1,
+  "status": "contract_and_fixture_integration",
+  "edit_families": ["mlp_width", "attention_heads", "transformer_layers", "low_rank"],
+  "verified_sequences": [
+    ["mlp_width", "attention_heads", "transformer_layers"],
+    ["attention_heads", "mlp_width", "transformer_layers"],
+    ["transformer_layers", "attention_heads", "mlp_width"]
+  ],
+  "gates": ["atomic_publish", "reload", "generation_smoke", "parameter_reconciliation", "storage_reconciliation"],
+  "claim_boundary": "The sequence contract and licensed tiny-model integration fixtures are verified; representative Llama and Qwen checkpoint measurements remain a separately retained hardware experiment."
+}
