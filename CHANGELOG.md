@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add profile-bound kernel/offload microbenchmark partitions with boundary-crossing shapes,
+  ten-repetition confidence envelopes, explicit unstable outcomes, and retained unsupported
+  or failed cells.
 - Add immutable empirical hardware/runtime profiles with bounded bandwidth, transfer,
   GEMM, load, and llama.cpp probe protocols, repeated summaries, explicit unavailable
   capabilities, and environment-drift rejection.
