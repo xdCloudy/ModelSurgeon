@@ -1,0 +1,25 @@
+{
+  "protocol": "hardware-objectives-v1",
+  "schema_version": 1,
+  "issue": 374,
+  "candidate_identity": [
+    "structure_identity",
+    "parent_checkpoint_id",
+    "runtime_profile",
+    "offload_boundary"
+  ],
+  "hard_constraint_policy": "predicted feasibility cannot promote without measured evidence",
+  "uncertainty_policy": "upper bounds for maxima and lower bounds for minima",
+  "objective_policy": "explicit direction, reference, and weight; requested deployment objective outranks parameter count",
+  "persistence": ["identity", "resume", "report", "lineage"],
+  "reproduction": [
+    "python -m pytest tests/test_hardware_objectives.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in fixtures are deterministic contract tests, not a hardware benchmark.",
+    "Measured deployment evidence remains required for real promotion decisions.",
+    "Unsupported runtimes and unavailable sensors remain explicit rather than being imputed."
+  ]
+}
