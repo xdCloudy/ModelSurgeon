@@ -30,9 +30,11 @@ from modelsurgeon.conversation import (
     ProviderStreamEvent,
     SourceSpan,
     bootstrap_chat_session,
+    inspect_local_chat_model,
     result_from_raw_output,
 )
 from modelsurgeon.conversation.provider import ProviderRequest, TextModelProvider
+from modelsurgeon.experiments import build_default_hardware_profile
 from modelsurgeon.search.objective_contract import (
     ConstraintDirection,
     ContractMetric,
@@ -150,6 +152,7 @@ class _FixtureProvider(TextModelProvider):
     def __init__(self) -> None:
         self.started = False
         self.closed = False
+        self.inspection_contexts: list[object] = []
 
     def start(self) -> None:
         self.started = True
@@ -165,6 +168,7 @@ class _FixtureProvider(TextModelProvider):
     ) -> ProviderResult:
         cancellation.raise_if_cancelled()
         assert isinstance(request, InterpretIntentRequest)
+        self.inspection_contexts.append(request.inspection_context)
         return result_from_raw_output(
             self,
             request,
@@ -233,6 +237,7 @@ def test_chat_bootstrap_is_deterministic_and_validates_before_interaction(
     assert turn.spec_preview.spec == turn.policy_decision.contract.to_record()
     assert turn.to_record()["spec_preview"] == turn.spec_preview.to_record()
     assert turn.to_record()["execution"] == "not_requested"
+    assert providers[0].inspection_contexts[0] == first.bootstrap.inspection_context
     first.close()
     second.close()
     assert all(provider.closed for provider in providers)
@@ -268,4 +273,41 @@ def test_chat_command_offline_no_provider_smoke_and_invalid_path() -> None:
     assert invalid.exit_code == 2
     error = json.loads(invalid.stdout)
     assert error["record_type"] == "error"
+    assert error["outcome"] == "failed"
+    assert error["code"] == "model_missing"
     assert "does not exist" in error["message"]
+
+
+def test_chat_inspection_reuses_direct_records_and_retains_unknown_discovery(
+    tmp_path: Path,
+) -> None:
+    model = tmp_path / "provider.gguf"
+    _gguf(model)
+    hardware = build_default_hardware_profile(tmp_path)
+
+    def factory(_: str) -> object:
+        return hardware
+
+    card = _FixtureProvider.capability_card.to_record()
+
+    direct = inspect_local_chat_model(
+        model,
+        runtime_revision="fixture-runtime-v1",
+        capability_card=card,
+        hardware_profile_factory=factory,
+    )
+    session = bootstrap_chat_session(
+        model,
+        runtime_revision="fixture-runtime-v1",
+        provider_factory=lambda _: _FixtureProvider(),
+        hardware_profile_factory=factory,
+    )
+
+    context = session.bootstrap.inspection_context
+    assert context == direct.with_provider(
+        runtime_revision="fixture-runtime-v1", capability_card=card
+    ).to_record()
+    assert context["model"]["discovery"]["outcome"] == "unknown"  # type: ignore[index]
+    assert context["hardware"]["memory"]["outcome"] in {"supported", "unknown"}  # type: ignore[index]
+    assert context["capabilities"]["evidence_kind"] == "engine_capability_matrix"  # type: ignore[index]
+    session.close()

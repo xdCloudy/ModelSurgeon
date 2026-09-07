@@ -13,12 +13,17 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
-from modelsurgeon.adapters.family import ArchitectureEvidence, detect_model_family
-from modelsurgeon.adapters.gguf import GGUFParseError, GGUFValueType, open_gguf
+from modelsurgeon.experiments import HardwareProfile, build_default_hardware_profile
 from modelsurgeon.provider_kind import ProviderKind
 
+from .inspection import (
+    ChatInspectionContext,
+    ChatInspectionError,
+    inspect_local_chat_model,
+    no_provider_inspection_context,
+)
 from .local_gguf import (
     LocalGGUFProvider,
     LocalGGUFProviderConfig,
@@ -29,6 +34,7 @@ from .provider import (
     CancellationToken,
     IntentProviderOutput,
     InterpretIntentRequest,
+    JSONValue,
     NullTextModelProvider,
     ProviderBudget,
     ProviderOutcome,
@@ -45,7 +51,6 @@ CHAT_SESSION_SCHEMA_VERSION: Literal[1] = 1
 CHAT_TURN_SCHEMA_VERSION: Literal[2] = 2
 DEFAULT_CHAT_MAX_TURNS = 8
 _MAX_CHAT_TURNS = 64
-_CHUNK_SIZE = 1024 * 1024
 
 
 class ChatSessionError(ValueError):
@@ -61,52 +66,7 @@ def _canonical(value: object) -> str:
 
 
 def _digest(value: object) -> str:
-    encoded = _canonical(value).encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-
-
-def _file_digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    try:
-        with path.open("rb") as source:
-            while chunk := source.read(_CHUNK_SIZE):
-                digest.update(chunk)
-    except OSError as error:
-        raise ChatSessionError("model_unreadable", f"cannot read chat model: {path}") from error
-    return f"sha256:{digest.hexdigest()}"
-
-
-def _validate_local_model(path: Path) -> tuple[Path, str, str]:
-    resolved = path.expanduser().resolve(strict=False)
-    if not resolved.is_file():
-        raise ChatSessionError("model_missing", f"chat model file does not exist: {path}")
-    if resolved.suffix.lower() != ".gguf":
-        raise ChatSessionError(
-            "unsupported_model_format",
-            "the local chat provider supports only .gguf model files",
-        )
-    try:
-        with open_gguf(resolved) as mapped:
-            entry = mapped.container.metadata_entry("general.architecture")
-            if entry is None or entry.value_type is not GGUFValueType.STRING:
-                raise ChatSessionError(
-                    "unsupported_model_metadata",
-                    "GGUF chat models require string general.architecture metadata",
-                )
-            if not isinstance(entry.value, str) or not entry.value.strip():
-                raise ChatSessionError(
-                    "unsupported_model_metadata",
-                    "GGUF chat model architecture metadata is empty",
-                )
-            try:
-                family = detect_model_family(ArchitectureEvidence(gguf_architecture=entry.value))
-            except ValueError as error:
-                raise ChatSessionError("unsupported_architecture", str(error)) from error
-    except GGUFParseError as error:
-        raise ChatSessionError(
-            "invalid_model", "GGUF chat model container or metadata validation failed"
-        ) from error
-    return resolved, _file_digest(resolved), family.family.value
+    return f"sha256:{hashlib.sha256(_canonical(value).encode('utf-8')).hexdigest()}"
 
 
 def _installed_runtime_revision() -> str:
@@ -130,6 +90,7 @@ class ChatSessionBootstrap:
     model_revision: str | None
     runtime_revision: str | None
     architecture: str | None
+    inspection_context: Mapping[str, object]
     max_turns: int
     schema_version: Literal[1] = CHAT_SESSION_SCHEMA_VERSION
 
@@ -140,6 +101,8 @@ class ChatSessionBootstrap:
             raise ChatSessionError("session_id", "invalid chat session identity")
         if not 0 < self.max_turns <= _MAX_CHAT_TURNS:
             raise ChatSessionError("max_turns", "chat turn budget is outside the supported range")
+        if self.inspection_context.get("record_type") != "chat_inspection_context":
+            raise ChatSessionError("inspection_context", "invalid chat inspection context")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -152,6 +115,7 @@ class ChatSessionBootstrap:
             "model_revision": self.model_revision,
             "runtime_revision": self.runtime_revision,
             "architecture": self.architecture,
+            "inspection_context": dict(self.inspection_context),
             "max_turns": self.max_turns,
         }
 
@@ -221,6 +185,7 @@ def _build_provider(
     max_output_tokens: int,
     max_wall_seconds: float,
     provider_factory: ProviderFactory | None,
+    validated_model: tuple[Path, str, str] | None = None,
 ) -> tuple[TextModelProvider, Path | None, str | None, str | None, str | None]:
     if provider_kind is ProviderKind.NONE:
         return NullTextModelProvider(), None, None, None, None
@@ -229,7 +194,9 @@ def _build_provider(
             "provider_unsupported",
             f"provider kind {provider_kind.value!r} has no chat adapter in this release",
         )
-    resolved, computed_revision, architecture = _validate_local_model(model)
+    if validated_model is None:
+        raise ChatSessionError("inspection_context", "local model was not inspected")
+    resolved, computed_revision, architecture = validated_model
     if model_revision is not None and model_revision != computed_revision:
         raise ChatSessionError(
             "model_revision_mismatch",
@@ -262,6 +229,7 @@ def bootstrap_chat_session(
     max_output_tokens: int = 1024,
     max_wall_seconds: float = 60.0,
     provider_factory: ProviderFactory | None = None,
+    hardware_profile_factory: Callable[[str], HardwareProfile] | None = None,
 ) -> ChatSession:
     """Validate, start, and return a bounded chat session.
 
@@ -278,6 +246,29 @@ def bootstrap_chat_session(
         raise ChatSessionError("budget", "max output tokens must be positive")
     if isinstance(max_wall_seconds, bool) or max_wall_seconds <= 0:
         raise ChatSessionError("budget", "max wall seconds must be positive")
+    inspection_factory = hardware_profile_factory or build_default_hardware_profile
+    inspection: ChatInspectionContext
+    validated_model: tuple[Path, str, str] | None = None
+    if provider_kind is ProviderKind.NONE:
+        inspection = no_provider_inspection_context(
+            hardware_profile_factory=inspection_factory,
+            path=model,
+        )
+    else:
+        try:
+            inspection = inspect_local_chat_model(
+                model,
+                model_revision=model_revision,
+                runtime_revision=runtime_revision,
+                hardware_profile_factory=inspection_factory,
+            )
+        except ChatInspectionError as error:
+            raise ChatSessionError(error.code, str(error)) from error
+        validated_model = (
+            Path(str(inspection.model["path"])),
+            str(inspection.model["revision"]),
+            str(inspection.model["family"]),
+        )
     provider, resolved, revision, architecture, selected_runtime_revision = _build_provider(
         model,
         provider_kind=provider_kind,
@@ -287,6 +278,7 @@ def bootstrap_chat_session(
         max_output_tokens=max_output_tokens,
         max_wall_seconds=max_wall_seconds,
         provider_factory=provider_factory,
+        validated_model=validated_model,
     )
     try:
         provider.start()
@@ -307,6 +299,11 @@ def bootstrap_chat_session(
 
     identity = provider.identity.to_record()
     card = provider.capability_card.to_record()
+    if selected_runtime_revision is not None:
+        inspection = inspection.with_provider(
+            runtime_revision=selected_runtime_revision,
+            capability_card=card,
+        )
     identity_record = {
         "provider": identity,
         "capability_card": card,
@@ -328,6 +325,7 @@ def bootstrap_chat_session(
         revision,
         selected_runtime_revision,
         architecture,
+        inspection.to_record(),
         max_turns,
     )
     return ChatSession(
@@ -378,7 +376,14 @@ class ChatSession:
         request_id = f"chat_request_{session_suffix}_{self._turn:02d}"
         provider_result = invoke_provider(
             self.provider,
-            InterpretIntentRequest(request_id, request, budget=self.budget),
+            InterpretIntentRequest(
+                request_id,
+                request,
+                budget=self.budget,
+                inspection_context=cast(
+                    Mapping[str, JSONValue], self.bootstrap.inspection_context
+                ),
+            ),
             cancellation=cancellation or self._cancellation,
         )
         policy: IntentPolicyDecision | None = None

@@ -1,5 +1,9 @@
 # Experimental chat session bootstrap
 
+The session bootstrap includes the versioned [chat inspection context](chat-inspection-context.md).
+It carries direct model, hardware, memory, runtime, and capability records to
+the compiler while preserving explicit unknown and unsupported outcomes.
+
 Status: implemented as the bounded v2.3 entry slice. This is an
 interpretation-only harness; the v2.3 inspection, preview, approval, and
 execution surfaces remain separate work.

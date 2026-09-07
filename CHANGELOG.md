@@ -9,14 +9,20 @@
   unresolved fields remain blocked. Material edits produce a new spec identity
   and deterministic diff, while explicit confirmation releases only the exact
   digest-bound spec submission. No mutation, optimizer execution, or live
-  provider/model evidence is claimed.
+ provider/model evidence is claimed.
 
 - Freeze the v2.6 bounded conversational tool-calling release boundary with a
   machine-readable dependency/evidence record, a fail-closed release audit,
   explicit four-tool allowlist and outcome vocabulary, direct-API compatibility
   checks, and documented live-evidence/process-isolation limitations. Tighten
-  dispatcher lifecycle ordering so final result-envelope validation completes
-  before an automatically managed read-only transaction is committed.
+ dispatcher lifecycle ordering so final result-envelope validation completes
+ before an automatically managed read-only transaction is committed.
+
+- Add a versioned chat inspection context built from direct GGUF discovery,
+  CPU-first hardware profile, memory inventory, and architecture capability
+  APIs. Pass bounded engine-owned context to the intent compiler, distinguish
+  detected inventory from provider declarations, and retain explicit
+  unsupported, failed, and unknown results without claiming live evidence.
 
 - Add the v2.6 adversarial conversational tool-boundary corpus for shell/code,
   traversal, secret-exfiltration, prompt-injection, malformed-schema, forged

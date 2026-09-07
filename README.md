@@ -69,7 +69,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
-| Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, renders the exact interpreted `OptimizationSpec` preview, and retains explicit outcomes. Inspection, execution, universal hosted support, and live provider benchmarks remain outside this slice. See [the preview contract](docs/design/spec-preview.md). |
+| Conversational control plane | **v2.3 chat entry experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, passes engine-owned model/hardware inspection context to the compiler, validates typed objectives, and retains explicit outcomes. Execution, universal hosted support, and live provider benchmarks remain outside this slice. |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 
 Measured evidence currently includes:

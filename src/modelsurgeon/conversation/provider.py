@@ -329,6 +329,7 @@ class InterpretIntentRequest:
     original_request: str
     intent_schema_version: int = 1
     budget: ProviderBudget = ProviderBudget()
+    inspection_context: Mapping[str, JSONValue] | None = None
 
     operation: ProviderOperation = field(init=False, default=ProviderOperation.INTERPRET_INTENT)
 
@@ -337,9 +338,17 @@ class InterpretIntentRequest:
         _text(self.original_request, "original request")
         if isinstance(self.intent_schema_version, bool) or self.intent_schema_version <= 0:
             raise ProviderContractError("intent schema version must be positive")
+        if self.inspection_context is not None:
+            if not isinstance(self.inspection_context, Mapping):
+                raise ProviderContractError("inspection context must be an object")
+            encoded = _canonical(dict(self.inspection_context))
+            if len(encoded.encode("utf-8")) > (1 << 20):
+                raise ProviderContractError(
+                    "inspection context exceeds the provider context budget"
+                )
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "schema_version": TEXT_PROVIDER_SCHEMA_VERSION,
             "request_id": self.request_id,
             "operation": self.operation.value,
@@ -347,6 +356,9 @@ class InterpretIntentRequest:
             "intent_schema_version": self.intent_schema_version,
             "budget": self.budget.to_record(),
         }
+        if self.inspection_context is not None:
+            record["inspection_context"] = dict(self.inspection_context)
+        return record
 
 
 @dataclass(frozen=True, slots=True)
