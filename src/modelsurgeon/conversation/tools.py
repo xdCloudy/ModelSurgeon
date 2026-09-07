@@ -32,9 +32,15 @@ _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
+_SECRET_TEXT = re.compile(
+    r"(?i)(\b(?:api[_-]?key|authorization|password|secret|token|credential)\b\s*[:=]\s*)([^\s,;]+)"
+)
+_SECRET_FIELD = re.compile(
+    r"(?i)(?:api[_-]?key|authorization|password|secret|token|credential)"
+)
 _FORBIDDEN_SCHEMA_TEXT = re.compile(
     r"(?i)(tensor|shell|python|filesystem|network|command|callback|executor|"
-    r"executable|remove|delete)"
+    r"executable|remove|delete|subprocess|provider|metadata|prompt)"
 )
 _SCHEMA_KEYS = frozenset(
     {
@@ -171,6 +177,33 @@ def _canonical(value: object, label: str = "tool record") -> str:
         raise ToolContractError(f"{label} must be JSON-compatible") from error
 
 
+def _redact_text(value: str) -> str:
+    return _SECRET_TEXT.sub(r"\1<redacted>", value)
+
+
+def _redact_untrusted_value(value: JSONValue, *, field_name: str | None = None) -> JSONValue:
+    """Redact secret-shaped diagnostic data without changing trusted fields."""
+
+    if field_name is not None and _SECRET_FIELD.search(field_name):
+        return "<redacted>"
+    if isinstance(value, str):
+        return _redact_text(value)
+    if isinstance(value, list):
+        return [_redact_untrusted_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _redact_untrusted_value(child, field_name=key) for key, child in value.items()
+        }
+    return value
+
+
+def _redacted_json_object(value: object, label: str) -> dict[str, JSONValue]:
+    return cast(
+        dict[str, JSONValue],
+        _redact_untrusted_value(_json_object(value, label)),
+    )
+
+
 def _sorted_unique(values: tuple[str, ...], label: str) -> None:
     if values != tuple(sorted(set(values))):
         raise ToolContractError(f"{label} must be sorted and unique")
@@ -228,15 +261,44 @@ def _validate_schema_shape(schema: object, *, path: str = "schema") -> dict[str,
     schema_type = root.get("type")
     if schema_type not in {"object", "array", "string", "integer", "number", "boolean"}:
         raise ToolContractError(f"{path} must declare one supported type")
-    for name in ("minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems"):
+    for name in ("minLength", "maxLength", "minItems", "maxItems"):
+        raw = root.get(name)
+        if name in root and (
+            not isinstance(raw, int)
+            or isinstance(raw, bool)
+            or raw < 0
+        ):
+            raise ToolContractError(f"{path}.{name} must be a non-negative integer")
+    for name in ("minimum", "maximum"):
         raw = root.get(name)
         if name in root and (
             not isinstance(raw, (int, float))
             or isinstance(raw, bool)
             or not math.isfinite(float(raw))
-            or raw < 0
         ):
-            raise ToolContractError(f"{path}.{name} must be a finite non-negative number")
+            raise ToolContractError(f"{path}.{name} must be a finite number")
+    if (
+        "minLength" in root
+        and "maxLength" in root
+        and cast(int, root["minLength"]) > cast(int, root["maxLength"])
+    ) or (
+        "minItems" in root
+        and "maxItems" in root
+        and cast(int, root["minItems"]) > cast(int, root["maxItems"])
+    ) or (
+        "minimum" in root
+        and "maximum" in root
+        and cast(float, root["minimum"]) > cast(float, root["maximum"])
+    ):
+        raise ToolContractError(f"{path} has an inverted range")
+    if "minLength" in root and schema_type != "string":
+        raise ToolContractError(f"{path}.minLength requires a string schema")
+    if "maxLength" in root and schema_type != "string":
+        raise ToolContractError(f"{path}.maxLength requires a string schema")
+    if "minItems" in root and schema_type != "array":
+        raise ToolContractError(f"{path}.minItems requires an array schema")
+    if "maxItems" in root and schema_type != "array":
+        raise ToolContractError(f"{path}.maxItems requires an array schema")
     if "properties" in root:
         properties = root["properties"]
         if not isinstance(properties, Mapping):
@@ -268,8 +330,13 @@ def _validate_schema_shape(schema: object, *, path: str = "schema") -> dict[str,
         if not isinstance(enum, list) or not enum:
             raise ToolContractError(f"{path}.enum must be a non-empty array")
         _canonical(enum, f"{path}.enum")
-    if "pattern" in root and not isinstance(root["pattern"], str):
-        raise ToolContractError(f"{path}.pattern must be text")
+    if "pattern" in root:
+        if not isinstance(root["pattern"], str):
+            raise ToolContractError(f"{path}.pattern must be text")
+        try:
+            re.compile(root["pattern"])
+        except re.error as error:
+            raise ToolContractError(f"{path}.pattern is not a valid regular expression") from error
     return root
 
 
@@ -318,7 +385,11 @@ def _matches_schema(schema: JSONSchema, value: object, *, path: str = "input") -
         if not isinstance(value, int) or isinstance(value, bool):
             raise ToolContractError(f"{path} must be an integer")
     elif schema_type == "number":
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(float(value))
+        ):
             raise ToolContractError(f"{path} must be a number")
     elif schema_type == "boolean" and not isinstance(value, bool):
         raise ToolContractError(f"{path} must be boolean")
@@ -621,7 +692,8 @@ class ToolFailure:
     retryable: bool = False
 
     def __post_init__(self) -> None:
-        _text(self.detail, "tool failure detail")
+        detail = _text(self.detail, "tool failure detail")
+        object.__setattr__(self, "detail", _redact_text(detail))
         _identifier(self.request_id, "tool failure request ID")
 
     def to_record(self) -> dict[str, JSONValue]:
@@ -765,7 +837,7 @@ class ToolResult:
             output = _json_object(self.output, "tool result output")
             object.__setattr__(self, "output", MappingProxyType(output))
         if self.raw_payload is not None:
-            raw_payload = _json_object(self.raw_payload, "raw tool result payload")
+            raw_payload = _redacted_json_object(self.raw_payload, "raw tool result payload")
             object.__setattr__(self, "raw_payload", MappingProxyType(raw_payload))
         if self.outcome is ToolOutcome.SUPPORTED:
             if self.output is None or self.failure is not None:
@@ -815,6 +887,8 @@ class ToolResult:
             raise ToolContractError("tool result does not belong to the request")
         if self.provenance.request_digest != tool_request_digest(request):
             raise ToolContractError("tool result request provenance is stale or contradictory")
+        if request.tool_id is not None and self.provenance.tool_id != request.tool_id:
+            raise ToolContractError("tool result tool identity is stale or contradictory")
 
     @classmethod
     def from_record(cls, payload: object) -> ToolResult:

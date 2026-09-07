@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add the v2.6 adversarial conversational tool-boundary corpus for shell/code,
+  traversal, secret-exfiltration, prompt-injection, malformed-schema, forged
+  measurement, contradictory-provenance, and replay attacks. Tighten schema
+  range/regex validation, redact secret-shaped retained diagnostics, bind result
+  provenance to the request tool identity, and retain explicit unverified,
+  unsupported, failed, unknown, timeout, and cancelled outcomes. This is
+  bounded contract evidence only; no live provider, campaign, model, or shell
+  execution is claimed.
+
 - Add the bounded v2.0 autonomous optimizer release boundary: a versioned
   compatibility/evidence manifest, capability classifications, scientific
   limitations report, deterministic reproduction contract, and fail-closed
