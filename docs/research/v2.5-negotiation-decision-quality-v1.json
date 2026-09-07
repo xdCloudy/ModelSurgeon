@@ -1,0 +1,142 @@
+{
+  "record_type": "bounded_negotiation_decision_quality",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.5-negotiation-decision-quality-v1",
+  "milestone": "v2.5",
+  "status": "bounded_release_boundary",
+  "dependency_evidence": [
+    {
+      "issue": 458,
+      "key": "v25-infeasibility",
+      "status": "merged",
+      "commit": "c6f5059bdba31087d691c25dfdf2aade0c15699a",
+      "artifacts": [
+        "src/modelsurgeon/explain/infeasibility.py",
+        "docs/design/measured-infeasibility-explanation.md"
+      ],
+      "tests": ["tests/test_infeasibility.py"]
+    },
+    {
+      "issue": 459,
+      "key": "v25-pareto",
+      "status": "merged",
+      "commit": "5f405827649ffb43c47f2431c1bb7887ff5195f2",
+      "artifacts": [
+        "src/modelsurgeon/explain/pareto_alternatives.py",
+        "docs/design/pareto-alternatives.md"
+      ],
+      "tests": ["tests/test_pareto_alternatives.py"]
+    },
+    {
+      "issue": 460,
+      "key": "v25-amendments",
+      "status": "merged",
+      "commit": "45daba27316ce01af116d18585ef0523eea72435",
+      "artifacts": [
+        "src/modelsurgeon/search/objective_amendments.py",
+        "docs/design/objective-amendments.md"
+      ],
+      "tests": ["tests/test_objective_amendments.py"]
+    }
+  ],
+  "protocol": {
+    "protocol_id": "v25-negotiation-decision-quality-v1",
+    "fixture": "tests/fixtures/negotiation_decision_quality_v1.json",
+    "scenarios": 4,
+    "seeds_per_scenario": 3,
+    "fixed_evaluation_count": 4,
+    "retained_cell_count": 36,
+    "policies": ["measured_pareto", "prediction_only", "refusal_only"],
+    "run_id": "negotiation_study_run_43d878642595fabbfe77c4f6c2ac604381346ac66a1a62d25477a60fe15bf3c1",
+    "negative_and_inconclusive_retained": true,
+    "live_provider_benchmarks": "not_run",
+    "live_model_quality": "not_run"
+  },
+  "measured_pareto_metrics": {
+    "constraint_preservation_rate": 1.0,
+    "measured_alternative_grounding_rate": 1.0,
+    "amendment_traceability_rate": 1.0,
+    "amendment_accuracy_rate": 1.0,
+    "feasible_target_recovery_rate": 1.0,
+    "misleading_claim_rate": 0.0,
+    "silent_constraint_changes": 0,
+    "errors": 0,
+    "inconclusive_cells": 9
+  },
+  "prediction_only_control": {
+    "shippable": false,
+    "measured_alternative_grounding_rate": 0.0,
+    "misleading_claim_rate": 1.0,
+    "decision": "never_shippable"
+  },
+  "unsupported_cells": [
+    {
+      "cell": "live_hf_gguf_quality_measurement",
+      "status": "not_run",
+      "reason": "the fixture protocol replays canonical evidence without executing models"
+    },
+    {
+      "cell": "prediction_only_promotion",
+      "status": "unsupported",
+      "reason": "predictions cannot establish feasibility or measured Pareto membership"
+    },
+    {
+      "cell": "fluent_user_preference_selection",
+      "status": "not_claimed",
+      "reason": "the protocol measures typed amendment traces, not language understanding"
+    },
+    {
+      "cell": "hostile_process_containment",
+      "status": "not_claimed",
+      "reason": "protocol limits do not provide process isolation"
+    }
+  ],
+  "limits": {
+    "max_scenarios": 16,
+    "max_seeds_per_scenario": 3,
+    "fixed_evaluation_count": 4,
+    "stop_on_silent_constraint_change": true,
+    "hostile_process_containment": "not_claimed"
+  },
+  "authority_and_identity": {
+    "hard_constraints_preserved": true,
+    "source_model_immutable": true,
+    "provenance_retained": true,
+    "prediction_only_shippable": false,
+    "execution_authority": "deterministic_modelsurgeon_engine",
+    "canonical_identity_fields": [
+      "source_model_digest",
+      "original_contract_id",
+      "original_hard_constraint_digest",
+      "cell_id",
+      "amendment_id",
+      "amendment_diff_id",
+      "run_id"
+    ]
+  },
+  "documentation": [
+    "docs/design/negotiation-decision-quality.md",
+    "docs/examples/negotiation_decision_quality.py",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "reproduction_commands": [
+    "uv run python tools/run_negotiation_quality_study.py",
+    "uv run python tools/run_negotiation_quality_study.py --json",
+    "uv run python tools/audit_v25_negotiation_quality.py"
+  ],
+  "quality_gate": {
+    "commands": [
+      "git diff --check",
+      "uv run ruff check src tests",
+      "uv run mypy src/modelsurgeon",
+      "uv run pytest -q",
+      "uv run python tools/audit_v25_negotiation_quality.py"
+    ],
+    "runtime": "project-managed Python 3.12 environment",
+    "known_skips": [
+      "No live provider, credential, model-quality, deployment-compatibility, fluent-language, or hostile-process run is part of this boundary.",
+      "Optional torch, safetensors, LightGBM, CUDA, and llama.cpp tests remain environment-gated where dependencies are unavailable."
+    ]
+  }
+}

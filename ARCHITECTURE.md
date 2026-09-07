@@ -74,6 +74,18 @@ The planned boundary has four non-negotiable properties:
 
 The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 adds explicit negotiation; v2.6 freezes the typed tool boundary; v2.7 persists canonical campaign state; v2.8 adds evidence-grounded explanations; v2.9 hardens approvals and security; v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers or live external evidence.
 
+### v2.5 negotiation decision-quality boundary
+
+The v2.5 control plane replays typed fixture campaigns through refusal-only,
+measured-Pareto, and prediction-only policies. Only canonical measured
+evidence can populate a Pareto alternative; a prediction-only result is
+retained as a negative control and is never shippable. A constraint change
+requires the immutable proposal, approval, application, new campaign identity,
+and preserved evidence archive from the objective-amendment API. The bounded
+study retains failed, unsupported, unknown, predicted-only, and inconclusive
+cells and stops on any silent hard-constraint change. Its decision and
+unsupported cells are frozen in the [v2.5 protocol](docs/design/negotiation-decision-quality.md).
+
 ### v2.4 clarification boundary
 
 The v2.4 layer is a deterministic control-plane state machine around the

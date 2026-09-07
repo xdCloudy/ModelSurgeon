@@ -2,15 +2,25 @@
 
 ## Unreleased
 
-- Add deterministic stale-context detection and evidence-driven conversational
-  replanning for issue #471. Replans bind spec, evidence, provider, resource,
-  approval, plan, and transaction context; no-op refreshes keep the existing
+  - Add deterministic stale-context detection and evidence-driven conversational
+    replanning for issue #471. Replans bind spec, evidence, provider, resource,
+    approval, plan, and transaction context; no-op refreshes keep the existing
   campaign, while material changes emit a versioned diff, require fresh plan
   approval, and create an immutable child campaign with preserved parent
   lineage and evidence references. Cancelled, expired, stale, and incompatible
   replay paths fail closed. See
-  [stale conversational replanning](docs/design/stale-conversational-replanning.md)
-  and the deterministic example.
+    [stale conversational replanning](docs/design/stale-conversational-replanning.md)
+    and the deterministic example.
+
+  - Add the bounded v2.5 negotiation decision-quality study for issue #461.
+  Reproducible HF/GGUF fixture campaign traces compare refusal-only,
+  measured-Pareto, and prediction-only control across three seeds and a fixed
+  evaluation count. Constraint preservation, measured grounding, amendment
+  traceability/accuracy, feasible-target recovery, misleading claims,
+  interaction cost, and retained negative/inconclusive cells are audited.
+  Prediction-only evidence is never shippable; silent constraint changes stop
+  the run fail closed. See the [v2.5 decision-quality protocol](docs/design/negotiation-decision-quality.md)
+    and [research record](docs/research/v2.5-negotiation-decision-quality-v1.json).
 
 - Add measured Pareto alternatives and trade-off explanations for issue #459.
   The read-only projection reuses canonical feasibility evidence, shows
