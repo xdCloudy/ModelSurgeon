@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the v1.2 physical compression and quality-loss Pareto study contract with a
+  preregistered five-target matrix, physical HF/GGUF lineage gates, deployment metric
+  reconciliation, retained negative cells, and conservative interval frontiers.
 - Add `modelsurgeon benchmark deploy` with content-addressed HF/GGUF plans,
   resumable JSON-lines runners, shared deployment metric units, hardware context,
   and distinct unsupported/failure/timeout/OOM/drift/invalid/interrupted outcomes.
