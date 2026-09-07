@@ -1,0 +1,21 @@
+{
+  "protocol": "multi-machine-hardware-study-v1",
+  "schema_version": 1,
+  "issue": 375,
+  "profiles": ["cpu_only", "low_vram", "full_gpu"],
+  "minimum_repetitions_per_cell": 3,
+  "arms": ["hardware_aware", "hardware_blind"],
+  "claim_policy": "positive only when every measured comparison beats_or_ties and a choice differs",
+  "negative_and_missing_policy": "retain negative, unsupported, failed, and unknown cells; never impute missing evidence",
+  "provenance": ["source_artifact_digest", "corpus_identity", "optimization_budget_id", "environment_digest"],
+  "reproduction": [
+    "python -m pytest tests/test_multi_machine_study.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "limitations": [
+    "The checked-in fixture is synthetic and deterministic.",
+    "Normal-approximation intervals are a bounded contract summary, not a substitute for a preregistered hierarchical analysis.",
+    "Real claims require pinned licensed models, repeated host measurements, and retained deployment artifacts."
+  ]
+}
