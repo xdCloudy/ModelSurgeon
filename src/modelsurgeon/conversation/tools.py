@@ -19,6 +19,11 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final, Literal, cast
 
+from modelsurgeon.conversation.isolation import (
+    TrustZone,
+    redact_secret_text,
+    redact_untrusted_value,
+)
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 CONVERSATIONAL_TOOL_SCHEMA_VERSION: Literal[1] = 1
@@ -134,6 +139,7 @@ class ToolFailureCode(StrEnum):
     TRANSACTION_REQUIRED = "transaction_required"
     TRANSACTION_FAILED = "transaction_failed"
     RETRY_NOT_SAFE = "retry_not_safe"
+    ISOLATION_FAILURE = "isolation_failure"
     INTERNAL = "internal"
 
 
@@ -695,6 +701,7 @@ class ToolFailure:
         detail = _text(self.detail, "tool failure detail")
         object.__setattr__(self, "detail", _redact_text(detail))
         _identifier(self.request_id, "tool failure request ID")
+        object.__setattr__(self, "detail", redact_secret_text(self.detail))
 
     def to_record(self) -> dict[str, JSONValue]:
         return {
@@ -828,6 +835,12 @@ class ToolResult:
     failure: ToolFailure | None = None
     raw_payload: Mapping[str, JSONValue] | None = None
 
+    @property
+    def trust_zone(self) -> TrustZone:
+        """Tool results are untrusted data until engine code promotes them."""
+
+        return TrustZone.UNTRUSTED_TOOL
+
     def __post_init__(self) -> None:
         if not isinstance(self.outcome, ToolOutcome):
             raise ToolContractError("tool result outcome is invalid")
@@ -835,9 +848,11 @@ class ToolResult:
         _identifier(self.name, "tool result name")
         if self.output is not None:
             output = _json_object(self.output, "tool result output")
+            output = cast(dict[str, JSONValue], redact_untrusted_value(output))
             object.__setattr__(self, "output", MappingProxyType(output))
         if self.raw_payload is not None:
-            raw_payload = _redacted_json_object(self.raw_payload, "raw tool result payload")
+            raw_payload = _json_object(self.raw_payload, "raw tool result payload")
+            raw_payload = cast(dict[str, JSONValue], redact_untrusted_value(raw_payload))
             object.__setattr__(self, "raw_payload", MappingProxyType(raw_payload))
         if self.outcome is ToolOutcome.SUPPORTED:
             if self.output is None or self.failure is not None:
@@ -864,7 +879,12 @@ class ToolResult:
             "provenance": self.provenance.to_record(),
             "output": None if self.output is None else dict(self.output),
             "failure": None if self.failure is None else self.failure.to_record(),
-            "raw_payload": None if self.raw_payload is None else dict(self.raw_payload),
+            "raw_payload": None
+            if self.raw_payload is None
+            else cast(
+                dict[str, JSONValue],
+                redact_untrusted_value(dict(self.raw_payload)),
+            ),
         }
 
     @property

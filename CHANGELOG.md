@@ -11,6 +11,13 @@
   bounded contract evidence only; no live provider, campaign, model, or shell
   execution is claimed.
 
+- Add bounded provider/tool/secret isolation for the v2.9 conversational
+  security boundary: indirect credentials, recursive diagnostic and payload
+  redaction, copied untrusted requests, provider capability-drift detection,
+  untrusted result trust-zone markers, and observable fail-closed
+  `isolation_failure` outcomes. The implementation is capability-isolated but
+  does not claim hostile-process containment or live hosted-provider evidence.
+
 - Add the bounded v2.0 autonomous optimizer release boundary: a versioned
   compatibility/evidence manifest, capability classifications, scientific
   limitations report, deterministic reproduction contract, and fail-closed

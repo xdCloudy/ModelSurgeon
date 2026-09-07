@@ -104,6 +104,20 @@ def test_unknown_tool_and_missing_handler_fail_closed() -> None:
     assert missing.result.failure.code is ToolFailureCode.HANDLER_UNAVAILABLE
 
 
+def test_handler_receives_isolated_request_copy() -> None:
+    request = _request()
+
+    def handler(context: ToolExecutionContext) -> ToolExecutionResponse:
+        context.request.input["model_ref"] = "provider-controlled.model"
+        return ToolExecutionResponse(_inspect_output())
+
+    dispatched = ToolDispatcher({"inspect_model": handler}).dispatch(request)
+    assert dispatched.result is not None
+    assert dispatched.result.outcome is ToolOutcome.SUPPORTED
+    assert request.input["model_ref"] == "fixture.model"
+    assert dispatched.result.provenance.request_digest == tool_request_digest(request)
+
+
 def test_approval_is_bound_to_arguments_and_trusted_policy() -> None:
     request = _request("execute_approved_plan", approval_id="approval.fixture")
     definition = DEFAULT_TOOL_CATALOG.definition("execute_approved_plan")

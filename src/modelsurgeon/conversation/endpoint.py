@@ -25,6 +25,7 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
+from modelsurgeon.conversation.isolation import redact_secret_text
 from modelsurgeon.conversation.provider import (
     CancellationToken,
     ClarificationRequest,
@@ -301,7 +302,9 @@ class CapabilityProbeResult:
             "endpoint_id": self.endpoint_id,
             "outcome": self.outcome.value,
             "card": None if self.card is None else self.card.to_record(),
-            "detail": self.detail,
+            "detail": None
+            if self.detail is None
+            else redact_secret_text(self.detail),
             "retryable": self.retryable,
         }
 
