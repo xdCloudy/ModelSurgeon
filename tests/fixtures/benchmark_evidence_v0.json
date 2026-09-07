@@ -1,0 +1,56 @@
+{
+  "schema_version": 0,
+  "model": {
+    "identifier": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "model-revision",
+    "family": "llama",
+    "format": "safetensors"
+  },
+  "corpus": {
+    "identifier": "local-calibration",
+    "revision": "corpus-revision",
+    "split": "validation",
+    "task": "perplexity",
+    "license": "Apache-2.0",
+    "manifest_id": "manifest-revision"
+  },
+  "method": {"name": "reference", "revision": "method-revision", "variant": "dense"},
+  "hardware": {
+    "platform": "linux",
+    "cpu": "reference-cpu",
+    "accelerator": "cpu",
+    "runtime": "torch",
+    "details": {"python": "3.12"}
+  },
+  "budget": {
+    "objective": "matched",
+    "limits": [{"name": "evaluation_tokens", "value": 128, "unit": "tokens"}]
+  },
+  "seeds": [7],
+  "provenance": {
+    "tool_revision": "tool-revision",
+    "evaluator_revision": "evaluator-revision",
+    "config_digest": "config-revision",
+    "source_commit": "source-revision",
+    "dependency_lock_digest": "lock-revision",
+    "command": "benchmark --fixture tiny"
+  },
+  "artifact": {
+    "identifier": "candidate",
+    "revision": "artifact-revision",
+    "format": "safetensors",
+    "state": "not_applicable"
+  },
+  "status": "unsupported",
+  "metrics": [
+    {
+      "name": "perplexity",
+      "unit": "nats/token",
+      "state": "unavailable",
+      "value": null,
+      "lower_bound": null,
+      "upper_bound": null,
+      "reason": "method does not support this architecture"
+    }
+  ]
+}

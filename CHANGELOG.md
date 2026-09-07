@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-_No unreleased changes._
+- Add a versioned deployable benchmark evidence schema with explicit terminal
+  outcomes, equal-budget identities, metric units, uncertainty, artifact lineage,
+  provenance, deterministic reports, and a v0-to-v1 migration.
 
 ## 1.0.0 - 2026-09-07
 

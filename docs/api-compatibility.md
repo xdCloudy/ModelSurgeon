@@ -12,7 +12,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, and partition manifests. |
 | `modelsurgeon.features` | Versioned feature records and bounded feature extraction interfaces. |
 | `modelsurgeon.surgery` | Transactional mutation requests, plans, outcomes, and physical-surgery entry points. |
-| `modelsurgeon.evaluation` | Typed evaluation reports, compatibility evidence, and bounded llama.cpp validation. |
+| `modelsurgeon.evaluation` | Typed benchmark/evaluation reports, compatibility evidence, provenance-complete benchmark cells, and bounded llama.cpp validation. |
 | `modelsurgeon.experiments` | Experiment identity, persistence, artifacts, resource budgets, and reproducibility records. |
 | `modelsurgeon.surgeon` | Typed predictor bundles, training, calibration, and ranking contracts. |
 | `modelsurgeon.search` | Constraints, objectives, Pareto archives, policies, and resumable search state. |
