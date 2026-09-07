@@ -1,0 +1,20 @@
+{
+  "protocol": "heterogeneous-architecture-state-v1",
+  "schema_version": 1,
+  "issue": 382,
+  "axes": ["layer_widths", "low_rank_factors", "sparsity", "quantization"],
+  "formats": ["safetensors", "GGUF"],
+  "gates": ["runtime_identity", "codec_support", "layer_limit", "reload_reconciliation", "source_digest"],
+  "evidence": ["accepted", "unsupported", "failed", "unknown"],
+  "reproduction": [
+    "python -m pytest tests/test_heterogeneous.py",
+    "python -m ruff check src tests",
+    "python -m mypy src/modelsurgeon"
+  ],
+  "result": "contract_fixture_only",
+  "limitations": [
+    "Callback-backed fixtures are not physical model exporters.",
+    "Mixed codec runtime support remains capability-gated and is not assumed universally.",
+    "Two-family deployment comparisons and repeated measured benchmarks remain downstream study work."
+  ]
+}
