@@ -14,6 +14,7 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
@@ -182,6 +183,84 @@ def _number(value: object, label: str) -> float:
     return float(value)
 
 
+def _perplexity_quality_gate(
+    baseline_perplexity: float,
+    candidate_perplexity: float,
+    *,
+    min_quality_retention_ratio: float,
+    max_perplexity_delta: float | None,
+    profile_max_perplexity_delta: float | None,
+) -> dict[str, object]:
+    """Evaluate every declared perplexity quality bound against one baseline.
+
+    Perplexity is a lower-is-better metric, so its quality-retention ratio is
+    defined as ``baseline / candidate``.  The user constraint and the selected
+    quality profile are retained separately: the former is the hard contract,
+    while the latter remains a visible conservative profile guard.
+    """
+
+    values = (
+        ("baseline_perplexity", baseline_perplexity),
+        ("candidate_perplexity", candidate_perplexity),
+        ("min_quality_retention_ratio", min_quality_retention_ratio),
+    )
+    for label, value in values:
+        if not math.isfinite(value):
+            raise FirstPartyOptimizeRuntimeError(f"{label} must be finite")
+    if baseline_perplexity <= 0 or candidate_perplexity <= 0:
+        raise FirstPartyOptimizeRuntimeError(
+            "perplexity must be positive for quality-retention evaluation"
+        )
+    if not 0.0 <= min_quality_retention_ratio <= 1.0:
+        raise FirstPartyOptimizeRuntimeError(
+            "min_quality_retention_ratio must be between zero and one"
+        )
+    optional_values: tuple[tuple[str, float | None], ...] = (
+        ("max_perplexity_delta", max_perplexity_delta),
+        ("profile_max_perplexity_delta", profile_max_perplexity_delta),
+    )
+    for optional_label, optional_value in optional_values:
+        if optional_value is not None and (
+            not math.isfinite(optional_value) or optional_value < 0
+        ):
+            raise FirstPartyOptimizeRuntimeError(
+                f"{optional_label} must be finite and non-negative when present"
+            )
+
+    delta = candidate_perplexity - baseline_perplexity
+    retention_ratio = baseline_perplexity / candidate_perplexity
+    retention_passed = retention_ratio >= min_quality_retention_ratio
+    explicit_delta_passed = (
+        max_perplexity_delta is None or delta <= max_perplexity_delta
+    )
+    profile_delta_passed = (
+        profile_max_perplexity_delta is None or delta <= profile_max_perplexity_delta
+    )
+    failures: list[str] = []
+    if not retention_passed:
+        failures.append("minimum quality-retention ratio violated")
+    if not explicit_delta_passed:
+        failures.append("maximum perplexity delta violated")
+    if not profile_delta_passed:
+        failures.append("quality-profile perplexity guard violated")
+    return {
+        "metric": "perplexity",
+        "measurement_authority": "physical_evaluation",
+        "baseline_perplexity": baseline_perplexity,
+        "candidate_perplexity": candidate_perplexity,
+        "perplexity_delta": delta,
+        "quality_retention_ratio": retention_ratio,
+        "min_quality_retention_ratio": min_quality_retention_ratio,
+        "max_perplexity_delta": max_perplexity_delta,
+        "profile_max_perplexity_delta": profile_max_perplexity_delta,
+        "retention_constraint_passed": retention_passed,
+        "max_delta_constraint_passed": explicit_delta_passed,
+        "quality_profile_guard_passed": profile_delta_passed,
+        "accepted": retention_passed and explicit_delta_passed and profile_delta_passed,
+        "rejection_reasons": failures,
+    }
+
+
 def _directory_bytes(path: Path) -> int:
     if path.is_file():
         return path.stat().st_size
@@ -227,6 +306,32 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.deployment_baseline: Mapping[str, object] | None = None
         self.deployment: Mapping[str, object] | None = None
         self.deployment_constraints_passed: bool | None = None
+
+    def _quality_gate(
+        self, baseline_perplexity: float, candidate_perplexity: float
+    ) -> dict[str, object]:
+        constraints = _mapping(
+            _mapping(self.plan.resolved_config, "resolved configuration").get(
+                "constraints"
+            ),
+            "constraints",
+        )
+        raw_max_delta = constraints.get("max_perplexity_delta")
+        max_delta = (
+            None
+            if raw_max_delta is None
+            else _number(raw_max_delta, "constraints.max_perplexity_delta")
+        )
+        return _perplexity_quality_gate(
+            baseline_perplexity,
+            candidate_perplexity,
+            min_quality_retention_ratio=_number(
+                constraints.get("min_quality_retention_ratio", 0.98),
+                "constraints.min_quality_retention_ratio",
+            ),
+            max_perplexity_delta=max_delta,
+            profile_max_perplexity_delta=self.plan.quality_profile.max_perplexity_delta,
+        )
 
     def _hydrate(self, context: StageContext) -> None:
         """Rebuild runtime state from durable stage evidence after a restart."""
@@ -724,13 +829,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
         # Keep rejected-but-measured candidates visible. A baseline that chose
         # one must be recorded as measured-but-ineligible, not unmeasured.
-        actual = {
-            candidate_id: _number(measurement["perplexity_delta"], "perplexity_delta")
-            for candidate_id, measurement in self.actual_measurements.items()
-        }
+        actual = dict(self.actual_measurements)
         best_delta = ranked[0][0]
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
         magnitudes: dict[str, float] = {}
         for candidate in candidates:
             values = [
@@ -756,13 +856,19 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         def baseline_record(name: str, candidate_id: str | None) -> dict[str, object]:
             if candidate_id is None or candidate_id not in actual:
                 return {"method": name, "candidate_id": None, "measured": False}
-            measured_delta = actual[candidate_id]
+            measurement = actual[candidate_id]
+            measured_delta = _number(measurement["perplexity_delta"], "perplexity_delta")
+            quality_gate = self._quality_gate(
+                _number(measurement["baseline_perplexity"], "baseline_perplexity"),
+                _number(measurement["candidate_perplexity"], "candidate_perplexity"),
+            )
             return {
                 "method": name,
                 "candidate_id": candidate_id,
                 "measured": True,
-                "constraints_passed": measured_delta <= allowed,
+                "constraints_passed": bool(quality_gate["accepted"]),
                 "measured_perplexity_delta": measured_delta,
+                "quality_gate": quality_gate,
                 "regret_vs_measured_best": measured_delta - best_delta,
             }
 
@@ -1175,6 +1281,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             parent_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
+        source_baseline = self.baseline or proof.baseline_measurement()
+        source_baseline_perplexity = _number(
+            source_baseline["perplexity"], "baseline.perplexity"
+        )
         repair_model = copy.deepcopy(parent_model)
         targets = self._repair_targets(repair_model)
         max_steps_value = settings.get("max_steps")
@@ -1249,8 +1359,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         repaired_perplexity = _number(
             repaired_measurement["perplexity"], "repaired.perplexity"
         )
-        accepted = (
-            repaired_perplexity <= parent_perplexity
+        repair_quality_gate = self._quality_gate(
+            source_baseline_perplexity, repaired_perplexity
+        )
+        accepted = repaired_perplexity <= parent_perplexity and bool(
+            repair_quality_gate["accepted"]
         )
         detail: dict[str, object] = {
             "method": method,
@@ -1259,6 +1372,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "targets": list(targets),
             "parent_measurement": dict(parent_measurement),
             "repaired_measurement": dict(repaired_measurement),
+            "quality_gate": repair_quality_gate,
             "resource_preflight": self.resource_preflight,
             "artifact": str(self.artifact),
             "artifact_digest": self.artifact_digest,
@@ -1273,9 +1387,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 measurement={
                     "parent": dict(parent_measurement),
                     "repaired": dict(repaired_measurement),
+                    "quality_gate": repair_quality_gate,
                     "measurement_authority": "physical_repair_evaluation",
                 },
-                failure={"reason": "repair did not improve the measured parent artifact"},
+                failure={
+                    "reason": (
+                        "repair did not improve the measured parent artifact"
+                        if repaired_perplexity > parent_perplexity
+                        else "repair violated the declared quality constraints"
+                    )
+                },
                 lineage={"method": method, "targets": list(targets)},
             )
             return self._result(
@@ -1307,14 +1428,24 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         reloaded_perplexity = _number(
             reloaded_measurement["perplexity"], "reloaded_repaired.perplexity"
         )
-        if reloaded_perplexity > parent_perplexity:
+        reloaded_quality_gate = self._quality_gate(
+            source_baseline_perplexity, reloaded_perplexity
+        )
+        if reloaded_perplexity > parent_perplexity or not bool(
+            reloaded_quality_gate["accepted"]
+        ):
             detail.update(
                 {
                     "status": "rejected",
                     "reloaded_measurement": dict(reloaded_measurement),
+                    "reloaded_quality_gate": reloaded_quality_gate,
                     "rejected_artifact": str(repaired_artifact),
                     "rejected_artifact_digest": _artifact_digest(repaired_artifact.parent),
-                    "rejection_reason": "reloaded repair was worse than its parent",
+                    "rejection_reason": (
+                        "reloaded repair was worse than its parent"
+                        if reloaded_perplexity > parent_perplexity
+                        else "reloaded repair violated the declared quality constraints"
+                    ),
                 }
             )
             self._record_optimization_observation(
@@ -1326,6 +1457,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 measurement={
                     "parent": dict(parent_measurement),
                     "repaired": dict(reloaded_measurement),
+                    "quality_gate": reloaded_quality_gate,
                     "measurement_authority": "physical_reloaded_repair_evaluation",
                 },
                 artifact={
@@ -1363,6 +1495,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "artifact": str(repaired_artifact),
                 "artifact_digest": self.artifact_digest,
                 "reloaded_measurement": dict(reloaded_measurement),
+                "reloaded_quality_gate": reloaded_quality_gate,
             }
         )
         self._record_optimization_observation(
@@ -1374,6 +1507,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             measurement={
                 "parent": dict(parent_measurement),
                 "repaired": dict(reloaded_measurement),
+                "quality_gate": reloaded_quality_gate,
                 "measurement_authority": "physical_reloaded_repair_evaluation",
             },
             artifact={
@@ -1462,14 +1596,18 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             quantized_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
-        parent_perplexity = _number(parent_measurement["perplexity"], "parent.perplexity")
         quantized_perplexity = _number(
             quantized_measurement["perplexity"], "quantized.perplexity"
         )
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
+        source_baseline = self.baseline or proof.baseline_measurement()
+        source_baseline_perplexity = _number(
+            source_baseline["perplexity"], "baseline.perplexity"
+        )
+        quantization_quality_gate = self._quality_gate(
+            source_baseline_perplexity, quantized_perplexity
+        )
         accepted = (
-            quantized_perplexity - parent_perplexity <= allowed
+            bool(quantization_quality_gate["accepted"])
             and quantization_report.storage_delta_bytes < 0
         )
         detail: dict[str, object] = {
@@ -1478,6 +1616,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "quantization": quantization_report.to_record(),
             "parent_measurement": dict(parent_measurement),
             "quantized_measurement": dict(quantized_measurement),
+            "quality_gate": quantization_quality_gate,
             "resource_preflight": self.resource_preflight,
             "artifact": str(self.artifact),
             "artifact_digest": self.artifact_digest,
@@ -1485,7 +1624,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         if not accepted:
             reason = (
                 "quantized quality exceeded the declared limit"
-                if quantized_perplexity - parent_perplexity > allowed
+                if not bool(quantization_quality_gate["accepted"])
                 else "quantized storage did not decrease"
             )
             self._record_optimization_observation(
@@ -1497,6 +1636,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 measurement={
                     "parent": dict(parent_measurement),
                     "quantized": dict(quantized_measurement),
+                    "quality_gate": quantization_quality_gate,
                     "measurement_authority": "physical_quantization_evaluation",
                 },
                 failure={"reason": reason},
@@ -1548,11 +1688,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         reloaded_perplexity = _number(
             reloaded_measurement["perplexity"], "reloaded_quantized.perplexity"
         )
-        if reloaded_perplexity - parent_perplexity > allowed:
+        reloaded_quality_gate = self._quality_gate(
+            source_baseline_perplexity, reloaded_perplexity
+        )
+        if not bool(reloaded_quality_gate["accepted"]):
             detail.update(
                 {
                     "status": "rejected",
                     "reloaded_measurement": dict(reloaded_measurement),
+                    "reloaded_quality_gate": reloaded_quality_gate,
                     "rejected_artifact": str(quantized_artifact),
                     "rejected_artifact_digest": _artifact_digest(quantized_artifact.parent),
                     "rejection_reason": "reloaded quantized model exceeded the quality limit",
@@ -1567,6 +1711,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 measurement={
                     "parent": dict(parent_measurement),
                     "quantized": dict(reloaded_measurement),
+                    "quality_gate": reloaded_quality_gate,
                     "measurement_authority": "physical_reloaded_quantization_evaluation",
                 },
                 artifact={
@@ -1604,6 +1749,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "artifact": str(quantized_artifact),
                 "artifact_digest": self.artifact_digest,
                 "reloaded_measurement": dict(reloaded_measurement),
+                "reloaded_quality_gate": reloaded_quality_gate,
                 "published_quantization": published_report.to_record(),
             }
         )
@@ -1616,6 +1762,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             measurement={
                 "parent": dict(parent_measurement),
                 "quantized": dict(reloaded_measurement),
+                "quality_gate": reloaded_quality_gate,
                 "measurement_authority": "physical_reloaded_quantization_evaluation",
             },
             artifact={
@@ -1984,6 +2131,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             for parameter in candidate_model.parameters()
         )
         baseline = self.baseline_runtime_measurement
+        quality_gate = self._quality_gate(
+            _number(baseline["perplexity"], "baseline.perplexity"),
+            _number(measured["perplexity"], "candidate.perplexity"),
+        )
         return {
             "scope": candidate.scope.value,
             "mutation": (
@@ -2009,6 +2160,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "measurement_wall_seconds": measured["median_seconds"],
             "repetitions": measured["repetitions"],
             "token_count": measured["token_count"],
+            "quality_gate": quality_gate,
         }
 
     @staticmethod
@@ -2161,8 +2313,6 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         candidates = self.candidates or self._enumerate()
         if not candidates:
             raise FirstPartyOptimizeRuntimeError("no adapter-supported candidates exist")
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
         unique: dict[tuple[str, tuple[int, ...]], MutationCandidate] = {}
         for candidate in candidates:
             unique.setdefault(self._operation_key(candidate, proof.model), candidate)
@@ -2202,6 +2352,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 continue
             self.actual_measurements[candidate.candidate_id] = measurement
             delta = _number(measurement["perplexity_delta"], "perplexity_delta")
+            quality_gate = self._quality_gate(
+                _number(measurement["baseline_perplexity"], "baseline_perplexity"),
+                _number(measurement["candidate_perplexity"], "candidate_perplexity"),
+            )
+            accepted_by_quality_gate = bool(quality_gate["accepted"])
             prediction_value = self.meta_predictions.get(candidate.candidate_id)
             prediction = (
                 None
@@ -2221,7 +2376,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 state_id="source:" + (self.source_digest or self.plan.plan_id),
                 outcome=(
                     OptimizationEvidenceOutcome.ACCEPTED
-                    if delta <= allowed
+                    if accepted_by_quality_gate
                     else OptimizationEvidenceOutcome.REJECTED
                 ),
                 candidate_id=candidate.candidate_id,
@@ -2235,7 +2390,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "mutation": candidate.request.to_record(),
                 },
             )
-            if delta <= allowed:
+            if accepted_by_quality_gate:
                 scored.append(
                     (
                         delta,
@@ -2247,7 +2402,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 )
         if not scored:
             raise FirstPartyOptimizeRuntimeError(
-                f"no measured candidate met max perplexity delta {allowed:.12g}"
+                "no measured candidate met the declared quality constraints"
             )
         ranked = sorted(scored, key=lambda item: (item[0], item[1], item[2]))
         self._build_search_comparison(candidate_pool, ranked)
@@ -2690,15 +2845,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         baseline_perplexity = _number(baseline["perplexity"], "baseline.perplexity")
         perplexity = _number(measurement["perplexity"], "child.perplexity")
-        delta = perplexity - baseline_perplexity
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
+        quality_gate = self._quality_gate(baseline_perplexity, perplexity)
         return {
             "measurement": dict(measurement),
             "baseline_perplexity": baseline_perplexity,
-            "perplexity_delta": delta,
-            "max_perplexity_delta": allowed,
-            "accepted": delta <= allowed,
+            "perplexity_delta": quality_gate["perplexity_delta"],
+            "max_perplexity_delta": quality_gate["max_perplexity_delta"],
+            "quality_retention_ratio": quality_gate["quality_retention_ratio"],
+            "quality_gate": quality_gate,
+            "accepted": bool(quality_gate["accepted"]),
             "measurement_authority": "physical_reloaded_child",
         }
 
@@ -2766,8 +2921,6 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             local_files_only=True,
         )
         child_candidates = self._enumerate_for_proof(child_proof)
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
         measurements: list[
             tuple[float, float, str, MutationCandidate, Mapping[str, object]]
         ] = []
@@ -2795,7 +2948,20 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             measurements.append(
                 (delta, latency, candidate.request.mutation_id, candidate, measured)
             )
-        eligible = [item for item in measurements if item[0] <= allowed]
+        source_baseline = self.baseline or self._ensure_loaded().baseline_measurement()
+        source_baseline_perplexity = _number(
+            source_baseline["perplexity"], "baseline.perplexity"
+        )
+        eligible = [
+            item
+            for item in measurements
+            if bool(
+                self._quality_gate(
+                    source_baseline_perplexity,
+                    _number(item[4]["candidate_perplexity"], "state.candidate_perplexity"),
+                )["accepted"]
+            )
+        ]
         ranked = sorted(eligible, key=lambda item: (item[0], item[1], item[2]))
         state["candidate_measurements"] = [
             {
@@ -2808,6 +2974,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 ),
                 "perplexity_delta": item[0],
                 "latency_delta_seconds": item[1],
+                "quality_gate": self._quality_gate(
+                    source_baseline_perplexity,
+                    _number(item[4]["candidate_perplexity"], "state.candidate_perplexity"),
+                ),
                 "accepted_by_quality_gate": item in eligible,
             }
             for item in sorted(measurements, key=lambda item: item[3].candidate_id)
@@ -3126,10 +3296,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     artifact.parent,
                     label="candidate",
                 )
-                quality_delta = _number(
-                    candidate_quality["perplexity"], "deployment.perplexity"
-                ) - _number(baseline["perplexity"], "baseline.perplexity")
-                allowed = self.plan.quality_profile.max_perplexity_delta or 0.05
+                quality_gate = self._quality_gate(
+                    _number(baseline["perplexity"], "baseline.perplexity"),
+                    _number(candidate_quality["perplexity"], "deployment.perplexity"),
+                )
                 constraints = _mapping(
                     _mapping(self.plan.resolved_config, "resolved configuration").get(
                         "constraints"
@@ -3151,7 +3321,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 max_ram = constraints.get("max_ram_bytes")
                 max_vram = constraints.get("max_vram_bytes")
                 min_latency_gain = constraints.get("min_latency_gain_ratio")
-                passed = quality_delta <= allowed
+                passed = bool(quality_gate["accepted"])
                 peak_ram = self.deployment["peak_ram_bytes"]
                 if isinstance(max_ram, int) and (
                     not isinstance(peak_ram, int) or peak_ram > max_ram
@@ -3178,7 +3348,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "candidate": dict(self.deployment),
                     "candidate_quality": dict(candidate_quality),
                     "hardware_inventory": dict(self._runtime_hardware_record()),
-                    "quality_delta": quality_delta,
+                    "quality_gate": quality_gate,
+                    "quality_delta": quality_gate["perplexity_delta"],
+                    "quality_retention_ratio": quality_gate["quality_retention_ratio"],
                     "latency_gain_ratio": latency_gain,
                 }
                 return self._result(
