@@ -186,7 +186,8 @@
     {"id": "live_provider", "status": "not_measured", "mitigation": "Use no-LLM or offline mode for reproducibility; treat live provider quality/security as unknown."},
     {"id": "model_coverage", "status": "bounded_fixture_only", "mitigation": "Require architecture, revision, hardware and retained measurements for each real campaign."},
     {"id": "optimizer_authority", "status": "explicitly_separated", "mitigation": "Keep OptimizationSpec and deterministic engine authoritative; retain prediction-only and inconclusive outcomes."},
-    {"id": "packaging", "status": "no_installer_claim", "mitigation": "Use the locked source/wheel workflow and document the user-owned data root; defer installer work."}
+    {"id": "packaging", "status": "no_installer_claim", "mitigation": "Use the locked source/wheel workflow and document the user-owned data root; defer installer work."},
+    {"id": "optional_diskcache_pickle", "status": "open_dependabot_alert", "mitigation": "The optional local-provider extra currently resolves diskcache 5.6.3, which has an unsafe pickle-deserialization advisory with no patched version listed. Do not expose its cache directory to untrusted writers; track GHSA-w8v5-vhqr-4h9v/CVE-2025-69872 before treating the optional provider as production-safe."}
   ],
   "documentation": [
     "README.md",
