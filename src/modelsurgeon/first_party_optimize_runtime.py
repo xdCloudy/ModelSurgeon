@@ -878,34 +878,31 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         artifact_root = Path(cast(str, artifact_dir))
         sequence_root = artifact_root / "optimize" / context.run.run_id / "hf-mlp-sequence"
         original_channels = self.selected_channels
-        edits: list[HuggingFaceEdit] = []
-        for index, original_channel in enumerate(original_channels):
-            current_channel = original_channel - sum(
-                prior < original_channel for prior in original_channels[:index]
-            )
+        first_channel = self._channel(self.selected_candidates[0])
 
-            def apply_edit(model: Any, channel: int = current_channel) -> object:
-                return remove_huggingface_mlp_channels(model, (channel,))
+        def apply_first(model: Any, channel: int = first_channel) -> object:
+            return remove_huggingface_mlp_channels(model, (channel,))
 
-            edits.append(
-                HuggingFaceEdit(
-                    f"mlp-channel-{original_channel}",
-                    "remove_mlp_channel",
-                    apply_edit,
-                )
-            )
+        edits = (
+            HuggingFaceEdit(
+                f"mlp-channel-{first_channel}",
+                "remove_mlp_channel",
+                apply_first,
+            ),
+        )
         sequence = run_huggingface_cumulative_sequence(
             copy.deepcopy(proof.model),
-            tuple(edits),
+            edits,
             output_root=sequence_root,
             source_outcome_id=self.source_digest or self.plan.plan_id,
             publish=self._publish,
             reload=self._reload,
             generate=self._generation_smoke,
             evaluate=self._evaluate_reloaded_child,
+            on_accept=self._next_state_edit,
+            max_stages=self._surgery_steps(),
         )
         self.surgery_sequence = sequence
-        self.state_updates = self._rediscover_child_states(sequence.stages)
         artifact = sequence.stages[-1].artifact
         reloaded = sequence.final_model
         self.artifact = artifact
@@ -1014,6 +1011,84 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 }
             )
         return tuple(updates)
+
+    def _next_state_edit(
+        self,
+        model: Any,
+        stage_index: int,
+        stages: tuple[HuggingFaceStageEvidence, ...],
+    ) -> HuggingFaceEdit | None:
+        del model, stage_index
+        if not stages:
+            raise FirstPartyOptimizeRuntimeError(
+                "state-conditioned search requires an accepted stage"
+            )
+        state = dict(self._rediscover_child_states((stages[-1],))[0])
+        artifact = Path(stages[-1].artifact).parent.absolute().resolve(strict=True)
+        child_proof = self._new_proof_runtime(
+            str(artifact),
+            str(artifact),
+            local_files_only=True,
+        )
+        report = enumerate_mutation_candidates(
+            child_proof.component_graph,
+            child_proof.run_id,
+            CandidateEnumeratorConfig(
+                seed=_integer(
+                    _config_value(self.plan, "calibration", "seed"),
+                    0,
+                    "calibration.seed",
+                ),
+                filters=CandidateFilter(scopes=(CandidateScope.MLP_CHANNEL,)),
+                max_candidates=max(1, self.plan.budget.evaluations),
+            ),
+        )
+        allowed = self.plan.quality_profile.max_perplexity_delta
+        allowed = 0.05 if allowed is None else allowed
+        measurements: list[tuple[float, float, int, MutationCandidate]] = []
+        for candidate in report.candidates:
+            channel = self._channel(candidate)
+            measured = child_proof.measure_channel_set(
+                tuple((layer, channel) for layer in range(child_proof._discovery.shape.layers)),
+                repetitions=self.plan.quality_profile.evaluation_repetitions,
+            ).to_record()
+            delta = _number(measured["perplexity_delta"], "state.perplexity_delta")
+            latency = _number(measured["latency_delta_seconds"], "state.latency_delta_seconds")
+            measurements.append((delta, latency, channel, candidate))
+        eligible = [item for item in measurements if item[0] <= allowed]
+        ranked = sorted(eligible, key=lambda item: (item[0], item[1], item[2]))
+        state["candidate_measurements"] = [
+            {
+                "candidate_id": item[3].candidate_id,
+                "channel": item[2],
+                "perplexity_delta": item[0],
+                "latency_delta_seconds": item[1],
+                "accepted_by_mask": item in eligible,
+            }
+            for item in sorted(measurements, key=lambda item: item[3].candidate_id)
+        ]
+        if not ranked:
+            state["next_edit"] = None
+            state["stopping_reason"] = "no state-conditioned candidate met the quality gate"
+            self.state_updates = (*self.state_updates, state)
+            return None
+        selected = ranked[0][3]
+        channel = self._channel(selected)
+        state["next_edit"] = {
+            "candidate_id": selected.candidate_id,
+            "channel": channel,
+            "selection_authority": "reloaded_child_physical_evaluation",
+        }
+        self.state_updates = (*self.state_updates, state)
+
+        def apply_next(next_model: Any, selected_channel: int = channel) -> object:
+            return remove_huggingface_mlp_channels(next_model, (selected_channel,))
+
+        return HuggingFaceEdit(
+            f"state-mlp-channel-{channel}",
+            "remove_mlp_channel_from_rediscovered_state",
+            apply_next,
+        )
 
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage
