@@ -49,10 +49,13 @@ failure and no accepted artifact.
 
 Approvals are bound to the canonical plan digest, the content-addressed plan
 diff, an operator identity, a non-secret operator context, and an explicit
-expiry. An approval for an older state is never reused: resume rejects a
-material plan change and reports the deterministic diff ID and changed paths.
-Overrides are accepted only with a matching `override:<name>` approval and are
-passed to the runtime as data, never interpreted as commands.
+expiry and reuse policy. `one_time` approvals are consumed once; `reusable`
+approvals may authorize bounded resumes until expiry. An approval for an older
+state is never reused: resume rejects a material plan change and reports the
+deterministic diff ID and changed paths. Every approval issue and consumption
+is retained as immutable redacted audit evidence. Overrides are accepted only
+with a matching `override:<name>` approval and are passed to the runtime as
+data, never interpreted as commands.
 
 The persisted stage evidence can be replayed without loading a model. The
 replay digest and selected candidate are derived from canonical evidence and
@@ -64,5 +67,5 @@ Merkle index. A package must be signed with `--package-key-id` and
 tolerances are retained in the manifest and reduce the claim to bounded
 reproducibility.
 
-The schema is `autonomous_optimize_run`, version 2. Source paths and secrets
+The schema is `autonomous_optimize_run`, version 3. Source paths and secrets
 remain outside the state contract; artifact lineage uses content digests.

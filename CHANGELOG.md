@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Implemented issue #481 scoped approvals across direct and chat execution.
+    Approvals now bind plan/diff identity, scope, operator context, expiry and
+    one-time/reusable policy; material plan changes require reapproval, and
+    immutable redacted audit evidence is projected into canonical campaign
+    state. Added direct/chat regression coverage and CLI flags.
+
   - Closed the v2.8 evidence-grounded explanations milestone for issue #480.
     Added a versioned release boundary and fail-closed evidence manifest that
     reconcile merged #475 canonical evidence queries, #476 claim rendering,

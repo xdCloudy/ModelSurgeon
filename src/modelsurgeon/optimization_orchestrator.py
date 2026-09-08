@@ -26,11 +26,20 @@ from modelsurgeon.experiments.coordinator import (
     PromotionOutcome,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
-from modelsurgeon.experiments.optimization_package import diff_plans, plan_digest
+from modelsurgeon.experiments.optimization_package import (
+    ApprovalAuditRecord,
+    ApprovalDecision,
+    ApprovalDecisionKind,
+    ApprovalRequest,
+    ApprovalReuse,
+    build_approval_audit_record,
+    diff_plans,
+    plan_digest,
+)
 from modelsurgeon.optimization import OptimizeOutcome, OptimizePlan
 from modelsurgeon.surgery.contracts import TransactionState
 
-ORCHESTRATOR_SCHEMA_VERSION = 2
+ORCHESTRATOR_SCHEMA_VERSION = 3
 
 
 class OptimizeOrchestratorError(RuntimeError):
@@ -207,6 +216,11 @@ class ApprovalRecord:
     diff_id: str
     expires_at: str
     operator_context: tuple[tuple[str, str], ...] = ()
+    scope: tuple[str, ...] = ()
+    reuse: ApprovalReuse = ApprovalReuse.REUSABLE
+    uses: int = 0
+    requested_at: str | None = None
+    decision_id: str | None = None
 
     def __post_init__(self) -> None:
         _text(self.code, "approval code")
@@ -227,6 +241,29 @@ class ApprovalRecord:
             raise OptimizeOrchestratorError("approval expiry must include a timezone")
         if self.operator_context != tuple(sorted(self.operator_context)):
             raise OptimizeOrchestratorError("approval operator context must be canonical")
+        selected_scope = self.scope or (self.code,)
+        if selected_scope != tuple(sorted(set(selected_scope))) or any(
+            not isinstance(item, str) or not item.strip() for item in selected_scope
+        ):
+            raise OptimizeOrchestratorError("approval scope must be sorted and unique")
+        object.__setattr__(self, "scope", selected_scope)
+        if not isinstance(self.reuse, ApprovalReuse):
+            raise OptimizeOrchestratorError("approval reuse policy is invalid")
+        if isinstance(self.uses, bool) or not isinstance(self.uses, int) or self.uses < 0:
+            raise OptimizeOrchestratorError("approval uses must be a non-negative integer")
+        if self.reuse is ApprovalReuse.ONE_TIME and self.uses > 1:
+            raise OptimizeOrchestratorError("one-time approvals can only be used once")
+        if self.requested_at is not None:
+            try:
+                requested = datetime.fromisoformat(self.requested_at.replace("Z", "+00:00"))
+            except ValueError as error:
+                raise OptimizeOrchestratorError(
+                    "approval requested_at must be an ISO-8601 timestamp"
+                ) from error
+            if requested.tzinfo is None:
+                raise OptimizeOrchestratorError("approval requested_at must include a timezone")
+        if self.decision_id is not None:
+            _text(self.decision_id, "approval decision ID")
 
     @property
     def approval_id(self) -> str:
@@ -240,6 +277,10 @@ class ApprovalRecord:
                     "plan_digest": self.plan_digest,
                     "diff_id": self.diff_id,
                     "expires_at": self.expires_at,
+                    "scope": list(self.scope),
+                    "reuse": self.reuse.value,
+                    "requested_at": self.requested_at,
+                    "decision_id": self.decision_id,
                     "operator_context": dict(self.operator_context),
                 }
             ).encode()
@@ -256,14 +297,31 @@ class ApprovalRecord:
             "diff_id": self.diff_id,
             "expires_at": self.expires_at,
             "operator_context": {key: value for key, value in self.operator_context},
+            "scope": list(self.scope),
+            "reuse": self.reuse.value,
+            "uses": self.uses,
+            "requested_at": self.requested_at,
+            "decision_id": self.decision_id,
             "approval_id": self.approval_id,
         }
 
+    def active_at(self, at: datetime | None = None) -> bool:
+        current = datetime.now(UTC) if at is None else at.astimezone(UTC)
+        expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00")).astimezone(UTC)
+        return (
+            self.approved
+            and current < expiry
+            and not (self.reuse is ApprovalReuse.ONE_TIME and self.uses >= 1)
+        )
+
     @property
     def active(self) -> bool:
-        return datetime.now(UTC) < datetime.fromisoformat(
-            self.expires_at.replace("Z", "+00:00")
-        ).astimezone(UTC)
+        return self.active_at()
+
+    def consumed(self) -> ApprovalRecord:
+        if self.reuse is ApprovalReuse.ONE_TIME and self.uses >= 1:
+            raise OptimizeOrchestratorError("one-time approval has already been consumed")
+        return replace(self, uses=self.uses + 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -307,6 +365,7 @@ class OptimizeRun:
     alternatives: tuple[str, ...]
     reasons: tuple[str, ...]
     schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    approval_audit: tuple[ApprovalAuditRecord, ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.run_id, "run ID")
@@ -323,7 +382,7 @@ class OptimizeRun:
         if plan_digest(self.plan_record) != self.plan_digest:
             raise OptimizeOrchestratorError("retained plan record does not match its digest")
         _digest(self.source_artifact_digest, "source artifact digest")
-        if self.schema_version != ORCHESTRATOR_SCHEMA_VERSION:
+        if self.schema_version not in {2, ORCHESTRATOR_SCHEMA_VERSION}:
             raise OptimizeOrchestratorError("unsupported orchestrator schema version")
         if self.cursor < 0 or self.cursor > len(STAGE_ORDER):
             raise OptimizeOrchestratorError("workflow cursor is out of bounds")
@@ -337,6 +396,11 @@ class OptimizeRun:
             raise OptimizeOrchestratorError("workflow alternatives must be sorted and unique")
         if any(not item.strip() for item in self.reasons):
             raise OptimizeOrchestratorError("workflow reasons must be non-empty")
+        previous: str | None = None
+        for item in self.approval_audit:
+            if item.previous_digest != previous:
+                raise OptimizeOrchestratorError("approval audit chain is not contiguous")
+            previous = item.digest
 
     @property
     def terminal(self) -> bool:
@@ -360,6 +424,7 @@ class OptimizeRun:
             "accepted_artifact_digest": self.accepted_artifact_digest,
             "alternatives": list(self.alternatives),
             "reasons": list(self.reasons),
+            "approval_audit": [item.to_record() for item in self.approval_audit],
         }
 
     def canonical_json(self) -> str:
@@ -513,11 +578,19 @@ def _stored_strings(value: object, label: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _stored_scope(value: object, code: str) -> tuple[str, ...]:
+    if value is None:
+        return (code,)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise OptimizeOrchestratorError("stored approval scope must be a string array")
+    return tuple(value)
+
+
 def _run_from_record(value: object) -> OptimizeRun:
     raw = _record_mapping(value, "run")
     if raw.get("record_type") != "autonomous_optimize_run":
         raise OptimizeOrchestratorError("stored state is not an autonomous optimize run")
-    if raw.get("schema_version") != ORCHESTRATOR_SCHEMA_VERSION:
+    if raw.get("schema_version") not in {2, ORCHESTRATOR_SCHEMA_VERSION}:
         raise OptimizeOrchestratorError("stored orchestrator schema is unsupported")
     stages_raw = raw.get("stages")
     if not isinstance(stages_raw, list):
@@ -569,6 +642,11 @@ def _run_from_record(value: object) -> OptimizeRun:
                     _record_mapping(item.get("operator_context", {}), "operator context").items()
                 )
             ),
+            _stored_scope(item.get("scope"), str(item["code"])),
+            ApprovalReuse(str(item.get("reuse", ApprovalReuse.REUSABLE.value))),
+            _stored_int(item.get("uses", 0), "approval uses"),
+            None if item.get("requested_at") is None else str(item["requested_at"]),
+            None if item.get("decision_id") is None else str(item["decision_id"]),
         )
         for item in (_record_mapping(item, "approval") for item in approvals_raw)
     )
@@ -581,6 +659,13 @@ def _run_from_record(value: object) -> OptimizeRun:
         )
         for item in (_record_mapping(item, "override") for item in overrides_raw)
     )
+    audit_raw = raw.get("approval_audit", [])
+    if not isinstance(audit_raw, list):
+        raise OptimizeOrchestratorError("stored approval audit must be an array")
+    try:
+        approval_audit = tuple(ApprovalAuditRecord.from_record(item) for item in audit_raw)
+    except ValueError as error:
+        raise OptimizeOrchestratorError("stored approval audit is malformed") from error
     try:
         return OptimizeRun(
             str(raw["run_id"]),
@@ -599,6 +684,8 @@ def _run_from_record(value: object) -> OptimizeRun:
             else str(raw["accepted_artifact_digest"]),
             _stored_strings(raw.get("alternatives", []), "alternatives"),
             _stored_strings(raw.get("reasons", []), "reasons"),
+            _stored_int(raw.get("schema_version", 2), "schema version"),
+            approval_audit,
         )
     except (KeyError, TypeError, ValueError) as error:
         raise OptimizeOrchestratorError("stored run fields are invalid") from error
@@ -699,6 +786,7 @@ class OptimizeOrchestrator:
         approval_expires_at: str | None,
         operator_id: str,
         operator_context: Mapping[str, str],
+        approval_reuse: Mapping[str, ApprovalReuse | str] | None,
     ) -> OptimizeRun:
         required = set(_approval_codes(self.plan))
         existing = {item.code: item for item in run.approvals}
@@ -706,19 +794,73 @@ class OptimizeOrchestrator:
         initial_diff_id = diff_plans(self.plan, self.plan).diff_id
         expiry = approval_expires_at or (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         context = tuple(sorted((str(key), str(value)) for key, value in operator_context.items()))
+        requested_at = datetime.now(UTC).isoformat()
+        audit = list(run.approval_audit)
+
+        def selected_reuse(code: str) -> ApprovalReuse:
+            raw = (
+                ApprovalReuse.REUSABLE
+                if approval_reuse is None
+                else approval_reuse.get(code, ApprovalReuse.REUSABLE)
+            )
+            try:
+                return raw if isinstance(raw, ApprovalReuse) else ApprovalReuse(str(raw))
+            except ValueError as error:
+                raise OptimizeOrchestratorError(
+                    f"approval {code} has an unknown reuse policy"
+                ) from error
+
+        def approval_request(record: ApprovalRecord) -> ApprovalRequest:
+            return ApprovalRequest(
+                record.code,
+                record.plan_id,
+                record.plan_digest,
+                record.scope,
+                record.diff_id,
+                record.requested_at or requested_at,
+                record.expires_at,
+                record.recorded_by,
+                record.operator_context,
+                record.reuse,
+                1 if record.reuse is ApprovalReuse.ONE_TIME else None,
+            )
+
+        def approval_decision(request: ApprovalRequest, record: ApprovalRecord) -> ApprovalDecision:
+            return ApprovalDecision(
+                request.request_id,
+                request.code,
+                request.plan_id,
+                request.plan_digest,
+                request.diff_id,
+                ApprovalDecisionKind.APPROVED,
+                request.requested_at,
+                request.operator_id,
+                "explicit approval recorded at the trusted execution boundary",
+                request.operator_context,
+            )
+
+        fresh_codes: set[str] = set()
         for code in approvals:
             if code not in {item.code for item in self.plan.approvals} and not code.startswith(
                 "override:"
             ):
                 raise OptimizeOrchestratorError(f"unknown approval code: {code}")
+            reuse = selected_reuse(code)
             prior = existing.get(code)
             if prior is not None:
                 if prior.plan_digest != current_plan_digest or prior.diff_id != initial_diff_id:
                     raise OptimizeOrchestratorError(
                         f"approval {code} is bound to a different plan diff"
                     )
-                continue
-            existing[code] = ApprovalRecord(
+                if prior.reuse is ApprovalReuse.ONE_TIME and prior.uses >= 1:
+                    if approval_expires_at is None or prior.expires_at == expiry:
+                        raise OptimizeOrchestratorError(
+                            f"approval {code} is one-time and already consumed; "
+                            "fresh approval required"
+                        )
+                else:
+                    continue
+            record = ApprovalRecord(
                 code,
                 True,
                 operator_id,
@@ -727,6 +869,24 @@ class OptimizeOrchestrator:
                 initial_diff_id,
                 expiry,
                 context,
+                (code,),
+                reuse,
+                0,
+                requested_at,
+            )
+            request = approval_request(record)
+            decision = approval_decision(request, record)
+            record = replace(record, decision_id=decision.decision_id)
+            existing[code] = record
+            fresh_codes.add(code)
+            audit.append(
+                build_approval_audit_record(
+                    request,
+                    decision,
+                    kind="issued",
+                    detail="scoped approval issued for the exact current plan and diff",
+                    previous_digest=None if not audit else audit[-1].digest,
+                )
             )
         recorded_approvals = tuple(existing[key] for key in sorted(existing))
         override_records: list[OverrideRecord] = list(run.overrides)
@@ -740,16 +900,17 @@ class OptimizeOrchestrator:
             )
             if candidate not in override_records:
                 override_records.append(candidate)
+        active_codes = {
+            item.code
+            for item in recorded_approvals
+            if item.approved
+            and item.plan_id == self.plan.plan_id
+            and item.plan_digest == current_plan_digest
+            and (item.active or item.code in fresh_codes)
+        }
         missing = sorted(
             required
-            - {
-                item.code
-                for item in recorded_approvals
-                if item.approved
-                and item.plan_id == self.plan.plan_id
-                and item.plan_digest == current_plan_digest
-                and item.active
-            }
+            - active_codes
         )
         if missing:
             return replace(
@@ -763,6 +924,7 @@ class OptimizeOrchestrator:
                 ),
                 approvals=recorded_approvals,
                 overrides=tuple(sorted(override_records, key=lambda item: item.name)),
+                approval_audit=tuple(audit),
             )
         latest_overrides: dict[str, OverrideRecord] = {}
         for item in override_records:
@@ -788,12 +950,38 @@ class OptimizeOrchestrator:
                 ),
                 approvals=recorded_approvals,
                 overrides=tuple(sorted(override_records, key=lambda item: item.name)),
+                approval_audit=tuple(audit),
+            )
+        consumed: list[ApprovalRecord] = []
+        for record in recorded_approvals:
+            if record.code not in required and not any(
+                item.name == record.code.removeprefix("override:") for item in override_records
+            ):
+                consumed.append(record)
+                continue
+            if not record.active and record.code not in fresh_codes:
+                consumed.append(record)
+                continue
+            updated = record.consumed()
+            consumed.append(updated)
+            request = approval_request(record)
+            decision = approval_decision(request, record)
+            audit.append(
+                build_approval_audit_record(
+                    request,
+                    decision,
+                    kind="consumed",
+                    detail="scoped approval consumed by the trusted execution boundary",
+                    use_index=updated.uses,
+                    previous_digest=None if not audit else audit[-1].digest,
+                )
             )
         return replace(
             run,
             status=WorkflowStatus.RUNNING,
-            approvals=recorded_approvals,
+            approvals=tuple(consumed),
             overrides=tuple(sorted(override_records, key=lambda item: item.name)),
+            approval_audit=tuple(audit),
         )
 
     def run(
@@ -806,8 +994,11 @@ class OptimizeOrchestrator:
         approval_expires_at: str | None = None,
         operator_id: str = "cli",
         operator_context: Mapping[str, str] | None = None,
+        approval_reuse: Mapping[str, ApprovalReuse | str] | None = None,
     ) -> OptimizeRun:
         run = self._load_or_start(resume=resume)
+        if run.terminal:
+            return run
         run = self._record_inputs(
             run,
             approvals,
@@ -815,11 +1006,10 @@ class OptimizeOrchestrator:
             approval_expires_at,
             operator_id,
             {} if operator_context is None else operator_context,
+            approval_reuse,
         )
         self.store.save(run)
         if run.status is WorkflowStatus.PAUSED:
-            return run
-        if run.terminal:
             return run
         selected_runtime = runtime or PreflightRuntime()
         if not isinstance(selected_runtime, OptimizeRuntime):

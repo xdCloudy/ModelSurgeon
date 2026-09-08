@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,7 +29,15 @@ from modelsurgeon.conversation.campaign_state import (
     new_campaign_state,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
-from modelsurgeon.experiments.optimization_package import plan_digest
+from modelsurgeon.experiments.optimization_package import (
+    ApprovalDecision,
+    ApprovalDecisionKind,
+    ApprovalRequest,
+    ApprovalReuse,
+    build_approval_audit_record,
+    diff_plans,
+    plan_digest,
+)
 from modelsurgeon.optimization import OptimizePlan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeRun,
@@ -174,6 +183,8 @@ class CanonicalCampaignRecorder:
         provider_context: Mapping[str, object] | None = None,
         approval_id: str | None = None,
         recorded_by: str = "chat",
+        approval_expires_at: str | None = None,
+        approval_reuse: Mapping[str, ApprovalReuse | str] | None = None,
     ) -> None:
         if not preview.executable or preview.spec is None or preview.spec_identity is None:
             raise CampaignStateError("canonical campaign recording requires an executable preview")
@@ -184,6 +195,8 @@ class CanonicalCampaignRecorder:
         self.provider_context = {} if provider_context is None else dict(provider_context)
         self.approval_id = approval_id
         self.recorded_by = _text(recorded_by, "campaign recorder")
+        self.approval_expires_at = approval_expires_at
+        self.approval_reuse = None if approval_reuse is None else dict(approval_reuse)
         self.run_id = optimize_run_id(plan)
         self.source_model_digest = source_artifact_digest(plan)
         self.campaign_id = _identifier_digest(
@@ -202,18 +215,89 @@ class CanonicalCampaignRecorder:
         assert self.preview.spec_identity is not None
         assert self.preview.spec_digest is not None
         approval = CampaignApproval.pending(self.preview.spec_digest)
+        plan_digest_value = plan_digest(self.plan)
+        plan_diff_id = diff_plans(self.plan, self.plan).diff_id
+        required_codes = tuple(item.code for item in self.plan.approvals if item.required)
+        approval_scope = tuple(sorted({"execute_approved_plan", *required_codes}))
+        reuse_values: list[ApprovalReuse] = []
+        for code in (*required_codes, "execute_approved_plan"):
+            raw = None if self.approval_reuse is None else self.approval_reuse.get(code)
+            if raw is not None:
+                try:
+                    reuse_values.append(
+                        raw if isinstance(raw, ApprovalReuse) else ApprovalReuse(str(raw))
+                    )
+                except ValueError as error:
+                    raise CampaignStateError("approval reuse policy is invalid") from error
+        approval_reuse = (
+            ApprovalReuse.ONE_TIME
+            if ApprovalReuse.ONE_TIME in reuse_values
+            else ApprovalReuse.REUSABLE
+        )
+        expiry = self.approval_expires_at or _expiry()
+        audit_evidence: tuple[Mapping[str, object], ...] = ()
         if self.approval_id is not None:
+            requested_at = _now()
+            request = ApprovalRequest(
+                "execute_approved_plan",
+                self.plan.plan_id,
+                plan_digest_value,
+                approval_scope,
+                plan_diff_id,
+                requested_at,
+                expiry,
+                self.recorded_by,
+                (("campaign_id", self.campaign_id),),
+                approval_reuse,
+                1 if approval_reuse is ApprovalReuse.ONE_TIME else None,
+            )
+            decision = ApprovalDecision(
+                request.request_id,
+                request.code,
+                request.plan_id,
+                request.plan_digest,
+                request.diff_id,
+                ApprovalDecisionKind.APPROVED,
+                requested_at,
+                self.recorded_by,
+                "explicit chat approval recorded for the exact plan scope",
+                request.operator_context,
+            )
+            audit_evidence = (
+                build_approval_audit_record(
+                    request,
+                    decision,
+                    kind="issued",
+                    detail="scoped chat approval issued for the exact current plan",
+                ).to_record(),
+            )
             approval = CampaignApproval(
                 ApprovalStatus.APPROVED,
                 self.preview.spec_digest,
                 approval_id=self.approval_id,
                 recorded_by=self.recorded_by,
-                expires_at=_expiry(),
+                expires_at=expiry,
                 provenance={
                     "record_type": "explicit_campaign_approval",
                     "source": "trusted_boundary",
                     "plan_id": self.plan.plan_id,
                 },
+                plan_id=self.plan.plan_id,
+                plan_digest="sha256:" + plan_digest_value,
+                diff_id=plan_diff_id,
+                scope=approval_scope,
+                reuse=approval_reuse,
+                audit_evidence=audit_evidence,
+            )
+        else:
+            approval = CampaignApproval(
+                ApprovalStatus.PENDING,
+                self.preview.spec_digest,
+                plan_id=self.plan.plan_id,
+                plan_digest="sha256:" + plan_digest_value,
+                diff_id=plan_diff_id,
+                scope=approval_scope,
+                reuse=approval_reuse,
             )
         return new_campaign_state(
             session_id=self.session_id,
@@ -274,12 +358,31 @@ class CanonicalCampaignRecorder:
                 or current.source_model_digest != self.source_model_digest
                 or current.spec_digest != self.preview.spec_digest
                 or plan_context.get("plan_id") != self.plan.plan_id
+                or current.approval.plan_id != self.plan.plan_id
+                or current.approval.plan_digest != "sha256:" + plan_digest(self.plan)
             ):
                 raise CampaignStateError("campaign identity or policy provenance has drifted")
             return current
 
     def start(self) -> CampaignState:
         current = self.ensure()
+        if current.approval.approval_id is not None and not current.approval.active:
+            if current.approval.status is ApprovalStatus.APPROVED:
+                expired = replace(current.approval, status=ApprovalStatus.EXPIRED)
+                with self._open() as store:
+                    current = store.transition(
+                        self.campaign_id,
+                        expected_version=current.state_version,
+                        kind="approval_expired",
+                        lifecycle=CampaignLifecycle.PAUSED,
+                        approval=expired,
+                        provenance={
+                            "record_type": "campaign_approval_expiry",
+                            "source": "trusted_campaign_recorder",
+                            "plan_id": self.plan.plan_id,
+                        },
+                    )
+            raise CampaignStateError("campaign approval is missing, expired, or consumed")
         if current.lifecycle is CampaignLifecycle.CREATED:
             with self._open() as store:
                 return store.transition(
@@ -293,6 +396,12 @@ class CanonicalCampaignRecorder:
                         "source": "trusted_optimize_adapter",
                         "plan_id": self.plan.plan_id,
                     },
+                    approval=replace(
+                        current.approval,
+                        uses=current.approval.uses + 1
+                        if current.approval.approval_id is not None
+                        else current.approval.uses,
+                    ),
                 )
         if current.lifecycle is CampaignLifecycle.PAUSED:
             with self._open() as store:
@@ -316,6 +425,33 @@ class CanonicalCampaignRecorder:
         state = self.start()
         references: list[str] = []
         with self._open() as store:
+            if run.approval_audit:
+                projected = tuple(item.to_record() for item in run.approval_audit)
+                existing = state.approval.audit_evidence
+                merged: tuple[Mapping[str, object], ...]
+                if not existing or existing == projected[: len(existing)]:
+                    merged = projected
+                elif len(existing) == 1 and existing[0] not in projected:
+                    merged = existing + projected
+                elif len(existing) > 1 and existing[1:] == projected[: len(existing) - 1]:
+                    merged = existing + projected[len(existing) - 1 :]
+                elif existing[-len(projected) :] == projected:
+                    merged = existing
+                else:
+                    raise CampaignStateError("campaign approval audit history conflicts")
+                if merged != existing:
+                    state = store.transition(
+                        self.campaign_id,
+                        expected_version=state.state_version,
+                        kind="approval_audit_projected",
+                        approval=replace(state.approval, audit_evidence=merged),
+                        provenance={
+                            "record_type": "campaign_approval_audit_projection",
+                            "source": "trusted_optimize_orchestrator",
+                            "audit_count": len(merged),
+                            "plan_id": self.plan.plan_id,
+                        },
+                    )
             for record in run.stages:
                 evidence = _stage_evidence(run, record)
                 if evidence is None:
