@@ -593,15 +593,22 @@ flowchart LR
     EVAL -->|reject| ROLLBACK["Rollback + retained evidence"]
     EVAL --> DATA["Experiment dataset"]
     DATA --> SURGEON
-    INPUT_GGUF["Quantized GGUF<br/>(typed surgery library)"] --> GGUF["mmap inspection · selective decode<br/>streamed copy-on-surgery"]
-    GGUF --> GGUF_OUT["GGUF artifact + external validation"]
+    INPUT_GGUF["Quantized GGUF<br/>(bounded optimize cell)"] --> GGUF["mmap inspection · selective decode<br/>streamed copy-on-surgery"]
+    GGUF --> GGUF_EVAL["Physical child + llama.cpp<br/>reload and measurement"]
+    GGUF_EVAL --> GGUF_OUT["Accepted artifact or retained<br/>negative evidence"]
 ```
 
 The HF path owns the autonomous search, measurement, cumulative state, and
-artifact-promotion loop. The GGUF path provides typed physical surgery
-primitives with mmap inspection, block-aligned selective decoding, exact-codec
-requantization, direct copying of unchanged ranges, resumable writes, and
-external validation; it is not yet wired into the autonomous optimizer.
+artifact-promotion loop. The native GGUF path also has a narrow autonomous
+optimization cell for model-wide `mlp_channel` surgery on explicitly selected
+Llama or dense-Qwen models. That cell performs streamed physical writes,
+reloads and measures each child with pinned `llama.cpp` tools, and either
+promotes a measured artifact or retains a measured rejection. The broader
+GGUF library still provides typed physical surgery primitives with mmap
+inspection, block-aligned selective decoding, exact-codec requantization,
+direct copying of unchanged ranges, resumable writes, and external
+validation; repair, additional quantization, and universal GGUF coverage
+remain unsupported in the autonomous cell.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), the [architecture compatibility matrix](docs/architecture-compatibility.md), and the [design records](docs/design/).
 
