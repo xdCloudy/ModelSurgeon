@@ -1,0 +1,68 @@
+{
+  "record_type": "first_party_hf_python_api_acceptance_campaign",
+  "schema_version": 1,
+  "status": "completed_with_accepted_artifact",
+  "entrypoint": "modelsurgeon.optimization.execute_first_party_optimize",
+  "execution": {
+    "run_id": "optimize_run_8f47c6af8348641603197f4968009304c7c9f998e029fddd264a7120b2fe3c7d",
+    "plan_id": "optimize_plan_5a94b8533fb695189d70612629b4f0dc72e6e4f7c440c530487e33edf9ed53e2",
+    "plan_digest": "2c025bb17404f0277ecac84917f9193a14600270c1751d82e699157a03eb5631",
+    "runtime": "first_party_huggingface_physical_search",
+    "quality_profile": "quality",
+    "approval_scope": ["artifact_write", "plan_review", "resource_budget", "source_model"],
+    "operator_id": "python-acceptance",
+    "outcome": "supported",
+    "accepted_artifact_digest": "sha256:5a256372c29e9edeff251456402a65c8d7975d62aefcdaf87ed3af649bdb46e1",
+    "state_store": "work/acceptance-python-api-qwen.campaign.json",
+    "artifact_root": "C:/mshf-python-api-task-quality",
+    "source_overwritten": false
+  },
+  "target": {
+    "format": "huggingface",
+    "family": "qwen",
+    "path": "D:/Stored Models/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "content_digest": "sha256:7ddcb4ca4de8a90486d7d0f504f6ebd2557a6aa7b3ef4e41147db2e579d168ab",
+    "parameter_count": 494032768
+  },
+  "task_quality": {
+    "method": "code_exact_match",
+    "dataset_revision": "modelsurgeon-task-quality-code-exact-match-v1",
+    "dataset_digest": "sha256:768001546f0a18cd548cad36e173db0ba2443581b4829632b4effc30a4ab3280",
+    "split": "test",
+    "examples": 4,
+    "baseline": {"matches": 4, "total": 4, "exact_match_accuracy": 1.0},
+    "candidate": {"matches": 4, "total": 4, "exact_match_accuracy": 1.0},
+    "retention_ratio": 1.0,
+    "measurement_authority": "physical_model_evaluation"
+  },
+  "quality_and_deployment": {
+    "baseline_perplexity": 141.20987907756307,
+    "candidate_perplexity": 140.1042274207665,
+    "perplexity_quality_retention_ratio": 1.007891636656159,
+    "baseline_latency_seconds": 0.8498138999566436,
+    "candidate_latency_seconds": 0.8464058999670669,
+    "latency_gain_ratio": 0.004010289770207936,
+    "baseline_disk_bytes": 999586188,
+    "candidate_disk_bytes": 999395408,
+    "candidate_id": "candidate_3884fd8017c71c72ef410abe794993c10070dbf7440a2fbc2f908c6c76e39b0f",
+    "candidate_frontier_count": 7,
+    "reloadable": true,
+    "generation_smoke": true,
+    "deployment_measurement_repetitions": 7
+  },
+  "environment": {
+    "os": "Windows 11 10.0.26200",
+    "python": "3.12.13",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "cuda_available": false,
+    "ram_total_bytes": 68422938624,
+    "source_overwrite": false
+  },
+  "limitations": [
+    "This is one bounded Qwen-family MLP-channel cell on CPU with four exact-match examples, not broad coding or production coverage.",
+    "The result validates the direct Python execution boundary; it does not establish Meta-Surgeon transfer improvement."
+  ]
+}

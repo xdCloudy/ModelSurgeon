@@ -9,7 +9,10 @@ download data, overwrite a source checkpoint, or fabricate measured results.
 ## Contract
 
 The Python API is `build_optimize_plan(settings, ...)` in
-`modelsurgeon.optimization`. The CLI accepts YAML/TOML configuration plus
+`modelsurgeon.optimization` for read-only planning. Python callers that want
+the real first-party engine use
+`execute_first_party_optimize(settings, state_path, ...)` from the same
+namespace. The CLI accepts YAML/TOML configuration plus
 `--model`, `--revision`, `--preset`, `--hardware-profile`, and
 `--quality-profile` overrides. Equivalent resolved settings use the same
 canonical JSON and therefore the same `plan_id`.
@@ -33,10 +36,11 @@ use the native GGUF workflow.
 
 Every plan lists review, source identity, and resource-budget approval points.
 An execution-shaped plan additionally requires artifact-write approval. The
-current release has no executor, so `--execute` only emits the approval-gated
-plan and still performs no mutation. Persisted plan artifacts use exclusive
-create semantics unless the validated safety setting explicitly permits
-overwrite.
+CLI and Python execution boundaries construct the format-aware first-party
+runtime and pass it through the same approval-bound, resumable orchestrator.
+Execution never overwrites the source model. Persisted plan artifacts use
+exclusive create semantics unless the validated safety setting explicitly
+permits overwrite.
 
 ## Examples
 
@@ -44,3 +48,20 @@ overwrite.
 modelsurgeon optimize --model models/tiny --revision abc123 --dry-run --json
 modelsurgeon optimize config.toml --preset quality --hardware-profile gpu-12gb
 ```
+
+The equivalent Python shape is:
+
+```python
+from modelsurgeon.config import ModelConfig, Settings
+from modelsurgeon.optimization import execute_first_party_optimize
+
+run = execute_first_party_optimize(
+    Settings(model=ModelConfig(path="/models/source", revision="sha256:...")),
+    "artifacts/optimize-run.json",
+    quality_profile="quality",
+    approvals=("plan_review", "source_model", "resource_budget", "artifact_write"),
+)
+```
+
+If approvals are omitted, the helper returns a durable paused run without
+loading or mutating the source.
