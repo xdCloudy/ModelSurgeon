@@ -1,0 +1,143 @@
+{
+  "record_type": "first_party_native_gguf_chat_campaign",
+  "schema_version": 1,
+  "status": "completed_with_explicit_unsupported_outcome",
+  "objective": "Reduce model size, prioritize generation speed, allow no more than 2% quality loss, and do not overwrite the source.",
+  "interpretation": {
+    "provider": "local-gguf",
+    "provider_model_revision": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "provider_runtime_revision": "de8656bd9",
+    "provider_revision": "local-gguf-provider-v1",
+    "outcome": "executable",
+    "spec_digest": "sha256:0cbb7e7b918f344bd589097dcb9e74017d48ddbee1ccbff6aa50a4ab9641e1fb",
+    "hard_constraints": [
+      {
+        "metric": "quality",
+        "direction": "minimum",
+        "threshold": 0.98,
+        "unit": "ratio"
+      }
+    ],
+    "objectives": [
+      {
+        "metric": "latency",
+        "direction": "minimize",
+        "unit": "milliseconds"
+      }
+    ]
+  },
+  "execution": {
+    "campaign_id": "campaign_3fbebf7e5bfbddad7e9dcdab7b9c59b5ca1edfa42bf51c8be4cc74fbdb0ade20",
+    "run_id": "optimize_run_03fd35cc49addb3e13c813738a175bbb5e4fb520f922b1e1d2a42060b79e8714",
+    "plan_id": "optimize_plan_c98f34f0a5258f8d4a0239d940b16ccbb32b896af25b05f09369e09b3b86e72e",
+    "plan_digest": "sha256:49eebe6a736d0281a7b35de16a38128b19e7a7819c61d5205743fc937b5761b2",
+    "config_digest": "sha256:8d5be741da96c32cd5ba43a268647dc3bb985eb5b6a5da873f76c88fcbc23f35",
+    "runtime": "first_party_native_gguf_physical_search",
+    "llama_cpp_revision": "de8656bd9",
+    "approval_scope": [
+      "artifact_write",
+      "execute_approved_plan",
+      "plan_review",
+      "resource_budget",
+      "source_model"
+    ],
+    "outcome": "unsupported",
+    "reason": "no measured GGUF candidate met the declared hard constraints",
+    "accepted_artifact_digest": null,
+    "source_overwritten": false
+  },
+  "source": {
+    "format": "gguf",
+    "architecture": "llama",
+    "path": "work/issue-200-validation/SmolLM2-135M-Q4_K_M.gguf",
+    "revision": "sha256:e3131339bf4e8065265593d4fd8f7bb7ff2d3abff1edb5618aa1197b89cad9f5",
+    "parameter_count": 134515008,
+    "storage_bytes": 99230976
+  },
+  "calibration": {
+    "path": "tests/fixtures/llama_cpp_perplexity_v1.txt",
+    "revision": "modelsurgeon-fixture-llama-cpp-perplexity-v1",
+    "sha256": "sha256:5e0fece449edc3749be3c094053825fa07e79a9d7dfc88e2e5f4793491f41b98"
+  },
+  "baseline": {
+    "perplexity": 165.1414,
+    "perplexity_uncertainty": 77.31123,
+    "generation_tokens_per_second": 391.293065,
+    "median_latency_seconds": 0.08178565,
+    "peak_ram_bytes": 476426240,
+    "peak_vram_bytes": 0
+  },
+  "candidates": [
+    {
+      "offset": 0,
+      "removed_channels": 256,
+      "artifact_digest": "sha256:d2be2d2cdc8783131a936163aaaa1b5cfcfb2b1f46b0d7d8674105d4a0323048",
+      "artifact_bytes": 92445280,
+      "perplexity": 1258.191,
+      "quality_ratio": 0.1312530450,
+      "outcome": "rejected"
+    },
+    {
+      "offset": 512,
+      "removed_channels": 256,
+      "artifact_digest": "sha256:c91214b55113fa12076fc4cdf05fe45cf5f3494a775dfbeecb671ed4f1d5fdc0",
+      "artifact_bytes": 92445280,
+      "perplexity": 373.383,
+      "quality_ratio": 0.4422841961,
+      "outcome": "rejected"
+    },
+    {
+      "offset": 1280,
+      "removed_channels": 256,
+      "artifact_digest": "sha256:9325c188aa0d69d2bf8fe8db0cc66832a205c42c2519b5cb3d888dad626e4fd5",
+      "artifact_bytes": 92445280,
+      "perplexity": 890.342,
+      "quality_ratio": 0.1854808602,
+      "outcome": "rejected"
+    },
+    {
+      "offset": 0,
+      "removed_channels": 512,
+      "artifact_digest": "sha256:e71f8288914ca56da006585aedd61e6b5e5f83a130e7ae1aa0e3f871333d467a",
+      "artifact_bytes": 83874400,
+      "perplexity": 9799.917,
+      "quality_ratio": 0.0168513060,
+      "outcome": "rejected"
+    },
+    {
+      "offset": 512,
+      "removed_channels": 512,
+      "artifact_digest": "sha256:36033e14aca597af5ff517926c323defa6a9b2eb9c43e277d009a65e0ca9b4b8",
+      "artifact_bytes": 83874400,
+      "perplexity": 2150.6315,
+      "quality_ratio": 0.0767873994,
+      "outcome": "rejected"
+    },
+    {
+      "offset": 1024,
+      "removed_channels": 512,
+      "artifact_digest": "sha256:0b24a9e590dcc391c2b2ce84da7cd7ce1197d7d81d429de78324ee9eba203810",
+      "artifact_bytes": 83874400,
+      "perplexity": 37558.665,
+      "quality_ratio": 0.0043968922,
+      "outcome": "rejected"
+    }
+  ],
+  "evidence": {
+    "external_runtime": "D:/llamacpp/bin/llama-cli.exe, llama-perplexity.exe, llama-bench.exe",
+    "measurement_authority": "physical_reloaded_gguf_external_runtime",
+    "candidate_count": 6,
+    "candidate_measurements": 6,
+    "candidate_reload_checks": 6,
+    "source_immutability_check": "passed",
+    "campaign_state": "work/acceptance-chat-gguf-short-state.campaign.sqlite3",
+    "artifact_root": "C:/mschat-gguf",
+    "unsupported_evidence_id": "unsupported_15e93be14ca951fd654309570280154c17d47a03c09951c0cae9f809f728a9a8",
+    "unsupported_observation": "C:/mschat-gguf/optimization-evidence/observations/obs_368a9b363a7bbd355d04ea1c483fc2555144e568f7496cb7c71b309eedc8e81c.json"
+  },
+  "limitations": [
+    "This is a bounded Llama-family Q4_K_M MLP-channel cell, not universal GGUF support.",
+    "Repair and additional quantization were not requested and remain unsupported in this cell.",
+    "The negative result is evidence that this declared search did not find a feasible candidate; it is not proof that no other mutation or threshold could work."
+  ]
+}

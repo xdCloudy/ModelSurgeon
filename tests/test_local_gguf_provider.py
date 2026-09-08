@@ -190,6 +190,36 @@ def test_local_provider_compact_intent_is_source_grounded(tmp_path: Path) -> Non
     assert fields["objective.latency"]["value"]["direction"] == "minimize"
 
 
+def test_local_provider_accepts_goal_style_allow_no_more_than_quality_loss(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "fixture.gguf"
+    _gguf(path)
+
+    result = invoke_provider(
+        _provider(path, mode="compact"),
+        InterpretIntentRequest(
+            "request-goal-style",
+            "Make this model fit in 6 GB of VRAM, prioritize generation speed, "
+            "preserve coding ability, and allow no more than 2% quality loss.",
+        ),
+    )
+
+    assert result.outcome is ProviderOutcome.SUPPORTED
+    assert result.output is not None
+    intent = result.output.intent.to_record()
+    assert intent["outcome"] == "clarification_required"
+    fields = {field["field_id"]: field for field in intent["fields"]}
+    assert fields["constraint.quality"]["value"]["threshold"] == 0.98
+    assert fields["constraint.peak_vram"]["value"]["threshold"] == 6 * 1024**3
+    assert "ambiguity-quality-threshold" not in {
+        item["ambiguity_id"] for item in intent["ambiguities"]
+    }
+    assert "ambiguity-task-quality" in {
+        item["ambiguity_id"] for item in intent["ambiguities"]
+    }
+
+
 def test_llama_cli_runtime_uses_bounded_argument_list(tmp_path: Path, monkeypatch: Any) -> None:
     executable = tmp_path / "llama-cli.exe"
     executable.write_bytes(b"runtime")

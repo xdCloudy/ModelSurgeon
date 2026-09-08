@@ -287,7 +287,8 @@ def _last_json_object(text: str) -> object:
 
 
 _QUALITY_LOSS = re.compile(
-    r"(?i)(?:no\s+more\s+than|at\s+most|allow(?:ing)?|within)\s*"
+    r"(?i)(?:no\s+more\s+than|at\s+most|within|"
+    r"allow(?:ing)?(?:\s+(?:no\s+more\s+than|up\s+to|at\s+most))?)\s*"
     r"(?P<loss>\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:the\s+)?quality\s*loss"
     r"|(?P<loss_after>\d+(?:\.\d+)?)\s*%\s*(?:quality\s+)?loss"
 )
@@ -473,7 +474,7 @@ def _normalize_compact_intent(
                 field.field_id,
                 "task-metric",
                 "coding ability requires an explicit benchmark and dataset",
-                ("provide a coding benchmark", "omit the task-quality preference"),
+                ("omit the task-quality preference", "provide a coding benchmark"),
             )
         )
         diagnostics.append("coding quality needs a declared benchmark and dataset")
