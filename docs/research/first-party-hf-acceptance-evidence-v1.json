@@ -3,8 +3,8 @@
   "schema_version": 1,
   "campaign_tool": "tools/run_first_party_hf_acceptance.py",
   "tool_revision": "first-party-hf-acceptance-v1",
-  "recorded_at": "2026-09-08T09:00:14+01:00",
-  "git_revision": "7d9b7ed31b070b8b316039f3414f559b235ddae7",
+  "recorded_at": "2026-09-08T09:21:15+01:00",
+  "git_revision": "f3f408b8fd449599b77cdbb2c05221d22496ca5b",
   "raw_campaign_record": {
     "path": "work/acceptance-campaign-2026-09-08.json",
     "sha256": "29a29f6f7ed133fe0c0198018c97f665cbb12b189664f02f423d9cd1834f2ac9"
@@ -13,6 +13,71 @@
     "path": "work/acceptance-campaign-2026-09-08-with-negative.json",
     "sha256": "3fe0e46b08bbabcc8c2d2bd99dad2d707284f8809e52e8661092fb7c40063a75",
     "additional_model": "sshleifer/tiny-gpt2@5f91d94bd9cd7190a9f3216ff93cd1dd95f2c7be"
+  },
+  "pretrained_campaign_record": {
+    "path": "work/acceptance-campaign-2026-09-08-pretrained.json",
+    "sha256": "177f1e69ed240d25a0989383dc50aa14cbf18f3b54dd08aae0fb9b9317c5684c",
+    "command": "uv run --extra hf python tools/run_first_party_hf_acceptance.py --model HuggingFaceTB/SmolLM-135M@1d461723eec654e65efdc40cf49301c89c0c92f4 --model TinyLlama/TinyLlama-1.1B-Chat-v1.0@fe8a4ea1ffedaf415f4da2f062534de366a451e6 --calibration-text work/acceptance-campaign-calibration.txt --output work/acceptance-campaign-2026-09-08-pretrained.json --artifact-root work/acceptance-artifacts-2026-09-08-pretrained --preset balanced --quality-profile quality --evaluations 1",
+    "contract": {
+      "min_quality_retention_ratio": 0.99,
+      "quality_profile": "quality",
+      "preset": "balanced",
+      "evaluations": 1,
+      "calibration_sha256": "8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5"
+    },
+    "models": [
+      {
+        "identifier": "HuggingFaceTB/SmolLM-135M",
+        "family": "llama",
+        "revision": "1d461723eec654e65efdc40cf49301c89c0c92f4",
+        "run_id": "optimize_run_feb07534e71ac6ff56cc837e3413dcdff959315ba0fed2227df6034798077b6c",
+        "outcome": "supported",
+        "status": "completed",
+        "source_artifact_digest": "sha256:57324ca7070bf5808d6b5f01689ff27c72b597dc4a6c1a61401509b9b1074fed",
+        "accepted_artifact_digest": "sha256:79ca0352a1b0a11f53954deb6831954b99b867648bfb811b8f50597f6b025b68",
+        "baseline": {
+          "perplexity": 118.307976546537,
+          "token_count": 17,
+          "parameter_count": 134515008
+        },
+        "accepted_candidate": {
+          "perplexity": 115.07756351089,
+          "perplexity_delta": -3.230413035647,
+          "disk_bytes": 541407613,
+          "decode_tokens_per_second": 41.951851860505,
+          "peak_ram_bytes": 2674933760,
+          "reloadable": true,
+          "generation_smoke": true,
+          "candidate_scope": "channel",
+          "candidate_count": 1
+        },
+        "pareto": {
+          "archive_sha256": "4fa428d1e43a9ac7a6fdcf1a3201a4959c812e08a490d038834fe1de3519285a",
+          "candidate_count": 1,
+          "status": "measured"
+        }
+      },
+      {
+        "identifier": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        "family": "llama",
+        "revision": "fe8a4ea1ffedaf415f4da2f062534de366a451e6",
+        "run_id": "optimize_run_8ddb5fbfd056770e191da5f7d7b8bd57672113d55b46369dfe4771f38d4e9b46",
+        "outcome": "unsupported",
+        "status": "completed",
+        "source_artifact_digest": "sha256:d56acfc68585b2de60ed664ec7cba7ad64e8e5efad3b4722b5e004a403880b09",
+        "baseline": {
+          "perplexity": 46.149225934361,
+          "token_count": 20,
+          "parameter_count": 1100048384
+        },
+        "negative_cell": {
+          "failed_stage": "active_search",
+          "failure_evidence_id": "unsupported_3bf305a3cfa107d069c16e76bf3240e943f689d41afa4868095a89b7ee2bea9f",
+          "failure_observation_sha256": "c8d9f75fb294c276cb3dc21a150074c77a5595b5baf111d60039e3f438b6012b",
+          "reason": "estimated candidate working set exceeds max_ram_bytes"
+        }
+      }
+    ]
   },
   "command": "uv run --extra hf python tools/run_first_party_hf_acceptance.py --model hf-internal-testing/tiny-random-LlamaForCausalLM@9fb191250dd56d0ba7ec9785a025ed29c03d5998 --model hf-internal-testing/tiny-random-MistralForCausalLM@7517176934d50d00707900b92ef6a95c782e51a2 --calibration-text work/acceptance-campaign-calibration.txt --output work/acceptance-campaign-2026-09-08.json --artifact-root work/acceptance-artifacts-2026-09-08 --preset balanced --quality-profile quality --evaluations 2",
   "contract": {
@@ -125,10 +190,11 @@
     }
   ],
   "limitations": [
-    "This is a bounded CPU-only campaign on public tiny checkpoints, not a claim of production-scale model coverage.",
+    "This is a bounded CPU-only campaign on public tiny and pretrained checkpoints, not a claim of production-scale model coverage.",
     "The quality gate is perplexity on the pinned local calibration text; no task-specific coding benchmark was run.",
     "Repair and quantization were explicit no-op controls in this campaign; their real paths are covered separately.",
     "The campaign does not establish Meta-Surgeon transfer improvement or cross-hardware transfer.",
-    "The negative GPT-2 cell proves fail-closed classification for an unsupported family; it is not evidence of GPT-2 support."
+    "The negative GPT-2 cell proves fail-closed classification for an unsupported family; it is not evidence of GPT-2 support.",
+    "The pretrained SmolLM cell completed on the pinned CPU environment; the pretrained TinyLlama cell failed closed at active search because the declared RAM envelope could not admit its candidate working set."
   ]
 }

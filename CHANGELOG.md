@@ -19,6 +19,13 @@
     retained the failure observation instead of presenting an artifact as
     supported.
 
+  - Extended the acceptance evidence with a pretrained CPU tranche: the
+    pinned HuggingFaceTB/SmolLM-135M cell completed the first-party workflow
+    with a reloadable accepted artifact and measured deployment/Pareto results;
+    the pinned TinyLlama-1.1B-Chat-v1.0 cell failed closed at active search
+    when its declared RAM envelope could not admit the candidate working set.
+    Both outcomes and their immutable run evidence remain retained.
+
   - Prepared the bounded v3.0 conversational product release candidate for
     issue #491. Integrated the v2.1-v2.9 P0 exit evidence, executable release
     manifest/checklist, packaging and setup guidance, migration and direct API
