@@ -16,7 +16,10 @@ evidence.
 2. `execute()` calls `SpecPreview.confirm()` and then creates an
    `execute_approved_plan` consequential request. The dispatcher validates the
    approval identity, plan digest, plan approval points, budget, and transaction
-   before the handler calls `OptimizeOrchestrator`.
+   before the handler calls `OptimizeOrchestrator`. When no explicitly supplied
+   runtime is present, the handler constructs the same first-party runtime used
+   by direct CLI execution after the plan has been confirmed; preview and
+   interpretation never load the target model.
 3. The handler returns only the orchestrator's canonical run/campaign outcome,
    retained evidence IDs, and an accepted immutable artifact ID when the
    existing promotion gate has accepted one. The result's evidence references

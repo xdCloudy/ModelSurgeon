@@ -163,6 +163,34 @@ def test_chat_execution_matches_direct_plan_and_returns_canonical_ids(tmp_path: 
     assert planned.plan_id == direct_plan.plan_id
 
 
+def test_chat_execution_uses_first_party_runtime_by_default(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    runtime = _Runtime()
+    captured: list[object] = []
+
+    def factory(plan: object) -> _Runtime:
+        captured.append(plan)
+        return runtime
+
+    monkeypatch.setattr(
+        "modelsurgeon.conversation.execution.build_first_party_optimize_runtime",
+        factory,
+    )
+    adapter = ChatOptimizeAdapter(
+        Settings(model=ModelConfig(path="models/tiny", revision="revision-1")),
+        state_path=tmp_path / "chat-run.json",
+        approvals=_APPROVALS,
+    )
+    preview = _preview()
+    adapter.preview("chat-session", "chat-request", preview)
+    executed = adapter.execute("chat-session", "chat-request", preview, "approval-chat")
+
+    assert executed.outcome is ToolOutcome.SUPPORTED
+    assert len(captured) == 1
+    assert runtime.calls[0] is OptimizeStage.PROFILE
+
+
 def test_chat_execution_rejects_missing_plan_approvals_without_runtime(tmp_path: Path) -> None:
     runtime = _Runtime()
     adapter = ChatOptimizeAdapter(
@@ -320,9 +348,7 @@ def test_unsupported_plan_is_retained_and_never_enters_the_runtime(
     tmp_path: Path,
 ) -> None:
     settings = Settings(
-        model=ModelConfig(
-            path="models/tiny.gguf", revision="revision-1", format=ModelFormat.GGUF
-        )
+        model=ModelConfig(path="models/tiny.gguf", revision="revision-1", format=ModelFormat.GGUF)
     )
     runtime = _Runtime()
     adapter = _adapter(tmp_path, runtime, settings=settings)
