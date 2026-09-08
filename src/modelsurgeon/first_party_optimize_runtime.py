@@ -158,6 +158,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.selected_measurement: Mapping[str, object] | None = None
         self.selected_channels: tuple[int, ...] = ()
         self.selected_candidates: tuple[MutationCandidate, ...] = ()
+        self.candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -392,6 +393,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             unique.setdefault(self._channel(candidate), candidate)
         scored: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]] = []
         for channel, candidate in sorted(unique.items()):
+            partitions = proof.pre_mutation_feature_partitions(candidate)
+            if len(partitions) != 1:
+                raise FirstPartyOptimizeRuntimeError(
+                    "HF feature extraction must produce one candidate partition"
+                )
+            self.candidate_features[candidate.candidate_id] = tuple(
+                item.to_record() for item in partitions[0].records
+            )
             measurement: Mapping[str, object] = proof.measure_channel_set(
                 tuple((layer, channel) for layer in range(proof._discovery.shape.layers)),
                 repetitions=self.plan.quality_profile.evaluation_repetitions,
@@ -731,6 +740,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         {
                             "candidate_id": candidate.candidate_id,
                             "channels": list(self.selected_channels),
+                            "feature_evidence": [
+                                {
+                                    "candidate_id": candidate_id,
+                                    "features": list(features),
+                                }
+                                for candidate_id, features in sorted(
+                                    self.candidate_features.items()
+                                )
+                            ],
                             "measurement": dict(self.selected_measurement),
                         },
                         sort_keys=True,

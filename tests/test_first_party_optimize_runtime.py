@@ -91,6 +91,9 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     pareto = run.stages[-2].result
     assert pareto is not None
     assert "decode_tokens_per_second" in pareto.detail
+    active_search = run.stages[4].result
+    assert active_search is not None
+    assert json.loads(active_search.detail)["feature_evidence"]
 
 
 def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: Path) -> None:
