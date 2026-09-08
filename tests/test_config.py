@@ -11,6 +11,7 @@ from modelsurgeon.config import (
     ObjectiveConfig,
     OptimizeMetric,
     ProviderConfig,
+    SearchConfig,
     Settings,
 )
 from modelsurgeon.provider_kind import ProviderKind
@@ -27,6 +28,7 @@ def test_safe_defaults() -> None:
     assert settings.objective.quality_retention == 0.98
     assert settings.provider.kind is ProviderKind.NONE
     assert settings.provider.provider_id == "none"
+    assert settings.search.scopes == ("mlp_channel",)
 
 
 @pytest.mark.parametrize(
@@ -64,6 +66,17 @@ def test_duplicate_or_empty_optimization_dimensions_are_rejected() -> None:
         ObjectiveConfig(optimize=(OptimizeMetric.LATENCY, OptimizeMetric.LATENCY))
     with pytest.raises(ValidationError, match="at least one"):
         ObjectiveConfig(optimize=())
+
+
+def test_search_scopes_are_non_empty_and_unique() -> None:
+    assert SearchConfig(scopes=("attention_head", "transformer_layer")).scopes == (
+        "attention_head",
+        "transformer_layer",
+    )
+    with pytest.raises(ValidationError, match="unique"):
+        SearchConfig(scopes=("attention_head", "attention_head"))
+    with pytest.raises(ValidationError, match="non-empty"):
+        SearchConfig(scopes=())
 
 
 def test_environment_overrides_nested_hardware_settings(

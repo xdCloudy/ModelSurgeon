@@ -85,7 +85,7 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, optional signed Meta-Surgeon ranking from real pre-mutation features, revision-keyed feature-cache publication, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, complete self-contained child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face path with configurable gated-MLP-channel, attention-head, and transformer-layer scopes: measured baseline, seeded candidates, real structural features, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, complete self-contained child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; low-rank, GGUF, repair, and quantization cells remain explicit unsupported/not-connected boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
@@ -297,7 +297,7 @@ See [the amendment design](docs/design/objective-amendments.md) and the
 <details>
 <summary><strong>Run the bounded autonomous optimizer</strong></summary>
 
-Execution uses the first-party runtime for the verified Hugging Face gated-MLP
+Execution uses the first-party runtime for the verified Hugging Face structural
 cell and still requires explicit approvals. The runtime owns model-specific
 profiling, measured search, physical mutation, reload, evaluation, and artifact
 publication; the orchestrator owns state, budgets, lineage, and promotion
@@ -323,7 +323,10 @@ uv run modelsurgeon optimize \
 ```
 
 The default executor currently requires a local UTF-8 calibration text file and
-an adapter-supported gated-MLP Hugging Face model. Use `--runtime
+an adapter-supported Hugging Face causal model. The default search scope is
+`mlp_channel`; a resolved `search.scopes` list can select
+`attention_head` or `transformer_layer` when the model's physical layout passes
+the adapter checks. Use `--runtime
 module:factory` only when supplying a separately reviewed runtime for another
 cell; the default path never substitutes metadata or synthetic benchmark values
 for model measurements. An optional signed Meta-Surgeon bundle can guide
