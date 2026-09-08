@@ -1,0 +1,108 @@
+{
+  "record_type": "first_party_hf_quality_gate_acceptance",
+  "schema_version": 1,
+  "status": "accepted",
+  "implementation_commit": "6cdc79b415d660dae5ea432547fb671f483d0dab",
+  "control_plane": "direct_cli",
+  "request_context": "Reduce this model size, prioritize generation speed, allow no more than 1% quality loss, and do not overwrite the source.",
+  "contract": {
+    "model_format": "huggingface",
+    "scope": "mlp_channel",
+    "quality_profile": {
+      "profile_id": "quality",
+      "min_quality_retention": 0.995,
+      "max_perplexity_delta": 0.02,
+      "evaluation_repetitions": 5,
+      "confidence_level": 0.99
+    },
+    "constraints": {
+      "min_quality_retention_ratio": 0.99,
+      "max_perplexity_delta": null,
+      "source_overwrite": false,
+      "atomic_writes": true
+    },
+    "calibration": {
+      "path": "work/acceptance-campaign-calibration.txt",
+      "sha256": "sha256:8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5",
+      "samples": 2,
+      "max_sequence_length": 32,
+      "seed": 1729
+    }
+  },
+  "source": {
+    "path": "D:/Stored Models/models--HuggingFaceTB--SmolLM-135M/snapshots/1d461723eec654e65efdc40cf49301c89c0c92f4",
+    "revision": "1d461723eec654e65efdc40cf49301c89c0c92f4",
+    "artifact_digest": "sha256:de427fceda3125a20b0c15ed7ed81344c6791fef2a2fcb6f0d66ee3d9ee46351",
+    "source_overwrite_observed": false
+  },
+  "runtime": {
+    "modelsurgeon_version": "1.0.0",
+    "python": "3.12.13",
+    "pytorch": "2.13.0",
+    "hardware": {
+      "os": "Windows 11 10.0.26200",
+      "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+      "logical_cores": 20,
+      "cuda": false,
+      "ram_total_bytes": 68422938624,
+      "ram_available_bytes": 45243068416
+    },
+    "command": [
+      "uv run modelsurgeon optimize",
+      "--config work/acceptance-chat-hf-config.toml",
+      "--model D:/Stored Models/models--HuggingFaceTB--SmolLM-135M/snapshots/1d461723eec654e65efdc40cf49301c89c0c92f4",
+      "--revision 1d461723eec654e65efdc40cf49301c89c0c92f4",
+      "--quality-profile quality",
+      "--hardware-profile cpu-small",
+      "--execute",
+      "--state work/acceptance-quality-gate-state.json",
+      "--no-llm",
+      "--approve plan_review",
+      "--approve source_model",
+      "--approve resource_budget",
+      "--approve artifact_write"
+    ],
+    "state_path": "work/acceptance-quality-gate-state.json",
+    "state_sha256": "sha256:8ade149e621af464c44173109f7fc292e26721137bcaa404bae82dbd38f9594f",
+    "run_id": "optimize_run_73562bc21a00541e1414569bdf37b0b8a6fcd0237fe6765c0f9d8609e6309a45",
+    "plan_id": "optimize_plan_acf95c7ec2d984422ef0ce2cbc8906bcfbe80814566cb8e838cccbd569efb706"
+  },
+  "search": {
+    "candidate_scope": "mlp_channel",
+    "measured_candidate_count": 10,
+    "measurement_authority": "physical_model_evaluation",
+    "selected_candidate_id": "cand_a6c1ec9772e05eb073b2859128892fd960d6e64e04cf6d290fc00b5c56c05224",
+    "frontier_archive_sha256": "sha256:627faf49040ab6c97e2908b179532eee478a58cc7a55a6e2b0e9f3626528ffa4",
+    "negative_observations_retained": true
+  },
+  "quality_gate": {
+    "metric": "perplexity",
+    "measurement_authority": "physical_evaluation",
+    "baseline_perplexity": 112.81044196466846,
+    "candidate_perplexity": 110.66786895093234,
+    "perplexity_delta": -2.1425730137361114,
+    "quality_retention_ratio": 1.019360389190164,
+    "min_quality_retention_ratio": 0.99,
+    "max_perplexity_delta": null,
+    "profile_max_perplexity_delta": 0.02,
+    "retention_constraint_passed": true,
+    "max_delta_constraint_passed": true,
+    "quality_profile_guard_passed": true,
+    "accepted": true,
+    "rejection_reasons": []
+  },
+  "artifact": {
+    "accepted_artifact_digest": "sha256:2e435c1e3257df95d3cb29c03579c352165d85e95c7e4dc5ac97480b1d9958b",
+    "candidate_disk_bytes": 272481438,
+    "source_disk_bytes": 2112744533,
+    "reload_verified": true,
+    "inference_smoke_verified": true,
+    "deployment_latency_gain_ratio": -0.0019692584600427914,
+    "deployment_measurement_authority": "physical_reloaded_child"
+  },
+  "limitations": [
+    "This direct run did not exercise the chat provider; the separate chat-controlled HF record covers that control-plane path.",
+    "Perplexity is the measured quality proxy in this cell; no coding or other task benchmark is claimed.",
+    "This is one Llama-family MLP-channel CPU cell, not universal architecture, runtime, hardware, or production coverage."
+  ]
+}
