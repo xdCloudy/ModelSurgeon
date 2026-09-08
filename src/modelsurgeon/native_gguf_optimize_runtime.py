@@ -52,6 +52,10 @@ from modelsurgeon.evaluation.llama_cpp_throughput import (
     LlamaCppThroughputConfig,
     benchmark_gguf_throughput,
 )
+from modelsurgeon.evaluation.quality_gate import (
+    QualityGateError,
+    evaluate_perplexity_quality_gate,
+)
 from modelsurgeon.experiments import (
     OptimizationEvidenceOutcome,
     OptimizationEvidenceRecord,
@@ -223,6 +227,30 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
 
     def _resolved(self) -> Mapping[str, object]:
         return _mapping(self.plan.resolved_config, "resolved configuration")
+
+    def _quality_gate(
+        self, baseline_perplexity: float, candidate_perplexity: float
+    ) -> Mapping[str, object]:
+        constraints = _mapping(self._resolved().get("constraints"), "constraints")
+        raw_max_delta = constraints.get("max_perplexity_delta")
+        max_delta = (
+            None
+            if raw_max_delta is None
+            else _number(raw_max_delta, "constraints.max_perplexity_delta")
+        )
+        try:
+            return evaluate_perplexity_quality_gate(
+                baseline_perplexity,
+                candidate_perplexity,
+                min_quality_retention_ratio=_number(
+                    constraints.get("min_quality_retention_ratio", 0.98),
+                    "constraints.min_quality_retention_ratio",
+                ),
+                max_perplexity_delta=max_delta,
+                profile_max_perplexity_delta=self.plan.quality_profile.max_perplexity_delta,
+            )
+        except QualityGateError as error:
+            raise NativeGGUFOptimizeRuntimeError(str(error)) from error
 
     def _runtime(self) -> Mapping[str, object]:
         runtime = _mapping(self._resolved().get("runtime"), "runtime")
@@ -765,6 +793,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         generation = _mapping(throughput.get("generation"), "candidate generation")
         perplexity = _number(candidate_quality.get("perplexity"), "candidate.perplexity")
         baseline_ppl = _number(baseline["perplexity"], "baseline.perplexity")
+        quality_gate = self._quality_gate(baseline_ppl, perplexity)
         baseline_parameters = _integer(
             baseline.get("parameter_count"), 1, "baseline.parameter_count"
         )
@@ -778,6 +807,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "baseline_perplexity": baseline_ppl,
             "candidate_perplexity": perplexity,
             "perplexity_delta": perplexity - baseline_ppl,
+            "quality_retention_ratio": quality_gate["quality_retention_ratio"],
+            "quality_gate": quality_gate,
             "baseline_median_seconds": baseline["median_seconds"],
             "candidate_median_seconds": latency,
             "latency_delta_seconds": latency
@@ -939,38 +970,47 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
 
     def _constraints_pass(self, measurement: Mapping[str, object]) -> bool:
         constraints = _mapping(self._resolved().get("constraints"), "constraints")
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        if (
-            allowed is not None
-            and _number(measurement["perplexity_delta"], "perplexity_delta") > allowed
-        ):
+        quality_gate = measurement.get("quality_gate")
+        if not isinstance(quality_gate, Mapping):
+            baseline_value = measurement.get("baseline_perplexity")
+            candidate_value = measurement.get("candidate_perplexity")
+            if baseline_value is None or candidate_value is None:
+                return False
+            quality_gate = self._quality_gate(
+                _number(baseline_value, "baseline_perplexity"),
+                _number(candidate_value, "candidate_perplexity"),
+            )
+        if quality_gate.get("accepted") is not True:
             return False
         max_ram = constraints.get("max_ram_bytes")
-        if (
-            isinstance(max_ram, int)
-            and measurement.get("candidate_peak_ram_bytes") is not None
-            and _number(measurement["candidate_peak_ram_bytes"], "candidate_peak_ram_bytes")
-            > max_ram
-        ):
-            return False
+        if isinstance(max_ram, int):
+            candidate_ram = measurement.get("candidate_peak_ram_bytes")
+            if candidate_ram is None:
+                return False
+            if _number(candidate_ram, "candidate_peak_ram_bytes") > max_ram:
+                return False
         max_vram = constraints.get("max_vram_bytes")
-        if (
-            isinstance(max_vram, int)
-            and measurement.get("candidate_peak_vram_bytes") is not None
-            and _number(measurement["candidate_peak_vram_bytes"], "candidate_peak_vram_bytes")
-            > max_vram
-        ):
-            return False
+        if isinstance(max_vram, int):
+            candidate_vram = measurement.get("candidate_peak_vram_bytes")
+            if candidate_vram is None:
+                return False
+            if _number(candidate_vram, "candidate_peak_vram_bytes") > max_vram:
+                return False
         max_disk = constraints.get("max_disk_bytes")
-        if (
-            isinstance(max_disk, int)
-            and _number(measurement["candidate_disk_bytes"], "candidate_disk_bytes") > max_disk
-        ):
-            return False
+        if isinstance(max_disk, int):
+            candidate_disk = measurement.get("candidate_disk_bytes")
+            if candidate_disk is None:
+                return False
+            if _number(candidate_disk, "candidate_disk_bytes") > max_disk:
+                return False
         min_gain = constraints.get("min_latency_gain_ratio")
         if isinstance(min_gain, (int, float)):
-            baseline = _number(measurement["baseline_median_seconds"], "baseline_median_seconds")
-            candidate = _number(measurement["candidate_median_seconds"], "candidate_median_seconds")
+            baseline_value = measurement.get("baseline_median_seconds")
+            candidate_value = measurement.get("candidate_median_seconds")
+            if baseline_value is None or candidate_value is None:
+                return False
+            baseline = _number(baseline_value, "baseline_median_seconds")
+            candidate = _number(candidate_value, "candidate_median_seconds")
             gain = 0.0 if baseline <= 0 else (baseline - candidate) / baseline
             if gain < float(min_gain):
                 return False
@@ -1130,21 +1170,6 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 result, discovery, plan = self._execute_edit(source, destination, removed)
                 validation = self._validate(destination)
                 quality = self._quality(destination)
-                if not self._constraints_pass(
-                    {
-                        "perplexity_delta": _number(
-                            quality["perplexity_delta"], "sequence.perplexity_delta"
-                        ),
-                        "candidate_peak_ram_bytes": None,
-                        "candidate_peak_vram_bytes": None,
-                        "candidate_disk_bytes": destination.stat().st_size,
-                        "baseline_median_seconds": 1.0,
-                        "candidate_median_seconds": 1.0,
-                    }
-                ):
-                    raise NativeGGUFOptimizeRuntimeError(
-                        "cumulative GGUF child exceeded the declared quality or disk constraint"
-                    )
                 throughput = benchmark_gguf_throughput(destination, config=throughput_config)
                 if not throughput.successful:
                     raise NativeGGUFOptimizeRuntimeError(
@@ -1152,7 +1177,36 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                         f"{throughput.failure_reason}"
                     )
                 peak = throughput.peak_rss_bytes or 0
+                quality_baseline = _mapping(quality.get("baseline"), "sequence quality baseline")
+                quality_candidate = _mapping(
+                    quality.get("candidate"), "sequence quality candidate"
+                )
+                baseline_perplexity = _number(
+                    quality_baseline.get("perplexity"), "sequence.baseline_perplexity"
+                )
+                candidate_perplexity = _number(
+                    quality_candidate.get("perplexity"), "sequence.candidate_perplexity"
+                )
+                quality_gate = self._quality_gate(baseline_perplexity, candidate_perplexity)
+                throughput_record = throughput.to_record()
+                generation = _mapping(
+                    throughput_record.get("generation"), "sequence generation"
+                )
+                baseline = self._baseline_measurement()
+                candidate_latency = _number(
+                    _number(generation.get("average_latency_ns"), "sequence latency") / 1e9,
+                    "sequence.candidate_median_seconds",
+                )
                 measurement = {
+                    "baseline_perplexity": baseline_perplexity,
+                    "candidate_perplexity": candidate_perplexity,
+                    "perplexity_delta": quality_gate["perplexity_delta"],
+                    "quality_retention_ratio": quality_gate["quality_retention_ratio"],
+                    "quality_gate": quality_gate,
+                    "baseline_median_seconds": baseline["median_seconds"],
+                    "candidate_median_seconds": candidate_latency,
+                    "candidate_peak_ram_bytes": throughput.peak_rss_bytes,
+                    "candidate_peak_vram_bytes": throughput.peak_vram_bytes,
                     "quality": self._compact_quality(quality),
                     "throughput": self._compact_throughput(throughput.to_record()),
                     "validation": validation,
@@ -1160,6 +1214,10 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     "output_discovery": discovery.to_record(),
                     "candidate_disk_bytes": destination.stat().st_size,
                 }
+                if not self._constraints_pass(measurement):
+                    raise NativeGGUFOptimizeRuntimeError(
+                        "cumulative GGUF child exceeded the declared quality or resource constraint"
+                    )
                 measurements[mutation_id] = measurement
                 return GGUFStageMeasurement(
                     discovery.parameter_count,
@@ -1262,9 +1320,12 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             else (baseline_latency - candidate_latency) / baseline_latency
         )
         candidate_ppl = _number(candidate.get("perplexity"), "deployment.perplexity")
-        quality_delta = candidate_ppl - _number(baseline["perplexity"], "baseline.perplexity")
+        quality_gate = self._quality_gate(
+            _number(baseline["perplexity"], "baseline.perplexity"), candidate_ppl
+        )
+        quality_delta = _number(quality_gate["perplexity_delta"], "deployment.perplexity_delta")
         constraints = _mapping(self._resolved().get("constraints"), "constraints")
-        passed = quality_delta <= (self.plan.quality_profile.max_perplexity_delta or 0.05)
+        passed = bool(quality_gate["accepted"])
         if isinstance(constraints.get("min_latency_gain_ratio"), (int, float)):
             passed = passed and latency_gain >= _number(
                 constraints["min_latency_gain_ratio"],
@@ -1285,6 +1346,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "candidate": {
                 "perplexity": candidate_ppl,
                 "perplexity_delta": quality_delta,
+                "quality_retention_ratio": quality_gate["quality_retention_ratio"],
                 "latency_seconds": candidate_latency,
                 "latency_gain_ratio": latency_gain,
                 "disk_bytes": self.artifact.stat().st_size,
@@ -1292,6 +1354,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 "peak_vram_bytes": throughput.get("peak_vram_bytes"),
             },
             "quality": self._compact_quality(quality),
+            "quality_gate": quality_gate,
             "throughput": self._compact_throughput(throughput),
             "constraints_passed": passed,
             "hardware_inventory": dict(self._hardware(self.artifact.parent)),
