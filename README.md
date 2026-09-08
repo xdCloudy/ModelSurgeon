@@ -150,7 +150,9 @@ Provider selection is optional and fail-closed. Inspect the resolved provider
 configuration without starting a model with
 `uv run modelsurgeon provider diagnostics --json`; see the
 [configuration contract](docs/design/configuration.md) for precedence,
-redaction, and supported/unavailable outcomes.
+redaction, and explicit capability states. See the [provider troubleshooting
+guide](docs/design/provider-troubleshooting.md) for missing, offline, local,
+remote, and unknown-capability outcomes.
 
 For a local-first first run, use `modelsurgeon setup diagnostics` before
 creating files, then initialize a user-owned data root with an existing local

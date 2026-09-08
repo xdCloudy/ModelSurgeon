@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 
@@ -13,12 +16,89 @@ from modelsurgeon.config import Settings
 
 _ENV_PREFIX = "MODELSURGEON_"
 _ENV_DELIMITER = "__"
+_SECRET_KEY = re.compile(
+    r"(?i)(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|password|secret|token)"
+)
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)(\b(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|password|secret|token)\b\s*[:=])[^\s,;]+"
+)
+
+
+def _redact(value: object) -> object:
+    if isinstance(value, str):
+        return _SECRET_ASSIGNMENT.sub(r"\1<redacted>", value)
+    if isinstance(value, Mapping):
+        return {
+            str(key): "<redacted>"
+            if isinstance(key, str) and _SECRET_KEY.search(key)
+            else _redact(child)
+            for key, child in value.items()
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_redact(child) for child in value]
+    return value
 
 
 class ConfigurationFileError(ValueError):
     """Raised when a configuration source cannot be parsed as a settings mapping."""
 
     code = "configuration_file_error"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigurationSource:
+    """One deterministic, value-free configuration input description."""
+
+    name: str
+    selected: bool
+    identifier: str | None
+    keys: tuple[str, ...]
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "selected": self.selected,
+            "identifier": self.identifier,
+            "keys": list(self.keys),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigurationDiscovery:
+    """Resolved settings plus deterministic provenance of their sources."""
+
+    settings: Settings
+    sources: tuple[ConfigurationSource, ...]
+
+    @staticmethod
+    def _safe_settings(settings: Settings) -> dict[str, object]:
+        record = settings.canonical_dict()
+        if record.get("artifact_dir") is not None:
+            record["artifact_dir"] = "<redacted>"
+        model = record.get("model")
+        if isinstance(model, dict) and model.get("path") is not None:
+            model["path"] = "<redacted>"
+        provider = record.get("provider")
+        if isinstance(provider, dict) and provider.get("model_path") is not None:
+            provider["model_path"] = "<redacted>"
+        return _redact(record)  # type: ignore[return-value]
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "record_type": "modelsurgeon_configuration_discovery",
+            "schema_version": 1,
+            "sources": [source.to_record() for source in self.sources],
+            "resolved": self._safe_settings(self.settings),
+        }
+
+    def canonical_json(self) -> str:
+        return json.dumps(
+            self.to_record(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+
+    @property
+    def configuration_digest(self) -> str:
+        return "sha256:" + hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
 
 
 def _mapping(value: object, *, source: str) -> dict[str, object]:
@@ -29,6 +109,18 @@ def _mapping(value: object, *, source: str) -> dict[str, object]:
     if not all(isinstance(key, str) for key in value):
         raise ConfigurationFileError(f"{source} keys must be strings")
     return {str(key): item for key, item in value.items()}
+
+
+def _dotted_keys(value: Mapping[str, object], prefix: str = "") -> tuple[str, ...]:
+    keys: list[str] = []
+    for key in sorted(value):
+        name = f"{prefix}.{key}" if prefix else key
+        child = value[key]
+        if isinstance(child, Mapping):
+            keys.extend(_dotted_keys(_mapping(child, source=name), name))
+        else:
+            keys.append(name)
+    return tuple(keys)
 
 
 def load_config_file(path: Path) -> dict[str, object]:
@@ -128,11 +220,46 @@ def load_settings(
     cli_overrides: Mapping[str, object] | None = None,
 ) -> Settings:
     """Resolve defaults < file < environment < CLI into validated settings."""
+    return discover_settings(
+        path,
+        environ=environ,
+        cli_overrides=cli_overrides,
+    ).settings
+
+
+def discover_settings(
+    path: Path | None = None,
+    *,
+    environ: Mapping[str, str] | None = None,
+    cli_overrides: Mapping[str, object] | None = None,
+) -> ConfigurationDiscovery:
+    """Resolve settings and retain deterministic, value-free source metadata."""
     file_values = {} if path is None else load_config_file(path)
-    environment_values = environment_overrides(os.environ if environ is None else environ)
-    cli_values = expand_dotted_overrides({} if cli_overrides is None else cli_overrides)
+    environment_input = os.environ if environ is None else environ
+    environment_values = environment_overrides(environment_input)
+    cli_input = {} if cli_overrides is None else cli_overrides
+    cli_values = expand_dotted_overrides(cli_input)
     merged = _merge(_merge(file_values, environment_values), cli_values)
-    return Settings.model_validate(merged)
+    settings = Settings.model_validate(merged)
+    sources = (
+        ConfigurationSource("defaults", True, None, ()),
+        ConfigurationSource(
+            "file",
+            path is not None,
+            "<redacted>" if path is not None else None,
+            _dotted_keys(file_values),
+        ),
+        ConfigurationSource(
+            "environment",
+            bool(environment_values),
+            "MODELSURGEON_*" if environment_values else None,
+            _dotted_keys(environment_values),
+        ),
+        ConfigurationSource(
+            "cli", bool(cli_values), "cli" if cli_values else None, _dotted_keys(cli_values)
+        ),
+    )
+    return ConfigurationDiscovery(settings, sources)
 
 
 def dump_resolved_settings(settings: Settings) -> str:

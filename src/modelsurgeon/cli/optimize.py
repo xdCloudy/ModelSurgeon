@@ -66,6 +66,14 @@ def optimize_command(
         str | None,
         typer.Option("--provider-revision", help="Immutable text-model revision"),
     ] = None,
+    provider_model_path: Annotated[
+        Path | None,
+        typer.Option("--provider-model-path", help="Local GGUF text-model path"),
+    ] = None,
+    provider_runtime_revision: Annotated[
+        str | None,
+        typer.Option("--provider-runtime-revision", help="Local provider runtime revision"),
+    ] = None,
     provider_endpoint: Annotated[
         str | None,
         typer.Option("--provider-endpoint", help="Absolute compatible-provider endpoint"),
@@ -172,6 +180,8 @@ def optimize_command(
                 "provider.provider_id": "none",
                 "provider.model_id": "none",
                 "provider.model_revision": "none",
+                "provider.model_path": None,
+                "provider.runtime_revision": None,
                 "provider.endpoint": None,
                 "provider.api_key_env": None,
             }
@@ -182,6 +192,8 @@ def optimize_command(
             "provider.provider_id": provider_id,
             "provider.model_id": provider_model,
             "provider.model_revision": provider_revision,
+            "provider.model_path": provider_model_path,
+            "provider.runtime_revision": provider_runtime_revision,
             "provider.endpoint": provider_endpoint,
             "provider.api_key_env": provider_api_key_env,
         }
