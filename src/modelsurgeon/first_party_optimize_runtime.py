@@ -881,6 +881,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             publish=self._publish,
             reload=self._reload,
             generate=self._generation_smoke,
+            evaluate=self._evaluate_reloaded_child,
         )
         self.surgery_sequence = sequence
         artifact = sequence.stages[-1].artifact
@@ -895,6 +896,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "operation": "cumulative_remove_mlp_channels",
                     "channels": list(original_channels),
                     "stages": [item.to_record() for item in sequence.stages],
+                    "failed_index": sequence.failed_index,
+                    "failure_reason": sequence.failure_reason,
+                    "failed_evaluation": sequence.failed_evaluation,
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
                     "artifact_manifest": _tree_entries(artifact.parent),
@@ -907,6 +911,27 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             candidate=candidate,
             transaction_state=TransactionState.COMMITTED,
         )
+
+    def _evaluate_reloaded_child(self, model: Any) -> Mapping[str, object]:
+        proof = self._ensure_loaded()
+        baseline = self.baseline or proof.baseline_measurement()
+        measurement = proof.measure_model(
+            model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        baseline_perplexity = _number(baseline["perplexity"], "baseline.perplexity")
+        perplexity = _number(measurement["perplexity"], "child.perplexity")
+        delta = perplexity - baseline_perplexity
+        allowed = self.plan.quality_profile.max_perplexity_delta
+        allowed = 0.05 if allowed is None else allowed
+        return {
+            "measurement": dict(measurement),
+            "baseline_perplexity": baseline_perplexity,
+            "perplexity_delta": delta,
+            "max_perplexity_delta": allowed,
+            "accepted": delta <= allowed,
+            "measurement_authority": "physical_reloaded_child",
+        }
 
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage

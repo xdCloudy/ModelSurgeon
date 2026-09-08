@@ -149,3 +149,32 @@ def test_failed_stage_removes_child_and_keeps_last_accepted_model(tmp_path: Path
     assert run.failure_reason
     assert run.final_model.config.intermediate_size == 3
     assert not any(path.name.endswith("attention-heads") for path in tmp_path.iterdir())
+
+
+def test_rejected_reloaded_child_is_rolled_back_with_measurement_evidence(
+    tmp_path: Path,
+) -> None:
+    evaluations = 0
+
+    def evaluate(model: _Model) -> dict[str, object]:
+        del model
+        nonlocal evaluations
+        evaluations += 1
+        return {"accepted": evaluations == 1, "perplexity_delta": float(evaluations)}
+
+    run = run_huggingface_cumulative_sequence(
+        _Model(),
+        _edits()[:2],
+        output_root=tmp_path,
+        source_outcome_id="source-hf-outcome",
+        publish=_publisher,
+        reload=_reloader,
+        generate=lambda model: bool(model.generate().numel()),
+        evaluate=evaluate,
+    )
+
+    assert len(run.stages) == 1
+    assert run.stages[0].evaluation == {"accepted": True, "perplexity_delta": 1.0}
+    assert run.failed_index == 1
+    assert run.failed_evaluation == {"accepted": False, "perplexity_delta": 2.0}
+    assert not any(path.name.endswith("attention-heads") for path in tmp_path.iterdir())
