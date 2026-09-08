@@ -40,6 +40,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
     enumerate_mutation_candidates,
 )
+from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionCache
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
     MemoryTelemetryError,
@@ -160,6 +161,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.selected_channels: tuple[int, ...] = ()
         self.selected_candidates: tuple[MutationCandidate, ...] = ()
         self.candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
+        self.feature_cache_entries: dict[str, Mapping[str, object]] = {}
         self.actual_measurements: dict[str, Mapping[str, object]] = {}
         self.meta_guidance: Mapping[str, object] | None = None
         self.meta_predictions: dict[str, float] = {}
@@ -351,6 +353,41 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "measurement_authority": "physical_evaluation",
         }
         return ordered
+
+    def _feature_cache_root(self) -> Path:
+        resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+        features = resolved_config.get("features")
+        configured = None
+        if features is not None:
+            configured = _mapping(features, "features").get("cache_dir")
+        if configured is not None:
+            if not isinstance(configured, str) or not configured.strip():
+                raise FirstPartyOptimizeRuntimeError("features.cache_dir must be a path")
+            return Path(configured).expanduser().absolute().resolve(strict=False)
+        artifact_dir = resolved_config.get("artifact_dir", "artifacts")
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        return (Path(artifact_dir) / "feature-cache").expanduser().absolute().resolve(
+            strict=False
+        )
+
+    def _publish_feature_partition(self, partition: FeaturePartition) -> Mapping[str, object]:
+        cache = FeaturePartitionCache(self._feature_cache_root())
+        existing = cache.load(partition.key)
+        if existing is None:
+            published = cache.write(partition.key, partition.records)
+        elif existing != partition:
+            raise FirstPartyOptimizeRuntimeError(
+                "feature cache identity already contains conflicting evidence"
+            )
+        else:
+            published = existing
+        return {
+            "path": str(cache.path_for(published.key)),
+            "key": published.key.to_record(),
+            "records_sha256": published.records_sha256,
+            "record_count": len(published.records),
+        }
 
     def _build_search_comparison(
         self,
@@ -565,6 +602,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 raise FirstPartyOptimizeRuntimeError(
                     "HF feature extraction must produce one candidate partition"
                 )
+            partition = partitions[0]
+            self.feature_cache_entries[candidate.candidate_id] = (
+                self._publish_feature_partition(partition)
+            )
             self.candidate_features[candidate.candidate_id] = tuple(
                 item.to_record() for item in partitions[0].records
             )
@@ -923,11 +964,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                                 {
                                     "candidate_id": candidate_id,
                                     "features": list(features),
+                                    "cache": self.feature_cache_entries.get(candidate_id),
                                 }
                                 for candidate_id, features in sorted(
                                     self.candidate_features.items()
                                 )
                             ],
+                            "feature_cache_root": str(self._feature_cache_root()),
                             "meta_guidance": self.meta_guidance,
                             "search_comparison": self.search_comparison,
                             "measurement": dict(self.selected_measurement),
