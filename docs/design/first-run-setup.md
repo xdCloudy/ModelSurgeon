@@ -102,4 +102,3 @@ replacement for the existing optimization settings file accepted by
 `--config`; the two contracts are intentionally separate. Provider credentials
 are referenced only by environment-variable name in the existing provider
 configuration and are never written by setup.
-

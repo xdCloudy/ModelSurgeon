@@ -70,4 +70,3 @@ Every check is retained as `supported`, `unavailable`, `unsupported`,
 `failed`, or `unknown`. A provider that is absent, uncredentialed, or outside
 the current adapter boundary is reported as such; it is never silently
 replaced by another provider.
-
