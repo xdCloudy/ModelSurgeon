@@ -45,6 +45,7 @@ jobs:
           name: performance-consumer-cpu
           path: performance-consumer-cpu.json
           if-no-files-found: warn
+          retention-days: 3
 
   consumer-gpu:
     if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.profile == 'all' || inputs.profile == 'gpu')) || (github.event_name == 'schedule' && vars.PERFORMANCE_GPU_RUNNER_ENABLED == 'true') }}
@@ -68,3 +69,4 @@ jobs:
           name: performance-consumer-gpu
           path: performance-consumer-gpu.json
           if-no-files-found: warn
+          retention-days: 3
