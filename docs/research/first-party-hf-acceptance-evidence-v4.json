@@ -1,0 +1,39 @@
+{
+  "record_type": "first_party_hf_acceptance_evidence",
+  "schema_version": 4,
+  "purpose": "mixed-scope attention-head acceptance tranche",
+  "base_git_revision": "237e758",
+  "campaign": {
+    "tool": "tools/run_first_party_hf_acceptance.py",
+    "record_path": "work/acceptance-mixed-attention-2026-09-08.json",
+    "record_sha256": "sha256:5a44629a7e0766f54522abaa2036bc2801942a3f27b878fa42a4a654dad5d5a4",
+    "quality_profile": "quality",
+    "preset": "balanced",
+    "evaluations": 1,
+    "search_scope": "attention_head",
+    "hardware": "Windows 11 CPU-only; 20 logical cores; 64 GiB-class host; CUDA unavailable",
+    "models": [
+      {
+        "identifier": "Qwen/Qwen2.5-0.5B",
+        "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+        "run_id": "optimize_run_0573ab7108581edb29824a588afa1242cc84e70a70cee43fa8e7409386fac24c",
+        "outcome": "unsupported",
+        "observation_id": "obs_0be983860fbdcba84705f027d3f209cf9d9e8d618e8b970a475980698b920f24",
+        "observation_sha256": "sha256:5d2274aa0958f8cc54269ca76a4f1433b24300ac81d71f59ce949e35d75ea921",
+        "reason": "no measured candidate met max perplexity delta 0.02",
+        "result": "fail_closed_without_promoted_artifact"
+      },
+      {
+        "identifier": "HuggingFaceTB/SmolLM2-135M",
+        "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+        "run_id": "optimize_run_646d1155fe9304e1285a65f39db33c36fe9fcc92409f1b9fdf7c03ca83f7b409",
+        "outcome": "unsupported",
+        "observation_id": "obs_dcdbe4e5fb39436dda196e8c7534940f9e1ce8f4793190eda8bec75de460b38",
+        "observation_sha256": "sha256:f728a6e1f5266cd16efca5d73b10d0b2291ca0e3ff8d8dd5a9088d0ccb75a9bb",
+        "reason": "no measured candidate met max perplexity delta 0.02",
+        "result": "fail_closed_without_promoted_artifact"
+      }
+    ],
+    "conclusion": "The attention-head path was exercised on two real revision-pinned pretrained cells, but neither produced a quality-feasible candidate under the strict contract. No artifact or success claim was emitted; the unsupported boundary and hardware/runtime evidence remain retained for audit."
+  }
+}

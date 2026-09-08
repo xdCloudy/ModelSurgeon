@@ -91,8 +91,10 @@ physical measurements remain authoritative and no transfer improvement is
 claimed. A pretrained TinyLlama cell, an unsupported GPT-2 cell, and a rank-1
 low-rank tranche that
 found no quality-feasible candidate are also retained as honest fail-closed
-outcomes. This is evidence for the bounded path, not a production-scale or
-task-quality claim.
+outcomes. A separate [attention-head acceptance tranche](docs/research/first-party-hf-acceptance-evidence-v4.json)
+exercised that scope on Qwen2.5-0.5B and SmolLM2-135M and retained both
+strict-gate failures without promoting an artifact. This is evidence for the
+bounded path, not a production-scale or task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
