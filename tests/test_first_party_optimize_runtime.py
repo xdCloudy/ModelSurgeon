@@ -127,7 +127,12 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     assert paused.status is WorkflowStatus.PAUSED
     surgery = paused.stages[5].result
     assert surgery is not None and surgery.artifact_digest is not None
-    assert len(json.loads(surgery.detail)["stages"]) == 2
+    surgery_detail = json.loads(surgery.detail)
+    assert len(surgery_detail["stages"]) == 2
+    assert {item["path"] for item in surgery_detail["artifact_manifest"]} >= {
+        "config.json",
+        "model.safetensors",
+    }
 
     resumed = OptimizeOrchestrator(plan, state).run(
         build_first_party_optimize_runtime(plan), resume=True, approvals=approvals
