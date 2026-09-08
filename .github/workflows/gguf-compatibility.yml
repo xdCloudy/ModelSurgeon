@@ -71,3 +71,4 @@ jobs:
           name: gguf-compatibility-report
           path: compatibility-report.json
           if-no-files-found: warn
+          retention-days: 3
