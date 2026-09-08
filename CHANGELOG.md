@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Implemented issue #484 centralized conversational policy precedence across
+    compiler, dispatcher, campaign, and explanation layers. Hard constraints
+    outrank prompts, tools, and providers; unknown/contradictory states fail
+    closed; deterministic decisions retain winning sources and rejected
+    alternatives. Added adversarial/property-style regression coverage and the
+    [policy precedence contract](docs/design/policy-precedence.md).
+
   - Implemented issue #481 scoped approvals across direct and chat execution.
     Approvals now bind plan/diff identity, scope, operator context, expiry and
     one-time/reusable policy; material plan changes require reapproval, and

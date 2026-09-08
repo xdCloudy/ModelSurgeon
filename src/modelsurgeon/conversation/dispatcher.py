@@ -42,6 +42,13 @@ from modelsurgeon.conversation.transaction import (
     ToolTransactionError,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.policy import (
+    PolicyCandidate,
+    PolicyDecision,
+    PolicyOutcome,
+    PolicySource,
+    resolve_policy,
+)
 
 
 class ToolDispatchError(RuntimeError):
@@ -147,6 +154,7 @@ class ToolDispatchResult:
     request: ToolRequest | None
     result: ToolResult | None
     receipt: ToolExecutionReceipt | None = None
+    policy_decision: PolicyDecision | None = None
 
 
 @runtime_checkable
@@ -417,7 +425,18 @@ class ToolDispatcher:
                     replayed=True,
                     transaction_id=prior_receipt.transaction_id,
                 )
-                return ToolDispatchResult(negotiation, request, prior_result, receipt)
+                return ToolDispatchResult(
+                    negotiation,
+                    request,
+                    prior_result,
+                    receipt,
+                    self._dispatch_policy_decision(
+                        request,
+                        definition,
+                        prior_result.outcome,
+                        None if prior_result.failure is None else prior_result.failure.code,
+                    ),
+                )
             if request.request_id in self._inflight:
                 return self._finish_failure(
                     request,
@@ -441,7 +460,18 @@ class ToolDispatcher:
         with self._lock:
             self._inflight.discard(request.request_id)
             self._completed[request.request_id] = (result, receipt)
-        return ToolDispatchResult(negotiation, request, result, receipt)
+        return ToolDispatchResult(
+            negotiation,
+            request,
+            result,
+            receipt,
+            self._dispatch_policy_decision(
+                request,
+                definition,
+                result.outcome,
+                None if result.failure is None else result.failure.code,
+            ),
+        )
 
     def _execute(
         self,
@@ -794,7 +824,18 @@ class ToolDispatcher:
             retryable=failure.retryable,
         )
         receipt = ToolExecutionReceipt(1, ToolUsage(0.0, 0, 0, 0))
-        return ToolDispatchResult(negotiation, request, result, receipt)
+        return ToolDispatchResult(
+            negotiation,
+            request,
+            result,
+            receipt,
+            self._dispatch_policy_decision(
+                request,
+                definition,
+                result.outcome,
+                failure.code,
+            ),
+        )
 
     def _finish_failure(
         self,
@@ -817,6 +858,88 @@ class ToolDispatcher:
             request,
             result,
             ToolExecutionReceipt(1, ToolUsage(0.0, 0, 0, 0)),
+            self._dispatch_policy_decision(request, definition, outcome, code),
+        )
+
+    @staticmethod
+    def _dispatch_policy_decision(
+        request: ToolRequest,
+        definition: ToolDefinition | None,
+        outcome: ToolOutcome,
+        failure_code: ToolFailureCode | None,
+    ) -> PolicyDecision:
+        """Resolve dispatch authority without letting request text self-approve."""
+
+        capability_outcome = {
+            ToolOutcome.SUPPORTED: PolicyOutcome.ALLOW,
+            ToolOutcome.UNSUPPORTED: PolicyOutcome.UNSUPPORTED,
+            ToolOutcome.UNKNOWN: PolicyOutcome.UNKNOWN,
+            ToolOutcome.REFUSED: PolicyOutcome.DENY,
+            ToolOutcome.FAILED: PolicyOutcome.DENY,
+            ToolOutcome.TIMEOUT: PolicyOutcome.UNKNOWN,
+            ToolOutcome.CANCELLED: PolicyOutcome.UNKNOWN,
+        }[outcome]
+        if failure_code in {
+            ToolFailureCode.UNKNOWN_TOOL,
+        }:
+            capability_outcome = PolicyOutcome.UNKNOWN
+        elif failure_code in {
+            ToolFailureCode.UNSUPPORTED_CAPABILITY,
+            ToolFailureCode.HANDLER_UNAVAILABLE,
+        }:
+            capability_outcome = PolicyOutcome.UNSUPPORTED
+        approval_outcome = (
+            PolicyOutcome.ALLOW
+            if definition is None or not definition.approval_required
+            else PolicyOutcome.DENY
+            if failure_code is ToolFailureCode.APPROVAL_INVALID
+            else PolicyOutcome.UNKNOWN
+            if failure_code
+            in {ToolFailureCode.APPROVAL_REQUIRED, ToolFailureCode.APPROVAL_MISMATCH}
+            else PolicyOutcome.ALLOW
+        )
+        validated_outcome = (
+            PolicyOutcome.ALLOW if definition is not None else PolicyOutcome.UNKNOWN
+        )
+        return resolve_policy(
+            "tool-dispatch",
+            (
+                PolicyCandidate(
+                    PolicySource.HARD_CONSTRAINTS,
+                    PolicyOutcome.ALLOW,
+                    "dispatch cannot relax the plan's validated hard constraints",
+                ),
+                PolicyCandidate(
+                    PolicySource.VALIDATED_SPEC,
+                    validated_outcome,
+                    "tool arguments remain bound to the validated operation schema",
+                ),
+                PolicyCandidate(
+                    PolicySource.APPROVAL_POLICY,
+                    approval_outcome,
+                    "consequential execution requires an independent trusted approval",
+                ),
+                PolicyCandidate(
+                    PolicySource.TOOL_CAPABILITY,
+                    capability_outcome,
+                    "tool negotiation and execution outcome is authoritative at dispatch",
+                ),
+                PolicyCandidate(
+                    PolicySource.EVIDENCE_STATUS,
+                    PolicyOutcome.ALLOW,
+                    "dispatch does not promote unverified output to canonical evidence",
+                ),
+                PolicyCandidate(
+                    PolicySource.PROMPT,
+                    PolicyOutcome.ALLOW,
+                    "prompt text is an untrusted request and cannot authorize dispatch",
+                ),
+                PolicyCandidate(
+                    PolicySource.PROVIDER,
+                    PolicyOutcome.ALLOW,
+                    "provider text cannot override the trusted dispatcher decision",
+                ),
+            ),
         )
 
     @staticmethod

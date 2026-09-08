@@ -12,7 +12,8 @@ the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
 the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
 the [canonical campaign state design](conversational-campaign-state.md),
 the [conversation summary boundary](conversational-summary.md),
-the [scoped approval boundary](scoped-approvals.md),
+the [scoped approval boundary](scoped-approvals.md), the
+[policy precedence boundary](policy-precedence.md),
 the [measurable target boundary](measurable-target-elicitation.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
@@ -162,7 +163,8 @@ redacted audit evidence. A material diff invalidates the prior approval and
 requires a fresh campaign approval/reapproval transition. Prompt text, model
 metadata, provider output and tool output are potentially untrusted; trusted
 structured policy wins over them. Unknown or contradictory policy states fail
-closed.
+closed. The shared precedence record and its winning source/rejected
+alternatives are defined in [policy precedence](policy-precedence.md).
 
 The hardening work must cover prompt injection, instruction smuggling, malicious model metadata, forged measurements, secret requests, path attempts, malformed schemas, replayed identifiers and provider isolation. Security tests must retain failures and unresolved residual risk rather than claiming completion from a prompt or mock alone.
 

@@ -1,5 +1,18 @@
 """Typed conversational control-plane records."""
 
+from modelsurgeon.policy import (
+    POLICY_DECISION_SCHEMA_VERSION,
+    PolicyCandidate,
+    PolicyDecision,
+    PolicyDecisionError,
+    PolicyOutcome,
+    PolicySource,
+    evaluate_policy,
+    policy_candidate,
+    policy_precedence,
+    resolve_policy,
+)
+
 from .campaign import CanonicalCampaignRecorder
 from .campaign_state import (
     CAMPAIGN_APPROVAL_SCHEMA_VERSION,
@@ -318,6 +331,7 @@ __all__ = [
     "MEASURABLE_TARGET_SCHEMA_VERSION",
     "NEGOTIATION_STUDY_PROTOCOL_ID",
     "NEGOTIATION_STUDY_SCHEMA_VERSION",
+    "POLICY_DECISION_SCHEMA_VERSION",
     "PROVIDER_CONFORMANCE_MATRIX",
     "PROVIDER_CONFORMANCE_SCHEMA_VERSION",
     "REPLANNING_SCHEMA_VERSION",
@@ -437,6 +451,11 @@ __all__ = [
     "NegotiationStudyRun",
     "NegotiationStudyScenario",
     "NullTextModelProvider",
+    "PolicyCandidate",
+    "PolicyDecision",
+    "PolicyDecisionError",
+    "PolicyOutcome",
+    "PolicySource",
     "ProgressCallback",
     "ProviderBudget",
     "ProviderCancelledError",
@@ -523,6 +542,7 @@ __all__ = [
     "detect_stale_context",
     "deterministic_tool_request_id",
     "direct_evidence_report",
+    "evaluate_policy",
     "inspect_local_chat_model",
     "invoke_provider",
     "load_and_run_clarification_study",
@@ -531,6 +551,8 @@ __all__ = [
     "load_negotiation_study",
     "new_campaign_state",
     "no_provider_inspection_context",
+    "policy_candidate",
+    "policy_precedence",
     "reconnect_conversation",
     "redact_secret_text",
     "redact_untrusted_value",
@@ -539,6 +561,7 @@ __all__ = [
     "replay_clarification",
     "replay_replan",
     "request_digest",
+    "resolve_policy",
     "result_from_raw_output",
     "run_clarification_study",
     "run_negotiation_study",

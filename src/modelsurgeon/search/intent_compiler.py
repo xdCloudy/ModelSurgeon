@@ -14,6 +14,13 @@ from enum import StrEnum
 from typing import cast
 
 from modelsurgeon.conversation import IntentField, IntentOutcome, IntentRecord
+from modelsurgeon.policy import (
+    PolicyCandidate,
+    PolicyDecision,
+    PolicyOutcome,
+    PolicySource,
+    resolve_policy,
+)
 
 from .objective_contract import (
     ConstraintDirection,
@@ -89,6 +96,7 @@ class IntentCompilation:
     diagnostics: tuple[CompilerDiagnostic, ...]
     objective_contract: ObjectiveContract | None = None
     schema_version: int = INTENT_COMPILER_SCHEMA_VERSION
+    policy_decision: PolicyDecision | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != INTENT_COMPILER_SCHEMA_VERSION:
@@ -106,6 +114,15 @@ class IntentCompilation:
             raise IntentCompilerError(
                 "non-executable compilation cannot emit an objective contract"
             )
+        if self.policy_decision is not None:
+            if self.policy_decision.operation != "intent-compilation":
+                raise IntentCompilerError("compiler policy decision has the wrong operation")
+            if self.outcome is IntentOutcome.EXECUTABLE and not self.policy_decision.executable:
+                raise IntentCompilerError("executable compilation requires an allow decision")
+            if self.outcome is not IntentOutcome.EXECUTABLE and self.policy_decision.executable:
+                raise IntentCompilerError(
+                    "non-executable compilation cannot have an allow decision"
+                )
 
     @property
     def executable(self) -> bool:
@@ -300,7 +317,87 @@ def _result(
     contract: ObjectiveContract | None = None,
 ) -> IntentCompilation:
     ordered = tuple(sorted(diagnostics, key=_diagnostic_sort_key))
-    return IntentCompilation(intent.intent_id, outcome, ordered, contract)
+    return IntentCompilation(
+        intent.intent_id,
+        outcome,
+        ordered,
+        contract,
+        policy_decision=_compiler_policy_decision(intent, outcome, ordered),
+    )
+
+
+def _compiler_policy_decision(
+    intent: IntentRecord,
+    outcome: IntentOutcome,
+    diagnostics: tuple[CompilerDiagnostic, ...],
+) -> PolicyDecision:
+    """Project compiler facts into the shared precedence record."""
+
+    hard_fields = tuple(
+        field for field in intent.fields if _field_kind(field.value) == "hard_constraint"
+    )
+    hard_conflict = any(
+        item.code in {"contradictory-hard-constraints", "conflicting-hard-constraints"}
+        for item in diagnostics
+    )
+    if hard_conflict:
+        hard_outcome = PolicyOutcome.CONTRADICTORY
+        hard_detail = "hard constraints are contradictory or cannot be represented together"
+    elif not hard_fields:
+        hard_outcome = PolicyOutcome.UNKNOWN
+        hard_detail = "no complete hard constraint was supplied"
+    else:
+        hard_outcome = PolicyOutcome.ALLOW
+        hard_detail = "validated hard constraints remain binding"
+    validated_outcome = {
+        IntentOutcome.EXECUTABLE: PolicyOutcome.ALLOW,
+        IntentOutcome.UNSUPPORTED: PolicyOutcome.UNSUPPORTED,
+        IntentOutcome.REFUSED: PolicyOutcome.DENY,
+        IntentOutcome.CLARIFICATION_REQUIRED: PolicyOutcome.UNKNOWN,
+    }[outcome]
+    return resolve_policy(
+        "intent-compilation",
+        (
+            PolicyCandidate(PolicySource.HARD_CONSTRAINTS, hard_outcome, hard_detail),
+            PolicyCandidate(
+                PolicySource.VALIDATED_SPEC,
+                validated_outcome,
+                f"compiler outcome is {outcome.value}",
+            ),
+            PolicyCandidate(
+                PolicySource.USER_OBJECTIVE,
+                PolicyOutcome.ALLOW,
+                "the user objective is advisory until validated by the compiler",
+            ),
+            PolicyCandidate(
+                PolicySource.PROMPT,
+                PolicyOutcome.ALLOW,
+                "prompt text cannot relax validated constraints",
+            ),
+            PolicyCandidate(
+                PolicySource.PROVIDER,
+                PolicyOutcome.ALLOW,
+                "provider interpretation cannot create execution authority",
+            ),
+        ),
+    )
+
+
+def _field_kind(value: object) -> str | None:
+    if not isinstance(value, Mapping):
+        return None
+    raw = value.get("kind", value.get("type", value.get("declaration")))
+    if not isinstance(raw, str):
+        return None
+    return {
+        "constraint": "hard_constraint",
+        "hard_constraint": "hard_constraint",
+        "hard-constraint": "hard_constraint",
+        "objective": "soft_objective",
+        "soft_objective": "soft_objective",
+        "soft-objective": "soft_objective",
+        "preference": "soft_objective",
+    }.get(raw)
 
 
 def _diagnostic_sort_key(item: CompilerDiagnostic) -> tuple[str, str, str, str]:
