@@ -25,6 +25,8 @@ jobs:
         run: uv build --out-dir dist
       - name: Audit the bounded v2.0 autonomous optimizer release boundary
         run: uv run --locked --extra dev python tools/audit_v20_release.py
+      - name: Audit the bounded v2.9 conversational security and approval gate
+        run: uv run --locked --extra dev python tools/audit_v29_conversational_security_release.py
       - name: Audit the reproducible v1.0 release contract
         run: uv run python -m tools.audit_v1_release --version "${{ github.event.release.tag_name }}"
       - name: Verify package metadata and release tag

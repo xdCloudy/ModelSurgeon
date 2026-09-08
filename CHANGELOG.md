@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Closed the bounded v2.9 conversational security and approval gate:
+    exact scoped approvals and material plan diffs, retained adversarial
+    resistance evidence, provider/tool trust-zone limits, centralized
+    fail-closed policy, clean-environment suite evidence, and explicit
+    residual risks. This does not claim hostile-process containment,
+    live-provider security or product release.
+
   - Implemented issue #484 centralized conversational policy precedence across
     compiler, dispatcher, campaign, and explanation layers. Hard constraints
     outrank prompts, tools, and providers; unknown/contradictory states fail
