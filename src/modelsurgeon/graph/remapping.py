@@ -152,11 +152,33 @@ class ComponentIdentityRemap:
         return ComponentIdentityRemap.build(tuple(composed))
 
     def to_record(self) -> dict[str, object]:
+        target_counts = self._target_counts()
         return {
             "mappings": [
                 {
                     **mapping.to_record(),
-                    "disposition": self.disposition(mapping.source).value,
+                    "disposition": (
+                        IdentityDisposition.REMOVED
+                        if mapping.removed
+                        else (
+                            IdentityDisposition.SPLIT_MERGED
+                            if len(mapping.targets) > 1
+                            and any(target_counts[target] > 1 for target in mapping.targets)
+                            else (
+                                IdentityDisposition.SPLIT
+                                if len(mapping.targets) > 1
+                                else (
+                                    IdentityDisposition.MERGED
+                                    if any(target_counts[target] > 1 for target in mapping.targets)
+                                    else (
+                                        IdentityDisposition.RETAINED
+                                        if mapping.targets == (mapping.source,)
+                                        else IdentityDisposition.RENUMBERED
+                                    )
+                                )
+                            )
+                        )
+                    ).value,
                 }
                 for mapping in self.mappings
             ]

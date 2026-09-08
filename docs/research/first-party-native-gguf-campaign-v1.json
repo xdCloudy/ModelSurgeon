@@ -1,0 +1,83 @@
+{
+  "record_type": "first_party_native_gguf_campaign_v1",
+  "status": "negative_evidence_no_candidate_promoted",
+  "protocol": {
+    "model_family": "llama",
+    "scope": "model-wide MLP channel removal",
+    "removed_channels_per_candidate": 256,
+    "candidate_count": 3,
+    "quality_retention_ratio": 0.98,
+    "seed": 42,
+    "calibration_samples": 8,
+    "calibration_split": "fixture",
+    "calibration_sequence_length": 128
+  },
+  "model": {
+    "path_role": "local GGUF fixture",
+    "source_sha256": "e3131339bf4e8065265593d4fd8f7bb7ff2d3abff1edb5618aa1197b89cad9f5",
+    "source_size_bytes": 101016128,
+    "architecture": "llama",
+    "layers": 30,
+    "parameters": 134515008,
+    "storage_bytes": 99230976
+  },
+  "dataset": {
+    "path_role": "local calibration corpus",
+    "revision": "modelsurgeon-fixture-llama-cpp-perplexity-v1",
+    "sha256": "5e0fece449edc3749be3c094053825fa07e79a9d7dfc88e2e5f4793491f41b98"
+  },
+  "runtime": {
+    "family": "llama.cpp",
+    "revision": "de8656bd9",
+    "gpu_layers": 0,
+    "threads": 4,
+    "context_size": 128,
+    "batch_size": 128,
+    "microbatch_size": 128,
+    "host": "Windows 11 x86_64",
+    "cpu": "Intel(R) Core(TM) i5-14600K",
+    "cuda_device_present_but_unused": "NVIDIA GeForce RTX 3060"
+  },
+  "baseline": {
+    "perplexity": 165.1414,
+    "perplexity_uncertainty": 77.31123
+  },
+  "candidates": [
+    {
+      "offset": 0,
+      "outcome": "rejected",
+      "candidate_sha256": "d2be2d2cdc8783131a936163aaaa1b5cfcfb2b1f46b0d7d8674105d4a0323048",
+      "perplexity": 1258.191,
+      "perplexity_uncertainty": 658.99494,
+      "perplexity_delta": 1093.0496,
+      "parameter_delta": -13271040,
+      "storage_delta_bytes": -8570880
+    },
+    {
+      "offset": 512,
+      "outcome": "rejected",
+      "candidate_sha256": "c91214b55113fa12076fc4cdf05fe45cf5f3494a775dfbeecb671ed4f1d5fdc0",
+      "perplexity": 373.383,
+      "perplexity_uncertainty": 161.25826,
+      "perplexity_delta": 208.2416,
+      "parameter_delta": -13271040,
+      "storage_delta_bytes": -8570880
+    },
+    {
+      "offset": 1280,
+      "outcome": "rejected",
+      "candidate_sha256": "9325c188aa0d69d2bf8fe8db0cc66832a205c42c2519b5cb3d888dad626e4fd5",
+      "perplexity": 890.342,
+      "perplexity_uncertainty": 540.00931,
+      "perplexity_delta": 725.2006,
+      "parameter_delta": -13271040,
+      "storage_delta_bytes": -8570880
+    }
+  ],
+  "interpretation": [
+    "Every candidate was physically written as a new GGUF, reloaded by pinned llama.cpp, and externally measured.",
+    "The structural edit reduced parameters and storage, but every candidate violated the declared quality constraint.",
+    "No candidate was promoted, deployed, or treated as an accepted optimization.",
+    "This record is negative evidence for this model, calibration corpus, runtime, and 256-channel cell; it is not a universal GGUF conclusion."
+  ]
+}
