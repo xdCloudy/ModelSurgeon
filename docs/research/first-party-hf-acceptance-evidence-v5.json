@@ -1,0 +1,41 @@
+{
+  "record_type": "first_party_hf_acceptance_evidence",
+  "schema_version": 5,
+  "purpose": "mixed-scope transformer-layer acceptance tranche",
+  "base_git_revision": "367c9ab",
+  "campaign": {
+    "tool": "tools/run_first_party_hf_acceptance.py",
+    "record_path": "work/acceptance-mixed-transformer-v2-2026-09-08.json",
+    "record_sha256": "sha256:8d01ba19fa452ed348a9dd2c32833d669f247725e61282ad11fbe40a20048fc7",
+    "quality_profile": "quality",
+    "preset": "balanced",
+    "evaluations": 1,
+    "search_scope": "transformer_layer",
+    "hardware": "Windows 11 CPU-only; 20 logical cores; 64 GiB-class host; CUDA unavailable",
+    "models": [
+      {
+        "identifier": "Qwen/Qwen2.5-0.5B",
+        "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+        "run_id": "optimize_run_272db88acacc5b67acf25eb78cc9e632b8e8b2212e627f8cec021ccaa8c0961a",
+        "outcome": "unsupported",
+        "observation_id": "obs_4af8d1a6536876ef2fa89b2228ae8ed06710d21f8c31b25cdf0913ad0a4aedc6",
+        "observation_sha256": "sha256:39a508f53c6b974841009942e4e919b5babe9e0684632c37a5a7847ea637283b",
+        "proof_run_id": "run_b4e11f0491100e597a3e68e7124502feec446fa14f27217a89ac4453470f061e",
+        "reason": "no measured candidate met max perplexity delta 0.02",
+        "result": "fail_closed_without_promoted_artifact"
+      },
+      {
+        "identifier": "HuggingFaceTB/SmolLM2-135M",
+        "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+        "run_id": "optimize_run_65b0f1cab76cdb752db3296e8251abd1005a31cef849e02c69ec249d67d0858b",
+        "outcome": "unsupported",
+        "observation_id": "obs_8a91068d738e21bfb33c95dc3f1d570d46ce039e3549c75b62e6eb85d0d43fc3",
+        "observation_sha256": "sha256:9a1abdb38a32aa3afd4f7d042e82e84784f2f06b6d3d79f14fc95d8a988c0204",
+        "proof_run_id": "run_8a839f38097202e8ef9976316b3aedafc74f979ce87dfecd48acafbd46b1bd67",
+        "reason": "no measured candidate met max perplexity delta 0.02",
+        "result": "fail_closed_without_promoted_artifact"
+      }
+    ],
+    "conclusion": "The transformer-layer path was exercised on two real revision-pinned pretrained cells, but neither produced a quality-feasible candidate under the strict contract. No artifact or success claim was emitted; the unsupported boundary and hardware/runtime evidence remain retained for audit."
+  }
+}
