@@ -1,6 +1,7 @@
 # Configuration Schema
 
-Status: implemented for the v2.2 direct API/provider boundary
+Status: implemented for the v2.2 direct API/provider boundary; local-first
+first-run setup is documented in [the setup contract](first-run-setup.md).
 
 ModelSurgeon configuration is a versioned, immutable hierarchy implemented by `modelsurgeon.config.Settings`. Every section rejects unknown keys so misspellings cannot silently change an experiment.
 
@@ -66,4 +67,15 @@ adapter, missing key, malformed endpoint, or incomplete identity produces a
 stable code and an actionable message. Direct CLI/Python optimization does not
 resolve a provider and therefore remains usable in a clean core-only
 environment.
+
+## First-run data configuration
+
+`modelsurgeon setup diagnostics` and `modelsurgeon setup init` manage the
+user-owned mutable data root separately from optimization settings. The setup
+manifest records the data location, offline flag, local fixture manifest, and
+declared free-space budget; it does not contain credentials and is not accepted
+as a substitute for the existing `--config` settings file. The setup command
+never downloads models or installs optional runtimes. See the [first-run setup
+contract](first-run-setup.md) for the Windows/local/offline matrix and the
+explicit unsupported cells.
 
