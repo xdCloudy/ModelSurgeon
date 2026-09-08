@@ -84,3 +84,4 @@ jobs:
           name: performance-pr-cpu
           path: performance-pr-cpu.json
           if-no-files-found: warn
+          retention-days: 3
