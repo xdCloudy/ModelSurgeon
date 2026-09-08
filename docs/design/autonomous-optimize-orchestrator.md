@@ -1,10 +1,13 @@
 # Autonomous optimize orchestrator
 
 `modelsurgeon optimize --execute` is the bounded execution boundary for the
-v2 autonomous workflow. It composes trusted runtime adapters with the existing
-capability/candidate planning, search resume, worker, campaign-promotion, and
-artifact safety contracts. The orchestrator does not load a model, select
-tensors, or invent measurements itself.
+v2 autonomous workflow. Its default runtime currently composes the existing
+Hugging Face/PyTorch gated-MLP proof runtime with physical resize, safetensors
+publication, reload, inference, and post-publication evaluation. The
+orchestrator does not invent measurements; it retains runtime evidence,
+lineage, approvals, and promotion decisions. Other model formats and surgery
+families remain explicit unsupported cells until their own end-to-end runtime
+evidence exists.
 
 ## Invocation
 
@@ -12,6 +15,7 @@ tensors, or invent measurements itself.
 modelsurgeon optimize \
   --model HuggingFaceTB/SmolLM2-135M \
   --revision <immutable-revision> \
+  --calibration-text ./calibration.txt \
   --preset balanced \
   --hardware-profile cpu-small \
   --execute \
@@ -24,12 +28,12 @@ modelsurgeon optimize \
   --json
 ```
 
-`--runtime` is a trusted `module:factory` adapter implementing
-`run_stage(context) -> StageResult`. A runtime must return measured, complete,
-constraint-passing evidence and a distinct immutable child artifact before a
-result can be promoted. Without a runtime, the built-in preflight adapter
-validates the workflow and stops at an explicit `unknown` result; it never
-pretends that a model was evaluated.
+The default runtime supports the verified Hugging Face gated-MLP channel cell
+and requires a local calibration text file. `--runtime` remains available for a
+separately reviewed `module:factory` adapter implementing
+`run_stage(context) -> StageResult`. Any runtime must return measured,
+complete, constraint-passing evidence and a distinct immutable child artifact
+before a result can be promoted; unsupported cells terminate explicitly.
 
 ## State and resume
 

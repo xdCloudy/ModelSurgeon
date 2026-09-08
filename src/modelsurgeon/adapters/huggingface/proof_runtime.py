@@ -737,6 +737,60 @@ class HuggingFaceMLPProofRuntime:
     def run_id(self) -> str:
         return self._run_id
 
+    def baseline_measurement(self) -> dict[str, object]:
+        """Return the measured baseline used by the proof runtime.
+
+        This is deliberately a small public boundary for higher-level execution
+        workflows.  It exposes measured values without exposing the runtime's
+        mutable measurement objects or encouraging callers to synthesize them.
+        """
+
+        baseline = self._ensure_baseline()
+        return {
+            "mean_loss": baseline.mean_loss,
+            "perplexity": baseline.perplexity,
+            "token_count": baseline.token_count,
+            "dataset": self._dataset.to_record(),
+            "model": self._model_target.to_record(),
+        }
+
+    def measure_model(self, model: Any, *, repetitions: int = 1) -> dict[str, object]:
+        """Measure a reloaded compatible model on the exact proof corpus.
+
+        The model is never treated as equivalent based on metadata: every
+        repetition performs a real forward pass and the returned timing and
+        perplexity are derived from those passes.
+        """
+
+        if repetitions <= 0:
+            raise HuggingFaceMLPProofError("model measurement repetitions must be positive")
+        old_model = self.model
+        old_modules = self._modules
+        old_input_device = self._input_device
+        try:
+            self.model = model
+            self.model.eval()
+            self._modules = dict(model.named_modules())
+            self._input_device = self._resolve_input_device()
+            measurements: list[_PerplexityMeasurement] = []
+            timings: list[float] = []
+            for _ in range(repetitions):
+                started = time.perf_counter()
+                measurements.append(self._forward_measurement())
+                timings.append(time.perf_counter() - started)
+            final = measurements[-1]
+            return {
+                "mean_loss": final.mean_loss,
+                "perplexity": final.perplexity,
+                "token_count": final.token_count,
+                "median_seconds": statistics.median(timings),
+                "repetitions": repetitions,
+            }
+        finally:
+            self.model = old_model
+            self._modules = old_modules
+            self._input_device = old_input_device
+
     def _validate_mlp_layout(self) -> None:
         width = self._discovery.shape.intermediate_size
         for layer in range(self._discovery.shape.layers):

@@ -442,7 +442,7 @@ def build_optimize_plan(
     constraints = settings.constraints
     uncertainties: list[str] = []
     limitations: list[str] = [
-        "planning is read-only; model execution is outside the v1.9 contract",
+        "planning is read-only; execution uses a separate first-party runtime boundary",
         "costs are conservative estimates until a retained campaign measurement exists",
     ]
     failures: list[str] = []

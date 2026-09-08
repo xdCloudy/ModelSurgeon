@@ -77,12 +77,15 @@ benchmark status](docs/research/v2.0-autonomous-benchmark.md).
 The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
+The current line-by-line implementation audit against the north-star goal is
+kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
 | Area | State | Current capability |
 | --- | --- | --- |
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
+| First-party optimize execution | **Experimental** | `optimize --execute` now has a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, physical resize, safetensors publication, reload/inference smoke, and post-publication evaluation. GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
@@ -294,15 +297,17 @@ See [the amendment design](docs/design/objective-amendments.md) and the
 <details>
 <summary><strong>Run the bounded autonomous optimizer</strong></summary>
 
-Execution requires a trusted runtime adapter and explicit approvals. The adapter
-owns model-specific profiling, mutation, evaluation, repair, quantization, and
-deployment measurement; the orchestrator owns state, budgets, lineage, and
-promotion safety.
+Execution uses the first-party runtime for the verified Hugging Face gated-MLP
+cell and still requires explicit approvals. The runtime owns model-specific
+profiling, measured search, physical mutation, reload, evaluation, and artifact
+publication; the orchestrator owns state, budgets, lineage, and promotion
+safety. Unsupported formats and operations stop with explicit evidence.
 
 ```bash
 uv run modelsurgeon optimize \
   --model HuggingFaceTB/SmolLM2-135M \
   --revision <immutable-revision> \
+  --calibration-text ./calibration.txt \
   --preset balanced \
   --hardware-profile cpu-small \
   --execute \
@@ -316,6 +321,12 @@ uv run modelsurgeon optimize \
   --approval-reuse plan_review=one_time \
   --json
 ```
+
+The default executor currently requires a local UTF-8 calibration text file and
+an adapter-supported gated-MLP Hugging Face model. Use `--runtime
+module:factory` only when supplying a separately reviewed runtime for another
+cell; the default path never substitutes metadata or synthetic benchmark values
+for model measurements.
 
 Repeat with `--resume` after an interruption. A missing runtime, unsupported
 capability, incomplete evidence, or absent feasible candidate remains an
