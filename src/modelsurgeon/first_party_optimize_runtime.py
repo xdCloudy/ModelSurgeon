@@ -714,8 +714,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     ) -> None:
         from modelsurgeon.surgeon.ranking import rank_random
 
-        actual = {item[3].candidate_id: item[0] for item in ranked}
+        # Keep rejected-but-measured candidates visible. A baseline that chose
+        # one must be recorded as measured-but-ineligible, not unmeasured.
+        actual = {
+            candidate_id: _number(measurement["perplexity_delta"], "perplexity_delta")
+            for candidate_id, measurement in self.actual_measurements.items()
+        }
         best_delta = ranked[0][0]
+        allowed = self.plan.quality_profile.max_perplexity_delta
+        allowed = 0.05 if allowed is None else allowed
         magnitudes: dict[str, float] = {}
         for candidate in candidates:
             values = [
@@ -746,6 +753,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "method": name,
                 "candidate_id": candidate_id,
                 "measured": True,
+                "constraints_passed": measured_delta <= allowed,
                 "measured_perplexity_delta": measured_delta,
                 "regret_vs_measured_best": measured_delta - best_delta,
             }

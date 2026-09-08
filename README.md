@@ -80,12 +80,17 @@ policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-au
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
 Fresh revision-pinned first-party acceptance evidence is retained in the
-[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v1.json).
-It covers pinned tiny Llama and Mistral checkpoints plus a pretrained
-SmolLM-135M CPU cell. A pretrained TinyLlama cell, an unsupported GPT-2 cell,
-and a rank-1 low-rank tranche that found no quality-feasible candidate are also
-retained as honest fail-closed outcomes. This is evidence for the bounded
-path, not a production-scale or task-quality claim.
+[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v2.json).
+It covers pinned tiny Llama and Mistral checkpoints plus real pretrained
+SmolLM-135M, Qwen2.5-0.5B, and SmolLM2-135M CPU cells, including two accepted
+rediscovered-state surgery stages on the latter two. The signed Meta-Surgeon
+pilot was verified and physically compared on held-out Qwen and SmolLM2
+candidates; it produced a negative transfer result, so physical measurements
+remain authoritative and no transfer improvement is claimed. A pretrained
+TinyLlama cell, an unsupported GPT-2 cell, and a rank-1 low-rank tranche that
+found no quality-feasible candidate are also retained as honest fail-closed
+outcomes. This is evidence for the bounded path, not a production-scale or
+task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
@@ -94,7 +99,7 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. Independent evidence now includes a real chat-to-HF campaign using a local Qwen GGUF interpreter and a pinned SmolLM-135M target. Physical measurements remain authoritative; GGUF and other format-specific optimizer connections remain explicit boundaries. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. Independent evidence now includes real chat-to-HF and multi-family pretrained campaigns; a held-out Meta-Surgeon pilot is retained as a negative transfer result. Physical measurements remain authoritative; GGUF and other format-specific optimizer connections remain explicit boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. The first-party Hugging Face path records candidate measurements in `measured-candidate-frontier.sqlite` and fails closed at Pareto publication when a declared objective is not measured by the runtime. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and rank-bounded low-rank edits have shape, parameter, save, reload, and measured first-party acceptance checks on the bounded HF path. |

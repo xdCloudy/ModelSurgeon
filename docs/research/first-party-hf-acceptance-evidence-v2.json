@@ -1,0 +1,110 @@
+{
+  "record_type": "first_party_hf_acceptance_evidence",
+  "schema_version": 2,
+  "campaign_tool": "tools/run_first_party_hf_acceptance.py",
+  "tool_revision": "first-party-hf-acceptance-v2",
+  "base_git_revision": "28962e6",
+  "working_tree_note": "The v2 Meta comparison recorder was exercised from the working tree; its change is included with this evidence update.",
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.12.13 CPython",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "total_ram_bytes": 68422938624,
+    "cuda_available": false,
+    "calibration_sha256": "8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5"
+  },
+  "multi_family_campaign": {
+    "record_path": "work/acceptance-multi-family-2026-09-08.json",
+    "record_sha256": "5a37e20dbe5640c7d1e8a861916dd943a233d4a3785a0f6a6a727cf5d8132e1a",
+    "command": "uv run python tools/run_first_party_hf_acceptance.py --model D:\\Stored Models\\models--Qwen--Qwen2.5-0.5B\\snapshots\\060db6499f32faf8b98477b0a26969ef7d8b9987@060db6499f32faf8b98477b0a26969ef7d8b9987 --model D:\\Stored Models\\models--HuggingFaceTB--SmolLM2-135M\\snapshots\\93efa2f097d58c2a74874c7e644dbc9b0cee75a2@93efa2f097d58c2a74874c7e644dbc9b0cee75a2 --calibration-text work/acceptance-campaign-calibration.txt --artifact-root work/acceptance-multi-family-2026-09-08 --output work/acceptance-multi-family-2026-09-08.json --evaluations 3 --search-scope mlp_channel --quality-profile quality --preset balanced",
+    "contract": {
+      "evaluations": 3,
+      "quality_profile": "quality",
+      "preset": "balanced",
+      "min_quality_retention_ratio": 0.99,
+      "search_scope": "mlp_channel",
+      "accepted_stages_per_model": 2,
+      "measurement_authority": "physical_model_evaluation"
+    },
+    "models": [
+      {
+        "identifier": "Qwen/Qwen2.5-0.5B",
+        "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+        "outcome": "supported",
+        "source_artifact_digest": "sha256:717d95cf620122a43f199bfac721f5a91321d9a2021c9ccf386e375ee935018a",
+        "accepted_artifact_digest": "sha256:6f288e685db0899ffd4a7697035fd69e8fcc89dbbb661e7ccf7d475ae66c33e1",
+        "stages": [
+          {"index": 0, "mutation": "remove_channel", "accepted": true, "perplexity_delta": -0.23800160210024046},
+          {"index": 1, "mutation": "remove_channel_from_rediscovered_state", "accepted": true, "perplexity_delta": -3.53864497566474}
+        ],
+        "deployment": {"baseline_decode_tokens_per_second": 21.077230925890035, "candidate_decode_tokens_per_second": 20.61609126946302, "baseline_peak_ram_bytes": 11183800320, "candidate_peak_ram_bytes": 9814626304}
+      },
+      {
+        "identifier": "HuggingFaceTB/SmolLM2-135M",
+        "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+        "outcome": "supported",
+        "source_artifact_digest": "sha256:232854d3dda4b603d6a497f458ea8218e906bb899dd9d758f434862a1ad6ff58",
+        "accepted_artifact_digest": "sha256:ae1d68f693b6cd6432d7d6a5f2e83df9c4b195683445ca0617ec2e905d7ab1ab",
+        "stages": [
+          {"index": 0, "mutation": "remove_channel", "accepted": true, "perplexity_delta": -1.44589764608142},
+          {"index": 1, "mutation": "remove_channel_from_rediscovered_state", "accepted": true, "perplexity_delta": -0.9196219259819}
+        ],
+        "deployment": {"baseline_decode_tokens_per_second": 42.8914866908414, "candidate_decode_tokens_per_second": 41.7818714800884, "baseline_peak_ram_bytes": 3406999552, "candidate_peak_ram_bytes": 3030781952}
+      }
+    ]
+  },
+  "real_surgeon_transfer_dataset": {
+    "builder": "tools/prepare_real_surgeon_transfer.py",
+    "example_count": 17,
+    "split_counts": {"train": 10, "validation": 1, "test": 6},
+    "grouping": "immutable model identifier and revision",
+    "test_models": ["Qwen/Qwen2.5-0.5B", "HuggingFaceTB/SmolLM2-135M"],
+    "dataset_sha256": "sha256:8b14810f91d135f996e4eb3215fd7103523fe8ed0316bfc1747714b032a632f7",
+    "split_sha256": "sha256:e475dc0e930d704016888391ee92e19a8379eb2288c961d21f59f39c2eec9626",
+    "bundle_digest": "sha256:ecd6da001a7578d1f9dcee5bc63fdb479a4f10dc160521d8d4537ef5ea7805f7",
+    "card_digest": "sha256:a33bc5237107277bd9ddc57de013f042c1684ea6f07b90601c20b4035bb6f5db"
+  },
+  "meta_surgeon_campaign": {
+    "record_path": "work/acceptance-meta-v2-2026-09-08.json",
+    "record_sha256": "5369379c6a5d3eef75cb5d1c2aa4d7964d51baedb0c15ec0753306f6d6878803",
+    "command_contract": {
+      "evaluations": 3,
+      "quality_profile": "quality",
+      "preset": "balanced",
+      "search_scope": "mlp_channel",
+      "bundle_digest": "sha256:ecd6da001a7578d1f9dcee5bc63fdb479a4f10dc160521d8d4537ef5ea7805f7",
+      "card_digest": "sha256:a33bc5237107277bd9ddc57de013f042c1684ea6f07b90601c20b4035bb6f5db"
+    },
+    "models": [
+      {
+        "identifier": "Qwen/Qwen2.5-0.5B",
+        "run_id": "optimize_run_1c73071ad032b77e911863aca8db9c7c41f14b4780f8a4104ed45f82a52b98bc",
+        "verified_bundle": true,
+        "physically_measured_candidates": 3,
+        "baselines": {
+          "meta_surgeon": {"measured": true, "constraints_passed": false, "perplexity_delta": 0.34799055924597155, "regret_vs_measured_best": 0.585992161346212},
+          "magnitude": {"measured": true, "constraints_passed": false, "perplexity_delta": 0.40206884322168435, "regret_vs_measured_best": 0.6400704453219248},
+          "random": {"measured": true, "constraints_passed": false, "perplexity_delta": 0.34799055924597155, "regret_vs_measured_best": 0.585992161346212},
+          "no_guidance": {"measured": true, "constraints_passed": true, "perplexity_delta": -0.23800160210024046, "regret_vs_measured_best": 0.0}
+        },
+        "result": "negative_transfer_result"
+      },
+      {
+        "identifier": "HuggingFaceTB/SmolLM2-135M",
+        "run_id": "optimize_run_5f962e7c8d4ae867a2f37da999537a67f06cbb3fc20c51a119b8be93dc8b0a6d",
+        "verified_bundle": true,
+        "physically_measured_candidates": 3,
+        "baselines": {
+          "meta_surgeon": {"measured": true, "constraints_passed": false, "perplexity_delta": 3.655171136809443, "regret_vs_measured_best": 5.101068782890863},
+          "magnitude": {"measured": true, "constraints_passed": true, "perplexity_delta": -1.44589764608142, "regret_vs_measured_best": 0.0},
+          "random": {"measured": true, "constraints_passed": true, "perplexity_delta": -1.44589764608142, "regret_vs_measured_best": 0.0},
+          "no_guidance": {"measured": true, "constraints_passed": true, "perplexity_delta": -1.44589764608142, "regret_vs_measured_best": 0.0}
+        },
+        "result": "negative_transfer_result"
+      }
+    ],
+    "conclusion": "The signed Meta-Surgeon bundle was verified and physically compared, but this pilot did not improve the measured no-guidance baseline and selected an ineligible candidate on both held-out models. Predictions remain advisory; physical evaluation remained authoritative."
+  }
+}
