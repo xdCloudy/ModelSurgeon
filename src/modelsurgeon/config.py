@@ -179,7 +179,7 @@ class SearchConfig(StrictConfigModel):
 class RepairConfig(StrictConfigModel):
     """Optional real post-surgery repair executed by a first-party runtime."""
 
-    method: Literal["none", "lora"] = "none"
+    method: Literal["none", "lora", "distillation"] = "none"
     target_modules: tuple[str, ...] = ()
     max_steps: int | None = Field(default=None, gt=0)
     rank: int = Field(default=4, ge=1, le=64)

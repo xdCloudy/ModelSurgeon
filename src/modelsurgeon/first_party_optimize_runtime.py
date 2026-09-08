@@ -75,6 +75,11 @@ from modelsurgeon.optimization_orchestrator import (
     WorkflowOutcome,
 )
 from modelsurgeon.surgery.contracts import TransactionState
+from modelsurgeon.surgery.distillation_repair import (
+    DistillationRepairConfig,
+    TokenizerSignature,
+    run_distillation_repair,
+)
 from modelsurgeon.surgery.huggingface_sequence import (
     HuggingFaceCumulativeRun,
     HuggingFaceEdit,
@@ -992,7 +997,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
         if not examples:
             raise FirstPartyOptimizeRuntimeError(
-                "LoRA repair calibration examples are unavailable"
+                "repair calibration examples are unavailable"
             )
         return tuple(examples)
 
@@ -1016,7 +1021,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
         if not targets:
             raise FirstPartyOptimizeRuntimeError(
-                "no supported Linear modules are available for LoRA repair"
+                "no supported Linear modules are available for repair"
             )
         torch = self._ensure_loaded()._torch
         for name in targets:
@@ -1061,7 +1066,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 constraints_passed=True,
                 transaction_state=TransactionState.COMMITTED,
             )
-        if method != "lora":
+        if method not in {"lora", "distillation"}:
             return self._unsupported(
                 OptimizeStage.REPAIR,
                 f"first-party Hugging Face repair method {method!r} is unsupported",
@@ -1069,7 +1074,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         if self.artifact is None or self.artifact_digest is None or self.reloaded_model is None:
             return self._unsupported(
                 OptimizeStage.REPAIR,
-                "LoRA repair requires a published reloaded physical artifact",
+                f"{method} repair requires a published reloaded physical artifact",
             )
 
         proof = self._ensure_loaded()
@@ -1098,25 +1103,64 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             if max_steps_value is None
             else _integer(max_steps_value, 1, "repair.max_steps")
         )
-        config = LoRARepairConfig(
-            rank=_integer(settings.get("rank"), 4, "repair.rank"),
-            alpha=_number(settings.get("alpha", 8.0), "repair.alpha"),
-            dropout=_number(settings.get("dropout", 0.0), "repair.dropout"),
-            learning_rate=_number(
-                settings.get("learning_rate", 1e-3), "repair.learning_rate"
-            ),
-            max_steps=min(max_steps, self.plan.budget.repair_steps),
-            seed=_integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed"),
-            output_mode=LoRAOutputMode.MERGED,
-        )
-        repair_result = run_bounded_lora_repair(
-            repair_model,
-            self._repair_examples(),
-            targets,
-            config,
-            source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
-            candidate_checkpoint_id=self._checkpoint_id(self.artifact_digest),
-        )
+        seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
+        examples = self._repair_examples()
+        if method == "lora":
+            lora_config = LoRARepairConfig(
+                rank=_integer(settings.get("rank"), 4, "repair.rank"),
+                alpha=_number(settings.get("alpha", 8.0), "repair.alpha"),
+                dropout=_number(settings.get("dropout", 0.0), "repair.dropout"),
+                learning_rate=_number(
+                    settings.get("learning_rate", 1e-3), "repair.learning_rate"
+                ),
+                max_steps=min(max_steps, self.plan.budget.repair_steps),
+                seed=seed,
+                output_mode=LoRAOutputMode.MERGED,
+            )
+            lora_result = run_bounded_lora_repair(
+                repair_model,
+                examples,
+                targets,
+                lora_config,
+                source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
+                candidate_checkpoint_id=self._checkpoint_id(self.artifact_digest),
+            )
+            repair_record = lora_result.to_record()
+        else:
+            parameter_names = tuple(
+                sorted(
+                    name
+                    for target in targets
+                    for name in (f"{target}.weight", f"{target}.bias")
+                    if name in dict(repair_model.named_parameters())
+                )
+            )
+            if not parameter_names:
+                return self._unsupported(
+                    OptimizeStage.REPAIR,
+                    "distillation targets expose no trainable weight or bias parameters",
+                )
+            tokenizer_signature = TokenizerSignature.from_tokenizer(proof._tokenizer)
+            teacher_model = copy.deepcopy(parent_model)
+            distillation_config = DistillationRepairConfig(
+                parameter_names=parameter_names,
+                learning_rate=_number(
+                    settings.get("learning_rate", 1e-3), "repair.learning_rate"
+                ),
+                max_steps=min(max_steps, self.plan.budget.repair_steps),
+                seed=seed,
+            )
+            distillation_result = run_distillation_repair(
+                repair_model,
+                examples,
+                distillation_config,
+                teacher_tokenizer=tokenizer_signature,
+                candidate_tokenizer=tokenizer_signature,
+                source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
+                candidate_parent_checkpoint_id=self._checkpoint_id(self.artifact_digest),
+                teacher_model=teacher_model,
+            )
+            repair_record = distillation_result.to_record()
         repaired_measurement = proof.measure_model(
             repair_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
@@ -1131,7 +1175,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         detail: dict[str, object] = {
             "method": method,
             "status": "accepted" if accepted else "rejected",
-            "repair": repair_result.to_record(),
+            "repair": repair_record,
             "targets": list(targets),
             "parent_measurement": dict(parent_measurement),
             "repaired_measurement": dict(repaired_measurement),
