@@ -1,0 +1,18 @@
+{
+  "record_type": "v2.0_campaign_evidence",
+  "schema_version": 1,
+  "evidence_id": "evidence_v20_fixture",
+  "source_artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "outcome": "unknown",
+  "detail": "deployment measurement was unavailable in the fixture environment",
+  "provenance": {
+    "record_type": "v2.0_stage_evidence",
+    "run_id": "run_v20_fixture",
+    "stage": "deployment_benchmark",
+    "measured": false
+  },
+  "measured": false,
+  "complete": false,
+  "constraints_passed": false,
+  "artifact_digest": null
+}

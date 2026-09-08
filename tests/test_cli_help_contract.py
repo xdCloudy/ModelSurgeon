@@ -23,6 +23,7 @@ _PUBLIC_COMMANDS = (
     "reproduce",
     "report",
     "optimize",
+    "migrate",
     "registry",
     "progress",
     "explorer",

@@ -11,7 +11,7 @@
 
 **Local-first, evidence-driven structural optimization for Hugging Face and GGUF models.**
 
-[Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the end-to-end guides](docs/user-guides/README.md) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
+[Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the end-to-end guides](docs/user-guides/README.md) · [Read migration guarantees](docs/migration.md) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
 
 </div>
 
@@ -49,6 +49,10 @@ negative/unknown/inconclusive outcomes and uncertainty, and keeps direct/report
 APIs authoritative. It does not claim optimizer proof, unavailable measurements,
 live provider quality, or general language-model factuality.
 Direct CLI/Python workflows remain the supported automation path.
+The bounded [v3.0 migration contract](docs/migration.md) makes v2.0 config,
+campaign, and evidence compatibility explicit: supported records migrate
+deterministically, unknown or semantically mismatched schemas fail closed, and
+the no-LLM path remains available.
 
 ## Why ModelSurgeon?
 
@@ -84,6 +88,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
+| v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
 | Conversational control plane | **v2.3 chat execution slice experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and can submit confirmed specs through the stable optimize planner/orchestrator with typed progress, canonical campaign evidence, resumable interruption, and retained negative outcomes. Universal hosted support and live provider benchmarks remain outside this slice. |
 | Constraint negotiation and infeasibility | **v2.5 milestone closed** | The release boundary reconciles grounded non-destructive infeasibility, measured-only Pareto alternatives, v2.0-scoped user approval, immutable amendments, preserved direct-API objective history, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation is not supported. See the [v2.5 release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json). |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
