@@ -87,13 +87,13 @@ def test_legacy_layouts_are_index_only_and_not_native_codec_claims() -> None:
     expected = {
         GGMLQuantizationType.Q4_0: (32, 18),
         GGMLQuantizationType.Q4_1: (32, 20),
-        GGMLQuantizationType.Q5_0: (32, 22),
         GGMLQuantizationType.Q5_1: (32, 24),
     }
     assert {
         quant_type: (layout.block_size, layout.type_size)
         for quant_type, layout in LEGACY_STORAGE_LAYOUTS.items()
     } == expected
+    assert GGMLQuantizationType.Q5_0 in QUANT_LAYOUTS
     assert not set(LEGACY_STORAGE_LAYOUTS) & set(QUANT_LAYOUTS)
 
 

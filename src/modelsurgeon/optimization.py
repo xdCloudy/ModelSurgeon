@@ -162,9 +162,7 @@ class OptimizeCostEstimate:
                 raise OptimizePlanError("cost estimates cannot be negative")
         if self.download_bytes is not None and self.download_bytes < 0:
             raise OptimizePlanError("download estimate cannot be negative")
-        if self.peak_ram_gb <= 0 or (
-            self.peak_vram_gb is not None and self.peak_vram_gb <= 0
-        ):
+        if self.peak_ram_gb <= 0 or (self.peak_vram_gb is not None and self.peak_vram_gb <= 0):
             raise OptimizePlanError("peak resource estimates must be positive")
 
     def to_record(self) -> dict[str, object]:
@@ -457,14 +455,44 @@ def build_optimize_plan(
     if not model_revision:
         uncertainties.append("model.revision is unresolved; pin a revision before execution")
     if settings.model.format is ModelFormat.GGUF:
-        unsupported.append(
-            "generic optimize planning does not execute GGUF mutation; "
-            "use the native GGUF workflow"
+        runtime = settings.runtime
+        if settings.model.family is None:
+            unsupported.append(
+                "native GGUF optimization requires an explicit model.family because "
+                "general.architecture aliases can be ambiguous"
+            )
+        missing_runtime = tuple(
+            name
+            for name, value in (
+                ("runtime.llama_cli", runtime.llama_cli),
+                ("runtime.llama_perplexity", runtime.llama_perplexity),
+                ("runtime.llama_bench", runtime.llama_bench),
+                ("runtime.expected_revision", runtime.expected_revision),
+                ("calibration.dataset_revision", settings.calibration.dataset_revision),
+            )
+            if value is None
         )
+        if missing_runtime:
+            unsupported.append(
+                "native GGUF optimization requires explicit runtime and calibration identity: "
+                + ", ".join(missing_runtime)
+            )
+        if tuple(settings.search.scopes) != ("mlp_channel",):
+            unsupported.append(
+                "native GGUF optimization currently supports only the model-wide mlp_channel scope"
+            )
+        if settings.repair.method != "none":
+            unsupported.append(
+                "native GGUF optimization does not support "
+                f"repair.method={settings.repair.method!r}"
+            )
+        if settings.quantization.method != "none":
+            unsupported.append(
+                "native GGUF optimization does not support an additional quantization stage"
+            )
     if constraints.max_ram_bytes is not None and constraints.max_ram_bytes < 4 * 1024**3:
         failures.append(
-            "max_ram_bytes is below the 4 GiB minimum planning envelope; "
-            "choose a larger limit"
+            "max_ram_bytes is below the 4 GiB minimum planning envelope; choose a larger limit"
         )
     if (
         constraints.max_vram_bytes is not None

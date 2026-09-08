@@ -141,6 +141,7 @@ from modelsurgeon.adapters.gguf.q4_k_codec import (
     Q4KRecipeMetadata,
     resolve_q4_k_recipe,
 )
+from modelsurgeon.adapters.gguf.q5_0_codec import Q5_0_CODEC, Q5_0Codec
 from modelsurgeon.adapters.gguf.q5_k_codec import (
     Q5_K_CODEC,
     Q5_KCodec,
@@ -247,6 +248,7 @@ __all__ = [
     "Q2_K_CODEC",
     "Q3_K_CODEC",
     "Q4_K_CODEC",
+    "Q5_0_CODEC",
     "Q5_K_CODEC",
     "Q6_K_CODEC",
     "Q8_0_CODEC",
@@ -345,6 +347,7 @@ __all__ = [
     "Q4_KCodec",
     "Q5KRecipe",
     "Q5KRecipeMetadata",
+    "Q5_0Codec",
     "Q5_KCodec",
     "Q6_KCodec",
     "Q8QuantizationReport",

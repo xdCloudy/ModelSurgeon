@@ -9,7 +9,13 @@ import pytest
 from typer.testing import CliRunner
 
 from modelsurgeon.cli.app import app
-from modelsurgeon.config import ConstraintConfig, ModelConfig, Settings
+from modelsurgeon.config import (
+    CalibrationConfig,
+    ConstraintConfig,
+    ModelConfig,
+    RuntimeConfig,
+    Settings,
+)
 from modelsurgeon.optimization import (
     OptimizeOutcome,
     OptimizePlanError,
@@ -79,7 +85,7 @@ def test_infeasible_resource_limit_is_failed() -> None:
 
 
 def test_gguf_plan_is_explicitly_unsupported() -> None:
-    from modelsurgeon.adapters import ModelFormat
+    from modelsurgeon.adapters import ModelFamily, ModelFormat
 
     plan = build_optimize_plan(
         _settings(model=ModelConfig(path="models/model.gguf", revision="sha")),
@@ -92,6 +98,24 @@ def test_gguf_plan_is_explicitly_unsupported() -> None:
         )
     )
     assert plan.outcome is OptimizeOutcome.UNSUPPORTED
+
+    executable = RuntimeConfig(
+        llama_cli="llama-cli",
+        llama_perplexity="llama-perplexity",
+        llama_bench="llama-bench",
+        expected_revision="de8656bd9",
+    )
+    configured = Settings(
+        model=ModelConfig(
+            path="models/model.gguf",
+            revision="sha",
+            format=ModelFormat.GGUF,
+            family=ModelFamily.LLAMA,
+        ),
+        calibration=CalibrationConfig(dataset="calibration.txt", dataset_revision="dataset-v1"),
+        runtime=executable,
+    )
+    assert build_optimize_plan(configured).outcome is OptimizeOutcome.SUPPORTED
 
 
 def test_plan_artifact_is_not_overwritten_by_default(tmp_path: Path) -> None:

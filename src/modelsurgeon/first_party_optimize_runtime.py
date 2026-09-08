@@ -3291,6 +3291,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 def build_first_party_optimize_runtime(plan: OptimizePlan) -> OptimizeRuntime:
     """Build the default runtime selected by the public optimize command."""
 
+    model = plan.resolved_config.get("model")
+    if isinstance(model, Mapping) and model.get("format") == ModelFormat.GGUF.value:
+        from modelsurgeon.native_gguf_optimize_runtime import (
+            build_native_gguf_optimize_runtime,
+        )
+
+        return build_native_gguf_optimize_runtime(plan)
     return HuggingFaceOptimizeRuntime(plan)
 
 

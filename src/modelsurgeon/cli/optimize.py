@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.config_io import ConfigurationFileError, load_settings
 from modelsurgeon.experiments import (
     ApprovalReuse,
@@ -46,12 +47,48 @@ def optimize_command(
         str | None,
         typer.Option("--revision", help="Immutable source model revision"),
     ] = None,
+    model_format: Annotated[
+        ModelFormat | None,
+        typer.Option(
+            "--model-format",
+            help="Source model container: huggingface, safetensors, or gguf",
+        ),
+    ] = None,
+    model_family: Annotated[
+        ModelFamily | None,
+        typer.Option(
+            "--model-family",
+            help="Explicit architecture family for ambiguous GGUF metadata",
+        ),
+    ] = None,
     calibration_text: Annotated[
         Path | None,
         typer.Option(
             "--calibration-text",
             help="Local UTF-8 calibration text for first-party Hugging Face execution",
         ),
+    ] = None,
+    runtime_cli: Annotated[
+        Path | None,
+        typer.Option("--runtime-cli", help="Pinned llama-cli executable for GGUF execution"),
+    ] = None,
+    runtime_perplexity: Annotated[
+        Path | None,
+        typer.Option(
+            "--runtime-perplexity",
+            help="Pinned llama-perplexity executable for GGUF quality measurement",
+        ),
+    ] = None,
+    runtime_bench: Annotated[
+        Path | None,
+        typer.Option(
+            "--runtime-bench",
+            help="Pinned llama-bench executable for GGUF deployment measurement",
+        ),
+    ] = None,
+    runtime_revision: Annotated[
+        str | None,
+        typer.Option("--runtime-revision", help="Expected llama.cpp commit for GGUF tools"),
     ] = None,
     provider: Annotated[
         ProviderKind | None,
@@ -183,8 +220,20 @@ def optimize_command(
         overrides["model.path"] = model
     if revision is not None:
         overrides["model.revision"] = revision
+    if model_format is not None:
+        overrides["model.format"] = model_format.value
+    if model_family is not None:
+        overrides["model.family"] = model_family.value
     if calibration_text is not None:
         overrides["calibration.dataset"] = str(calibration_text)
+    if runtime_cli is not None:
+        overrides["runtime.llama_cli"] = runtime_cli
+    if runtime_perplexity is not None:
+        overrides["runtime.llama_perplexity"] = runtime_perplexity
+    if runtime_bench is not None:
+        overrides["runtime.llama_bench"] = runtime_bench
+    if runtime_revision is not None:
+        overrides["runtime.expected_revision"] = runtime_revision
     if no_llm:
         overrides.update(
             {

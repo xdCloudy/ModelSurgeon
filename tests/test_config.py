@@ -13,6 +13,7 @@ from modelsurgeon.config import (
     ProviderConfig,
     QuantizationConfig,
     RepairConfig,
+    RuntimeConfig,
     SearchConfig,
     Settings,
 )
@@ -97,6 +98,13 @@ def test_repair_config_is_explicit_and_canonical() -> None:
 def test_quantization_config_is_explicit_and_canonical() -> None:
     assert Settings().quantization.method == "none"
     assert QuantizationConfig(method="dynamic_int8").method == "dynamic_int8"
+
+
+def test_native_runtime_requires_ordered_batch_geometry() -> None:
+    configured = RuntimeConfig(context_size=1024, batch_size=512, microbatch_size=256)
+    assert configured.context_size == 1024
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        RuntimeConfig(context_size=128, batch_size=256)
 
 
 def test_environment_overrides_nested_hardware_settings(

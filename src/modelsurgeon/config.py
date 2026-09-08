@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from modelsurgeon.adapters import ModelFormat
+from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.provider_kind import ProviderKind
 
 
@@ -81,6 +81,7 @@ class ModelConfig(StrictConfigModel):
     path: str | None = None
     revision: str | None = None
     format: ModelFormat = ModelFormat.HUGGING_FACE
+    family: ModelFamily | None = None
     dtype: ComputeDType = ComputeDType.AUTO
 
     @field_validator("path", "revision")
@@ -209,6 +210,40 @@ class QuantizationConfig(StrictConfigModel):
     """Optional first-party quantization selected by the optimize runtime."""
 
     method: Literal["none", "dynamic_int8"] = "none"
+
+
+class RuntimeConfig(StrictConfigModel):
+    """Explicit external runtime contract for native GGUF optimization."""
+
+    llama_cli: Path | None = None
+    llama_perplexity: Path | None = None
+    llama_bench: Path | None = None
+    expected_revision: str | None = None
+    threads: int = Field(default=1, gt=0)
+    gpu_layers: int = Field(default=0, ge=0)
+    context_size: int = Field(default=512, gt=0)
+    batch_size: int = Field(default=512, gt=0)
+    microbatch_size: int = Field(default=512, gt=0)
+    chunks: int = Field(default=1, gt=0)
+    prompt_tokens: int = Field(default=512, gt=0)
+    generation_tokens: int = Field(default=128, gt=0)
+    repetitions: int = Field(default=5, gt=0)
+    timeout_seconds: float = Field(default=300.0, gt=0.0)
+
+    @field_validator("expected_revision")
+    @classmethod
+    def reject_blank_runtime_revision(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("runtime.expected_revision cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validate_runtime_geometry(self) -> RuntimeConfig:
+        if self.batch_size > self.context_size:
+            raise ValueError("runtime.batch_size cannot exceed runtime.context_size")
+        if self.microbatch_size > self.batch_size:
+            raise ValueError("runtime.microbatch_size cannot exceed runtime.batch_size")
+        return self
 
 
 class ObjectiveConfig(StrictConfigModel):
@@ -388,6 +423,7 @@ class Settings(BaseSettings):
     search: SearchConfig = Field(default_factory=SearchConfig)
     repair: RepairConfig = Field(default_factory=RepairConfig)
     quantization: QuantizationConfig = Field(default_factory=QuantizationConfig)
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)
