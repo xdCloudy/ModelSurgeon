@@ -253,6 +253,12 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             raise NativeGGUFOptimizeRuntimeError(str(error)) from error
 
     def _runtime(self) -> Mapping[str, object]:
+        task_quality = _mapping(self._resolved().get("task_quality", {}), "task_quality")
+        if task_quality.get("method", "none") != "none":
+            raise NativeGGUFOptimizeRuntimeError(
+                "native GGUF task-quality benchmarks are unsupported; use a runtime with "
+                "a task evaluator or disable task_quality"
+            )
         runtime = _mapping(self._resolved().get("runtime"), "runtime")
         required = ("llama_cli", "llama_perplexity", "llama_bench", "expected_revision")
         for name in required:
