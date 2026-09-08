@@ -58,6 +58,14 @@ class ApprovalDecisionKind(StrEnum):
     EXPIRED = "expired"
 
 
+class ApprovalReuse(StrEnum):
+    """Whether an approved capability may be used again before expiry."""
+
+    ONE_TIME = "one_time"
+    ONCE = "one_time"
+    REUSABLE = "reusable"
+
+
 class PackageVerificationStatus(StrEnum):
     VERIFIED = "verified"
     INCOMPLETE = "incomplete"
@@ -232,6 +240,8 @@ class ApprovalRequest:
     expires_at: str
     operator_id: str
     operator_context: tuple[tuple[str, str], ...] = ()
+    reuse: ApprovalReuse = ApprovalReuse.REUSABLE
+    max_uses: int | None = None
 
     def __post_init__(self) -> None:
         _text(self.code, "approval code")
@@ -248,6 +258,15 @@ class ApprovalRequest:
             raise OptimizationPackageError("approval expiry must be after its request")
         _text(self.operator_id, "operator identity")
         _safe_context(dict(self.operator_context))
+        if not isinstance(self.reuse, ApprovalReuse):
+            raise OptimizationPackageError("approval reuse policy is invalid")
+        if self.max_uses is not None:
+            if isinstance(self.max_uses, bool) or not isinstance(self.max_uses, int):
+                raise OptimizationPackageError("approval max_uses must be an integer")
+            if self.max_uses <= 0:
+                raise OptimizationPackageError("approval max_uses must be positive")
+            if self.reuse is ApprovalReuse.ONE_TIME and self.max_uses != 1:
+                raise OptimizationPackageError("one-time approvals can only be used once")
 
     @property
     def request_id(self) -> str:
@@ -273,6 +292,9 @@ class ApprovalRequest:
             "operator_id": self.operator_id,
             "operator_context": {key: value for key, value in self.operator_context},
         }
+        if self.reuse is not ApprovalReuse.REUSABLE or self.max_uses is not None:
+            record["reuse"] = self.reuse.value
+            record["max_uses"] = self.max_uses
         if include_id:
             record["request_id"] = self.request_id
         return record
@@ -289,6 +311,7 @@ class ApprovalDecision:
     decided_at: str
     operator_id: str
     reason: str
+    operator_context: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.request_id, "approval request ID")
@@ -299,6 +322,7 @@ class ApprovalDecision:
         _timestamp(self.decided_at, "approval decided_at")
         _text(self.operator_id, "decision operator identity")
         _text(self.reason, "approval decision reason")
+        _safe_context(dict(self.operator_context))
 
     @property
     def decision_id(self) -> str:
@@ -317,6 +341,10 @@ class ApprovalDecision:
             "operator_id": self.operator_id,
             "reason": self.reason,
         }
+        if self.operator_context:
+            record["operator_context"] = {
+                key: value for key, value in self.operator_context
+            }
         if include_id:
             record["decision_id"] = self.decision_id
         return record
@@ -329,6 +357,8 @@ def validate_approval(
     current_plan_id: str,
     current_plan_digest: str,
     at: datetime | None = None,
+    required_scope: Sequence[str] | None = None,
+    uses: int = 0,
 ) -> None:
     """Fail closed unless a decision covers the exact current plan and diff."""
 
@@ -338,12 +368,201 @@ def validate_approval(
         raise OptimizationPackageError("approval decision does not cover the current plan")
     if decision.diff_id != request.diff_id:
         raise OptimizationPackageError("approval decision does not cover the current plan diff")
+    if decision.operator_id != request.operator_id:
+        raise OptimizationPackageError("approval decision actor does not match its request")
+    if decision.operator_context and request.operator_context != decision.operator_context:
+        raise OptimizationPackageError("approval decision context does not match its request")
+    decided_at = _timestamp(decision.decided_at, "approval decided_at")
+    requested_at = _timestamp(request.requested_at, "approval requested_at")
+    if decided_at < requested_at:
+        raise OptimizationPackageError("approval decision predates its request")
+    if required_scope is not None:
+        expected_scope = tuple(sorted(set(required_scope)))
+        if any(not isinstance(item, str) or not item.strip() for item in expected_scope):
+            raise OptimizationPackageError("required approval scope is invalid")
+        actual_scope = set(request.scope)
+        expected = set(expected_scope)
+        if actual_scope != expected:
+            if expected.issubset(actual_scope):
+                raise OptimizationPackageError("approval scope is overbroad")
+            raise OptimizationPackageError("approval scope does not cover the operation")
+    if isinstance(uses, bool) or not isinstance(uses, int) or uses < 0:
+        raise OptimizationPackageError("approval uses must be a non-negative integer")
+    max_uses = request.max_uses
+    if request.reuse is ApprovalReuse.ONE_TIME:
+        max_uses = 1
+    if max_uses is not None and uses >= max_uses:
+        raise OptimizationPackageError("approval reuse limit has been exhausted")
     if request.is_expired(at) or _timestamp(
         decision.decided_at, "approval decided_at"
     ) >= _timestamp(request.expires_at, "approval expires_at"):
         raise OptimizationPackageError("approval is expired")
     if decision.decision is not ApprovalDecisionKind.APPROVED:
         raise OptimizationPackageError(f"approval was {decision.decision.value}")
+
+
+def _redact_audit_text(value: str) -> tuple[str, tuple[str, ...]]:
+    """Redact secret-shaped values before they become retained evidence."""
+
+    redacted = re.sub(
+        r"(?i)(\b(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|"
+        r"password|secret|token)\b\s*[:=]\s*)(?:bearer\s+)?[^\s,;]+",
+        r"\1<redacted>",
+        value,
+    )
+    redacted = re.sub(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{4,}", "Bearer <redacted>", redacted)
+    paths: tuple[str, ...] = ()
+    if redacted != value:
+        paths = ("detail",)
+    return redacted, paths
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalAuditRecord:
+    """Immutable, content-addressed, secret-redacted approval evidence."""
+
+    kind: str
+    request_id: str
+    decision_id: str
+    code: str
+    plan_id: str
+    plan_digest: str
+    diff_id: str
+    scope: tuple[str, ...]
+    reuse: ApprovalReuse
+    use_index: int
+    operator_id: str
+    operator_context: tuple[tuple[str, str], ...]
+    detail: str
+    previous_digest: str | None = None
+    redactions: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _text(self.kind, "approval audit kind")
+        _text(self.request_id, "approval audit request ID")
+        _text(self.decision_id, "approval audit decision ID")
+        _text(self.code, "approval audit code")
+        _text(self.plan_id, "approval audit plan ID")
+        _digest(self.plan_digest, "approval audit plan digest")
+        _text(self.diff_id, "approval audit diff ID")
+        if self.scope != tuple(sorted(set(self.scope))) or any(
+            not item.strip() for item in self.scope
+        ):
+            raise OptimizationPackageError("approval audit scope must be sorted and unique")
+        if not isinstance(self.reuse, ApprovalReuse):
+            raise OptimizationPackageError("approval audit reuse policy is invalid")
+        if isinstance(self.use_index, bool) or self.use_index < 0:
+            raise OptimizationPackageError("approval audit use index must be non-negative")
+        _text(self.operator_id, "approval audit operator identity")
+        _safe_context(dict(self.operator_context))
+        _text(self.detail, "approval audit detail")
+        if self.previous_digest is not None:
+            _digest(self.previous_digest, "approval audit previous digest")
+        if self.redactions != tuple(sorted(set(self.redactions))):
+            raise OptimizationPackageError("approval audit redactions must be sorted and unique")
+
+    @property
+    def audit_id(self) -> str:
+        return "approval_audit_" + _sha256(self.to_record(include_id=False, include_digest=False))
+
+    @property
+    def digest(self) -> str:
+        return _sha256(self.to_record(include_id=True, include_digest=False))
+
+    def to_record(
+        self, *, include_id: bool = True, include_digest: bool = True
+    ) -> dict[str, object]:
+        record: dict[str, object] = {
+            "record_type": "immutable_redacted_approval_audit",
+            "schema_version": APPROVAL_SCHEMA_VERSION,
+            "kind": self.kind,
+            "request_id": self.request_id,
+            "decision_id": self.decision_id,
+            "code": self.code,
+            "plan_id": self.plan_id,
+            "plan_digest": self.plan_digest,
+            "diff_id": self.diff_id,
+            "scope": list(self.scope),
+            "reuse": self.reuse.value,
+            "use_index": self.use_index,
+            "operator_id": self.operator_id,
+            "operator_context": {key: value for key, value in self.operator_context},
+            "detail": self.detail,
+            "previous_digest": self.previous_digest,
+            "redactions": list(self.redactions),
+        }
+        if include_id:
+            record["audit_id"] = self.audit_id
+        if include_digest:
+            record["audit_digest"] = self.digest
+        return record
+
+    @classmethod
+    def from_record(cls, value: object) -> ApprovalAuditRecord:
+        if not isinstance(value, Mapping):
+            raise OptimizationPackageError("approval audit record must be an object")
+        try:
+            record = {str(key): item for key, item in value.items()}
+            context = record["operator_context"]
+            if not isinstance(context, Mapping):
+                raise TypeError
+            raw_scope = record["scope"]
+            raw_redactions = record["redactions"]
+            if not isinstance(raw_scope, list) or not isinstance(raw_redactions, list):
+                raise TypeError
+            result = cls(
+                str(record["kind"]),
+                str(record["request_id"]),
+                str(record["decision_id"]),
+                str(record["code"]),
+                str(record["plan_id"]),
+                str(record["plan_digest"]),
+                str(record["diff_id"]),
+                tuple(str(item) for item in raw_scope),
+                ApprovalReuse(str(record["reuse"])),
+                int(record["use_index"]),
+                str(record["operator_id"]),
+                tuple((str(key), str(item)) for key, item in sorted(context.items())),
+                str(record["detail"]),
+                None if record["previous_digest"] is None else str(record["previous_digest"]),
+                tuple(str(item) for item in raw_redactions),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise OptimizationPackageError("approval audit record is malformed") from error
+        if record.get("audit_id") != result.audit_id or record.get("audit_digest") != result.digest:
+            raise OptimizationPackageError("approval audit record digest does not match")
+        return result
+
+
+def build_approval_audit_record(
+    request: ApprovalRequest,
+    decision: ApprovalDecision,
+    *,
+    kind: str,
+    detail: str,
+    use_index: int = 0,
+    previous_digest: str | None = None,
+) -> ApprovalAuditRecord:
+    """Build redacted evidence for an approval issuance, decision, or use."""
+
+    redacted_detail, redactions = _redact_audit_text(_text(detail, "approval audit detail"))
+    return ApprovalAuditRecord(
+        kind,
+        request.request_id,
+        decision.decision_id,
+        request.code,
+        request.plan_id,
+        request.plan_digest,
+        request.diff_id,
+        request.scope,
+        request.reuse,
+        use_index,
+        decision.operator_id,
+        request.operator_context,
+        redacted_detail,
+        previous_digest,
+        redactions,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -747,15 +966,18 @@ def verify_reproducibility_package(
 __all__ = [
     "APPROVAL_SCHEMA_VERSION",
     "OPTIMIZATION_PACKAGE_SCHEMA_VERSION",
+    "ApprovalAuditRecord",
     "ApprovalDecision",
     "ApprovalDecisionKind",
     "ApprovalRequest",
+    "ApprovalReuse",
     "DecisionReplay",
     "OptimizationPackageError",
     "PackageVerification",
     "PackageVerificationStatus",
     "PlanDiff",
     "ReproducibilityPackage",
+    "build_approval_audit_record",
     "diff_plans",
     "plan_digest",
     "replay_decision_evidence",

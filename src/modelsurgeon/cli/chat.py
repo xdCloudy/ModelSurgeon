@@ -17,6 +17,7 @@ from modelsurgeon.conversation import (
     ChatTurnResult,
     bootstrap_chat_session,
 )
+from modelsurgeon.experiments import ApprovalReuse
 from modelsurgeon.provider_kind import ProviderKind
 
 
@@ -150,6 +151,17 @@ def chat_command(
         list[str] | None,
         typer.Option("--approve", help="Approve a stable optimize plan boundary; may be repeated"),
     ] = None,
+    approval_expires_at: Annotated[
+        str | None,
+        typer.Option("--approval-expires-at", help="Expiry for newly recorded approvals"),
+    ] = None,
+    approval_reuse: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--approval-reuse",
+            help="Approval reuse as code=one_time or code=reusable; may be repeated",
+        ),
+    ] = None,
     preset: Annotated[
         str,
         typer.Option(help="Bounded optimization preset: fast, balanced, or quality"),
@@ -173,6 +185,14 @@ def chat_command(
         if target_revision is not None:
             overrides["model.revision"] = target_revision
         try:
+            reuse_values: dict[str, str] = {}
+            for item in approval_reuse or []:
+                name, separator, value = item.partition("=")
+                if not separator or not name.strip():
+                    raise ValueError(
+                        "--approval-reuse values must use code=one_time or code=reusable"
+                    )
+                reuse_values[name.strip()] = ApprovalReuse(value.strip()).value
             settings = load_settings(target_config, cli_overrides=overrides)
             execution_adapter = ChatOptimizeAdapter(
                 settings,
@@ -181,6 +201,8 @@ def chat_command(
                 hardware_profile=hardware_profile,
                 quality_profile=quality_profile,
                 approvals=tuple(approve or ()),
+                approval_expires_at=approval_expires_at,
+                approval_reuse=reuse_values,
                 resume=resume,
             )
         except (OSError, ValueError) as error:

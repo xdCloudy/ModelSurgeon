@@ -273,6 +273,8 @@ uv run modelsurgeon optimize \
   --approve source_model \
   --approve resource_budget \
   --approve artifact_write \
+  --approval-expires-at 2026-09-08T18:00:00+00:00 \
+  --approval-reuse plan_review=one_time \
   --json
 ```
 
@@ -283,6 +285,10 @@ Resume state retains the plan digest and snapshot. Material plan changes are
 rejected with a deterministic diff, and approvals expire rather than silently
 carrying forward. To produce a signed final package, provide a key through an
 environment variable (the key is never written to the package):
+
+Direct and chat execution share the same scoped approval lifecycle, including
+one-time/reusable policies, expiry, material-diff reapproval, and immutable
+redacted audit evidence. See the [scoped approval design](docs/design/scoped-approvals.md).
 
 ```bash
 MODELSURGEON_PACKAGE_KEY='local signing secret' uv run modelsurgeon optimize \

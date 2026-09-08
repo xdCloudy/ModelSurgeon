@@ -13,6 +13,7 @@ import typer
 
 from modelsurgeon.config_io import ConfigurationFileError, load_settings
 from modelsurgeon.experiments import (
+    ApprovalReuse,
     EvidenceKeyRecord,
     EvidenceKeyStatus,
     OptimizationPackageError,
@@ -111,6 +112,17 @@ def optimize_command(
         list[str] | None,
         typer.Option("--approve", help="Record approval code; may be repeated"),
     ] = None,
+    approval_expires_at: Annotated[
+        str | None,
+        typer.Option("--approval-expires-at", help="Expiry for newly recorded approvals"),
+    ] = None,
+    approval_reuse: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--approval-reuse",
+            help="Approval reuse as code=one_time or code=reusable; may be repeated",
+        ),
+    ] = None,
     override: Annotated[
         list[str] | None,
         typer.Option("--override", help="Set approved runtime override as name=value"),
@@ -179,8 +191,8 @@ def optimize_command(
     try:
         if resume and not execute:
             raise OptimizePlanError("--resume requires --execute")
-        if (approve or override) and not execute:
-            raise OptimizePlanError("--approve and --override require --execute")
+        if (approve or override or approval_reuse or approval_expires_at) and not execute:
+            raise OptimizePlanError("approval options and --override require --execute")
         settings = load_settings(config, cli_overrides=overrides)
         plan = build_optimize_plan(
             settings,
@@ -199,6 +211,19 @@ def optimize_command(
                 if not separator or not name.strip() or not value.strip():
                     raise OptimizePlanError("--override values must use name=value syntax")
                 override_values[name.strip()] = value
+            reuse_values: dict[str, str] = {}
+            for item in approval_reuse or []:
+                name, separator, value = item.partition("=")
+                if not separator or not name.strip():
+                    raise OptimizePlanError(
+                        "--approval-reuse values must use code=one_time or code=reusable"
+                    )
+                try:
+                    reuse_values[name.strip()] = ApprovalReuse(value.strip()).value
+                except ValueError as error:
+                    raise OptimizePlanError(
+                        "--approval-reuse policy must be one_time or reusable"
+                    ) from error
             selected_runtime = (
                 PreflightRuntime() if runtime is None else load_optimize_runtime(runtime)
             )
@@ -207,6 +232,8 @@ def optimize_command(
                 resume=resume,
                 approvals=tuple(approve or ()),
                 overrides=override_values,
+                approval_expires_at=approval_expires_at,
+                approval_reuse=reuse_values,
             )
             if package is not None:
                 if not package_key_id or not package_key_env:

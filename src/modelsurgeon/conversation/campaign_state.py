@@ -22,9 +22,11 @@ from pathlib import Path
 from typing import Self, cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.experiments.optimization_package import ApprovalAuditRecord, ApprovalReuse
 
 CAMPAIGN_STATE_SCHEMA_VERSION = 1
 CAMPAIGN_STATE_DB_SCHEMA_VERSION = 1
+CAMPAIGN_APPROVAL_SCHEMA_VERSION = 2
 
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.:-]{0,127}$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -191,7 +193,7 @@ class CampaignSpec:
 
 @dataclass(frozen=True, slots=True)
 class CampaignApproval:
-    """Approval state bound to one exact spec digest."""
+    """Approval state bound to one exact spec and plan scope."""
 
     status: ApprovalStatus
     spec_digest: str
@@ -199,10 +201,21 @@ class CampaignApproval:
     recorded_by: str | None = None
     expires_at: str | None = None
     provenance: Mapping[str, object] = field(default_factory=dict)
+    plan_id: str | None = None
+    plan_digest: str | None = None
+    diff_id: str | None = None
+    scope: tuple[str, ...] = ()
+    reuse: ApprovalReuse = ApprovalReuse.REUSABLE
+    uses: int = 0
+    audit_evidence: tuple[Mapping[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ApprovalStatus):
             raise CampaignStateError("approval status is invalid")
+        if self.plan_id is None and self.plan_digest is not None:
+            raise CampaignStateError("approval plan digest requires a plan ID")
+        if self.plan_id is not None and self.plan_digest is None:
+            raise CampaignStateError("approval plan ID requires a plan digest")
         _sha256(self.spec_digest, "approval spec digest")
         if self.approval_id is not None:
             _identifier(self.approval_id, "approval ID")
@@ -215,6 +228,22 @@ class CampaignApproval:
                 raise CampaignStateError("approval expiry must be an ISO-8601 timestamp") from error
             if expiry.tzinfo is None:
                 raise CampaignStateError("approval expiry must include a timezone")
+        if self.plan_id is not None:
+            _identifier(self.plan_id, "approval plan ID")
+        if self.plan_digest is not None:
+            _sha256(self.plan_digest, "approval plan digest")
+        if self.diff_id is not None:
+            _identifier(self.diff_id, "approval diff ID")
+        if self.scope != tuple(sorted(set(self.scope))) or any(
+            not isinstance(item, str) or not item.strip() for item in self.scope
+        ):
+            raise CampaignStateError("approval scope must be sorted and unique")
+        if not isinstance(self.reuse, ApprovalReuse):
+            raise CampaignStateError("approval reuse policy is invalid")
+        if isinstance(self.uses, bool) or not isinstance(self.uses, int) or self.uses < 0:
+            raise CampaignStateError("approval uses must be a non-negative integer")
+        if self.reuse is ApprovalReuse.ONE_TIME and self.uses > 1:
+            raise CampaignStateError("one-time approval can only be used once")
         if self.status is ApprovalStatus.APPROVED and (
             self.approval_id is None or self.recorded_by is None or self.expires_at is None
         ):
@@ -228,9 +257,18 @@ class CampaignApproval:
         object.__setattr__(
             self, "provenance", _mapping(self.provenance or {}, "approval provenance")
         )
+        normalized_audit = tuple(
+            _mapping(item, "approval audit evidence") for item in self.audit_evidence
+        )
+        for item in normalized_audit:
+            try:
+                ApprovalAuditRecord.from_record(item)
+            except ValueError as error:
+                raise CampaignStateError("approval audit evidence is malformed") from error
+        object.__setattr__(self, "audit_evidence", normalized_audit)
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "status": self.status.value,
             "spec_digest": self.spec_digest,
             "approval_id": self.approval_id,
@@ -238,6 +276,28 @@ class CampaignApproval:
             "expires_at": self.expires_at,
             "provenance": dict(self.provenance),
         }
+        if (
+            self.plan_id is not None
+            or self.plan_digest is not None
+            or self.diff_id is not None
+            or self.scope
+            or self.reuse is not ApprovalReuse.REUSABLE
+            or self.uses
+            or self.audit_evidence
+        ):
+            record.update(
+                {
+                    "approval_schema_version": CAMPAIGN_APPROVAL_SCHEMA_VERSION,
+                    "plan_id": self.plan_id,
+                    "plan_digest": self.plan_digest,
+                    "diff_id": self.diff_id,
+                    "scope": list(self.scope),
+                    "reuse": self.reuse.value,
+                    "uses": self.uses,
+                    "audit_evidence": [dict(item) for item in self.audit_evidence],
+                }
+            )
+        return record
 
     @property
     def active(self) -> bool:
@@ -246,7 +306,10 @@ class CampaignApproval:
         if self.status is not ApprovalStatus.APPROVED or self.expires_at is None:
             return False
         expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
-        return expiry.astimezone(UTC) > datetime.now(UTC)
+        return (
+            expiry.astimezone(UTC) > datetime.now(UTC)
+            and not (self.reuse is ApprovalReuse.ONE_TIME and self.uses >= 1)
+        )
 
     @classmethod
     def pending(cls, spec_digest: str) -> CampaignApproval:
@@ -255,20 +318,40 @@ class CampaignApproval:
     @classmethod
     def from_record(cls, value: object) -> CampaignApproval:
         record = _object_from_record(value, "campaign approval")
+        version = record.get("approval_schema_version", 1)
+        if version not in {1, CAMPAIGN_APPROVAL_SCHEMA_VERSION}:
+            raise CampaignStateError("unsupported campaign approval schema version")
         expected = {
+            "approval_schema_version",
             "status",
             "spec_digest",
             "approval_id",
             "recorded_by",
             "expires_at",
             "provenance",
+            "plan_id",
+            "plan_digest",
+            "diff_id",
+            "scope",
+            "reuse",
+            "uses",
+            "audit_evidence",
         }
-        if set(record) != expected:
+        legacy = {"status", "spec_digest", "approval_id", "recorded_by", "expires_at", "provenance"}
+        if set(record) not in (expected, legacy):
             raise CampaignStateError("campaign approval has missing or unknown fields")
         try:
             status = ApprovalStatus(cast(str, record["status"]))
         except ValueError as error:
             raise CampaignStateError("campaign approval has an unknown status") from error
+        raw_scope = record.get("scope", [])
+        raw_audit = record.get("audit_evidence", [])
+        if not isinstance(raw_scope, list) or not isinstance(raw_audit, list):
+            raise CampaignStateError("campaign approval scope or audit evidence is malformed")
+        try:
+            reuse = ApprovalReuse(str(record.get("reuse", ApprovalReuse.REUSABLE.value)))
+        except ValueError as error:
+            raise CampaignStateError("campaign approval reuse policy is invalid") from error
         return cls(
             status,
             cast(str, record["spec_digest"]),
@@ -276,6 +359,13 @@ class CampaignApproval:
             None if record["recorded_by"] is None else cast(str, record["recorded_by"]),
             None if record["expires_at"] is None else cast(str, record["expires_at"]),
             _mapping(record["provenance"], "approval provenance"),
+            None if record.get("plan_id") is None else cast(str, record["plan_id"]),
+            None if record.get("plan_digest") is None else cast(str, record["plan_digest"]),
+            None if record.get("diff_id") is None else cast(str, record["diff_id"]),
+            tuple(str(item) for item in raw_scope),
+            reuse,
+            cast(int, record.get("uses", 0)),
+            tuple(_mapping(item, "approval audit evidence") for item in raw_audit),
         )
 
 

@@ -32,6 +32,14 @@ The provider context is limited to the engine-owned identity/capability card;
 transcript text, summaries, secrets, and tool payloads are rejected by the
 campaign-state boundary.
 
+The approval stored in campaign state is bound to the exact plan ID, plan
+digest, material-diff ID, capability scope, operator context, reuse policy, and
+expiry. `one_time` approvals cannot authorize a second execution; `reusable`
+approvals can authorize bounded resumptions until expiry. The adapter projects
+the orchestrator's immutable, redacted approval audit chain into campaign
+state, preserving direct/chat parity without treating transcript text as audit
+evidence.
+
 The adapter translates only contract fields representable by the stable
 `Settings` API. Unsupported metrics, plugin objectives, non-weighted modes,
 non-absolute constraint baselines, invalid plan identities, and missing target
@@ -69,7 +77,10 @@ modelsurgeon chat ./text-model.gguf \
 ```
 
 Execution additionally requires `--execute`, an explicit `--approval-id`, and
-the required stable plan approvals. A missing approval, unsupported input,
+the required stable plan approvals. `--approval-expires-at` and repeated
+`--approval-reuse code=one_time|reusable` options apply the same lifecycle as
+the direct optimize command. A missing, expired, overbroad, or stale approval,
+unsupported input,
 failed campaign, interruption, cancellation, or no-artifact result is retained
 as a typed negative result and never presented as a successful artifact. An
 accepted run is `completed/supported` with an immutable artifact; a rejected

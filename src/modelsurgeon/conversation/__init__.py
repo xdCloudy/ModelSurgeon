@@ -2,6 +2,7 @@
 
 from .campaign import CanonicalCampaignRecorder
 from .campaign_state import (
+    CAMPAIGN_APPROVAL_SCHEMA_VERSION,
     CAMPAIGN_STATE_DB_SCHEMA_VERSION,
     CAMPAIGN_STATE_SCHEMA_VERSION,
     ApprovalStatus,
@@ -292,6 +293,7 @@ from .transaction import (
 )
 
 __all__ = [
+    "CAMPAIGN_APPROVAL_SCHEMA_VERSION",
     "CAMPAIGN_STATE_DB_SCHEMA_VERSION",
     "CAMPAIGN_STATE_SCHEMA_VERSION",
     "CHAT_INSPECTION_SCHEMA_VERSION",

@@ -53,7 +53,7 @@ from modelsurgeon.conversation.tools import (
     ToolRequest,
     ToolResult,
 )
-from modelsurgeon.experiments.optimization_package import plan_digest
+from modelsurgeon.experiments.optimization_package import ApprovalReuse, plan_digest
 from modelsurgeon.optimization import (
     OptimizeOutcome,
     OptimizePlan,
@@ -520,6 +520,9 @@ class ChatOptimizeAdapter:
         quality_profile: str | None = None,
         runtime: OptimizeRuntime | None = None,
         approvals: tuple[str, ...] = (),
+        approval_expires_at: str | None = None,
+        approval_reuse: Mapping[str, ApprovalReuse | str] | None = None,
+        operator_id: str = "chat",
         resume: bool = False,
     ) -> None:
         if not isinstance(settings, Settings):
@@ -540,6 +543,9 @@ class ChatOptimizeAdapter:
         self.quality_profile = quality_profile
         self.runtime = runtime or PreflightRuntime()
         self.approvals = tuple(sorted(set(approvals)))
+        self.approval_expires_at = approval_expires_at
+        self.approval_reuse = None if approval_reuse is None else dict(approval_reuse)
+        self.operator_id = operator_id
         self._resume_by_default = resume
         self._previews: dict[str, object] = {}
         self._prepared: dict[str, _PreparedPlan] = {}
@@ -871,9 +877,12 @@ class ChatOptimizeAdapter:
             session_id=self._session_for_request(context.request.request_id),
             plan=prepared.plan,
             preview=self._preview_for_spec(prepared.spec_digest),
-            provider_context=self._provider_context_by_spec.get(prepared.spec_digest),
-            approval_id=self._submissions[prepared.plan_id].approval_id,
-        )
+                provider_context=self._provider_context_by_spec.get(prepared.spec_digest),
+                approval_id=self._submissions[prepared.plan_id].approval_id,
+                recorded_by=self.operator_id,
+                approval_expires_at=self.approval_expires_at,
+                approval_reuse=self.approval_reuse,
+            )
         campaign_id = recorder.campaign_id
         try:
             with self._lifecycle_lock:
@@ -911,8 +920,10 @@ class ChatOptimizeAdapter:
                     runtime,
                     resume=selected_resume,
                     approvals=self.approvals,
-                    operator_id="chat",
+                    approval_expires_at=self.approval_expires_at,
+                    operator_id=self.operator_id,
                     operator_context={"campaign_id": campaign_id},
+                    approval_reuse=self.approval_reuse,
                 )
             except Exception as error:
                 detail = redact_secret_text(str(error))
@@ -1003,11 +1014,22 @@ class ChatOptimizeAdapter:
         if prepared is None or prepared.plan is None or submission is None:
             return False
         required = {item.code for item in prepared.plan.approvals if item.required}
+        expiry_ok = True
+        if self.approval_expires_at is not None:
+            try:
+                expiry = datetime.fromisoformat(self.approval_expires_at.replace("Z", "+00:00"))
+                expiry_ok = (
+                    expiry.tzinfo is not None
+                    and expiry.astimezone(UTC) > datetime.now(UTC)
+                )
+            except ValueError:
+                expiry_ok = False
         return (
             plan_digest_value == prepared.plan_digest
             and approval == request.approval_id == submission.approval_id
             and bool(request.approval_id)
             and required.issubset(self.approvals)
+            and expiry_ok
         )
 
     def _submission_for_preview(self, preview: object) -> SpecSubmission:

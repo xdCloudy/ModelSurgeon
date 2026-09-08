@@ -35,6 +35,7 @@ from modelsurgeon.experiments.optimization_package import (
     ApprovalRequest,
     OptimizationPackageError,
     PlanDiff,
+    build_approval_audit_record,
     diff_plans,
     plan_digest,
     validate_approval,
@@ -656,6 +657,19 @@ def _approved_campaign_approval(
             "decision_id": decision.decision_id,
             "diff_id": request.diff_id,
         },
+        plan_id=request.plan_id,
+        plan_digest="sha256:" + request.plan_digest,
+        diff_id=request.diff_id,
+        scope=request.scope,
+        reuse=request.reuse,
+        audit_evidence=(
+            build_approval_audit_record(
+                request,
+                decision,
+                kind="decided",
+                detail="material replan approval decided for the exact visible diff",
+            ).to_record(),
+        ),
     )
 
 
@@ -694,7 +708,15 @@ def apply_replan(
     )
     if proposal.diff.after_campaign_id != child_id:
         raise ReplanningError("candidate run identity does not match the canonical replan ID")
-    approval = CampaignApproval.pending(candidate_spec.spec_digest)
+    approval = CampaignApproval(
+        ApprovalStatus.PENDING,
+        candidate_spec.spec_digest,
+        plan_id=request.plan_id,
+        plan_digest="sha256:" + request.plan_digest,
+        diff_id=request.diff_id,
+        scope=request.scope,
+        reuse=request.reuse,
+    )
     decision_id: str | None = None
     if approval_decision is not None:
         approval = _approved_campaign_approval(
