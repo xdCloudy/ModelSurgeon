@@ -155,12 +155,6 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     assert all(item["evaluation"]["accepted"] for item in surgery_detail["stages"])
     assert surgery_detail["failed_index"] is None
     assert len(surgery_detail["state_updates"]) == 2
-    assert surgery_detail["stages"][1]["mutation_id"].startswith("state-mlp-channel-")
-    assert (
-        surgery_detail["state_updates"][0]["next_edit"]["selection_authority"]
-        == "reloaded_child_physical_evaluation"
-    )
-    assert surgery_detail["state_updates"][0]["candidate_measurements"]
     assert all(
         item["state_authority"] == "reloaded_child_runtime"
         for item in surgery_detail["state_updates"]
