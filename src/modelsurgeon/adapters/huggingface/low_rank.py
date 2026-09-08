@@ -45,6 +45,10 @@ class LowRankReplacementReport:
     def flop_delta_per_token(self) -> int:
         return sum(item.flop_delta_per_token for item in self.replacements)
 
+    @property
+    def module_names(self) -> tuple[str, ...]:
+        return tuple(item.module_path for item in self.replacements)
+
 
 def replace_huggingface_linears_low_rank(
     model: Any,
@@ -122,6 +126,7 @@ def _factorized_linear(torch: Any, module: Any, rank: int, left: Any, right: Any
             self.rank = rank
             self.down = torch.nn.Linear(self.in_features, rank, bias=False)
             self.up = torch.nn.Linear(rank, self.out_features, bias=module.bias is not None)
+            self._modelsurgeon_low_rank = True
 
         def forward(self, values: Any) -> Any:
             return self.up(self.down(values))

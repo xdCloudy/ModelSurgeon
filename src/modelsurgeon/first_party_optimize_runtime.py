@@ -1,10 +1,11 @@
 """First-party execution boundary for the verified Hugging Face optimize cell.
 
 This module intentionally supports a bounded, real path first: local or pinned
-Hugging Face causal LMs exposing adapter-defined gated-MLP, attention, or layer
-layouts. It uses the existing proof runtime for measurement and the existing
-physical surgery and reload contracts for publication. Other formats and
-operations return an explicit unsupported outcome instead of placeholder data.
+Hugging Face causal LMs exposing adapter-defined gated-MLP, attention, layer, or
+Linear projection layouts. It uses the existing proof runtime for measurement
+and the existing physical surgery and reload contracts for publication. Other
+formats and operations return an explicit unsupported outcome instead of
+placeholder data.
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ from modelsurgeon.experiments.candidates import (
     enumerate_mutation_candidates,
 )
 from modelsurgeon.experiments.hardware import HardwareInventory, collect_hardware_inventory
+from modelsurgeon.experiments.identity import derive_candidate_identity
 from modelsurgeon.experiments.optimization_evidence import (
     OptimizationEvidenceOutcome,
     OptimizationEvidenceRecord,
@@ -74,11 +76,16 @@ from modelsurgeon.optimization_orchestrator import (
     StageResult,
     WorkflowOutcome,
 )
-from modelsurgeon.surgery.contracts import TransactionState
+from modelsurgeon.surgery.contracts import MutationKind, MutationRequest, TransactionState
 from modelsurgeon.surgery.distillation_repair import (
     DistillationRepairConfig,
     TokenizerSignature,
     run_distillation_repair,
+)
+from modelsurgeon.surgery.huggingface_low_rank import (
+    HuggingFaceLowRankError,
+    load_huggingface_low_rank,
+    publish_huggingface_low_rank,
 )
 from modelsurgeon.surgery.huggingface_quantization import (
     HuggingFaceQuantizationError,
@@ -335,6 +342,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "head": CandidateScope.ATTENTION_HEAD,
             "transformer_layer": CandidateScope.TRANSFORMER_LAYER,
             "layer": CandidateScope.TRANSFORMER_LAYER,
+            "low_rank": CandidateScope.LOW_RANK,
         }
         try:
             scopes = tuple(by_name[str(item)] for item in raw_scopes)
@@ -348,12 +356,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             CandidateScope.MLP_CHANNEL,
             CandidateScope.ATTENTION_HEAD,
             CandidateScope.TRANSFORMER_LAYER,
+            CandidateScope.LOW_RANK,
         }
         if unsupported:
             raise FirstPartyOptimizeRuntimeError(
                 "configured candidate scope is not supported by the HF runtime"
             )
         return scopes
+
+    def _low_rank_rank(self) -> int:
+        raw_search = _mapping(
+            _mapping(self.plan.resolved_config, "resolved configuration").get("search", {}),
+            "search",
+        )
+        rank = _integer(raw_search.get("low_rank_rank"), 4, "search.low_rank_rank")
+        if rank <= 0:
+            raise FirstPartyOptimizeRuntimeError("search.low_rank_rank must be positive")
+        return rank
 
     def _meta_rank(self, candidates: tuple[MutationCandidate, ...]) -> tuple[str, ...]:
         from modelsurgeon.surgeon.matrix import transform_inference_record
@@ -1587,21 +1606,64 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             complete=True,
         )
 
-    def _enumerate(self) -> tuple[MutationCandidate, ...]:
-        proof = self._ensure_loaded()
-        report = enumerate_mutation_candidates(
-            proof.component_graph,
-            proof.run_id,
-            CandidateEnumeratorConfig(
-                seed=_integer(
-                    _config_value(self.plan, "calibration", "seed"), 0, "calibration.seed"
+    def _enumerate_for_proof(
+        self, proof: HuggingFaceMLPProofRuntime
+    ) -> tuple[MutationCandidate, ...]:
+        seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
+        maximum = max(1, self.plan.budget.evaluations)
+        scopes = self._candidate_scopes()
+        candidates: list[MutationCandidate] = []
+        base_scopes = tuple(scope for scope in scopes if scope is not CandidateScope.LOW_RANK)
+        if base_scopes:
+            report = enumerate_mutation_candidates(
+                proof.component_graph,
+                proof.run_id,
+                CandidateEnumeratorConfig(
+                    seed=seed,
+                    filters=CandidateFilter(scopes=base_scopes),
+                    max_candidates=maximum,
                 ),
-                filters=CandidateFilter(scopes=self._candidate_scopes()),
-                max_candidates=max(1, self.plan.budget.evaluations),
-            ),
-        )
-        self.candidates = report.candidates
+            )
+            candidates.extend(report.candidates)
+        if CandidateScope.LOW_RANK in scopes:
+            report = enumerate_mutation_candidates(
+                proof.component_graph,
+                proof.run_id,
+                CandidateEnumeratorConfig(
+                    seed=seed,
+                    filters=CandidateFilter(
+                        scopes=(CandidateScope.COMPONENT,), include_kinds=("projection",)
+                    ),
+                    max_candidates=maximum,
+                ),
+            )
+            rank = self._low_rank_rank()
+            for candidate in report.candidates:
+                request = MutationRequest(
+                    MutationKind.LOW_RANK,
+                    (candidate.component_id,),
+                    (
+                        ("module_path", str(candidate.component_id)),
+                        ("rank", rank),
+                    ),
+                )
+                candidates.append(
+                    MutationCandidate(
+                        derive_candidate_identity(proof.run_id, request.mutation_id).candidate_id,
+                        CandidateScope.LOW_RANK,
+                        candidate.component_id,
+                        candidate.node_kind,
+                        candidate.layer_index,
+                        request,
+                        candidate.affected_components,
+                        candidate.constraint_ids,
+                    )
+                )
+        self.candidates = tuple(sorted(candidates, key=lambda item: item.candidate_id))
         return self.candidates
+
+    def _enumerate(self) -> tuple[MutationCandidate, ...]:
+        return self._enumerate_for_proof(self._ensure_loaded())
 
     @staticmethod
     def _channel(candidate: MutationCandidate) -> int:
@@ -1618,6 +1680,20 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 f"candidate has no valid {name} parameter"
             )
+        return value
+
+    @staticmethod
+    def _low_rank_module(candidate: MutationCandidate) -> str:
+        value = dict(candidate.request.parameters).get("module_path")
+        if not isinstance(value, str) or not value.startswith("model."):
+            raise FirstPartyOptimizeRuntimeError("low-rank candidate has no valid module path")
+        return value
+
+    @staticmethod
+    def _low_rank_candidate_rank(candidate: MutationCandidate) -> int:
+        value = dict(candidate.request.parameters).get("rank")
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise FirstPartyOptimizeRuntimeError("low-rank candidate has no valid rank")
         return value
 
     def _operation_key(
@@ -1645,6 +1721,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return scope.value, tuple(
                 range(group * group_size, (group + 1) * group_size)
             )
+        if scope is CandidateScope.LOW_RANK:
+            return scope.value, (
+                int.from_bytes(
+                    hashlib.sha256(self._low_rank_module(candidate).encode()).digest()[:8],
+                    "big",
+                ),
+                self._low_rank_candidate_rank(candidate),
+            )
         raise FirstPartyOptimizeRuntimeError(f"unsupported candidate scope: {scope.value}")
 
     def _apply_candidate(self, model: Any, candidate: MutationCandidate) -> object:
@@ -1657,6 +1741,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return remove_huggingface_transformer_layers(
                 model, (self._parameter(candidate, "layer_index"),)
             )
+        if candidate.scope is CandidateScope.LOW_RANK:
+            from modelsurgeon.adapters.huggingface.low_rank import (
+                replace_huggingface_linears_low_rank,
+            )
+
+            return replace_huggingface_linears_low_rank(
+                model,
+                ((self._low_rank_module(candidate), self._low_rank_candidate_rank(candidate)),),
+            )
         raise FirstPartyOptimizeRuntimeError(
             f"unsupported candidate scope: {candidate.scope.value}"
         )
@@ -1664,11 +1757,17 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def _structural_feature_partition(
         self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
     ) -> FeaturePartition:
-        layer = self._parameter(candidate, "layer_index")
+        layer = candidate.layer_index
+        if layer is None:
+            raise FirstPartyOptimizeRuntimeError("structural candidate has no layer index")
+        if candidate.scope is not CandidateScope.LOW_RANK:
+            layer = self._parameter(candidate, "layer_index")
         if candidate.scope is CandidateScope.ATTENTION_HEAD:
             module_path = f"model.layers.{layer}.self_attn"
         elif candidate.scope is CandidateScope.TRANSFORMER_LAYER:
             module_path = f"model.layers.{layer}"
+        elif candidate.scope is CandidateScope.LOW_RANK:
+            module_path = self._low_rank_module(candidate)
         else:
             raise FirstPartyOptimizeRuntimeError("structural features require a non-MLP candidate")
         module = dict(proof.model.named_modules()).get(module_path)
@@ -1708,6 +1807,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 ("parameter_count", parameter_count),
                 ("weight_l1_norm", l1_norm),
                 ("layer_index", layer),
+                *(
+                    (("rank", self._low_rank_candidate_rank(candidate)),)
+                    if candidate.scope is CandidateScope.LOW_RANK
+                    else ()
+                ),
             )
         )
         key = FeaturePartitionKey(
@@ -2090,8 +2194,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 f"refusing to overwrite candidate artifact: {destination}"
             )
         self._preflight_resources(model, destination.parent, phase="artifact_write")
-        destination.mkdir(parents=True)
-        model.save_pretrained(destination, safe_serialization=True)
+        low_rank_modules = tuple(
+            sorted(
+                name
+                for name, module in model.named_modules()
+                if getattr(module, "_modelsurgeon_low_rank", False)
+            )
+        )
+        files: tuple[Path, ...]
+        if low_rank_modules:
+            try:
+                files = (publish_huggingface_low_rank(model, destination)[0],)
+            except HuggingFaceLowRankError as error:
+                raise FirstPartyOptimizeRuntimeError(str(error)) from error
+        else:
+            destination.mkdir(parents=True)
+            model.save_pretrained(destination, safe_serialization=True)
+            files = tuple(destination.glob("*.safetensors"))
         tokenizer = self._ensure_loaded()._tokenizer
         save_tokenizer = getattr(tokenizer, "save_pretrained", None)
         if not callable(save_tokenizer):
@@ -2099,7 +2218,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "Hugging Face publication requires a reloadable tokenizer"
             )
         save_tokenizer(destination)
-        files = sorted(destination.glob("*.safetensors"))
+        files = tuple(sorted(files))
         if len(files) != 1:
             raise FirstPartyOptimizeRuntimeError(
                 "Hugging Face publication must produce exactly one safetensors weight file"
@@ -2117,6 +2236,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         return files[0]
 
     def _reload(self, artifact: Path) -> Any:
+        low_rank_manifest = artifact.parent / "modelsurgeon-low-rank.json"
         quantization_manifest = artifact.parent / "modelsurgeon-quantization.json"
         if quantization_manifest.is_file():
             trust_remote_code = _config_value(
@@ -2131,6 +2251,18 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     artifact.parent, trust_remote_code=trust_remote_code
                 )
             except HuggingFaceQuantizationError as error:
+                raise FirstPartyOptimizeRuntimeError(str(error)) from error
+        if low_rank_manifest.is_file():
+            trust_remote_code = _config_value(self.plan, "safety", "trust_remote_code")
+            if not isinstance(trust_remote_code, bool):
+                raise FirstPartyOptimizeRuntimeError(
+                    "safety.trust_remote_code must be boolean"
+                )
+            try:
+                return load_huggingface_low_rank(
+                    artifact.parent, trust_remote_code=trust_remote_code
+                )
+            except HuggingFaceLowRankError as error:
                 raise FirstPartyOptimizeRuntimeError(str(error)) from error
         result = load_causal_lm(
             HuggingFaceLoadRequest(
@@ -2451,21 +2583,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 str(artifact),
                 local_files_only=True,
             )
-            report = enumerate_mutation_candidates(
-                child_proof.component_graph,
-                child_proof.run_id,
-                CandidateEnumeratorConfig(
-                    seed=_integer(
-                        _config_value(self.plan, "calibration", "seed"),
-                        0,
-                        "calibration.seed",
-                    ),
-                    filters=CandidateFilter(scopes=self._candidate_scopes()),
-                    max_candidates=max(1, self.plan.budget.evaluations),
-                ),
-            )
+            child_candidates = self._enumerate_for_proof(child_proof)
             state_candidates: list[dict[str, object]] = []
-            for candidate in report.candidates:
+            for candidate in child_candidates:
                 self._prepare_candidate_features(child_proof, candidate)
                 state_candidates.append(
                     {
@@ -2515,26 +2635,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             str(artifact),
             local_files_only=True,
         )
-        report = enumerate_mutation_candidates(
-            child_proof.component_graph,
-            child_proof.run_id,
-            CandidateEnumeratorConfig(
-                seed=_integer(
-                    _config_value(self.plan, "calibration", "seed"),
-                    0,
-                    "calibration.seed",
-                ),
-                filters=CandidateFilter(scopes=self._candidate_scopes()),
-                max_candidates=max(1, self.plan.budget.evaluations),
-            ),
-        )
+        child_candidates = self._enumerate_for_proof(child_proof)
         allowed = self.plan.quality_profile.max_perplexity_delta
         allowed = 0.05 if allowed is None else allowed
         measurements: list[
             tuple[float, float, str, MutationCandidate, Mapping[str, object]]
         ] = []
         failed_measurements: list[dict[str, object]] = []
-        for candidate in report.candidates:
+        for candidate in child_candidates:
             try:
                 measured = self._measure_candidate(child_proof, candidate)
             except Exception as error:
