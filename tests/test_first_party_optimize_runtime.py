@@ -282,6 +282,13 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
         == "accepted"
         for item in surgery_detail["evidence_observations"]
     )
+    first_observation = json.loads(
+        Path(surgery_detail["evidence_observations"][0]["path"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert first_observation["run_id"] == paused.run_id
+    assert first_observation["versions"]["proof_run_id"].startswith("run_")
     assert len(surgery_detail["state_updates"]) == 2
     assert surgery_detail["stages"][1]["mutation_id"].startswith("state-mlp-channel-")
     assert (

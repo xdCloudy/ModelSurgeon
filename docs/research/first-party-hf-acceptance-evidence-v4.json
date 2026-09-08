@@ -5,8 +5,8 @@
   "base_git_revision": "237e758",
   "campaign": {
     "tool": "tools/run_first_party_hf_acceptance.py",
-    "record_path": "work/acceptance-mixed-attention-2026-09-08.json",
-    "record_sha256": "sha256:5a44629a7e0766f54522abaa2036bc2801942a3f27b878fa42a4a654dad5d5a4",
+    "record_path": "work/acceptance-mixed-attention-v2-2026-09-08.json",
+    "record_sha256": "sha256:77a581f8019eb0522fb309d64698d76488edf66ac5091eb89bb383d611f4ec5e",
     "quality_profile": "quality",
     "preset": "balanced",
     "evaluations": 1,
@@ -16,20 +16,22 @@
       {
         "identifier": "Qwen/Qwen2.5-0.5B",
         "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
-        "run_id": "optimize_run_0573ab7108581edb29824a588afa1242cc84e70a70cee43fa8e7409386fac24c",
+        "run_id": "optimize_run_a3b5c161aed082cef18be2c1e7d3e1275df0d8e71d8b8770da69f30d8486b225",
         "outcome": "unsupported",
-        "observation_id": "obs_0be983860fbdcba84705f027d3f209cf9d9e8d618e8b970a475980698b920f24",
-        "observation_sha256": "sha256:5d2274aa0958f8cc54269ca76a4f1433b24300ac81d71f59ce949e35d75ea921",
+        "observation_id": "obs_e4cae40d3105d25ee4c40fd29ce8b1caa7ae93966797ee5e5766337486ebcb6a",
+        "observation_sha256": "sha256:e03cd761664b24a1cbd399bd1add5cc307ac4a36edb3272bcabacc4a5a298378",
+        "proof_run_id": "run_b4e11f0491100e597a3e68e7124502feec446fa14f27217a89ac4453470f061e",
         "reason": "no measured candidate met max perplexity delta 0.02",
         "result": "fail_closed_without_promoted_artifact"
       },
       {
         "identifier": "HuggingFaceTB/SmolLM2-135M",
         "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
-        "run_id": "optimize_run_646d1155fe9304e1285a65f39db33c36fe9fcc92409f1b9fdf7c03ca83f7b409",
+        "run_id": "optimize_run_f62ebfab5c0497773964621e9929c47ae97d42b36aac28fafdf604cf72c593cc",
         "outcome": "unsupported",
-        "observation_id": "obs_dcdbe4e5fb39436dda196e8c7534940f9e1ce8f4793190eda8bec75de460b38",
-        "observation_sha256": "sha256:f728a6e1f5266cd16efca5d73b10d0b2291ca0e3ff8d8dd5a9088d0ccb75a9bb",
+        "observation_id": "obs_007957d65a665e5f934521998345d20df056abffc40669fffe4891297dac3b14",
+        "observation_sha256": "sha256:518c0c6f133da1489241412ed860183f4aab1e9864917bd94e1b1b0135a56b5f",
+        "proof_run_id": "run_8a839f38097202e8ef9976316b3aedafc74f979ce87dfecd48acafbd46b1bd67",
         "reason": "no measured candidate met max perplexity delta 0.02",
         "result": "fail_closed_without_promoted_artifact"
       }
