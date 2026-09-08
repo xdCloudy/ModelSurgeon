@@ -1076,6 +1076,39 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             value = hashlib.sha256(digest.encode()).hexdigest()
         return "checkpoint_" + value
 
+    def _artifact_lineage(
+        self,
+        *,
+        stage: OptimizeStage,
+        method: str,
+        status: str,
+        parent_artifact: Path,
+        parent_digest: str,
+        child_artifact: Path | None = None,
+        child_digest: str | None = None,
+    ) -> Mapping[str, object]:
+        def artifact_record(path: Path, digest: str) -> dict[str, object]:
+            return {
+                "path": str(path.parent),
+                "digest": digest,
+                "manifest": _tree_entries(path.parent),
+            }
+
+        return {
+            "schema_version": 1,
+            "authority": "physical_reloaded_artifact",
+            "stage": stage.value,
+            "method": method,
+            "status": status,
+            "source_artifact_digest": self.source_digest,
+            "parent": artifact_record(parent_artifact, parent_digest),
+            "child": (
+                None
+                if child_artifact is None or child_digest is None
+                else artifact_record(child_artifact, child_digest)
+            ),
+        }
+
     def _repair(self, context: StageContext) -> StageResult:
         settings = self._repair_settings()
         method = settings.get("method", "none")
@@ -1113,6 +1146,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 OptimizeStage.REPAIR,
                 f"{method} repair requires a published reloaded physical artifact",
             )
+        parent_artifact = self.artifact
+        parent_artifact_digest = self.artifact_digest
 
         proof = self._ensure_loaded()
         artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
@@ -1243,6 +1278,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 artifact_digest=self.artifact_digest,
                 candidate=self.selected,
                 transaction_state=TransactionState.COMMITTED,
+                lineage=self._artifact_lineage(
+                    stage=OptimizeStage.REPAIR,
+                    method=method,
+                    status="rejected",
+                    parent_artifact=parent_artifact,
+                    parent_digest=parent_artifact_digest,
+                ),
             )
 
         destination = repair_root / "candidate"
@@ -1293,6 +1335,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 artifact_digest=self.artifact_digest,
                 candidate=self.selected,
                 transaction_state=TransactionState.COMMITTED,
+                lineage=self._artifact_lineage(
+                    stage=OptimizeStage.REPAIR,
+                    method=method,
+                    status="rejected",
+                    parent_artifact=parent_artifact,
+                    parent_digest=parent_artifact_digest,
+                    child_artifact=repaired_artifact,
+                    child_digest=str(detail["rejected_artifact_digest"]),
+                ),
             )
 
         self.artifact = repaired_artifact
@@ -1331,6 +1382,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             artifact_digest=self.artifact_digest,
             candidate=self.selected,
             transaction_state=TransactionState.COMMITTED,
+            lineage=self._artifact_lineage(
+                stage=OptimizeStage.REPAIR,
+                method=method,
+                status="accepted",
+                parent_artifact=parent_artifact,
+                parent_digest=parent_artifact_digest,
+                child_artifact=repaired_artifact,
+                child_digest=self.artifact_digest,
+            ),
         )
 
     def _quantization(self, context: StageContext) -> StageResult:
@@ -1365,6 +1425,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 OptimizeStage.QUANTIZATION,
                 "dynamic-int8 quantization requires a published reloaded physical artifact",
             )
+        parent_artifact = self.artifact
+        parent_artifact_digest = self.artifact_digest
 
         proof = self._ensure_loaded()
         artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
@@ -1441,6 +1503,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 artifact_digest=self.artifact_digest,
                 candidate=self.selected,
                 transaction_state=TransactionState.COMMITTED,
+                lineage=self._artifact_lineage(
+                    stage=OptimizeStage.QUANTIZATION,
+                    method=method,
+                    status="rejected",
+                    parent_artifact=parent_artifact,
+                    parent_digest=parent_artifact_digest,
+                ),
             )
 
         destination = quantization_root / "candidate"
@@ -1507,6 +1576,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 artifact_digest=self.artifact_digest,
                 candidate=self.selected,
                 transaction_state=TransactionState.COMMITTED,
+                lineage=self._artifact_lineage(
+                    stage=OptimizeStage.QUANTIZATION,
+                    method=method,
+                    status="rejected",
+                    parent_artifact=parent_artifact,
+                    parent_digest=parent_artifact_digest,
+                    child_artifact=quantized_artifact,
+                    child_digest=str(detail["rejected_artifact_digest"]),
+                ),
             )
 
         self.artifact = quantized_artifact
@@ -1546,6 +1624,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             artifact_digest=self.artifact_digest,
             candidate=self.selected,
             transaction_state=TransactionState.COMMITTED,
+            lineage=self._artifact_lineage(
+                stage=OptimizeStage.QUANTIZATION,
+                method=method,
+                status="accepted",
+                parent_artifact=parent_artifact,
+                parent_digest=parent_artifact_digest,
+                child_artifact=quantized_artifact,
+                child_digest=self.artifact_digest,
+            ),
         )
 
     def _result(

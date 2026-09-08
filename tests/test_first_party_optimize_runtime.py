@@ -348,6 +348,9 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
     assert detail["repair"]["resource_use"]["wall_seconds"] >= 0
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
+    assert repair.lineage["authority"] == "physical_reloaded_artifact"
+    assert repair.lineage["parent"]["digest"] == surgery.artifact_digest
+    assert repair.lineage["parent"]["manifest"]
 
 
 def test_first_party_runtime_executes_real_distillation_repair_when_requested(
@@ -431,7 +434,11 @@ def test_first_party_runtime_executes_real_dynamic_int8_quantization_when_reques
     assert detail["quantization"]["module_count"] > 0
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["quantized_measurement"]["perplexity"] > 0
+    assert quantization.lineage["authority"] == "physical_reloaded_artifact"
+    assert quantization.lineage["parent"]["manifest"]
     if detail["status"] == "accepted":
+        assert quantization.lineage["child"]["digest"] == quantization.artifact_digest
+        assert quantization.lineage["child"]["manifest"]
         assert detail["reloaded_measurement"]["perplexity"] > 0
         assert Path(detail["artifact"]).is_file()
         assert Path(detail["artifact"]).name == "model.safetensors"

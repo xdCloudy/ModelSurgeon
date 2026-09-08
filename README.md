@@ -438,7 +438,9 @@ physical accept/reject decision. The default `repair.method: none` keeps
 no-repair as an explicit control. To request rank-bounded projection surgery,
 set `search.scopes` to `low_rank` and choose `search.low_rank_rank`; the
 published child carries `modelsurgeon-low-rank.json` and is reloaded through
-that manifest before it can be accepted.
+that manifest before it can be accepted. Repair and dynamic-int8 quantization
+stage records also retain structured parent/child artifact lineage, including
+manifest digests for accepted and rejected published children.
 
 Repeat with `--resume` after an interruption. The verified Hugging Face path
 rehydrates its selected candidate, published cumulative child, and deployment
