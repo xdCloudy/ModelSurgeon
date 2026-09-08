@@ -176,7 +176,7 @@ The hardening work must cover prompt injection, instruction smuggling, malicious
 4. **v2.4–v2.5:** add necessary clarification, measured infeasibility and explicit amendments.
 5. **v2.6:** formalize typed tools, budgets, transactions and result grounding.
 6. **v2.7–v2.8:** add canonical state, recovery and evidence-grounded explanations.
-7. **v2.9:** harden approvals, isolation and fail-closed policy precedence.
+7. **v2.9 (closed by #485):** harden approvals, isolation and fail-closed policy precedence; retain the bounded residual-risk posture in the [v2.9 release boundary](../release/v2.9-conversational-security-boundary.md).
 8. **v3.0:** integrate a local-first conversational product while preserving CLI/Python automation.
 
 v3.1+ returns the primary research emphasis to scaling and improving the learned Meta-Surgeon. Any future integration must preserve this separation unless measured evidence justifies a change.

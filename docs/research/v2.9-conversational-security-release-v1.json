@@ -1,0 +1,203 @@
+{
+  "record_type": "conversational_security_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v2.9-conversational-security-release-v1",
+  "milestone": "v2.9",
+  "issue": 485,
+  "status": "closed_bounded_gate",
+  "dependency_evidence": [
+    {
+      "issue": 481,
+      "key": "v29-scoped-approvals",
+      "status": "merged",
+      "commit": "708d3a884f721a4d9951566e9c524f30a45686b7",
+      "artifacts": [
+        "src/modelsurgeon/experiments/optimization_package.py",
+        "src/modelsurgeon/conversation/replanning.py",
+        "docs/design/scoped-approvals.md"
+      ],
+      "tests": ["tests/test_scoped_approvals.py", "tests/test_replanning.py"]
+    },
+    {
+      "issue": 482,
+      "key": "v29-adversarial-resistance",
+      "status": "merged",
+      "commit": "0af28a2f5f9a3095575ace7741fe257e3854dc92",
+      "artifacts": [
+        "tests/fixtures/adversarial_resistance_v1.json",
+        "tools/audit_adversarial_resistance.py",
+        "docs/testing/adversarial-resistance.md"
+      ],
+      "tests": [
+        "tests/test_adversarial_resistance.py",
+        "tests/test_conversational_adversarial_corpus.py"
+      ]
+    },
+    {
+      "issue": 483,
+      "key": "v29-provider-tool-isolation",
+      "status": "merged",
+      "commit": "f8d29139430a56e65dfbed03e7bd43023294c4a9",
+      "artifacts": [
+        "src/modelsurgeon/conversation/isolation.py",
+        "docs/design/provider-tool-isolation.md"
+      ],
+      "tests": [
+        "tests/test_provider_interface.py",
+        "tests/test_conversational_tools.py",
+        "tests/test_conversational_dispatcher.py"
+      ]
+    },
+    {
+      "issue": 484,
+      "key": "v29-policy-precedence",
+      "status": "merged",
+      "commit": "5c54f08cdbae4906e2d089c89b907dd54852ccf2",
+      "artifacts": [
+        "src/modelsurgeon/policy.py",
+        "docs/design/policy-precedence.md",
+        "tests/test_policy_precedence.py"
+      ],
+      "tests": ["tests/test_policy_precedence.py", "tests/test_conversational_dispatcher.py"]
+    }
+  ],
+  "approval_contract": {
+    "scope": "exact operation and capability scope",
+    "plan_binding": "canonical plan ID and digest",
+    "material_diff_binding": "content-addressed material diff ID and changed paths",
+    "expiry": "expired approvals fail closed",
+    "reuse": "one_time or reusable with bounded consumption",
+    "actor_binding": "operator identity and context",
+    "secret_policy": "redacted immutable audit evidence"
+  },
+  "policy_contract": {
+    "trusted_precedence": [
+      "hard_constraints",
+      "validated_spec",
+      "approval_policy",
+      "tool_capability",
+      "evidence_status"
+    ],
+    "unknown": "non_executable_fail_closed",
+    "contradictory": "non_executable_fail_closed",
+    "missing_approval": "non_executable_fail_closed",
+    "isolation_failure": "non_executable_fail_closed",
+    "prompt_or_provider_authority": "never_authoritative"
+  },
+  "isolation_contract": {
+    "trusted_zone": "trusted_engine",
+    "untrusted_zones": ["untrusted_provider", "untrusted_tool"],
+    "secret_values_in_canonical_records": false,
+    "hostile_process_containment": "not_claimed"
+  },
+  "adversarial_evidence": {
+    "fixture": "tests/fixtures/adversarial_resistance_v1.json",
+    "revision": "v2.9-adversarial-resistance-v1",
+    "case_count": 18,
+    "variant_count": 69,
+    "audit": "tools/audit_adversarial_resistance.py",
+    "unresolved_cases_retained": true,
+    "hostile_process_containment": "not_claimed"
+  },
+  "test_suites": {
+    "approval": [
+      "tests/test_scoped_approvals.py",
+      "tests/test_replanning.py",
+      "tests/test_objective_amendments.py",
+      "tests/test_optimization_orchestrator.py"
+    ],
+    "adversarial": [
+      "tests/test_adversarial_resistance.py",
+      "tests/test_conversational_adversarial_corpus.py",
+      "tests/test_policy_precedence.py"
+    ],
+    "isolation": [
+      "tests/test_provider_interface.py",
+      "tests/test_conversational_tools.py",
+      "tests/test_conversational_dispatcher.py",
+      "tests/test_endpoint_adapters.py",
+      "tests/test_provider_conformance.py"
+    ],
+    "replay": [
+      "tests/test_replay_environment.py",
+      "tests/test_campaign_recovery.py",
+      "tests/test_v27_campaign_recovery.py",
+      "tests/test_reproduce_cli.py",
+      "tests/test_search_resume.py"
+    ],
+    "direct_api": [
+      "tests/test_public_api_contract.py",
+      "tests/test_optimization.py",
+      "tests/test_optimization_package.py",
+      "tests/test_evidence_query.py",
+      "tests/test_claim_evidence.py"
+    ]
+  },
+  "clean_environment_evidence": {
+    "status": "passed",
+    "runtime": "CPython 3.12.13 with uv and uv.lock",
+    "locked_dependencies": true,
+    "base_revision": "5c54f08cdbae4906e2d089c89b907dd54852ccf2",
+    "commands": [
+      "uv sync --locked --extra dev",
+      "uv run --locked --extra dev python tools/audit_v29_conversational_security_release.py",
+      "uv run --locked --extra dev pytest -q"
+    ],
+    "network_or_credentials": "not required",
+    "reproducibility_claim": "bounded local fixture and contract replay only"
+  },
+  "residual_risk_and_limits": {
+    "supported": [
+      "typed scoped approvals and exact material plan-diff binding",
+      "deterministic adversarial fixture replay with retained negative observations",
+      "in-process provider/tool capability isolation and secret redaction",
+      "centralized fail-closed policy precedence",
+      "direct CLI/Python APIs remain authoritative and provider-independent"
+    ],
+    "unsupported": [
+      "hostile third-party code or operating-system process containment",
+      "live hosted-provider quality, credential handling, and endpoint behavior",
+      "general prompt-injection resistance for future encodings or Unicode confusables",
+      "distributed or multi-writer campaign recovery",
+      "unmeasured model quality, optimizer optimality, or universal model-family support"
+    ],
+    "residual_risks": [
+      "In-process handlers can access ambient process resources despite typed capability limits.",
+      "The fixed corpus cannot establish resistance to every future model/provider behavior.",
+      "Clean local replay does not establish production deployment or live-service security.",
+      "Credential values must still be kept out of prompts, fixtures, evidence, and chat history by operators."
+    ],
+    "known_skips": [
+      "No live hosted provider, credentialed endpoint, shell, subprocess, or hostile-process run was performed.",
+      "No model-quality benchmark or representative-family optimization run is part of this gate."
+    ],
+    "overclaim_policy": "do_not_promote_unmeasured_or_uncontained_behavior"
+  },
+  "documentation": [
+    "ROADMAP.md",
+    "docs/goal.md",
+    "ARCHITECTURE.md",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/design/scoped-approvals.md",
+    "docs/design/provider-tool-isolation.md",
+    "docs/design/policy-precedence.md",
+    "docs/testing/adversarial-resistance.md",
+    "docs/release/v2.9-conversational-security-boundary.md"
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "revision": "issue-485-security-gate",
+    "commands": [
+      "git diff --check",
+      "uv run --locked --extra dev ruff check src tests",
+      "uv run --locked --extra dev mypy src/modelsurgeon",
+      "uv run --locked --extra dev pytest -q",
+      "uv run --locked --extra dev python tools/audit_adversarial_resistance.py",
+      "uv run --locked --extra dev python tools/audit_v29_conversational_security_release.py"
+    ],
+    "known_skips_preserved": true
+  }
+}
