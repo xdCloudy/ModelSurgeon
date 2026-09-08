@@ -59,6 +59,7 @@ from modelsurgeon.surgery.contracts import TransactionState
 from modelsurgeon.surgery.huggingface_sequence import (
     HuggingFaceCumulativeRun,
     HuggingFaceEdit,
+    HuggingFaceStageEvidence,
     run_huggingface_cumulative_sequence,
 )
 
@@ -167,6 +168,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.meta_predictions: dict[str, float] = {}
         self.meta_order: tuple[str, ...] = ()
         self.search_comparison: Mapping[str, object] | None = None
+        self.state_updates: tuple[Mapping[str, object], ...] = ()
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -462,6 +464,40 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
         return path
 
+    def _new_proof_runtime(
+        self,
+        model: str,
+        revision: str,
+        *,
+        local_files_only: bool,
+    ) -> HuggingFaceMLPProofRuntime:
+        calibration_config = _mapping(
+            _mapping(self.plan.resolved_config, "resolved configuration").get("calibration"),
+            "calibration",
+        )
+        samples = _integer(calibration_config.get("samples"), 512, "calibration.samples")
+        sequence_length = _integer(
+            calibration_config.get("max_sequence_length"),
+            2048,
+            "calibration.max_sequence_length",
+        )
+        requested_tokens = max(sequence_length * samples, sequence_length * 2)
+        return HuggingFaceMLPProofRuntime(
+            HuggingFaceMLPProofConfig(
+                model=model,
+                calibration_text=self._calibration_text(),
+                revision=revision,
+                device_map="cpu" if self.plan.hardware_profile.device == "cpu" else "auto",
+                dtype=_hf_dtype(_config_value(self.plan, "model", "dtype")),
+                trust_remote_code=False,
+                local_files_only=local_files_only,
+                sequence_length=min(sequence_length, 2048),
+                max_tokens=requested_tokens,
+                safe_perplexity_delta=self.plan.quality_profile.max_perplexity_delta or 0.05,
+                seed=_integer(calibration_config.get("seed"), 0, "calibration.seed"),
+            )
+        )
+
     def _ensure_loaded(self) -> HuggingFaceMLPProofRuntime:
         if self.proof is not None:
             return self.proof
@@ -482,32 +518,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 "model.revision must be pinned before first-party execution"
             )
-        calibration = self._calibration_text()
-        calibration_config = _mapping(
-            _mapping(self.plan.resolved_config, "resolved configuration").get("calibration"),
-            "calibration",
-        )
-        samples = _integer(calibration_config.get("samples"), 512, "calibration.samples")
-        sequence_length = _integer(
-            calibration_config.get("max_sequence_length"),
-            2048,
-            "calibration.max_sequence_length",
-        )
-        requested_tokens = max(sequence_length * samples, sequence_length * 2)
-        self.proof = HuggingFaceMLPProofRuntime(
-            HuggingFaceMLPProofConfig(
-                model=model,
-                calibration_text=calibration,
-                revision=revision,
-                device_map="cpu" if self.plan.hardware_profile.device == "cpu" else "auto",
-                dtype=_hf_dtype(_config_value(self.plan, "model", "dtype")),
-                trust_remote_code=False,
-                local_files_only=source_path.exists(),
-                sequence_length=min(sequence_length, 2048),
-                max_tokens=requested_tokens,
-                safe_perplexity_delta=self.plan.quality_profile.max_perplexity_delta or 0.05,
-                seed=_integer(calibration_config.get("seed"), 0, "calibration.seed"),
-            )
+        self.proof = self._new_proof_runtime(
+            model,
+            revision,
+            local_files_only=source_path.exists(),
         )
         return self.proof
 
@@ -656,6 +670,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
         destination.mkdir(parents=True)
         model.save_pretrained(destination, safe_serialization=True)
+        tokenizer = self._ensure_loaded()._tokenizer
+        save_tokenizer = getattr(tokenizer, "save_pretrained", None)
+        if not callable(save_tokenizer):
+            raise FirstPartyOptimizeRuntimeError(
+                "Hugging Face publication requires a reloadable tokenizer"
+            )
+        save_tokenizer(destination)
         files = sorted(destination.glob("*.safetensors"))
         if len(files) != 1:
             raise FirstPartyOptimizeRuntimeError(
@@ -884,6 +905,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             evaluate=self._evaluate_reloaded_child,
         )
         self.surgery_sequence = sequence
+        self.state_updates = self._rediscover_child_states(sequence.stages)
         artifact = sequence.stages[-1].artifact
         reloaded = sequence.final_model
         self.artifact = artifact
@@ -899,6 +921,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "failed_index": sequence.failed_index,
                     "failure_reason": sequence.failure_reason,
                     "failed_evaluation": sequence.failed_evaluation,
+                    "state_updates": list(self.state_updates),
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
                     "artifact_manifest": _tree_entries(artifact.parent),
@@ -932,6 +955,65 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "accepted": delta <= allowed,
             "measurement_authority": "physical_reloaded_child",
         }
+
+    def _rediscover_child_states(
+        self, stages: tuple[HuggingFaceStageEvidence, ...]
+    ) -> tuple[Mapping[str, object], ...]:
+        updates: list[Mapping[str, object]] = []
+        for stage in stages:
+            artifact = Path(stage.artifact).parent.absolute().resolve(strict=True)
+            child_proof = self._new_proof_runtime(
+                str(artifact),
+                str(artifact),
+                local_files_only=True,
+            )
+            report = enumerate_mutation_candidates(
+                child_proof.component_graph,
+                child_proof.run_id,
+                CandidateEnumeratorConfig(
+                    seed=_integer(
+                        _config_value(self.plan, "calibration", "seed"),
+                        0,
+                        "calibration.seed",
+                    ),
+                    filters=CandidateFilter(scopes=(CandidateScope.MLP_CHANNEL,)),
+                    max_candidates=max(1, self.plan.budget.evaluations),
+                ),
+            )
+            state_candidates: list[dict[str, object]] = []
+            for candidate in report.candidates:
+                partitions = child_proof.pre_mutation_feature_partitions(candidate)
+                if len(partitions) != 1:
+                    raise FirstPartyOptimizeRuntimeError(
+                        "child-state feature extraction must produce one candidate partition"
+                    )
+                state_candidates.append(
+                    {
+                        "candidate_id": candidate.candidate_id,
+                        "component_id": str(candidate.component_id),
+                        "cache": self._publish_feature_partition(partitions[0]),
+                    }
+                )
+            shape = child_proof._discovery.shape
+            updates.append(
+                {
+                    "stage_index": stage.index,
+                    "artifact": str(artifact),
+                    "artifact_digest": stage.outcome.artifact.digest,
+                    "model_revision": str(artifact),
+                    "architecture": {
+                        "layers": shape.layers,
+                        "attention_heads": shape.attention_heads,
+                        "kv_heads": shape.kv_heads,
+                        "intermediate_size": shape.intermediate_size,
+                    },
+                    "baseline": child_proof.baseline_measurement(),
+                    "candidate_count": len(state_candidates),
+                    "candidates": state_candidates,
+                    "state_authority": "reloaded_child_runtime",
+                }
+            )
+        return tuple(updates)
 
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage

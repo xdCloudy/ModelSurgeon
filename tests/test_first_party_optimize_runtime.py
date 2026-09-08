@@ -111,7 +111,7 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     detail = json.loads(active_search.detail)
     assert detail["feature_evidence"]
     assert all(Path(item["cache"]["path"]).is_file() for item in detail["feature_evidence"])
-    assert len(list(Path(detail["feature_cache_root"]).glob("*.json"))) == len(
+    assert len(list(Path(detail["feature_cache_root"]).glob("*.json"))) >= len(
         detail["feature_evidence"]
     )
 
@@ -154,9 +154,16 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     assert len(surgery_detail["stages"]) == 2
     assert all(item["evaluation"]["accepted"] for item in surgery_detail["stages"])
     assert surgery_detail["failed_index"] is None
+    assert len(surgery_detail["state_updates"]) == 2
+    assert all(
+        item["state_authority"] == "reloaded_child_runtime"
+        for item in surgery_detail["state_updates"]
+    )
+    assert all(item["candidate_count"] > 0 for item in surgery_detail["state_updates"])
     assert {item["path"] for item in surgery_detail["artifact_manifest"]} >= {
         "config.json",
         "model.safetensors",
+        "tokenizer.json",
     }
 
     resumed = OptimizeOrchestrator(plan, state).run(
