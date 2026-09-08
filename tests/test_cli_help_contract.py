@@ -28,6 +28,7 @@ _PUBLIC_COMMANDS = (
     "explorer",
     "benchmark",
     "provider",
+    "setup",
 )
 
 

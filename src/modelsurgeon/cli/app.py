@@ -40,6 +40,7 @@ from modelsurgeon.cli.registry import registry_app
 from modelsurgeon.cli.report import report_command
 from modelsurgeon.cli.reproduce import reproduce_command
 from modelsurgeon.cli.search import search_command
+from modelsurgeon.cli.setup import setup_app
 from modelsurgeon.cli.surgeon import predict_surgeon_command, train_surgeon_command
 from modelsurgeon.logging import LogFormat, configure_logging
 
@@ -215,6 +216,7 @@ app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")
 app.add_typer(benchmark_app, name="benchmark")
 app.add_typer(provider_app, name="provider")
+app.add_typer(setup_app, name="setup")
 
 
 if __name__ == "__main__":  # pragma: no cover

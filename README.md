@@ -147,6 +147,23 @@ configuration without starting a model with
 [configuration contract](docs/design/configuration.md) for precedence,
 redaction, and supported/unavailable outcomes.
 
+For a local-first first run, use `modelsurgeon setup diagnostics` before
+creating files, then initialize a user-owned data root with an existing local
+fixture when working offline:
+
+```bash
+uv run modelsurgeon setup init \
+  --data-dir ./work/modelsurgeon-data \
+  --fixture tests/fixtures/tiny_hf_models_v1.json \
+  --offline --min-free-gb 1 --json
+```
+
+Setup keeps learned Meta-Surgeon assets in `Surgeon Tensors/`, an optional
+conversational model in `Text LLM/`, and user target models in `Models/`.
+It does not claim installer support, download weights, or replace the direct
+CLI/Python path. Read the [first-run setup contract](docs/design/first-run-setup.md)
+for missing-directory, permission, disk-budget, provider, and runtime outcomes.
+
 ## CLI workflows
 
 The public CLI exposes the stable orchestration boundary. Lower-level HF and GGUF surgery APIs remain library-level while their end-user contracts are stabilized for v1.0.
@@ -168,6 +185,7 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `optimize` | Plan or execute a bounded, resumable autonomous optimization workflow. |
 | `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
 | `report` | Render deterministic JSON or offline HTML evidence reports. |
+| `setup` | Check or initialize the local-first data layout without downloading models. |
 
 Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract. Generate shell-specific completion instructions with `modelsurgeon --show-completion`; use `--install-completion` only when you intend to modify the current user's shell configuration.
 
