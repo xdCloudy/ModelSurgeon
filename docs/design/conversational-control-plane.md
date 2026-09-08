@@ -4,10 +4,12 @@ Status: the v2.1 canonical intent-record boundary, bounded objective-contract
 compiler, policy evaluator, and equivalence/refusal corpus, the deterministic
 v2.4 clarification state machine, the v2.2
 replaceable provider boundary, the experimental v2.3 chat bootstrap, the
-v2.6 bounded conversational tool boundary, and the v2.7 canonical campaign
-state store are implemented and frozen in
+v2.6 bounded conversational tool boundary, the v2.7 canonical campaign state
+store, the v2.8 evidence-grounding boundary, the v2.9 security gate and the
+bounded v3.0 product journey are implemented and frozen in
 `modelsurgeon.conversation` and `modelsurgeon.search`. The conversational
-product remains experimental and incomplete. The [chat session bootstrap](chat-session-bootstrap.md),
+product is bounded and evidence-limited, not a general agent runtime or
+optimizer authority. The [chat session bootstrap](chat-session-bootstrap.md),
 the [v2.2 release boundary](../release/v2.2-provider-layer-boundary.md),
 the [v2.6 release boundary](../release/v2.6-bounded-conversational-tool-boundary.md),
 the [canonical campaign state design](conversational-campaign-state.md),
@@ -17,8 +19,9 @@ the [scoped approval boundary](scoped-approvals.md), the
 the [measurable target boundary](measurable-target-elicitation.md),
 the [frozen v2.1 contract](conversational-intent-contract.md)
 and [machine-readable release record](../research/v2.1-conversational-intent-contract-v1.json)
-are normative for versioning and replay. This document is not a claim that the
-full conversational product is currently implemented.
+are normative for versioning and replay. The integrated release boundary and
+state matrix are in [v3.0-conversational-product-boundary.md](../release/v3.0-conversational-product-boundary.md)
+and [v3.0-product-release-v1.json](../research/v3.0-product-release-v1.json).
 
 The v2.7 milestone closure is recorded in the [stateful campaign release
 boundary](../release/v2.7-stateful-campaigns-boundary.md) and

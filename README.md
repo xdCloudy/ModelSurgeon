@@ -23,18 +23,18 @@ It supports two complementary paths:
 - **Native GGUF** for bounded, copy-on-surgery edits to quantized models without materializing a full floating-point checkpoint.
 
 > [!WARNING]
-> ModelSurgeon is pre-alpha research software, not a production optimizer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
+> ModelSurgeon remains evidence-bounded research software, not a production optimizer. The v3.0 conversational release is a bounded local-first product journey; it does not claim optimizer quality, universal model support, hostile-process containment, or a GUI installer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
-The v2.1 conversational intent boundary, v2.2 replaceable-provider boundary,
-v2.6 bounded tool boundary, the closed v2.7 stateful campaign release, and the
-closed v2.8 evidence-grounding release are frozen around the existing `OptimizationSpec`
-contract. The tool boundary is control-plane infrastructure, not a general
-agent runtime, `modelsurgeon chat` product release, universal hosted-provider
-claim, or optimization evidence. ModelSurgeon retains authority over
-constraints, surgery, validation and artifact publication. The state store
-persists campaign linkage, spec/constraint identity, approvals, budgets,
-provider context, lifecycle and retained evidence without persisting chat
-transcripts. See the [v2.6
+The v2.1-v2.9 conversational contracts are integrated by the bounded v3.0
+product release around the existing `OptimizationSpec` contract. Conversation
+is the primary UX for the verified journey, but it is not a general agent
+runtime, universal hosted-provider claim, or optimization evidence. ModelSurgeon
+retains authority over constraints, surgery, validation and artifact
+publication. The state store persists campaign linkage, spec/constraint
+identity, approvals, budgets, provider context, lifecycle and retained
+evidence without persisting chat transcripts. See the [v3.0 product boundary](docs/release/v3.0-conversational-product-boundary.md),
+the [v3.0 packaging and setup guide](docs/release/v3.0-packaging-and-setup.md),
+and the [v2.6
 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md)
 and [canonical campaign state design](docs/design/conversational-campaign-state.md).
 The bounded [campaign recovery matrix](docs/design/campaign-recovery-matrix.md)
@@ -66,7 +66,7 @@ the no-LLM path remains available.
 
 ## Project status
 
-Current package version: **`1.0.0` (evidence-bounded research release)**. The v0.5–v0.9 research path and the v1.0 release boundary have reproducible repository evidence; production-wide support is not implied.
+Current package version: **`1.0.0` (evidence-bounded research release)**. The v3.0 conversational product boundary is a repository-verified, bounded release candidate layered on that package; it does not imply production-wide optimizer support.
 
 The v2.0 autonomous benchmark boundary is implemented as a preregistration
 and publication gate. It requires exact checkpoints, held-out splits, equal
@@ -89,7 +89,7 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
-| Conversational control plane | **v2.3 chat execution slice experimental** | `modelsurgeon chat` bootstraps a bounded local GGUF control-plane provider, validates typed objectives, and can submit confirmed specs through the stable optimize planner/orchestrator with typed progress, canonical campaign evidence, resumable interruption, and retained negative outcomes. Universal hosted support and live provider benchmarks remain outside this slice. |
+| Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. Text LLM/provider execution, representative model-family measurements, universal hosted support and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
 | Constraint negotiation and infeasibility | **v2.5 milestone closed** | The release boundary reconciles grounded non-destructive infeasibility, measured-only Pareto alternatives, v2.0-scoped user approval, immutable amendments, preserved direct-API objective history, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation is not supported. See the [v2.5 release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json). |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational security and approval gate | **v2.9 bounded pre-product gate closed by #485** | Scoped approvals bind exact plans and material diffs; centralized policy fails closed; provider/tool trust zones copy and redact untrusted data; 18-case/69-variant adversarial evidence retains negative and unresolved observations; clean local replay covers approval, adversarial, isolation, replay, and direct API suites. Hostile-process containment, live providers/credentials, universal injection resistance, distributed recovery, optimizer proof, and product readiness remain unclaimed. See the [v2.9 boundary](docs/release/v2.9-conversational-security-boundary.md) and [release record](docs/research/v2.9-conversational-security-release-v1.json). |
@@ -452,6 +452,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Security report
 - [Research evidence](docs/research/README.md) and [experiment guides](docs/experiments/README.md)
 - [Design records](docs/design/)
 - [Changelog](CHANGELOG.md) and [citation metadata](CITATION.cff)
+- [v3.0 product boundary](docs/release/v3.0-conversational-product-boundary.md), [packaging/setup guide](docs/release/v3.0-packaging-and-setup.md), and [release manifest](docs/research/v3.0-product-release-v1.json)
 
 ## License
 

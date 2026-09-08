@@ -29,4 +29,7 @@ optimizer optimality, or universal deployment/model-family support. Do not put
 credentials in prompts, fixtures, evidence bundles, diagnostics, or chat
 history. See the [v2.9 security boundary](docs/release/v2.9-conversational-security-boundary.md)
 and [residual-risk record](docs/research/v2.9-conversational-security-release-v1.json).
+The v3.0 product release preserves these limits and audits them through the
+[v3.0 release manifest](docs/research/v3.0-product-release-v1.json); it is not
+a general security certification.
 

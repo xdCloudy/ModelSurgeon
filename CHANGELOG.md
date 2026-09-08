@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+  - Prepared the bounded v3.0 conversational product release candidate for
+    issue #491. Integrated the v2.1-v2.9 P0 exit evidence, executable release
+    manifest/checklist, packaging and setup guidance, migration and direct API
+    guarantees, security/reproducibility limits, and explicit verified,
+    experimental, unsupported, unknown and deferred v3.1 states. The Text LLM,
+    OptimizationSpec, deterministic engine and learned Meta-Surgeon boundaries
+    remain separate; residual release-candidate limitations remain retained.
+
   - Closed the bounded v2.9 conversational security and approval gate:
     exact scoped approvals and material plan diffs, retained adversarial
     resistance evidence, provider/tool trust-zone limits, centralized
