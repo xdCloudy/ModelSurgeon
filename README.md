@@ -341,7 +341,9 @@ configuration, features, predictions, measurements, outcome, and parent/child
 lineage. Accepted, rejected, rolled-back, and failed observations remain
 available under the run's `optimization-evidence` directory for later
 leakage-audited learning; these records do not promote predictions to
-measurements.
+measurements. Profile and deployment stages retain live hardware inventory,
+and unconnected repair/quantization stages retain explicit `unsupported`
+records rather than being presented as successful operations.
 
 Repeat with `--resume` after an interruption. The verified Hugging Face path
 rehydrates its selected candidate, published cumulative child, and deployment
