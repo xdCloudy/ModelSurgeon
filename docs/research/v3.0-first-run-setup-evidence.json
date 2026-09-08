@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "issue": 486,
+  "purpose": "Windows/local/offline first-run setup regression evidence",
+  "source_revision": "631964c8c2946d60f6c7f8f49a5810dbd91bdc63",
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.12.13",
+    "platform": "win32",
+    "worktree": "ModelSurgeon-issue486",
+    "branch": "issue-486-first-run",
+    "environment_setup": "uv sync --extra dev --locked"
+  },
+  "declared_budget": {
+    "min_free_gb": 0.000001,
+    "min_free_bytes": 1073,
+    "scope": "disposable setup metadata and fixture preparation only"
+  },
+  "commands": [
+    {
+      "command": "uv run pytest tests/test_setup.py tests/test_cli_help_contract.py tests/test_provider_configuration.py tests/test_config_io.py -q",
+      "outcome": "supported",
+      "result": "51 passed"
+    },
+    {
+      "command": "uv run ruff check .",
+      "outcome": "supported",
+      "result": "All checks passed"
+    },
+    {
+      "command": "uv run mypy src",
+      "outcome": "supported",
+      "result": "Success: no issues found in 328 source files"
+    },
+    {
+      "command": "uv run pytest",
+      "outcome": "supported",
+      "result": "1681 passed, 28 skipped in 35.79s"
+    },
+    {
+      "command": "uv run modelsurgeon setup init --data-dir .\\work\\issue486-setup-audit\\offline --fixture tests\\fixtures\\tiny_hf_models_v1.json --offline --min-free-gb 0.000001 --json",
+      "outcome": "supported",
+      "result": "ready; fixture_manifest_supported; no_llm; configuration_initialized"
+    },
+    {
+      "command": "uv run modelsurgeon setup diagnostics --data-dir .\\work\\issue486-setup-audit\\missing --fixture tests\\fixtures\\tiny_hf_models_v1.json --offline --min-free-gb 0.000001 --json",
+      "outcome": "unavailable",
+      "result": "needs_attention; missing_data_directory; missing_layout_directories"
+    },
+    {
+      "command": "uv run modelsurgeon setup diagnostics --data-dir .\\work\\issue486-setup-audit\\provider --provider compatible_endpoint --provider-id endpoint --provider-model model --provider-revision revision-1 --provider-endpoint https://provider.example/v1 --provider-api-key-env MODELSURGEON_ISSUE486_KEY --min-free-gb 0.000001 --json",
+      "outcome": "unavailable",
+      "result": "needs_attention; missing_api_key"
+    }
+  ],
+  "fixture": {
+    "path": "tests/fixtures/tiny_hf_models_v1.json",
+    "manifest_schema_version": 1,
+    "model_count": 4,
+    "families": ["gemma", "llama", "mistral", "qwen"],
+    "weights_downloaded": false
+  },
+  "known_skips": [
+    "The full pytest run retained 28 existing environment-dependent skips; setup does not convert them into support claims.",
+    "No installer, hosted provider, optional local runtime, CUDA, or target-weight download was exercised by setup."
+  ]
+}
