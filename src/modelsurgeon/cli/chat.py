@@ -103,7 +103,7 @@ def chat_command(
     max_input_tokens: Annotated[
         int,
         typer.Option("--max-input-tokens", min=1, help="Per-request input-token ceiling"),
-    ] = 2048,
+    ] = 6144,
     max_output_tokens: Annotated[
         int,
         typer.Option("--max-output-tokens", min=1, help="Per-request output-token ceiling"),

@@ -15,6 +15,7 @@ from modelsurgeon.config import (
     ObjectiveTermConfig,
     OptimizeMetric,
     Settings,
+    TaskQualityConfig,
 )
 from modelsurgeon.config import (
     ObjectiveDirection as ConfigObjectiveDirection,
@@ -166,6 +167,64 @@ def test_chat_contract_applies_explicit_task_quality_extension(tmp_path: Path) -
 
     assert settings.task_quality.method == "code_exact_match"
     assert settings.task_quality.dataset == dataset
+
+
+def test_chat_contract_preserves_target_task_quality_execution_parameters(tmp_path: Path) -> None:
+    dataset = tmp_path / "coding.jsonl"
+    dataset.write_text(
+        '{"id":"one","prompt":"write a function","reference":"return 1"}\n',
+        encoding="utf-8",
+    )
+    configured = Settings(
+        model=ModelConfig(path="models/tiny", revision="revision-1"),
+        task_quality=TaskQualityConfig(
+            method="code_exact_match",
+            dataset=dataset,
+            dataset_revision="benchmark-v1",
+            split="validation",
+            max_new_tokens=32,
+            max_samples=4,
+        ),
+    )
+    contract = ObjectiveContract(
+        constraints=(
+            HardConstraint(
+                ContractMetric.QUALITY,
+                ConstraintDirection.MINIMUM,
+                0.99,
+                MetricUnit.RATIO,
+            ),
+        ),
+        objectives=(
+            SoftObjective(
+                ContractMetric.LATENCY,
+                ContractObjectiveDirection.MINIMIZE,
+                MetricUnit.MILLISECONDS,
+                normalization=ContractObjectiveNormalization.IDENTITY,
+            ),
+        ),
+    )
+
+    settings = _settings_for_contract(
+        configured,
+        contract,
+        {
+            **contract.to_record(),
+            "task_quality": {
+                "method": "code_exact_match",
+                "dataset": str(dataset),
+                "dataset_revision": None,
+                "split": "test",
+                "max_new_tokens": 128,
+                "max_samples": None,
+            },
+        },
+    )
+
+    assert settings.task_quality.dataset_revision == "benchmark-v1"
+    assert settings.task_quality.split == "validation"
+    assert settings.task_quality.max_new_tokens == 32
+    assert settings.task_quality.max_samples == 4
 
 
 def test_chat_execution_matches_direct_plan_and_returns_canonical_ids(tmp_path: Path) -> None:

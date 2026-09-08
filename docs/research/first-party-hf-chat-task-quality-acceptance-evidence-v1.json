@@ -1,0 +1,82 @@
+{
+  "record_type": "first_party_hf_chat_task_quality_acceptance_campaign",
+  "schema_version": 1,
+  "status": "completed_with_accepted_artifact",
+  "request": "Make this model smaller, prioritize generation speed, preserve coding ability using coding benchmark: task-quality-code-exact-match-v1.jsonl, allow no more than 1% quality loss, and do not overwrite the source.",
+  "interpretation": {
+    "provider": "local-gguf",
+    "provider_model_revision": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "provider_runtime_revision": "de8656bd9",
+    "provider_revision": "local-gguf-provider-v1",
+    "request_digest": "sha256:4c95efd3cb90c6cfd7447a9c91d4de63d9e414aa2126bed6920985344852843b",
+    "spec_digest": "sha256:c53f66e3738b6e8bfd0a07b857ea6b988ddfa7d6253f2fcef8c86ab74638620b",
+    "outcome": "executable",
+    "hard_constraints": [{"metric": "quality", "direction": "minimum", "threshold": 0.99, "unit": "ratio"}],
+    "objectives": [{"metric": "latency", "direction": "minimize", "unit": "milliseconds"}]
+  },
+  "execution": {
+    "campaign_id": "campaign_5b4865fe7bab3e44470f8ed6569d0b49ca82b211a7c9ff37d806e5d4b02f57b9",
+    "run_id": "optimize_run_b890ede98d8dfa9f487ed92cabf10e20db958d5618b340aae892389cd7505510",
+    "plan_id": "optimize_plan_1fcc3fba3277c4fb15ef95d6d564e27efba3857d1ef7a721126e130ecf0a3de5",
+    "plan_digest": "sha256:71b8e992cb1498bc46b74e72c3a18dd21507666344063de83a53648413dbe683",
+    "runtime": "first_party_huggingface_physical_search",
+    "quality_profile": "quality",
+    "approval_scope": ["artifact_write", "plan_review", "resource_budget", "source_model"],
+    "outcome": "supported",
+    "accepted_artifact_digest": "sha256:47f8d247cebd460d88b7a8da2793fc4de2928f5b497bdf180190d82974a8916a",
+    "source_overwritten": false,
+    "state_store": "work/acceptance-chat-task-quality-execution-v2.campaign.campaign.sqlite3",
+    "evidence_store": "C:/mshf-chat-task-quality/optimization-evidence/manifest.json"
+  },
+  "target": {
+    "format": "huggingface",
+    "family": "qwen",
+    "path": "D:/Stored Models/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "content_digest": "sha256:7ddcb4ca4de8a90486d7d0f504f6ebd2557a6aa7b3ef4e41147db2e579d168ab",
+    "parameter_count": 494032768
+  },
+  "task_quality": {
+    "method": "code_exact_match",
+    "dataset_revision": "modelsurgeon-task-quality-code-exact-match-v1",
+    "dataset_digest": "sha256:768001546f0a18cd548cad36e173db0ba2443581b4829632b4effc30a4ab3280",
+    "split": "test",
+    "examples": 4,
+    "max_new_tokens": 32,
+    "max_samples": 4,
+    "baseline": {"matches": 4, "total": 4, "exact_match_accuracy": 1.0},
+    "candidate": {"matches": 4, "total": 4, "exact_match_accuracy": 1.0},
+    "retention_ratio": 1.0,
+    "measurement_authority": "physical_model_evaluation"
+  },
+  "quality_and_deployment": {
+    "baseline_perplexity": 141.20987907756307,
+    "candidate_perplexity": 135.93659040244552,
+    "perplexity_quality_retention_ratio": 1.0387922682149506,
+    "baseline_latency_seconds": 0.8808427999028936,
+    "candidate_latency_seconds": 0.9145296999486163,
+    "latency_gain_ratio": -0.03824394097270983,
+    "baseline_disk_bytes": 999586188,
+    "candidate_disk_bytes": 999395408,
+    "candidate_id": "cand_b565796ce4769ee875469b8e9362257dddc449e0d9a5037c801d01cd1f6b39c6",
+    "candidate_frontier_count": 7,
+    "reloadable": true,
+    "generation_smoke": true,
+    "deployment_measurement_repetitions": 7
+  },
+  "environment": {
+    "os": "Windows 11 10.0.26200",
+    "python": "3.12.13",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "cuda_available": false,
+    "ram_total_bytes": 68422938624,
+    "source_overwrite": false
+  },
+  "limitations": [
+    "This is one bounded Qwen-family MLP-channel cell on CPU with four exact-match examples, not broad coding or production coverage.",
+    "The latency preference regressed by 3.82% in this run; the accepted artifact is retained because the declared hard quality gates passed, not because it delivered a speed win.",
+    "Meta-Surgeon was not configured for this campaign and no transfer improvement is claimed."
+  ]
+}

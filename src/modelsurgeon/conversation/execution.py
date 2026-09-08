@@ -374,6 +374,26 @@ def _settings_for_contract(
                     "task-quality benchmark dataset is not a readable local file",
                     ToolOutcome.UNSUPPORTED,
                 )
+            # The conversational intent currently identifies the benchmark
+            # dataset, while the target config owns the bounded execution
+            # parameters. Preserve those explicit config values when the
+            # interpreter emitted its canonical defaults.
+            configured_task_quality = cast(
+                Mapping[str, object], values.get("task_quality", {})
+            )
+            if configured_task_quality.get("method") != "none":
+                defaults = {
+                    "dataset_revision": None,
+                    "split": "test",
+                    "max_new_tokens": 128,
+                    "max_samples": None,
+                }
+                for key, default in defaults.items():
+                    if (
+                        task_quality.get(key) == default
+                        and configured_task_quality.get(key) != default
+                    ):
+                        task_quality[key] = configured_task_quality[key]
             values["task_quality"] = task_quality
     constraints = dict(cast(Mapping[str, object], values["constraints"]))
     objectives = dict(cast(Mapping[str, object], values["objective"]))

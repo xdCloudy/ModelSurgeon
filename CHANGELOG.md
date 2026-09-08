@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+  - Fixed conversational task-quality execution to preserve explicit target
+    configuration parameters when the interpreter supplies only benchmark
+    identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
+    acceptance record: the four-example code benchmark scored 4/4 at baseline
+    and candidate boundaries, the combined 0.99 quality gates passed, and a
+    reloadable artifact was promoted without source overwrite. The run's
+    latency regression remains recorded as a limitation.
+
+  - Raised the bounded chat CLI input default to 6144 tokens so the built-in
+    inspection context fits the documented plain-English workflow on local
+    GGUF providers without requiring an extra budget override. The lower
+    programmatic session default remains available for constrained providers.
+
   - Added a revision-pinned task-quality acceptance campaign path. The runner
     now accepts a local JSONL code benchmark, records its digest and revision,
     and retains real baseline/candidate task scores alongside physical search
