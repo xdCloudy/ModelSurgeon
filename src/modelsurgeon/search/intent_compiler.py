@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import cast
 
+from modelsurgeon.config import TaskQualitySpecError, normalize_task_quality_spec
 from modelsurgeon.conversation import IntentField, IntentOutcome, IntentRecord
 from modelsurgeon.policy import (
     PolicyCandidate,
@@ -221,6 +222,19 @@ def compile_intent_record(intent: IntentRecord) -> IntentCompilation:
             )
             continue
         kind, payload = parsed
+        if kind == "task_quality":
+            try:
+                normalize_task_quality_spec(payload)
+            except TaskQualitySpecError as error:
+                invalid.append(
+                    CompilerDiagnostic(
+                        "invalid-task-quality-spec",
+                        str(error),
+                        field_id=field.field_id,
+                        source_span_ids=field.source_span_ids,
+                    )
+                )
+            continue
         try:
             if kind == "hard_constraint":
                 constraints.append(_hard_constraint(payload))
@@ -287,6 +301,47 @@ def compile_intent_record(intent: IntentRecord) -> IntentCompilation:
                 )
             )
             return _result(intent, IntentOutcome.REFUSED, diagnostics)
+        task_fields = []
+        for field in intent.fields:
+            parsed_field = _parse_field(field.field_id, field.value, field.unit)
+            if parsed_field is not None and parsed_field[0] == "task_quality":
+                task_fields.append((field, parsed_field[1]))
+        emitted_task_quality = intent.emitted_spec.get("task_quality")
+        if task_fields:
+            task_field, task_payload = task_fields[0]
+            if emitted_task_quality is None:
+                diagnostics.append(
+                    CompilerDiagnostic(
+                        "missing-task-quality-spec",
+                        "task-quality intent field has no emitted benchmark configuration",
+                        field_id=task_field.field_id,
+                        source_span_ids=task_field.source_span_ids,
+                    )
+                )
+                return _result(intent, IntentOutcome.REFUSED, diagnostics)
+            try:
+                emitted_task = normalize_task_quality_spec(emitted_task_quality)
+                field_task = normalize_task_quality_spec(task_payload)
+            except TaskQualitySpecError as error:
+                diagnostics.append(
+                    CompilerDiagnostic(
+                        "invalid-task-quality-spec",
+                        str(error),
+                        field_id=task_field.field_id,
+                        source_span_ids=task_field.source_span_ids,
+                    )
+                )
+                return _result(intent, IntentOutcome.REFUSED, diagnostics)
+            if emitted_task != field_task:
+                diagnostics.append(
+                    CompilerDiagnostic(
+                        "task-quality-spec-mismatch",
+                        "emitted task-quality configuration does not match the typed field",
+                        field_id=task_field.field_id,
+                        source_span_ids=task_field.source_span_ids,
+                    )
+                )
+                return _result(intent, IntentOutcome.REFUSED, diagnostics)
 
     diagnostics.append(
         CompilerDiagnostic(
@@ -397,6 +452,7 @@ def _field_kind(value: object) -> str | None:
         "soft_objective": "soft_objective",
         "soft-objective": "soft_objective",
         "preference": "soft_objective",
+        "task_quality": "task_quality",
     }.get(raw)
 
 
@@ -552,12 +608,23 @@ def _parse_field(
             "soft_objective": "soft_objective",
             "soft-objective": "soft_objective",
             "preference": "soft_objective",
+            "task_quality": "task_quality",
         }.get(kind_value)
         if kind is None:
             return None
-        raw.setdefault("unit", unit)
+        if kind != "task_quality":
+            raw.setdefault("unit", unit)
         allowed = (
-            {"metric", "direction", "threshold", "unit", "baseline"}
+            {
+                "method",
+                "dataset",
+                "dataset_revision",
+                "split",
+                "max_new_tokens",
+                "max_samples",
+            }
+            if kind == "task_quality"
+            else {"metric", "direction", "threshold", "unit", "baseline"}
             if kind == "hard_constraint"
             else {
                 "metric",
@@ -640,7 +707,7 @@ def _contract_from_record(value: Mapping[str, object]) -> ObjectiveContract:
         "objectives",
         "approval_policy",
     }
-    if set(value) != expected:
+    if set(value) - expected - {"task_quality"}:
         raise ObjectiveContractError("emitted spec is not an objective contract record")
     constraints = tuple(
         _hard_constraint(

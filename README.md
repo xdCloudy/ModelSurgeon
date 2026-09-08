@@ -472,7 +472,10 @@ records the dataset and output digests, and applies the measured task-quality
 retention gate alongside perplexity at candidate, reload, repair, quantization,
 and deployment boundaries. Native GGUF task-quality evaluation is unsupported
 and fails closed. Conversational coding requests without a declared benchmark
-remain clarification-required.
+remain clarification-required. When the request explicitly names an existing
+local JSONL benchmark, for example `coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
+the typed `code_exact_match` configuration is carried through the exact preview
+into the first-party engine; the text model cannot invent the path or threshold.
 
 Each measured search candidate and physical child also receives an immutable
 optimization-evidence record containing the model, dataset, hardware,

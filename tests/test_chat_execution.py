@@ -30,6 +30,7 @@ from modelsurgeon.conversation import (
     ToolCancellationToken,
     ToolOutcome,
 )
+from modelsurgeon.conversation.execution import _settings_for_contract
 from modelsurgeon.optimization import OptimizeOutcome, build_optimize_plan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeInterrupted,
@@ -40,6 +41,7 @@ from modelsurgeon.optimization_orchestrator import (
 )
 from modelsurgeon.search.objective_contract import (
     ConstraintDirection,
+    ContractMetric,
     HardConstraint,
     MetricUnit,
     ObjectiveApprovalPolicy,
@@ -119,6 +121,51 @@ def _adapter(
 
 def _preview() -> SpecPreview:
     return build_spec_preview(_intent("retain quality and reduce latency"))
+
+
+def test_chat_contract_applies_explicit_task_quality_extension(tmp_path: Path) -> None:
+    dataset = tmp_path / "coding.jsonl"
+    dataset.write_text(
+        '{"id":"one","prompt":"write a function","reference":"return 1"}\n',
+        encoding="utf-8",
+    )
+    contract = ObjectiveContract(
+        constraints=(
+            HardConstraint(
+                ContractMetric.QUALITY,
+                ConstraintDirection.MINIMUM,
+                0.98,
+                MetricUnit.RATIO,
+            ),
+        ),
+        objectives=(
+            SoftObjective(
+                ContractMetric.LATENCY,
+                ContractObjectiveDirection.MINIMIZE,
+                MetricUnit.MILLISECONDS,
+                normalization=ContractObjectiveNormalization.IDENTITY,
+            ),
+        ),
+    )
+
+    settings = _settings_for_contract(
+        Settings(model=ModelConfig(path="models/tiny", revision="revision-1")),
+        contract,
+        {
+            **contract.to_record(),
+            "task_quality": {
+                "method": "code_exact_match",
+                "dataset": str(dataset),
+                "dataset_revision": None,
+                "split": "test",
+                "max_new_tokens": 128,
+                "max_samples": None,
+            },
+        },
+    )
+
+    assert settings.task_quality.method == "code_exact_match"
+    assert settings.task_quality.dataset == dataset
 
 
 def test_chat_execution_matches_direct_plan_and_returns_canonical_ids(tmp_path: Path) -> None:

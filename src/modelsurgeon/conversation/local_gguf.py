@@ -19,6 +19,10 @@ from pathlib import Path
 
 from modelsurgeon.adapters.family import ArchitectureEvidence, detect_model_family
 from modelsurgeon.adapters.gguf import GGUFParseError, GGUFValueType, open_gguf
+from modelsurgeon.config import (
+    TaskQualitySpecError,
+    normalize_task_quality_spec,
+)
 from modelsurgeon.conversation.intent import (
     AmbiguityRecord,
     IntentField,
@@ -296,12 +300,48 @@ _MEMORY_LIMIT = re.compile(
     r"(?i)(?P<amount>\d+(?:\.\d+)?)\s*(?P<unit>gib|gb|mib|mb)\s*"
     r"(?:of\s+)?(?P<kind>vram|gpu\s+memory|ram|system\s+memory|memory)"
 )
+_TASK_QUALITY_DATASET = re.compile(
+    r"(?ix)\b(?:coding|code)\s+(?:benchmark|dataset)\s*"
+    r"(?:is\s*|:\s*|=\s*)"
+    r"(?:\"(?P<quoted>[^\"\r\n]+)\"|'(?P<single>[^'\r\n]+)'|"
+    r"(?P<unquoted>(?:[A-Za-z]:[\\/]|/)[^,\r\n]+?\.jsonl)\b)"
+)
 
 
 def _bytes_from_memory_match(match: re.Match[str]) -> int:
     amount = float(match.group("amount"))
     multiplier = 1024**3 if match.group("unit").lower() in {"gib", "gb"} else 1024**2
     return int(amount * multiplier)
+
+
+def _task_quality_from_request(original: str) -> tuple[dict[str, object] | None, str | None]:
+    """Extract only an explicit, user-supplied local coding benchmark."""
+
+    match = _TASK_QUALITY_DATASET.search(original)
+    if match is None:
+        return None, None
+    raw_path = next(
+        value
+        for value in (match.group("quoted"), match.group("single"), match.group("unquoted"))
+        if value is not None
+    ).strip()
+    dataset = Path(raw_path).expanduser().absolute().resolve(strict=False)
+    if not dataset.is_file():
+        return None, f"coding benchmark dataset does not exist: {dataset}"
+    try:
+        spec = normalize_task_quality_spec(
+            {
+                "method": "code_exact_match",
+                "dataset": str(dataset),
+                "dataset_revision": None,
+                "split": "test",
+                "max_new_tokens": 128,
+                "max_samples": None,
+            }
+        )
+    except TaskQualitySpecError as error:
+        raise LocalGGUFProviderError(str(error)) from error
+    return spec, None
 
 
 def _normalize_compact_intent(
@@ -452,17 +492,23 @@ def _normalize_compact_intent(
         )
         diagnostics.append("the optimization preference is not measurable from the request")
 
-    if re.search(r"(?i)\b(?:coding|code)\s+(?:ability|quality|performance)\b", original):
+    task_quality_requested = bool(
+        re.search(r"(?i)\b(?:coding|code)\s+(?:ability|quality|performance)\b", original)
+    )
+    task_quality_spec, task_quality_error = _task_quality_from_request(original)
+    if task_quality_requested:
         field = IntentField(
             "objective.task_quality",
             {
-                "kind": "preference",
-                "metric": "task_quality",
-                "task": "coding",
-                "unit": "ratio",
+                "kind": "task_quality",
+                **(
+                    task_quality_spec
+                    if task_quality_spec is not None
+                    else {"method": "code_exact_match", "dataset": None}
+                ),
             },
-            "ratio",
-            0.6,
+            "dataset",
+            0.98 if task_quality_spec is not None else 0.6,
             (span.span_id,),
             required=True,
         )
@@ -473,11 +519,18 @@ def _normalize_compact_intent(
                 "ambiguity-task-quality",
                 field.field_id,
                 "task-metric",
-                "coding ability requires an explicit benchmark and dataset",
+                task_quality_error
+                or "coding ability requires an explicit benchmark and dataset",
                 ("omit the task-quality preference", "provide a coding benchmark"),
             )
         )
-        diagnostics.append("coding quality needs a declared benchmark and dataset")
+        if task_quality_spec is None:
+            diagnostics.append(
+                task_quality_error or "coding quality needs a declared benchmark and dataset"
+            )
+        else:
+            ambiguities.pop()
+            diagnostics.append("explicit coding benchmark accepted from the original request")
 
     fields = sorted(fields, key=lambda item: item.field_id)
     ambiguities = sorted(ambiguities, key=lambda item: item.ambiguity_id)
@@ -522,6 +575,8 @@ def _normalize_compact_intent(
                 ),
             ),
         ).to_record()
+        if task_quality_spec is not None:
+            contract_record["task_quality"] = task_quality_spec
         diagnostics.append("explicit request terms compiled into the objective contract")
     else:
         diagnostics.append("provider interpretation requires clarification before execution")

@@ -102,6 +102,7 @@ def _unresolved_fields(
         "objective",
         "soft_objective",
         "preference",
+        "task_quality",
     }
     unresolved.update(
         field.field_id
@@ -398,6 +399,10 @@ def build_spec_preview(
         raise SpecPreviewError("policy decision belongs to a different intent")
     contract = selected.contract
     spec = None if contract is None else contract.to_record()
+    if spec is not None and intent.emitted_spec is not None:
+        task_quality = intent.emitted_spec.get("task_quality")
+        if task_quality is not None:
+            spec["task_quality"] = task_quality
     objectives = () if contract is None else tuple(
         dict(item.to_record()) for item in contract.objectives
     )

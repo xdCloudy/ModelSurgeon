@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
@@ -12,6 +13,35 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.provider_kind import ProviderKind
+
+
+class TaskQualitySpecError(ValueError):
+    """Raised when a conversational task-quality extension is not canonical."""
+
+
+def normalize_task_quality_spec(
+    value: object, *, require_enabled: bool = True
+) -> dict[str, object]:
+    """Validate and return the canonical JSON form of a task-quality spec."""
+
+    if not isinstance(value, Mapping):
+        raise TaskQualitySpecError("task_quality must be an object")
+    try:
+        config = TaskQualityConfig.model_validate(dict(value))
+    except ValueError as error:
+        raise TaskQualitySpecError(str(error)) from error
+    if require_enabled and config.method == "none":
+        raise TaskQualitySpecError("task_quality extension must enable a benchmark")
+    return config.model_dump(mode="json", round_trip=True)
+
+
+def task_quality_from_spec(spec: Mapping[str, object]) -> dict[str, object] | None:
+    """Return the canonical task-quality extension, if one is present."""
+
+    value = spec.get("task_quality")
+    if value is None:
+        return None
+    return normalize_task_quality_spec(value)
 
 
 class StrictConfigModel(BaseModel):
