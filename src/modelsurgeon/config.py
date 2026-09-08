@@ -176,6 +176,28 @@ class SearchConfig(StrictConfigModel):
         return value
 
 
+class RepairConfig(StrictConfigModel):
+    """Optional real post-surgery repair executed by a first-party runtime."""
+
+    method: Literal["none", "lora"] = "none"
+    target_modules: tuple[str, ...] = ()
+    max_steps: int | None = Field(default=None, gt=0)
+    rank: int = Field(default=4, ge=1, le=64)
+    alpha: float = Field(default=8.0, gt=0.0)
+    dropout: float = Field(default=0.0, ge=0.0, lt=1.0)
+    learning_rate: float = Field(default=1e-3, gt=0.0)
+
+    @field_validator("target_modules")
+    @classmethod
+    def validate_target_modules(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if value != tuple(sorted(set(value))) or any(
+            not item.strip() or any(not part for part in item.split("."))
+            for item in value
+        ):
+            raise ValueError("repair.target_modules must be sorted, unique canonical paths")
+        return value
+
+
 class ObjectiveConfig(StrictConfigModel):
     """Hard quality/resource constraints and optimization dimensions."""
 
@@ -351,6 +373,7 @@ class Settings(BaseSettings):
     features: FeatureConfig = Field(default_factory=FeatureConfig)
     surgeon: SurgeonConfig = Field(default_factory=SurgeonConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
+    repair: RepairConfig = Field(default_factory=RepairConfig)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)
