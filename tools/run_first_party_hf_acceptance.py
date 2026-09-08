@@ -18,6 +18,7 @@ from modelsurgeon.config import (
     ModelConfig,
     SearchConfig,
     Settings,
+    SurgeonConfig,
 )
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import build_optimize_plan
@@ -141,6 +142,9 @@ def _run_cell(
     evaluations: int | None,
     search_scope: str,
     low_rank_rank: int,
+    surgeon_registry: Path | None,
+    surgeon_card: str | None,
+    surgeon_signing_env: str | None,
 ) -> dict[str, object]:
     model_path = _resolve_model(identifier, revision)
     slug = _slug(identifier)
@@ -157,6 +161,15 @@ def _run_cell(
         ),
         search=SearchConfig(scopes=(search_scope,), low_rank_rank=low_rank_rank),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.99),
+        surgeon=(
+            SurgeonConfig(
+                registry_root=surgeon_registry,
+                card_digest=surgeon_card,
+                signing_env=surgeon_signing_env,
+            )
+            if surgeon_registry is not None
+            else SurgeonConfig()
+        ),
     )
     plan = build_optimize_plan(
         settings,
@@ -234,6 +247,16 @@ def main() -> int:
         default=4,
         help="rank for the low_rank scope; ignored for other scopes",
     )
+    parser.add_argument(
+        "--surgeon-registry",
+        type=Path,
+        help="signed Meta-Surgeon registry root; requires --surgeon-card and --surgeon-signing-env",
+    )
+    parser.add_argument("--surgeon-card", help="signed Meta-Surgeon card digest")
+    parser.add_argument(
+        "--surgeon-signing-env",
+        help="environment variable containing the Meta-Surgeon card secret",
+    )
     args = parser.parse_args()
     if len(args.model) < 2:
         parser.error("acceptance campaigns require at least two model cells")
@@ -241,6 +264,16 @@ def main() -> int:
         parser.error("--evaluations must be positive")
     if args.low_rank_rank <= 0:
         parser.error("--low-rank-rank must be positive")
+    surgeon_values = (args.surgeon_registry, args.surgeon_card, args.surgeon_signing_env)
+    if any(value is not None for value in surgeon_values) and not all(
+        value is not None for value in surgeon_values
+    ):
+        parser.error(
+            "--surgeon-registry, --surgeon-card, and --surgeon-signing-env "
+            "must be supplied together"
+        )
+    if args.surgeon_registry is not None and not args.surgeon_registry.is_dir():
+        parser.error(f"surgeon registry does not exist: {args.surgeon_registry}")
     calibration_text = args.calibration_text.expanduser().absolute().resolve()
     if not calibration_text.is_file():
         parser.error(f"calibration text does not exist: {calibration_text}")
@@ -265,6 +298,9 @@ def main() -> int:
                 evaluations=args.evaluations,
                 search_scope=args.search_scope,
                 low_rank_rank=args.low_rank_rank,
+                surgeon_registry=args.surgeon_registry,
+                surgeon_card=args.surgeon_card,
+                surgeon_signing_env=args.surgeon_signing_env,
             )
         except Exception as error:
             failures = True
@@ -290,6 +326,11 @@ def main() -> int:
             "min_quality_retention_ratio": 0.99,
             "search_scope": args.search_scope,
             "low_rank_rank": args.low_rank_rank,
+            "surgeon_registry": (
+                None if args.surgeon_registry is None else str(args.surgeon_registry)
+            ),
+            "surgeon_card": args.surgeon_card,
+            "surgeon_signing_env": args.surgeon_signing_env,
             "calibration_text": str(calibration_text),
             "calibration_sha256": _sha256(calibration_text),
         },
