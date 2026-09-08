@@ -19,6 +19,7 @@ from modelsurgeon.conversation import (
     IntentRecord,
     InterpretationStep,
     InterpretIntentRequest,
+    LlamaCliRuntime,
     LocalGGUFProvider,
     LocalGGUFProviderConfig,
     ProviderBudget,
@@ -93,12 +94,27 @@ class _Runtime:
         if self.mode == "malformed":
             content = "not json"
         elif request["operation"] == "interpret_intent":
-            content = json.dumps(
-                {
-                    "operation": "interpret_intent",
-                    "intent": _intent(request["original_request"]).to_record(),
-                }
-            )
+            if self.mode == "compact":
+                content = json.dumps(
+                    {
+                        "banner": "ignored by the trusted normalizer",
+                        "operation": "interpret_intent",
+                        "decision": {
+                            "quality_retention_ratio": None,
+                            "max_vram_bytes": None,
+                            "max_ram_bytes": None,
+                            "optimize_latency": True,
+                            "clarification_required": False,
+                        },
+                    }
+                )
+            else:
+                content = json.dumps(
+                    {
+                        "operation": "interpret_intent",
+                        "intent": _intent(request["original_request"]).to_record(),
+                    }
+                )
         else:
             content = json.dumps(
                 {
@@ -151,6 +167,62 @@ def test_local_provider_uses_common_interpretation_and_explanation_contract(tmp_
     )
     assert explained.outcome is ProviderOutcome.SUPPORTED
     assert isinstance(explained.output, ExplanationProviderOutput)
+
+
+def test_local_provider_compact_intent_is_source_grounded(tmp_path: Path) -> None:
+    path = tmp_path / "fixture.gguf"
+    _gguf(path)
+
+    result = invoke_provider(
+        _provider(path, mode="compact"),
+        InterpretIntentRequest(
+            "request-compact",
+            "Make this model faster, with no more than 1% quality loss.",
+        ),
+    )
+
+    assert result.outcome is ProviderOutcome.SUPPORTED
+    assert result.output is not None
+    intent = result.output.intent.to_record()
+    assert intent["outcome"] == "executable"
+    fields = {field["field_id"]: field for field in intent["fields"]}
+    assert fields["constraint.quality"]["value"]["threshold"] == 0.99
+    assert fields["objective.latency"]["value"]["direction"] == "minimize"
+
+
+def test_llama_cli_runtime_uses_bounded_argument_list(tmp_path: Path, monkeypatch: Any) -> None:
+    executable = tmp_path / "llama-cli.exe"
+    executable.write_bytes(b"runtime")
+    model = tmp_path / "model.gguf"
+    _gguf(model)
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_: object) -> Any:
+        calls.append(command)
+        return type("Completed", (), {"returncode": 0, "stdout": "banner {\"ok\":true}"})()
+
+    monkeypatch.setattr("modelsurgeon.conversation.local_gguf.subprocess.run", fake_run)
+    runtime = LlamaCliRuntime(
+        executable=executable,
+        model_path=str(model),
+        n_ctx=640,
+        n_batch=1,
+        n_gpu_layers=0,
+        verbose=False,
+        max_wall_seconds=2,
+    )
+
+    result = runtime.create_chat_completion(
+        messages=[{"role": "user", "content": "return JSON"}],
+        max_tokens=8,
+        temperature=0.0,
+        top_p=1.0,
+    )
+
+    assert result["choices"][0]["message"]["content"] == 'banner {"ok":true}'
+    assert calls and calls[0][0] == str(executable.resolve())
+    assert "--single-turn" in calls[0]
+    assert "user: return JSON" in calls[0]
 
 
 def test_local_provider_rejects_missing_and_malformed_models(tmp_path: Path) -> None:

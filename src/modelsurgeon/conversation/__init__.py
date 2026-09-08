@@ -173,6 +173,7 @@ from .journey import (
 from .local_gguf import (
     LOCAL_GGUF_PROVIDER_REVISION,
     LOCAL_GGUF_STRUCTURED_SCHEMA,
+    LlamaCliRuntime,
     LocalGGUFProvider,
     LocalGGUFProviderConfig,
     LocalGGUFProviderError,
@@ -449,6 +450,7 @@ __all__ = [
     "JourneyOutcome",
     "JourneyPhase",
     "JourneyResponse",
+    "LlamaCliRuntime",
     "LocalGGUFProvider",
     "LocalGGUFProviderConfig",
     "LocalGGUFProviderError",
