@@ -9,7 +9,7 @@
 [![Status: experimental](https://img.shields.io/badge/status-experimental-F59E0B)](https://github.com/xdCloudy/ModelSurgeon/milestones)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-4C7CBF)](LICENSE)
 
-**Local-first, evidence-driven structural optimization for Hugging Face and GGUF models.**
+**Local-first, evidence-driven structural optimization for Hugging Face models, plus native GGUF surgery APIs.**
 
 [Get started](#quick-start) · [See what works](#project-status) · [Use the CLI](#cli-workflows) · [Read the end-to-end guides](docs/user-guides/README.md) · [Read migration guarantees](docs/migration.md) · [Read the architecture](ARCHITECTURE.md) · [Follow the roadmap](ROADMAP.md)
 
@@ -17,13 +17,13 @@
 
 ModelSurgeon is experimental research software for learning which parts of a neural network can be removed, measuring the result, and preserving enough evidence to reproduce every decision. It combines canonical model structure, bounded feature collection, reversible experiments, learned surgeon models, constrained search, measured Pareto selection, and transactional physical mutation.
 
-It supports two complementary paths:
+It exposes two related but deliberately separate paths:
 
-- **Hugging Face / safetensors** for inspection, calibration, masking experiments, learned outcome models, search, and physical tensor surgery.
-- **Native GGUF** for bounded, copy-on-surgery edits to quantized models without materializing a full floating-point checkpoint.
+- **Hugging Face / safetensors** for the verified first-party optimize workflow: inspection, calibration, learned outcome models, constrained search, physical tensor surgery, reload, measurement, rollback, repair, and artifact publication.
+- **Native GGUF** for library-level, bounded copy-on-surgery edits to quantized models without materializing a full floating-point checkpoint. The generic autonomous optimizer does not yet execute GGUF mutation; use the [native GGUF guide](docs/user-guides/native-gguf.md) and retain the external runtime evidence yourself.
 
 > [!WARNING]
-> ModelSurgeon remains evidence-bounded research software, not a production optimizer. The v3.0 conversational release is a bounded local-first product journey; it does not claim optimizer quality, universal model support, hostile-process containment, or a GUI installer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
+> ModelSurgeon remains evidence-bounded research software, not a production optimizer. The v3.0 conversational release is a bounded local-first product journey; it does not claim optimizer quality, universal model support, autonomous GGUF optimization, hostile-process containment, or a GUI installer. Surgery can damage model quality or produce unusable checkpoints. Inputs are treated as immutable, outputs are staged separately, and unsupported layouts fail closed.
 
 The v2.1-v2.9 conversational contracts are integrated by the bounded v3.0
 product release around the existing `OptimizationSpec` contract. Conversation
@@ -79,24 +79,22 @@ The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
-Fresh revision-pinned first-party acceptance evidence is retained in the
-[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v3.json).
-It covers pinned tiny Llama and Mistral checkpoints plus real pretrained
-SmolLM-135M, Qwen2.5-0.5B, and SmolLM2-135M CPU cells, including two accepted
-rediscovered-state surgery stages on the latter two. The signed Meta-Surgeon
-pilot was verified and physically compared on held-out Qwen and SmolLM2
-candidates; the expanded safety-classifier pilot matched no-guidance on
-SmolLM2 but selected an ineligible Qwen candidate (held-out AUC 0.375), so
-physical measurements remain authoritative and no transfer improvement is
-claimed. A pretrained TinyLlama cell, an unsupported GPT-2 cell, and a rank-1
-low-rank tranche that
-found no quality-feasible candidate are also retained as honest fail-closed
-outcomes. A separate [attention-head acceptance tranche](docs/research/first-party-hf-acceptance-evidence-v4.json)
-exercised that scope on Qwen2.5-0.5B and SmolLM2-135M and retained both
-strict-gate failures without promoting an artifact. This is evidence for the
-bounded path, not a production-scale or task-quality claim. The corresponding
-[transformer-layer tranche](docs/research/first-party-hf-acceptance-evidence-v5.json)
-also retained strict-gate failures without promotion.
+Fresh revision-pinned first-party acceptance evidence is retained in three
+linked records: the [core HF acceptance record](docs/research/first-party-hf-acceptance-evidence-v3.json),
+the [attention-head tranche](docs/research/first-party-hf-acceptance-evidence-v4.json),
+and the [transformer-layer tranche](docs/research/first-party-hf-acceptance-evidence-v5.json).
+Together they cover pinned tiny Llama and Mistral checkpoints plus real
+pretrained SmolLM-135M, Qwen2.5-0.5B, and SmolLM2-135M CPU cells. The core
+record includes two accepted rediscovered-state surgery stages on the latter
+two; the attention-head and transformer-layer tranches deliberately retain
+strict-gate failures without promoting artifacts. The signed Meta-Surgeon
+pilot was physically compared on held-out Qwen and SmolLM2 candidates; the
+expanded safety-classifier pilot matched no-guidance on SmolLM2 but selected
+an ineligible Qwen candidate (held-out AUC 0.375), so physical measurements
+remain authoritative and no transfer improvement is claimed. Unsupported GPT-2,
+resource-negative TinyLlama, and no-feasible low-rank outcomes remain visible
+as fail-closed evidence. These records demonstrate the bounded HF path, not
+production-scale coverage or a task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
@@ -105,11 +103,11 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. Independent evidence now includes real chat-to-HF and multi-family pretrained campaigns; a held-out Meta-Surgeon pilot is retained as a negative transfer result. Physical measurements remain authoritative; GGUF and other format-specific optimizer connections remain explicit boundaries. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. Surgery, repair, and quantization records retain campaign-scoped evidence identities and structured parent/child lineage. Independent evidence includes real chat-to-HF and multi-family pretrained campaigns; a held-out Meta-Surgeon pilot is retained as a negative transfer result. Physical measurements remain authoritative. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. The first-party Hugging Face path records candidate measurements in `measured-candidate-frontier.sqlite` and fails closed at Pareto publication when a declared objective is not measured by the runtime. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and rank-bounded low-rank edits have shape, parameter, save, reload, and measured first-party acceptance checks on the bounded HF path. |
-| Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
+| Native GGUF surgery | **Experimental, library-level** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation are available through typed adapters and scripts. The stable CLI does not yet expose a generic GGUF surgery command, and the autonomous optimizer does not yet execute GGUF mutation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
 | Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. A local GGUF text model supplies interpretation while a separately configured target model is inspected and optimized by the engine. A real Qwen GGUF → SmolLM-135M campaign has now exercised baseline measurement, physical candidate search, reload evaluation, Pareto selection, and artifact publication. Universal hosted support, representative model-family coverage, and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
@@ -128,7 +126,8 @@ Measured evidence currently includes:
 
 - a leakage-free **3,000-mutation First Surgeon** campaign on SmolLM2-135M;
 - active-learning, uncertainty, transfer, pruning-baseline, and iterative-search studies;
-- real HF and native-GGUF physical mutation and repair runs; and
+- real HF physical mutation, repair, and quantization runs plus native-GGUF
+  physical mutation and external-runtime validation runs; and
 - revision-pinned first-party acceptance cells on tiny Llama/Mistral and
   pretrained SmolLM-135M, including retained unsupported/resource-negative
   outcomes; and
@@ -212,10 +211,11 @@ for missing-directory, permission, disk-budget, provider, and runtime outcomes.
 
 ## CLI workflows
 
-The public CLI exposes the stable planning and orchestration boundary. Lower-level
-HF and GGUF surgery APIs remain library-level; every public execution path still
-fails closed when the model layout, measurement, resource budget, or artifact
-contract is not supported.
+The public CLI exposes the stable planning and orchestration boundary. The
+first-party autonomous execution path currently targets supported Hugging Face
+models. Native GGUF surgery remains a typed library boundary rather than a
+generic CLI optimizer; every public execution path fails closed when the model
+layout, measurement, resource budget, or artifact contract is not supported.
 
 | Command | Purpose |
 | --- | --- |
@@ -532,7 +532,7 @@ Execution additionally requires an explicitly trusted local replay adapter. Envi
 
 ```mermaid
 flowchart LR
-    INPUT["HF / safetensors<br/>or quantized GGUF"] --> GRAPH["Canonical graph<br/>identity · coupling · constraints"]
+    INPUT_HF["HF / safetensors<br/>(first-party optimize path)"] --> GRAPH["Canonical graph<br/>identity · coupling · constraints"]
     GRAPH --> FEATURES["Bounded evidence<br/>static · runtime · activation · gradient"]
     FEATURES --> SURGEON["Surgeon models<br/>heuristic · linear · tree · neural"]
     SURGEON --> SEARCH["Constrained search<br/>budget · uncertainty · Pareto state"]
@@ -542,9 +542,15 @@ flowchart LR
     EVAL -->|reject| ROLLBACK["Rollback + retained evidence"]
     EVAL --> DATA["Experiment dataset"]
     DATA --> SURGEON
+    INPUT_GGUF["Quantized GGUF<br/>(typed surgery library)"] --> GGUF["mmap inspection · selective decode<br/>streamed copy-on-surgery"]
+    GGUF --> GGUF_OUT["GGUF artifact + external validation"]
 ```
 
-Both model paths share component identities, mutation plans, provenance, evaluation records, and training examples. The GGUF path adds mmap inspection, block-aligned selective decoding, exact-codec requantization, direct copying of unchanged ranges, resumable writes, and external validation.
+The HF path owns the autonomous search, measurement, cumulative state, and
+artifact-promotion loop. The GGUF path provides typed physical surgery
+primitives with mmap inspection, block-aligned selective decoding, exact-codec
+requantization, direct copying of unchanged ranges, resumable writes, and
+external validation; it is not yet wired into the autonomous optimizer.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), the [architecture compatibility matrix](docs/architecture-compatibility.md), and the [design records](docs/design/).
 
