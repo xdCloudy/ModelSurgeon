@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-torch = pytest.importorskip("torch")
-
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
     TaskQualityEvaluationError,
     evaluate_code_exact_match,
     evaluate_code_quality_gate,
 )
+
+torch = pytest.importorskip("torch")
 
 
 class _Tokenizer:
