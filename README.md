@@ -335,6 +335,14 @@ regret against magnitude, random, and no-guidance orderings. Equal-budget
 held-out transfer comparisons across model families and hardware are still
 experimental and are not implied by enabling this option.
 
+Each measured search candidate and physical child also receives an immutable
+optimization-evidence record containing the model, dataset, hardware,
+configuration, features, predictions, measurements, outcome, and parent/child
+lineage. Accepted, rejected, rolled-back, and failed observations remain
+available under the run's `optimization-evidence` directory for later
+leakage-audited learning; these records do not promote predictions to
+measurements.
+
 Repeat with `--resume` after an interruption. The verified Hugging Face path
 rehydrates its selected candidate, published cumulative child, and deployment
 evidence from the durable stage record before continuing. A missing runtime,

@@ -40,6 +40,11 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
     enumerate_mutation_candidates,
 )
+from modelsurgeon.experiments.optimization_evidence import (
+    OptimizationEvidenceOutcome,
+    OptimizationEvidenceRecord,
+    OptimizationEvidenceStore,
+)
 from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionCache
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
@@ -169,6 +174,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.meta_order: tuple[str, ...] = ()
         self.search_comparison: Mapping[str, object] | None = None
         self.state_updates: tuple[Mapping[str, object], ...] = ()
+        self.evidence_publications: dict[str, Mapping[str, object]] = {}
+        self.search_evidence_publications: dict[str, Mapping[str, object]] = {}
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -373,6 +380,15 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             strict=False
         )
 
+    def _evidence_store_root(self) -> Path:
+        resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+        artifact_dir = resolved_config.get("artifact_dir", "artifacts")
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        return (Path(artifact_dir) / "optimization-evidence").expanduser().absolute().resolve(
+            strict=False
+        )
+
     def _publish_feature_partition(self, partition: FeaturePartition) -> Mapping[str, object]:
         cache = FeaturePartitionCache(self._feature_cache_root())
         existing = cache.load(partition.key)
@@ -390,6 +406,72 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "records_sha256": published.records_sha256,
             "record_count": len(published.records),
         }
+
+    def _record_optimization_observation(
+        self,
+        *,
+        stage: str,
+        state_id: str,
+        outcome: OptimizationEvidenceOutcome,
+        candidate_id: str | None,
+        mutation_id: str | None,
+        measurement: Mapping[str, object] | None,
+        prediction: Mapping[str, object] | None = None,
+        artifact: Mapping[str, object] | None = None,
+        failure: Mapping[str, object] | None = None,
+        feature_records: tuple[Mapping[str, object], ...] = (),
+        feature_cache: Mapping[str, object] | None = None,
+        lineage: Mapping[str, object] | None = None,
+    ) -> Mapping[str, object]:
+        proof = self._ensure_loaded()
+        identity = {
+            "run_id": proof.run_id,
+            "stage": stage,
+            "state_id": state_id,
+            "candidate_id": candidate_id,
+            "mutation_id": mutation_id,
+            "outcome": outcome.value,
+            "measurement": None if measurement is None else dict(measurement),
+            "artifact": None if artifact is None else dict(artifact),
+            "failure": None if failure is None else dict(failure),
+        }
+        observation_id = "obs_" + hashlib.sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        resolved_lineage = dict(lineage or {})
+        if feature_cache is not None:
+            resolved_lineage["feature_cache"] = dict(feature_cache)
+        record = OptimizationEvidenceRecord(
+            observation_id=observation_id,
+            run_id=proof.run_id,
+            stage=stage,
+            state_id=state_id,
+            outcome=outcome,
+            model=proof._model_target.to_record(),
+            dataset=proof._dataset.to_record(),
+            hardware=proof._hardware.to_record(),
+            versions={
+                "runtime": "first_party_hf_mlp",
+                "config_digest": self.plan.config_digest,
+                "plan_digest": self.plan.plan_id,
+                "source_artifact_digest": self.source_digest,
+                "evidence_schema_version": 1,
+            },
+            lineage=resolved_lineage,
+            candidate_id=candidate_id,
+            mutation_id=mutation_id,
+            features=feature_records,
+            prediction=prediction,
+            measurement=measurement,
+            artifact=artifact,
+            failure=failure,
+        )
+        published = OptimizationEvidenceStore(self._evidence_store_root()).publish(record)
+        reference = published.to_record()
+        self.evidence_publications[observation_id] = reference
+        if stage == "active_search":
+            self.search_evidence_publications[observation_id] = reference
+        return reference
 
     def _build_search_comparison(
         self,
@@ -639,6 +721,39 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             ).to_record()
             self.actual_measurements[candidate.candidate_id] = measurement
             delta = _number(measurement["perplexity_delta"], "perplexity_delta")
+            prediction_value = self.meta_predictions.get(candidate.candidate_id)
+            prediction = (
+                None
+                if prediction_value is None
+                else {
+                    "value": prediction_value,
+                    "target": (
+                        None
+                        if self.meta_guidance is None
+                        else self.meta_guidance.get("target")
+                    ),
+                    "authority": "prediction_only",
+                }
+            )
+            self._record_optimization_observation(
+                stage="active_search",
+                state_id="source:" + (self.source_digest or self.plan.plan_id),
+                outcome=(
+                    OptimizationEvidenceOutcome.ACCEPTED
+                    if delta <= allowed
+                    else OptimizationEvidenceOutcome.REJECTED
+                ),
+                candidate_id=candidate.candidate_id,
+                mutation_id=candidate.request.mutation_id,
+                measurement=measurement,
+                prediction=prediction,
+                feature_records=self.candidate_features.get(candidate.candidate_id, ()),
+                feature_cache=self.feature_cache_entries.get(candidate.candidate_id),
+                lineage={
+                    "parent_state": "source",
+                    "mutation": candidate.request.to_record(),
+                },
+            )
             if delta <= allowed:
                 scored.append(
                     (
@@ -890,19 +1005,44 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 apply_first,
             ),
         )
-        sequence = run_huggingface_cumulative_sequence(
-            copy.deepcopy(proof.model),
-            edits,
-            output_root=sequence_root,
-            source_outcome_id=self.source_digest or self.plan.plan_id,
-            publish=self._publish,
-            reload=self._reload,
-            generate=self._generation_smoke,
-            evaluate=self._evaluate_reloaded_child,
-            on_accept=self._next_state_edit,
-            max_stages=self._surgery_steps(),
-        )
+        try:
+            sequence = run_huggingface_cumulative_sequence(
+                copy.deepcopy(proof.model),
+                edits,
+                output_root=sequence_root,
+                source_outcome_id=self.source_digest or self.plan.plan_id,
+                publish=self._publish,
+                reload=self._reload,
+                generate=self._generation_smoke,
+                evaluate=self._evaluate_reloaded_child,
+                on_accept=self._next_state_edit,
+                max_stages=self._surgery_steps(),
+            )
+        except Exception as error:
+            candidate_id = self._stage_candidate_id(0)
+            self._record_optimization_observation(
+                stage="physical_surgery",
+                state_id="failed:" + (self.source_digest or self.plan.plan_id),
+                outcome=OptimizationEvidenceOutcome.FAILED,
+                candidate_id=candidate_id,
+                mutation_id=(
+                    None
+                    if candidate_id is None
+                    else self.selected_candidates[0].request.mutation_id
+                ),
+                measurement=None,
+                failure={"failed_index": 0, "reason": str(error)},
+                feature_records=(
+                    ()
+                    if candidate_id is None
+                    else self.candidate_features.get(candidate_id, ())
+                ),
+                feature_cache=self._stage_feature_cache(0, candidate_id),
+                lineage={"sequence_root": str(sequence_root)},
+            )
+            raise
         self.surgery_sequence = sequence
+        evidence_observations = self._record_surgery_observations(sequence)
         artifact = sequence.stages[-1].artifact
         reloaded = sequence.final_model
         self.artifact = artifact
@@ -917,8 +1057,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "stages": [item.to_record() for item in sequence.stages],
                     "failed_index": sequence.failed_index,
                     "failure_reason": sequence.failure_reason,
+                    "failed_mutation_id": sequence.failed_mutation_id,
                     "failed_evaluation": sequence.failed_evaluation,
                     "state_updates": list(self.state_updates),
+                    "evidence_observations": list(evidence_observations),
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
                     "artifact_manifest": _tree_entries(artifact.parent),
@@ -1090,6 +1232,116 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             apply_next,
         )
 
+    def _stage_candidate_id(self, index: int) -> str | None:
+        if index == 0 and self.selected_candidates:
+            return self.selected_candidates[0].candidate_id
+        state_index = index - 1
+        if 0 <= state_index < len(self.state_updates):
+            next_edit = self.state_updates[state_index].get("next_edit")
+            if isinstance(next_edit, Mapping):
+                candidate_id = next_edit.get("candidate_id")
+                if isinstance(candidate_id, str) and candidate_id:
+                    return candidate_id
+        return None
+
+    def _stage_feature_cache(
+        self, index: int, candidate_id: str | None
+    ) -> Mapping[str, object] | None:
+        if candidate_id is None:
+            return None
+        cached = self.feature_cache_entries.get(candidate_id)
+        if cached is not None:
+            return cached
+        state_index = index - 1
+        if 0 <= state_index < len(self.state_updates):
+            candidates = self.state_updates[state_index].get("candidates", ())
+            if not isinstance(candidates, (list, tuple)):
+                return None
+            for item in candidates:
+                if not isinstance(item, Mapping):
+                    continue
+                if item.get("candidate_id") == candidate_id:
+                    cache = item.get("cache")
+                    if isinstance(cache, Mapping):
+                        return cache
+        return None
+
+    def _record_surgery_observations(
+        self, sequence: HuggingFaceCumulativeRun
+    ) -> tuple[Mapping[str, object], ...]:
+        references: list[Mapping[str, object]] = []
+        for stage in sequence.stages:
+            candidate_id = self._stage_candidate_id(stage.index)
+            references.append(
+                self._record_optimization_observation(
+                    stage="physical_surgery",
+                    state_id="accepted_child:" + stage.outcome.outcome_id,
+                    outcome=OptimizationEvidenceOutcome.ACCEPTED,
+                    candidate_id=candidate_id,
+                    mutation_id=stage.mutation_id,
+                    measurement=stage.evaluation,
+                    prediction=(
+                        None
+                        if candidate_id is None or candidate_id not in self.meta_predictions
+                        else {
+                            "value": self.meta_predictions[candidate_id],
+                            "authority": "prediction_only",
+                        }
+                    ),
+                    artifact={
+                        "path": str(stage.artifact.parent),
+                        "digest": stage.outcome.artifact.digest,
+                        "size_bytes": stage.outcome.artifact.size_bytes,
+                        "reloadable": stage.reloadable,
+                        "generation_smoke": stage.generation_smoke,
+                    },
+                    feature_records=(
+                        ()
+                        if candidate_id is None
+                        else self.candidate_features.get(candidate_id, ())
+                    ),
+                    feature_cache=self._stage_feature_cache(stage.index, candidate_id),
+                    lineage={
+                        "sequence_id": sequence.sequence_id,
+                        "stage_index": stage.index,
+                        "parent_outcome_id": stage.outcome.parent_outcome_id,
+                        "outcome_id": stage.outcome.outcome_id,
+                    },
+                )
+            )
+        if sequence.failed_index is not None:
+            failed_index = sequence.failed_index
+            candidate_id = self._stage_candidate_id(failed_index)
+            references.append(
+                self._record_optimization_observation(
+                    stage="physical_surgery",
+                    state_id="rolled_back:" + sequence.sequence_id,
+                    outcome=(
+                        OptimizationEvidenceOutcome.ROLLED_BACK
+                        if sequence.failed_evaluation is not None
+                        else OptimizationEvidenceOutcome.FAILED
+                    ),
+                    candidate_id=candidate_id,
+                    mutation_id=sequence.failed_mutation_id,
+                    measurement=sequence.failed_evaluation,
+                    failure={
+                        "failed_index": failed_index,
+                        "reason": sequence.failure_reason,
+                    },
+                    feature_records=(
+                        ()
+                        if candidate_id is None
+                        else self.candidate_features.get(candidate_id, ())
+                    ),
+                    feature_cache=self._stage_feature_cache(failed_index, candidate_id),
+                    lineage={
+                        "sequence_id": sequence.sequence_id,
+                        "failed_index": failed_index,
+                    },
+                )
+            )
+        return tuple(references)
+
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage
         try:
@@ -1156,6 +1408,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "meta_guidance": self.meta_guidance,
                             "search_comparison": self.search_comparison,
                             "measurement": dict(self.selected_measurement),
+                            "evidence_observations": [
+                                reference
+                                for _, reference in sorted(
+                                    self.search_evidence_publications.items()
+                                )
+                            ],
                         },
                         sort_keys=True,
                     ),

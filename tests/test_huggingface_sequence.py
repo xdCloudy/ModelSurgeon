@@ -147,6 +147,7 @@ def test_failed_stage_removes_child_and_keeps_last_accepted_model(tmp_path: Path
     assert len(run.stages) == 1
     assert run.failed_index == 1
     assert run.failure_reason
+    assert run.failed_mutation_id == "attention-heads"
     assert run.final_model.config.intermediate_size == 3
     assert not any(path.name.endswith("attention-heads") for path in tmp_path.iterdir())
 
@@ -176,5 +177,6 @@ def test_rejected_reloaded_child_is_rolled_back_with_measurement_evidence(
     assert len(run.stages) == 1
     assert run.stages[0].evaluation == {"accepted": True, "perplexity_delta": 1.0}
     assert run.failed_index == 1
+    assert run.failed_mutation_id == "attention-heads"
     assert run.failed_evaluation == {"accepted": False, "perplexity_delta": 2.0}
     assert not any(path.name.endswith("attention-heads") for path in tmp_path.iterdir())
