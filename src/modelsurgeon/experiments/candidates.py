@@ -29,6 +29,7 @@ class CandidateScope(StrEnum):
     MLP_CHANNEL = "channel"
     COMPONENT = "component"
     TRANSFORMER_LAYER = "layer"
+    LOW_RANK = "low_rank"
 
 
 _ALL_SCOPES = tuple(CandidateScope)

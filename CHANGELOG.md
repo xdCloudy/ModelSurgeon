@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Connected the first-party Hugging Face optimizer to an explicit
+    rank-bounded low-rank projection scope. Candidates are physically
+    factorized, published as safe-tensors with a method manifest, reloaded by
+    reconstructing the declared wrappers, measured again, and accepted or
+    rejected through the existing quality, smoke, lineage, and rollback gates.
+
   - Connected the first-party Hugging Face optimizer to a bounded CPU-scoped
     dynamic-int8 quantization path. Quantized candidates are physically
     evaluated, published as reloadable safe-tensors artifacts with a

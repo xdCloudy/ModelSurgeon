@@ -160,17 +160,24 @@ class SurgeonConfig(StrictConfigModel):
 class SearchConfig(StrictConfigModel):
     """Physical candidate scopes supported by the first-party search path."""
 
-    scopes: tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...] = (
+    scopes: tuple[
+        Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
+    ] = (
         "mlp_channel",
     )
     max_surgery_steps: int | None = Field(default=None, gt=0)
+    low_rank_rank: int = Field(default=4, ge=1, le=64)
 
     @field_validator("scopes")
     @classmethod
     def validate_scopes(
         cls,
-        value: tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...],
-    ) -> tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...]:
+        value: tuple[
+            Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
+        ],
+    ) -> tuple[
+        Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
+    ]:
         if not value or len(value) != len(set(value)):
             raise ValueError("search scopes must be non-empty and unique")
         return value
