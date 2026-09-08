@@ -29,4 +29,15 @@ optimizer optimality, or universal deployment/model-family support. Do not put
 credentials in prompts, fixtures, evidence bundles, diagnostics, or chat
 history. See the [v2.9 security boundary](docs/release/v2.9-conversational-security-boundary.md)
 and [residual-risk record](docs/research/v2.9-conversational-security-release-v1.json).
+The v3.0 product release preserves these limits and audits them through the
+[v3.0 release manifest](docs/research/v3.0-product-release-v1.json); it is not
+a general security certification.
+
+GitHub currently reports a moderate advisory for the optional local-provider
+dependency `diskcache` 5.6.3 (GHSA-w8v5-vhqr-4h9v / CVE-2025-69872), which uses
+pickle serialization by default and has no patched version listed. The core
+package does not import it; it arrives through the optional
+`llama-cpp-python` extra. Until that dependency is replaced or patched, do not
+expose its cache directory to untrusted writers and do not treat the optional
+local provider as production-safe.
 

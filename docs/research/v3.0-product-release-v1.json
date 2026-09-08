@@ -1,0 +1,227 @@
+{
+  "record_type": "v30_conversational_product_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v3.0-product-release-v1",
+  "issue": 491,
+  "milestone": "v3.0",
+  "status": "bounded_product_release_candidate",
+  "release_intent": "Make the bounded conversational control plane the primary product journey while preserving deterministic engine authority and direct CLI/Python automation.",
+  "dependency_issues": [
+    {"issue": 430, "state": "closed", "merged_commit": "b9aca8a", "claim": "v2.0 evidence, approval, reproducibility and claim policy are available."},
+    {"issue": 485, "state": "closed", "merged_commit": "89aa02a", "claim": "v2.9 approval and conversational security gate is closed with residual risks retained."},
+    {"issue": 486, "state": "closed", "merged_commit": "646b45e", "claim": "local-first setup and first-run diagnostics are implemented."},
+    {"issue": 487, "state": "closed", "merged_commit": "5c6f103", "claim": "provider selection configuration and diagnostics are implemented."},
+    {"issue": 488, "state": "closed", "merged_commit": "9740947", "claim": "bounded campaign explanation, approval and journey integration is implemented."},
+    {"issue": 489, "state": "closed", "merged_commit": "b08074f", "claim": "v2.0 settings, campaign and evidence migration is implemented."},
+    {"issue": 490, "state": "closed", "merged_commit": "a6f4d89", "claim": "v3.0 acceptance, security and reproducibility evidence is recorded."}
+  ],
+  "p0_exit_evidence": [
+    {
+      "key": "v2.0-autonomous-optimizer",
+      "issue": 430,
+      "status": "bounded_release_boundary",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.0-autonomous-optimizer-release-v1.json", "docs/release/v2.0-autonomous-optimizer-audit.md"],
+      "tests": ["tests/test_v20_release.py"],
+      "audits": ["tools/audit_v20_release.py"]
+    },
+    {
+      "key": "v2.1-intent-contract",
+      "issue": 441,
+      "status": "frozen",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.1-conversational-intent-contract-v1.json", "docs/design/conversational-intent-contract.md"],
+      "tests": ["tests/test_v21_intent_contract.py", "tests/test_intent_compiler.py", "tests/test_intent_policy.py"],
+      "audits": ["tests/test_v21_intent_contract.py"]
+    },
+    {
+      "key": "v2.2-provider-boundary",
+      "issue": 446,
+      "status": "bounded_release_boundary",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.2-provider-layer-release-v1.json", "docs/release/v2.2-provider-layer-boundary.md"],
+      "tests": ["tests/test_v22_provider_release.py", "tests/test_provider_conformance.py"],
+      "audits": ["tools/audit_v22_provider_release.py"]
+    },
+    {
+      "key": "v2.3-chat-slice",
+      "issue": 451,
+      "status": "experimental_bounded_slice",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.3-spec-preview-v1.json", "docs/release/v3.0-conversational-journey-boundary.md"],
+      "tests": ["tests/test_spec_preview.py", "tests/test_chat.py", "tests/test_v30_conversational_journey.py"],
+      "audits": ["tests/test_v30_conversational_journey.py"]
+    },
+    {
+      "key": "v2.4-clarification",
+      "issue": 457,
+      "status": "bounded_release_boundary",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.4-clarification-release-v1.json", "docs/release/v2.4-clarification-boundary.md"],
+      "tests": ["tests/test_v24_clarification_release.py", "tests/test_clarification.py"],
+      "audits": ["tools/audit_v24_clarification_release.py"]
+    },
+    {
+      "key": "v2.5-negotiation",
+      "issue": 462,
+      "status": "bounded_release_boundary",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.5-constraint-negotiation-release-v1.json", "docs/release/v2.5-constraint-negotiation-boundary.md"],
+      "tests": ["tests/test_v25_constraint_negotiation_release.py", "tests/test_negotiation_study.py"],
+      "audits": ["tools/audit_v25_constraint_negotiation_release.py", "tools/audit_v25_negotiation_quality.py"]
+    },
+    {
+      "key": "v2.6-tools",
+      "issue": 468,
+      "status": "bounded_release_boundary",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.6-bounded-conversational-tool-release-v1.json", "docs/release/v2.6-bounded-conversational-tool-boundary.md"],
+      "tests": ["tests/test_v26_tool_release.py", "tests/test_conversational_tools.py"],
+      "audits": ["tools/audit_v26_tool_release.py"]
+    },
+    {
+      "key": "v2.7-stateful-campaigns",
+      "issue": 474,
+      "status": "closed",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.7-stateful-campaign-release-v1.json", "docs/research/v2.7-campaign-recovery-v1.json", "docs/release/v2.7-stateful-campaigns-boundary.md"],
+      "tests": ["tests/test_v27_campaign_release.py", "tests/test_v27_campaign_recovery.py", "tests/test_campaign_recovery.py"],
+      "audits": ["tools/audit_v27_campaign_release.py", "tools/audit_v27_campaign_recovery.py"]
+    },
+    {
+      "key": "v2.8-evidence-grounding",
+      "issue": 480,
+      "status": "closed",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.8-evidence-grounding-release-v1.json", "docs/research/v2.8-evidence-factuality-study-v1.json", "docs/release/v2.8-evidence-grounding-boundary.md"],
+      "tests": ["tests/test_v28_evidence_grounding_release.py", "tests/test_claim_evidence.py", "tests/test_evidence_factuality_study.py"],
+      "audits": ["tools/audit_v28_evidence_grounding_release.py", "tools/audit_evidence_factuality_study.py"]
+    },
+    {
+      "key": "v2.9-security",
+      "issue": 485,
+      "status": "closed_bounded_gate",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v2.9-conversational-security-release-v1.json", "docs/research/v2.9-adversarial-resistance-v1.json", "docs/release/v2.9-conversational-security-boundary.md", "docs/testing/adversarial-resistance.md"],
+      "tests": ["tests/test_v29_conversational_security_release.py", "tests/test_adversarial_resistance.py", "tests/test_policy_precedence.py"],
+      "audits": ["tools/audit_v29_conversational_security_release.py", "tools/audit_adversarial_resistance.py"]
+    },
+    {
+      "key": "v3.0-setup-provider-journey",
+      "issue": 488,
+      "status": "bounded_integration",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/release/v3.0-first-run-setup-boundary.md", "docs/release/v3.0-conversational-journey-boundary.md", "docs/research/v3.0-first-run-setup-evidence.json", "docs/research/v3.0-provider-diagnostics-evidence.json"],
+      "tests": ["tests/test_setup.py", "tests/test_provider_configuration.py", "tests/test_v30_conversational_journey.py"],
+      "audits": ["tests/test_setup.py", "tests/test_provider_configuration.py", "tests/test_v30_conversational_journey.py"]
+    },
+    {
+      "key": "v3.0-migration",
+      "issue": 489,
+      "status": "implemented",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v3.0-migration-compatibility-v1.json", "docs/migration.md"],
+      "tests": ["tests/test_migration_compatibility.py"],
+      "audits": ["tools/audit_migration_compatibility.py"]
+    },
+    {
+      "key": "v3.0-acceptance",
+      "issue": 490,
+      "status": "passed_with_explicit_skips",
+      "negative_evidence_retained": true,
+      "artifacts": ["docs/research/v3.0-acceptance-matrix-v1.json", "docs/research/v3.0-acceptance-evidence-v1.json", "docs/release/v3.0-acceptance-security-reproducibility-review.md"],
+      "tests": ["tests/test_v30_acceptance.py"],
+      "audits": ["tools/audit_v30_acceptance.py"]
+    }
+  ],
+  "authority_boundary": {
+    "text_llm": "Interprets, clarifies, requests typed operations and explains retained evidence; provider output is untrusted.",
+    "optimization_spec": "The sole structured optimization contract for objectives, hard constraints, budgets and approvals.",
+    "deterministic_engine": "Owns capability checks, candidate generation, mutation, rollback, measurement, acceptance, provenance and artifact publication.",
+    "learned_meta_surgeon": "Ranks or predicts candidate outcomes from learned evidence; it does not create measurements or accept artifacts.",
+    "text_llm_is_optimizer_authority": false,
+    "text_llm_is_evidence_authority": false,
+    "optimization_spec_is_free_form": false,
+    "learned_meta_surgeon_is_measurement_authority": false,
+    "chat_history_is_canonical_state": false,
+    "product_release_claims_optimizer_optimality": false
+  },
+  "capability_states": {
+    "verified": [
+      "bounded local-first setup and separated data layout with metadata-only offline fixtures",
+      "provider diagnostics, no-LLM operation, typed journey, campaign recovery, approvals and evidence-grounded explanations",
+      "v2.0 settings/campaign/evidence migration with deterministic refusal of mismatches",
+      "direct CLI/Python automation remains supported and provider-independent",
+      "locked dependency installation, source-controlled manifests and executable release audit"
+    ],
+    "experimental": [
+      "Text LLM provider execution, local GGUF provider availability and the conversational product journey beyond the bounded fixtures",
+      "learned Meta-Surgeon models, active search, physical HF surgery and native GGUF surgery",
+      "representative model-family and hardware measurements outside the committed metadata fixtures"
+    ],
+    "unsupported": [
+      "arbitrary shell, Python, filesystem or network tools from conversation",
+      "hostile operating-system process containment, distributed or multi-writer campaign recovery",
+      "universal architecture, filesystem, device, deployment, CUDA, llama.cpp or hosted-provider support",
+      "automatic constraint relaxation, unvalidated artifact promotion and source-model overwrite"
+    ],
+    "unknown": [
+      "model-quality, latency, memory and throughput outcomes without a retained measurement on the user's exact model and hardware",
+      "live provider quality/security and optional runtime availability in an environment not exercised by the release gate",
+      "behavior for unlisted architectures, quantization layouts, future schemas or opaque/provider-specific artifacts"
+    ],
+    "deferred_v3_1": [
+      "scale and improve the learned Meta-Surgeon with new held-out evidence, transfer studies and model-family coverage",
+      "revisit broader product packaging or runtime support only with new reproducible evidence; v3.0 does not imply an installer"
+    ]
+  },
+  "release_candidate_observations": [
+    "docs/research/v3.0-acceptance-evidence-v1.json",
+    "docs/research/v2.9-adversarial-resistance-v1.json",
+    "docs/research/v2.9-conversational-security-release-v1.json",
+    "docs/release/v3.0-acceptance-security-reproducibility-review.md"
+  ],
+  "residual_risks": [
+    {"id": "hostile_process", "status": "unresolved_not_claimed", "mitigation": "Keep provider/tool zones untrusted, fail closed on isolation failure, and require an external sandbox for hostile code."},
+    {"id": "live_provider", "status": "not_measured", "mitigation": "Use no-LLM or offline mode for reproducibility; treat live provider quality/security as unknown."},
+    {"id": "model_coverage", "status": "bounded_fixture_only", "mitigation": "Require architecture, revision, hardware and retained measurements for each real campaign."},
+    {"id": "optimizer_authority", "status": "explicitly_separated", "mitigation": "Keep OptimizationSpec and deterministic engine authoritative; retain prediction-only and inconclusive outcomes."},
+    {"id": "packaging", "status": "no_installer_claim", "mitigation": "Use the locked source/wheel workflow and document the user-owned data root; defer installer work."},
+    {"id": "optional_diskcache_pickle", "status": "open_dependabot_alert", "mitigation": "The optional local-provider extra currently resolves diskcache 5.6.3, which has an unsafe pickle-deserialization advisory with no patched version listed. Do not expose its cache directory to untrusted writers; track GHSA-w8v5-vhqr-4h9v/CVE-2025-69872 before treating the optional provider as production-safe."}
+  ],
+  "documentation": [
+    "README.md",
+    "ROADMAP.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md",
+    "docs/design/conversational-control-plane.md",
+    "docs/migration.md",
+    "docs/release/v3.0-conversational-product-boundary.md",
+    "docs/release/v3.0-packaging-and-setup.md",
+    "docs/release/v3.0-acceptance-security-reproducibility-review.md",
+    "SECURITY.md",
+    "CHANGELOG.md"
+  ],
+  "release_checklist": ["docs/release/v3.0-conversational-product-boundary.md", "tools/audit_v30_release.py"],
+  "quality_gate_tests": ["tests/test_v30_release.py", "tests/test_v30_acceptance.py", "tests/test_migration_compatibility.py"],
+  "audit_commands": [
+    {"name": "v2.0 release boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v20_release.py"]},
+    {"name": "v2.2 provider boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v22_provider_release.py"]},
+    {"name": "v2.4 clarification boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v24_clarification_release.py"]},
+    {"name": "v2.5 negotiation boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v25_constraint_negotiation_release.py"]},
+    {"name": "v2.5 decision quality", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v25_negotiation_quality.py"]},
+    {"name": "v2.6 tool boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v26_tool_release.py"]},
+    {"name": "v2.7 campaign boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v27_campaign_release.py"]},
+    {"name": "v2.7 recovery matrix", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v27_campaign_recovery.py"]},
+    {"name": "v2.8 evidence boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v28_evidence_grounding_release.py"]},
+    {"name": "v2.8 factuality study", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_evidence_factuality_study.py"]},
+    {"name": "v2.9 adversarial corpus", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_adversarial_resistance.py"]},
+    {"name": "v2.9 security boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v29_conversational_security_release.py"]},
+    {"name": "v3.0 migration boundary", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_migration_compatibility.py"]},
+    {"name": "v3.0 acceptance record", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v30_acceptance.py"]},
+    {"name": "v3.0 release manifest", "command": ["uv", "run", "--locked", "--extra", "dev", "python", "tools/audit_v30_release.py"]},
+    {"name": "lint", "command": ["uv", "run", "--locked", "--extra", "dev", "ruff", "check", "."]},
+    {"name": "type check", "command": ["uv", "run", "--locked", "--extra", "dev", "mypy", "src"]},
+    {"name": "full test suite", "command": ["uv", "run", "--locked", "--extra", "dev", "pytest", "-q"]}
+  ]
+}
