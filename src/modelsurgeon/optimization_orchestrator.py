@@ -13,7 +13,7 @@ import importlib
 import json
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -133,6 +133,7 @@ class StageResult:
     transaction_state: TransactionState | None = None
     artifact_immutable: bool = False
     alternatives: tuple[str, ...] = ()
+    lineage: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         _text(self.evidence_id, "stage evidence ID")
@@ -152,6 +153,8 @@ class StageResult:
             raise OptimizeOrchestratorError("supported stages require complete evidence")
         if self.artifact_immutable and self.artifact_digest is None:
             raise OptimizeOrchestratorError("immutable artifact evidence requires a digest")
+        if not isinstance(self.lineage, Mapping):
+            raise OptimizeOrchestratorError("stage lineage must be a mapping")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -170,6 +173,7 @@ class StageResult:
             ),
             "artifact_immutable": self.artifact_immutable,
             "alternatives": list(self.alternatives),
+            "lineage": dict(self.lineage),
         }
 
 
@@ -697,6 +701,9 @@ def _stage_result_from_record(value: object) -> StageResult:
     if not isinstance(alternatives, list):
         raise OptimizeOrchestratorError("stored stage alternatives must be an array")
     transaction_raw = raw.get("transaction_state")
+    lineage_raw = raw.get("lineage", {})
+    if not isinstance(lineage_raw, Mapping):
+        raise OptimizeOrchestratorError("stored stage lineage must be an object")
     try:
         return StageResult(
             WorkflowOutcome(str(raw["outcome"])),
@@ -712,6 +719,7 @@ def _stage_result_from_record(value: object) -> StageResult:
             None if transaction_raw is None else TransactionState(str(transaction_raw)),
             _stored_bool(raw.get("artifact_immutable", False), "artifact immutability status"),
             tuple(str(item) for item in alternatives),
+            dict(lineage_raw),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise OptimizeOrchestratorError("stored stage result is invalid") from error

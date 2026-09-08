@@ -415,7 +415,10 @@ configuration, features, predictions, measurements, outcome, and parent/child
 lineage. Accepted, rejected, rolled-back, and failed observations remain
 available under the run's `optimization-evidence` directory for later
 leakage-audited learning; these records do not promote predictions to
-measurements. Active search also writes a measured objective archive at
+measurements. For cumulative surgery, the public surgery-stage result also
+retains structured sequence lineage: mutation IDs, source/parent/outcome IDs,
+artifact digests, state updates, and physical observation paths. Active search
+also writes a measured objective archive at
 `artifacts/optimize/<run-id>/measured-candidate-frontier.sqlite`. Its preferred
 candidate is selected only from physically measured, objective-complete
 frontier entries; the archive is provenance for candidate selection, not a
