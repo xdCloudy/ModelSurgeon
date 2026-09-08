@@ -108,7 +108,12 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     assert "decode_tokens_per_second" in pareto.detail
     active_search = run.stages[4].result
     assert active_search is not None
-    assert json.loads(active_search.detail)["feature_evidence"]
+    detail = json.loads(active_search.detail)
+    assert detail["feature_evidence"]
+    assert all(Path(item["cache"]["path"]).is_file() for item in detail["feature_evidence"])
+    assert len(list(Path(detail["feature_cache_root"]).glob("*.json"))) == len(
+        detail["feature_evidence"]
+    )
 
 
 def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: Path) -> None:

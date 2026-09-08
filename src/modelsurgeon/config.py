@@ -120,6 +120,7 @@ class CalibrationConfig(StrictConfigModel):
 class FeatureConfig(StrictConfigModel):
     """Feature extractor groups enabled for a run."""
 
+    cache_dir: Path | None = None
     weights: bool = True
     spectral: bool = True
     activations: bool = True
