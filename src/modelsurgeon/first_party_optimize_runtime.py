@@ -40,6 +40,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
     enumerate_mutation_candidates,
 )
+from modelsurgeon.experiments.hardware import collect_hardware_inventory
 from modelsurgeon.experiments.optimization_evidence import (
     OptimizationEvidenceOutcome,
     OptimizationEvidenceRecord,
@@ -176,6 +177,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.state_updates: tuple[Mapping[str, object], ...] = ()
         self.evidence_publications: dict[str, Mapping[str, object]] = {}
         self.search_evidence_publications: dict[str, Mapping[str, object]] = {}
+        self.boundary_evidence: dict[str, Mapping[str, object]] = {}
+        self.runtime_hardware: Mapping[str, object] | None = None
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -389,6 +392,98 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             strict=False
         )
 
+    def _runtime_hardware_record(self) -> Mapping[str, object]:
+        if self.runtime_hardware is not None:
+            return self.runtime_hardware
+        resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+        artifact_dir = resolved_config.get("artifact_dir", "artifacts")
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        probe_path = Path(artifact_dir).expanduser().absolute().resolve(strict=False)
+        if not probe_path.exists():
+            probe_path = probe_path.parent if probe_path.parent.exists() else Path.cwd()
+        self.runtime_hardware = collect_hardware_inventory(probe_path).to_record()
+        return self.runtime_hardware
+
+    @staticmethod
+    def _failure_classification(error: BaseException | str) -> str:
+        text = str(error).lower()
+        if "out of memory" in text or "oom" in text:
+            return "oom"
+        if "timeout" in text or "timed out" in text:
+            return "timeout"
+        if "unsupported" in text:
+            return "unsupported"
+        return "runtime_failure"
+
+    def _record_runtime_boundary(
+        self,
+        stage: OptimizeStage,
+        outcome: OptimizationEvidenceOutcome,
+        reason: str,
+        *,
+        error: BaseException | None = None,
+    ) -> Mapping[str, object] | None:
+        """Retain non-measurement outcomes even when a stage cannot execute."""
+
+        try:
+            proof = self.proof
+            model: Mapping[str, object]
+            dataset: Mapping[str, object]
+            hardware: dict[str, object]
+            run_id: str
+            if proof is not None:
+                model = proof._model_target.to_record()
+                dataset = proof._dataset.to_record()
+                hardware = dict(proof._hardware.to_record())
+                run_id = proof.run_id
+            else:
+                resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+                model = _mapping(resolved_config.get("model"), "model")
+                dataset = _mapping(resolved_config.get("calibration"), "calibration")
+                hardware = {}
+                run_id = "runtime_" + hashlib.sha256(self.plan.plan_id.encode()).hexdigest()
+            hardware["runtime_inventory"] = dict(self._runtime_hardware_record())
+            failure = {
+                "reason": reason,
+                "classification": self._failure_classification(error or reason),
+            }
+            identity = {
+                "run_id": run_id,
+                "stage": stage.value,
+                "outcome": outcome.value,
+                "reason": reason,
+                "failure": failure,
+            }
+            observation_id = "obs_" + hashlib.sha256(
+                json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            record = OptimizationEvidenceRecord(
+                observation_id=observation_id,
+                run_id=run_id,
+                stage=stage.value,
+                state_id="boundary:" + stage.value,
+                outcome=outcome,
+                model=model,
+                dataset=dataset,
+                hardware=hardware,
+                versions={
+                    "runtime": "first_party_hf_mlp",
+                    "config_digest": self.plan.config_digest,
+                    "plan_digest": self.plan.plan_id,
+                    "evidence_schema_version": 1,
+                },
+                lineage={"boundary": True, "reason": reason},
+                failure=failure,
+            )
+            published = OptimizationEvidenceStore(self._evidence_store_root()).publish(record)
+            reference = published.to_record()
+            self.boundary_evidence[observation_id] = reference
+            self.evidence_publications[observation_id] = reference
+            return reference
+        except Exception:
+            return None
+
     def _publish_feature_partition(self, partition: FeaturePartition) -> Mapping[str, object]:
         cache = FeaturePartitionCache(self._feature_cache_root())
         existing = cache.load(partition.key)
@@ -449,7 +544,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             outcome=outcome,
             model=proof._model_target.to_record(),
             dataset=proof._dataset.to_record(),
-            hardware=proof._hardware.to_record(),
+            hardware={
+                **proof._hardware.to_record(),
+                "runtime_inventory": dict(self._runtime_hardware_record()),
+            },
             versions={
                 "runtime": "first_party_hf_mlp",
                 "config_digest": self.plan.config_digest,
@@ -648,10 +746,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
     def _unsupported(self, stage: OptimizeStage, detail: str) -> StageResult:
         run_key = f"{self.plan.plan_id}:{stage.value}:{detail}"
+        reference = self._record_runtime_boundary(
+            stage, OptimizationEvidenceOutcome.UNSUPPORTED, detail
+        )
         return StageResult(
             WorkflowOutcome.UNSUPPORTED,
             "unsupported_" + hashlib.sha256(run_key.encode()).hexdigest(),
-            detail,
+            json.dumps(
+                {"status": "unsupported", "reason": detail, "evidence": reference},
+                sort_keys=True,
+            ),
             complete=True,
         )
 
@@ -1031,7 +1135,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     else self.selected_candidates[0].request.mutation_id
                 ),
                 measurement=None,
-                failure={"failed_index": 0, "reason": str(error)},
+                failure={
+                    "failed_index": 0,
+                    "reason": str(error),
+                    "classification": self._failure_classification(error),
+                },
                 feature_records=(
                     ()
                     if candidate_id is None
@@ -1327,6 +1435,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     failure={
                         "failed_index": failed_index,
                         "reason": sequence.failure_reason,
+                        "classification": self._failure_classification(
+                            sequence.failure_reason or ""
+                        ),
                     },
                     feature_records=(
                         ()
@@ -1350,9 +1461,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 proof = self._ensure_loaded()
                 return self._result(
                     stage,
-                    "loaded and profiled "
-                    f"{proof._model_target.identifier} revision "
-                    f"{proof._model_target.revision}",
+                    json.dumps(
+                        {
+                            "model": proof._model_target.to_record(),
+                            "hardware_inventory": dict(self._runtime_hardware_record()),
+                            "source_digest": self.source_digest,
+                        },
+                        sort_keys=True,
+                    ),
                     measured=True,
                     constraints_passed=True,
                 )
@@ -1365,7 +1481,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 self.baseline = self._ensure_loaded().baseline_measurement()
                 return self._result(
                     stage,
-                    json.dumps(dict(self.baseline), sort_keys=True),
+                    json.dumps(
+                        {
+                            "baseline": dict(self.baseline),
+                            "hardware_inventory": dict(self._runtime_hardware_record()),
+                        },
+                        sort_keys=True,
+                    ),
                     measured=True,
                     constraints_passed=True,
                 )
@@ -1430,9 +1552,24 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             if stage is OptimizeStage.SURGERY:
                 return self._surgery(context)
             if stage in {OptimizeStage.REPAIR, OptimizeStage.QUANTIZATION}:
+                reason = (
+                    "repair is not connected to the verified HF MLP runtime"
+                    if stage is OptimizeStage.REPAIR
+                    else "quantization is not connected to the verified HF MLP runtime"
+                )
+                reference = self._record_runtime_boundary(
+                    stage, OptimizationEvidenceOutcome.UNSUPPORTED, reason
+                )
                 return self._result(
                     stage,
-                    "not requested by this verified HF MLP-channel plan; no operation was claimed",
+                    json.dumps(
+                        {
+                            "status": "unsupported",
+                            "reason": reason,
+                            "evidence": reference,
+                        },
+                        sort_keys=True,
+                    ),
                 )
             if stage is OptimizeStage.DEPLOYMENT_BENCHMARK:
                 if self.reloaded_model is None or self.artifact_digest is None:
@@ -1528,6 +1665,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "baseline": dict(self.deployment_baseline),
                     "candidate": dict(self.deployment),
                     "candidate_quality": dict(candidate_quality),
+                    "hardware_inventory": dict(self._runtime_hardware_record()),
                     "quality_delta": quality_delta,
                     "latency_gain_ratio": latency_gain,
                 }
@@ -1591,11 +1729,24 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         except FirstPartyOptimizeRuntimeError as error:
             return self._unsupported(stage, str(error))
         except Exception as error:  # durable failure evidence is safer than an implicit claim
+            reference = self._record_runtime_boundary(
+                stage,
+                OptimizationEvidenceOutcome.FAILED,
+                str(error),
+                error=error,
+            )
             return StageResult(
                 WorkflowOutcome.FAILED,
                 "failure_"
                 + hashlib.sha256(f"{self.plan.plan_id}:{stage.value}:{error}".encode()).hexdigest(),
-                f"first-party runtime failed during {stage.value}: {error}",
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "reason": f"first-party runtime failed during {stage.value}: {error}",
+                        "evidence": reference,
+                    },
+                    sort_keys=True,
+                ),
                 complete=True,
             )
 

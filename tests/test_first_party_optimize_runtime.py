@@ -100,6 +100,17 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     assert run.stages[0].result is not None
     assert run.stages[2].result is not None
     assert run.stages[2].result.measured
+    profile_detail = json.loads(run.stages[0].result.detail)
+    assert profile_detail["hardware_inventory"]["memory"]["total_bytes"] is not None
+    repair_detail = json.loads(run.stages[6].result.detail)
+    quantization_detail = json.loads(run.stages[7].result.detail)
+    assert repair_detail["status"] == "unsupported"
+    assert quantization_detail["status"] == "unsupported"
+    assert Path(repair_detail["evidence"]["path"]).is_file()
+    assert Path(quantization_detail["evidence"]["path"]).is_file()
+    assert json.loads(Path(repair_detail["evidence"]["path"]).read_text())["outcome"] == (
+        "unsupported"
+    )
     assert run.accepted_artifact_digest is not None
     assert run.accepted_artifact_digest != run.source_artifact_digest
     assert (tmp_path / "artifacts" / "optimize" / run.run_id).is_dir()
