@@ -189,12 +189,55 @@
       "reason": "first-party runtime failed during profile: no supported architecture alias matched explicit evidence: {'model_type': 'gpt2', 'architecture_names': ('GPT2LMHeadModel',), 'gguf_architecture': None}"
     }
   ],
+  "low_rank_campaign_record": {
+    "tool_revision": "first-party-hf-acceptance-v2",
+    "path": "work/acceptance-campaign-2026-09-08-low-rank.json",
+    "sha256": "a00cdbe6200b14f3a93092cba328f5574a9e7b4882629126af00330eebd794d3",
+    "command": "uv run --extra hf python tools/run_first_party_hf_acceptance.py --model hf-internal-testing/tiny-random-LlamaForCausalLM@9fb191250dd56d0ba7ec9785a025ed29c03d5998 --model hf-internal-testing/tiny-random-MistralForCausalLM@7517176934d50d00707900b92ef6a95c782e51a2 --calibration-text work/acceptance-campaign-calibration.txt --output work/acceptance-campaign-2026-09-08-low-rank.json --artifact-root work/acceptance-artifacts-2026-09-08-low-rank --preset balanced --quality-profile quality --evaluations 1 --search-scope low_rank --low-rank-rank 1",
+    "contract": {
+      "min_quality_retention_ratio": 0.99,
+      "max_perplexity_delta": 0.02,
+      "quality_profile": "quality",
+      "preset": "balanced",
+      "evaluations": 1,
+      "search_scope": "low_rank",
+      "low_rank_rank": 1,
+      "calibration_sha256": "8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5"
+    },
+    "negative_cells": [
+      {
+        "identifier": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+        "family": "llama",
+        "revision": "9fb191250dd56d0ba7ec9785a025ed29c03d5998",
+        "run_id": "optimize_run_82a147b459f8e26fc6ffd8a0f6afc7351181250767866528ad006ef4755debaf",
+        "source_artifact_digest": "sha256:33f3bb3e98d1148bb14988277fc9710787e5f00b16340d65c9e5a427fc1b2625",
+        "outcome": "unsupported",
+        "failed_stage": "active_search",
+        "failure_evidence_id": "unsupported_5f3a39b82421418ba2684bf71f74553eefb8ae18f884ae87b9ac566dfcbf24e2",
+        "failure_observation_sha256": "f837c43ebbff84d7c8b7be0ae48bec4e3f54b526574294cd9930fa44a3037469",
+        "reason": "no measured candidate met max perplexity delta 0.02"
+      },
+      {
+        "identifier": "hf-internal-testing/tiny-random-MistralForCausalLM",
+        "family": "mistral",
+        "revision": "7517176934d50d00707900b92ef6a95c782e51a2",
+        "run_id": "optimize_run_3d25c10f573116f41e53f5d096f3db8884bd2c4ea35220972b6d9a07c8791267",
+        "source_artifact_digest": "sha256:265978a335d3d5f7c6f29c26579942dd76a44b182d986c9318b642ab97fddda7",
+        "outcome": "unsupported",
+        "failed_stage": "active_search",
+        "failure_evidence_id": "unsupported_e6ec4409d4847082b8aa94045b8b3423d379f773ada104c83041fc87294456e5",
+        "failure_observation_sha256": "0f8633470b94ab957c237aaafc283fb123e6a3d09106679f07a9e42bcea1270a",
+        "reason": "no measured candidate met max perplexity delta 0.02"
+      }
+    ]
+  },
   "limitations": [
     "This is a bounded CPU-only campaign on public tiny and pretrained checkpoints, not a claim of production-scale model coverage.",
     "The quality gate is perplexity on the pinned local calibration text; no task-specific coding benchmark was run.",
     "Repair and quantization were explicit no-op controls in this campaign; their real paths are covered separately.",
     "The campaign does not establish Meta-Surgeon transfer improvement or cross-hardware transfer.",
     "The negative GPT-2 cell proves fail-closed classification for an unsupported family; it is not evidence of GPT-2 support.",
-    "The pretrained SmolLM cell completed on the pinned CPU environment; the pretrained TinyLlama cell failed closed at active search because the declared RAM envelope could not admit its candidate working set."
+    "The pretrained SmolLM cell completed on the pinned CPU environment; the pretrained TinyLlama cell failed closed at active search because the declared RAM envelope could not admit its candidate working set.",
+    "The independent low-rank tranche exercised rank-1 projection candidates on tiny Llama and Mistral cells but retained both as unsupported because no measured candidate met the strict quality gate; it does not claim low-rank quality improvement."
   ]
 }

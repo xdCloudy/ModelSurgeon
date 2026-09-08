@@ -16,13 +16,14 @@ from modelsurgeon.config import (
     ComputeDType,
     ConstraintConfig,
     ModelConfig,
+    SearchConfig,
     Settings,
 )
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import OptimizeOrchestrator
 
-TOOL_REVISION = "first-party-hf-acceptance-v1"
+TOOL_REVISION = "first-party-hf-acceptance-v2"
 
 
 def _model_reference(value: str) -> tuple[str, str]:
@@ -138,6 +139,8 @@ def _run_cell(
     preset: str,
     quality_profile: str,
     evaluations: int | None,
+    search_scope: str,
+    low_rank_rank: int,
 ) -> dict[str, object]:
     model_path = _resolve_model(identifier, revision)
     slug = _slug(identifier)
@@ -152,6 +155,7 @@ def _run_cell(
             max_sequence_length=32,
             seed=1729,
         ),
+        search=SearchConfig(scopes=(search_scope,), low_rank_rank=low_rank_rank),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.99),
     )
     plan = build_optimize_plan(
@@ -218,11 +222,25 @@ def main() -> int:
     parser.add_argument("--preset", default="balanced")
     parser.add_argument("--quality-profile", default="quality")
     parser.add_argument("--evaluations", type=int)
+    parser.add_argument(
+        "--search-scope",
+        choices=("mlp_channel", "attention_head", "transformer_layer", "low_rank"),
+        default="mlp_channel",
+        help="single first-party search scope used by every campaign cell",
+    )
+    parser.add_argument(
+        "--low-rank-rank",
+        type=int,
+        default=4,
+        help="rank for the low_rank scope; ignored for other scopes",
+    )
     args = parser.parse_args()
     if len(args.model) < 2:
         parser.error("acceptance campaigns require at least two model cells")
     if args.evaluations is not None and args.evaluations <= 0:
         parser.error("--evaluations must be positive")
+    if args.low_rank_rank <= 0:
+        parser.error("--low-rank-rank must be positive")
     calibration_text = args.calibration_text.expanduser().absolute().resolve()
     if not calibration_text.is_file():
         parser.error(f"calibration text does not exist: {calibration_text}")
@@ -245,6 +263,8 @@ def main() -> int:
                 preset=args.preset,
                 quality_profile=args.quality_profile,
                 evaluations=args.evaluations,
+                search_scope=args.search_scope,
+                low_rank_rank=args.low_rank_rank,
             )
         except Exception as error:
             failures = True
@@ -268,6 +288,8 @@ def main() -> int:
             "quality_profile": args.quality_profile,
             "evaluations": args.evaluations,
             "min_quality_retention_ratio": 0.99,
+            "search_scope": args.search_scope,
+            "low_rank_rank": args.low_rank_rank,
             "calibration_text": str(calibration_text),
             "calibration_sha256": _sha256(calibration_text),
         },
