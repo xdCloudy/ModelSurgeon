@@ -1,0 +1,115 @@
+{
+  "record_type": "first_party_hf_chat_acceptance_campaign",
+  "schema_version": 1,
+  "status": "completed_with_accepted_artifact",
+  "request": "Reduce this model size, prioritize generation speed, allow no more than 1% quality loss, and do not overwrite the source.",
+  "interpretation": {
+    "provider": "local-gguf",
+    "provider_model_revision": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "provider_runtime_revision": "de8656bd9",
+    "provider_revision": "local-gguf-provider-v1",
+    "request_digest": "sha256:855c72a726a6b5441dd851ee64a8b460576e2fbc1a0122c1011aa1799f4c9a20",
+    "spec_digest": "sha256:65a28dfaced36ba82dcbc38aac165d1ec5a8db1129f1633db971406990a44bac",
+    "outcome": "executable",
+    "hard_constraints": [{"metric": "quality", "direction": "minimum", "threshold": 0.99, "unit": "ratio"}],
+    "objectives": [{"metric": "latency", "direction": "minimize", "unit": "milliseconds"}]
+  },
+  "execution": {
+    "campaign_id": "campaign_2c4c16aecfcd8f96eccdfd71c9d6306f3f96facb68e4cacbd7f7e6cff0753fd3",
+    "run_id": "optimize_run_b32733abbe995f89613e5b24cdabc684bbb4a4d141a96013e2dfc4555670f49e",
+    "plan_id": "optimize_plan_1266af48b6e798fd6d28466f062d7a54a091d57770a0191d2151ea7f06f049e7",
+    "config_digest": "sha256:82f560f07ae28617a74f758c82f73a4187930eff4dbc9edf6cfb9b31368ee7f1",
+    "runtime": "first_party_huggingface_physical_search",
+    "quality_profile": "quality",
+    "approval_scope": ["artifact_write", "execute_approved_plan", "plan_review", "resource_budget", "source_model"],
+    "outcome": "supported",
+    "accepted_artifact_digest": "sha256:2e435c1e3257df95d3cb29c03579c352165d85e95c7e4dc5ac97480b1d9958b",
+    "source_overwritten": false,
+    "state_store": "work/acceptance-chat-hf-v2-state.campaign.sqlite3",
+    "workflow_state": "work/acceptance-chat-hf-v2-state.json"
+  },
+  "source": {
+    "format": "huggingface",
+    "family": "llama",
+    "path": "D:/Stored Models/models--HuggingFaceTB--SmolLM-135M/snapshots/1d461723eec654e65efdc40cf49301c89c0c92f4",
+    "revision": "1d461723eec654e65efdc40cf49301c89c0c92f4",
+    "content_digest": "sha256:eaa517d882397b825a190fcbf31d3a0b8c2de85ea25d6dd011b44f6b1f77012d",
+    "canonical_source_artifact_digest": "sha256:881396010dcea9d92423a51700b4e06c17985902b7731503bafd24d6b9218a1a",
+    "parameter_count": 134515008
+  },
+  "calibration": {
+    "path": "work/acceptance-campaign-calibration.txt",
+    "revision": "8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5",
+    "manifest_id": "manifest_f630fd9550763e5d473bd66269450adf95ccc6e1d7d50ad43ac8fb6707111ccf",
+    "samples": 2,
+    "max_sequence_length": 32,
+    "seed": 1729
+  },
+  "baseline": {
+    "perplexity": 112.81044196466846,
+    "mean_loss": 4.725708905388327,
+    "deployment_latency_seconds": 0.18099790008272976,
+    "decode_tokens_per_second": 55.11289185207593,
+    "disk_bytes": 2112744533,
+    "repetitions": 5,
+    "token_count": 17
+  },
+  "search": {
+    "scope": "mlp_channel",
+    "candidate_count": 10,
+    "measured_candidate_count": 10,
+    "measurement_authority": "physical_reloaded_child",
+    "candidates": [
+      {"candidate_id": "cand_02607f33ddb06a24273d6334dbf890658ad797f63d602d3d575a626f2cd917e6", "channel": 1028, "perplexity_delta": 1.3009891131394795, "latency_delta_seconds": 0.004914900055155158, "quality_gate": "rejected"},
+      {"candidate_id": "cand_272a7067647cdf8ee53eb86063e8f676eb59ca1ea20e7116f4422c3bdfab9b89", "channel": 1145, "perplexity_delta": -5.315042786295962, "latency_delta_seconds": 0.004801800008863211, "quality_gate": "accepted"},
+      {"candidate_id": "cand_2ea287a555ca600cf706080ac54221b2aeff682db225daf1d8a4287312b60919", "channel": 250, "perplexity_delta": -5.911733972955062, "latency_delta_seconds": 0.003885100013576448, "quality_gate": "accepted"},
+      {"candidate_id": "cand_39529bd246d3de7dbe480d39b40a60ee9c594263ebbbc91567ed576b795059b6", "channel": 1092, "perplexity_delta": -0.3090141038172618, "latency_delta_seconds": 0.001227599917910993, "quality_gate": "accepted"},
+      {"candidate_id": "cand_71cbb8f9ac5b5954e896cfffea767334c41515facc41e15bf7ee6b8bec1107a0", "channel": 169, "perplexity_delta": 21.807859994357926, "latency_delta_seconds": 0.002468900056555867, "quality_gate": "rejected"},
+      {"candidate_id": "cand_71cd38010c65a459861dce6c891e680ea5d3754651ef0891535e06bfc51f48a8", "channel": 1403, "perplexity_delta": -0.6354073198996275, "latency_delta_seconds": 0.0035187999019399285, "quality_gate": "accepted"},
+      {"candidate_id": "cand_a887db9174ade432014ddea2eb331c04da2c0bede05740b49cf2770448eb3736", "channel": 774, "perplexity_delta": 4.428911489025964, "latency_delta_seconds": 0.0033555999398231506, "quality_gate": "rejected"},
+      {"candidate_id": "cand_b08668807965de3c65552b85356d5b10ec5593240e5fe2750925ed81b458f297", "channel": 1052, "perplexity_delta": -0.9651704287915095, "latency_delta_seconds": 0.0016534000169485807, "quality_gate": "accepted"},
+      {"candidate_id": "cand_b38ce9fa5f19f8a420e88bb211cef2dc832924c49020076c1555ce431912210d", "channel": 1354, "perplexity_delta": 1.3879286925572956, "latency_delta_seconds": 0.003110599936917424, "quality_gate": "rejected"},
+      {"candidate_id": "cand_ca4cba5a11179aa768dca77220a30ff2a24ff9b0f827b47f3a9f34866340a8ff", "channel": 582, "perplexity_delta": 0.2537284927786203, "latency_delta_seconds": 0.001644599949941039, "quality_gate": "rejected"}
+    ],
+    "comparison": {
+      "meta_surgeon": "not_configured",
+      "magnitude": {"measured": true, "perplexity_delta": 25.672677160716205, "constraints_passed": false},
+      "random": {"measured": true, "perplexity_delta": 25.672677160716205, "constraints_passed": false},
+      "no_guidance": {"measured": true, "perplexity_delta": -2.1425730137361114, "constraints_passed": true},
+      "measurement_authority": "physical_evaluation"
+    }
+  },
+  "accepted_result": {
+    "candidate_id": "cand_a6c1ec9772e05eb073b2859128892fd960d6e64e04cf6d290fc00b5c56c05224",
+    "removed_channel": 1052,
+    "artifact_digest": "sha256:2e435c1e3257df95d3cb29c03579c352165d85e95c7e4dc5ac97480b1d9958b",
+    "weights_digest": "sha256:90a8075ab082265c57b0baa58b704d219dbf9783eab6ae9b42f302fc8dafda6b",
+    "artifact_bytes": 272481438,
+    "parameter_delta": -51840,
+    "storage_delta_bytes": -103680,
+    "perplexity": 110.66786895093234,
+    "perplexity_delta": -2.1425730137361114,
+    "deployment_latency_seconds": 0.18507240002509207,
+    "latency_gain_ratio": -0.0225113105759788,
+    "reloadable": true,
+    "generation_smoke": true,
+    "pareto_archive_sha256": "sha256:7a58b59d43e2e10ee24e58613a6a1c0ea0bbf6c5a8e8f636deedbaebf0bb68fc"
+  },
+  "environment": {
+    "os": "Windows 11 10.0.26200",
+    "python": "3.12.13",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "cuda_available": false,
+    "ram_total_bytes": 68422938624,
+    "ram_available_bytes": 45632450560,
+    "source_overwrite": false,
+    "runtime": "first-party Hugging Face loader and PyTorch evaluation"
+  },
+  "limitations": [
+    "The accepted artifact satisfies the hard quality floor and reduces storage, but the latency preference regressed by 2.25% in this CPU run; no speed improvement is claimed.",
+    "Meta-Surgeon was not configured for this campaign; its comparison is therefore explicitly not measured here.",
+    "This is one bounded Llama-family MLP-channel cell on CPU, not universal architecture, task-quality, hardware, or production coverage."
+  ]
+}

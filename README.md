@@ -79,8 +79,9 @@ The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
-Fresh revision-pinned first-party acceptance evidence is retained in three
+Fresh revision-pinned first-party acceptance evidence is retained in four
 linked records: the [core HF acceptance record](docs/research/first-party-hf-acceptance-evidence-v3.json),
+the [chat-controlled HF acceptance record](docs/research/first-party-hf-chat-acceptance-evidence-v1.json),
 the [attention-head tranche](docs/research/first-party-hf-acceptance-evidence-v4.json),
 and the [transformer-layer tranche](docs/research/first-party-hf-acceptance-evidence-v5.json).
 Together they cover pinned tiny Llama and Mistral checkpoints plus real
@@ -97,6 +98,16 @@ as fail-closed evidence. These records demonstrate the bounded HF path, not
 production-scale coverage or a task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
+
+The chat-controlled Hugging Face campaign is a fresh end-to-end acceptance
+record, not a planner-only smoke test. A local Qwen GGUF interpreter compiled
+the plain-English request into a 0.99 quality-floor spec, obtained scoped
+approval, measured ten physical MLP-channel candidates, and selected a
+reloadable artifact with a measured Pareto archive. The accepted child reduced
+parameter count by 51,840 and storage by 103,680 bytes while improving the
+calibration perplexity from 112.81 to 110.67. Its CPU deployment latency was
+2.25% slower, so the record does not claim a speed win; see the [campaign
+record](docs/research/first-party-hf-chat-acceptance-evidence-v1.json).
 
 The native GGUF path has also completed a real negative campaign on the pinned
 SmolLM2-135M Q4_K_M fixture: three physically written and llama.cpp-reloaded
@@ -125,7 +136,7 @@ campaign record](docs/research/first-party-native-gguf-chat-campaign-v1.json).
 | Native GGUF surgery | **Experimental, bounded runtime** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation are available through typed adapters. `optimize` can execute the narrow native MLP-channel cell with `--model-format gguf`, an explicit `--model-family`, pinned runtime executables, and `--runtime-revision`; ambiguous families, unsupported codecs/layouts, repair, extra quantization, and missing measurements fail closed. Real direct and chat-controlled SmolLM2 campaigns wrote, reloaded, and measured physical children but rejected them on quality; no GGUF child was promoted, so universal GGUF optimization and a successful end-to-end acceptance claim are not established. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
-| Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. A local GGUF text model supplies interpretation while a separately configured target model is inspected and optimized by the engine. A real Qwen GGUF → SmolLM-135M HF campaign accepted an artifact, and a real Qwen GGUF → SmolLM2-135M native-GGUF campaign compiled a plain-English request, ran six physical candidates, and retained a measured no-feasible-candidate result without promotion. Universal hosted support, representative model-family coverage, and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
+| Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. A local GGUF text model supplies interpretation while a separately configured target model is inspected and optimized by the engine. Fresh chat-controlled HF evidence now covers a 0.99 quality-floor request through physical search, reload, measurement, and Pareto publication; the separate native-GGUF campaign compiled a plain-English request, ran six physical candidates, and retained a measured no-feasible-candidate result without promotion. Universal hosted support, representative model-family coverage, and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
 | Constraint negotiation and infeasibility | **v2.5 milestone closed** | The release boundary reconciles grounded non-destructive infeasibility, measured-only Pareto alternatives, v2.0-scoped user approval, immutable amendments, preserved direct-API objective history, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation is not supported. See the [v2.5 release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json). |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational security and approval gate | **v2.9 bounded pre-product gate closed by #485** | Scoped approvals bind exact plans and material diffs; centralized policy fails closed; provider/tool trust zones copy and redact untrusted data; 18-case/69-variant adversarial evidence retains negative and unresolved observations; clean local replay covers approval, adversarial, isolation, replay, and direct API suites. Hostile-process containment, live providers/credentials, universal injection resistance, distributed recovery, optimizer proof, and product readiness remain unclaimed. See the [v2.9 boundary](docs/release/v2.9-conversational-security-boundary.md) and [release record](docs/research/v2.9-conversational-security-release-v1.json). |
