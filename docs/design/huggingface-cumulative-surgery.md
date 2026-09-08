@@ -23,4 +23,8 @@ The publisher, reloader, and generation smoke are explicit interfaces because
 the repository supports multiple Hugging Face model families. Production
 callers should connect the publisher to the existing atomic safetensors
 checkpoint writer and use revision-pinned model loaders and deterministic
-generation inputs.
+generation inputs. The first-party optimize runtime now uses this sequence for
+bounded MLP-channel search results and stores the final child path plus every
+stage record in the durable optimize evidence. On resume it verifies that child
+digest and reloads it before continuing, so a process restart cannot silently
+fall back to the immutable source model.

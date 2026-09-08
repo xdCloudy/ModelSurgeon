@@ -42,7 +42,10 @@ deterministic run and stage IDs, the linear DAG dependencies, cursor, attempt
 counts, stage evidence, approvals, overrides, alternatives, reasons, and
 accepted artifact lineage. Completed stages are skipped on resume. A stage that
 was interrupted while running is retried with a new attempt; completed work is
-not duplicated. A changed plan or source identity is rejected.
+not duplicated. The first-party Hugging Face runtime rehydrates the selected
+candidate and verifies the digest of the published cumulative child before
+continuing deployment or Pareto stages. A changed plan or source identity is
+rejected.
 
 The workflow stages are profile, capability, baseline, candidate generation,
 active search, surgery, repair, quantization, deployment benchmark, Pareto

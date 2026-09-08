@@ -85,7 +85,7 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | `optimize --execute` now has a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, physical resize, safetensors publication, reload/inference smoke, post-publication quality, load, throughput, latency, memory, and size evidence. GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
+| First-party optimize execution | **Experimental** | `optimize --execute` now has a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, bounded cumulative physical resize with one child artifact per accepted step, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
@@ -328,13 +328,15 @@ module:factory` only when supplying a separately reviewed runtime for another
 cell; the default path never substitutes metadata or synthetic benchmark values
 for model measurements.
 
-Repeat with `--resume` after an interruption. A missing runtime, unsupported
-capability, incomplete evidence, or absent feasible candidate remains an
-explicit `unknown`, `unsupported`, or `failed` result; no best model is guessed.
-Resume state retains the plan digest and snapshot. Material plan changes are
-rejected with a deterministic diff, and approvals expire rather than silently
-carrying forward. To produce a signed final package, provide a key through an
-environment variable (the key is never written to the package):
+Repeat with `--resume` after an interruption. The verified Hugging Face path
+rehydrates its selected candidate, published cumulative child, and deployment
+evidence from the durable stage record before continuing. A missing runtime,
+unsupported capability, incomplete evidence, or absent feasible candidate
+remains an explicit `unknown`, `unsupported`, or `failed` result; no best model
+is guessed. Resume state retains the plan digest and snapshot. Material plan
+changes are rejected with a deterministic diff, and approvals expire rather
+than silently carrying forward. To produce a signed final package, provide a
+key through an environment variable (the key is never written to the package):
 
 Direct and chat execution share the same scoped approval lifecycle, including
 one-time/reusable policies, expiry, material-diff reapproval, and immutable

@@ -54,6 +54,11 @@ from modelsurgeon.optimization_orchestrator import (
     WorkflowOutcome,
 )
 from modelsurgeon.surgery.contracts import TransactionState
+from modelsurgeon.surgery.huggingface_sequence import (
+    HuggingFaceCumulativeRun,
+    HuggingFaceEdit,
+    run_huggingface_cumulative_sequence,
+)
 
 
 class FirstPartyOptimizeRuntimeError(RuntimeError):
@@ -145,6 +150,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.selected: MutationCandidate | None = None
         self.selected_channel: int | None = None
         self.selected_measurement: Mapping[str, object] | None = None
+        self.selected_channels: tuple[int, ...] = ()
+        self.selected_candidates: tuple[MutationCandidate, ...] = ()
+        self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
         self.reloaded_model: Any | None = None
@@ -152,6 +160,75 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.deployment_baseline: Mapping[str, object] | None = None
         self.deployment: Mapping[str, object] | None = None
         self.deployment_constraints_passed: bool | None = None
+
+    def _hydrate(self, context: StageContext) -> None:
+        """Rebuild runtime state from durable stage evidence after a restart."""
+
+        for stage in context.completed_results.values():
+            if stage.artifact_digest is not None and self.artifact_digest is None:
+                self.artifact_digest = stage.artifact_digest
+            if stage.candidate_id is not None and self.selected is None:
+                candidates = self.candidates or self._enumerate()
+                candidate_id = "cand_" + stage.candidate_id.removeprefix("candidate_")
+                self.selected = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if candidate.candidate_id == candidate_id
+                    ),
+                    None,
+                )
+                if self.selected is not None:
+                    self.selected_channel = self._channel(self.selected)
+                    self.selected_channels = (self.selected_channel,)
+            try:
+                detail = json.loads(stage.detail)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(detail, Mapping):
+                continue
+            source_digest = detail.get("source_digest")
+            if isinstance(source_digest, str) and source_digest:
+                self.source_digest = source_digest
+            measurement = detail.get("measurement")
+            if isinstance(measurement, Mapping):
+                self.selected_measurement = measurement
+            channels = detail.get("channels")
+            if isinstance(channels, list) and all(
+                isinstance(channel, int) and not isinstance(channel, bool) and channel >= 0
+                for channel in channels
+            ):
+                self.selected_channels = tuple(channels)
+                if self.selected_channels:
+                    self.selected_channel = self.selected_channels[0]
+            if stage.artifact_digest is not None:
+                artifact_value = detail.get("artifact")
+                if isinstance(artifact_value, str) and artifact_value:
+                    artifact = Path(artifact_value).expanduser().absolute().resolve(strict=False)
+                    if artifact.is_file() and _sha256(artifact) == stage.artifact_digest:
+                        self.artifact = artifact
+                        self.reloaded_model = self._reload(artifact)
+            baseline = detail.get("baseline")
+            candidate = detail.get("candidate")
+            if isinstance(baseline, Mapping) and isinstance(candidate, Mapping):
+                self.deployment_baseline = baseline
+                self.deployment = candidate
+                self.deployment_constraints_passed = stage.constraints_passed
+
+    def _surgery_steps(self) -> int:
+        root = _mapping(self.plan.resolved_config, "resolved configuration")
+        search_config = root.get("search")
+        configured = (
+            None
+            if search_config is None
+            else _mapping(search_config, "search").get("max_surgery_steps")
+        )
+        if configured is None:
+            return 2 if self.plan.budget.evaluations > 1 else 1
+        steps = _integer(configured, 1, "search.max_surgery_steps")
+        if steps < 1:
+            raise FirstPartyOptimizeRuntimeError("search.max_surgery_steps must be positive")
+        return min(steps, self.plan.budget.evaluations)
 
     def _model_source(self) -> str:
         value = _config_value(self.plan, "model", "path")
@@ -326,12 +403,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 f"no measured channel met max perplexity delta {allowed:.12g}"
             )
-        _, _, channel, candidate, measurement = min(
-            scored, key=lambda item: (item[0], item[1], item[2])
-        )
+        ranked = sorted(scored, key=lambda item: (item[0], item[1], item[2]))
+        _, _, channel, candidate, measurement = ranked[0]
         self.selected = candidate
         self.selected_channel = channel
         self.selected_measurement = measurement
+        self.selected_candidates = tuple(item[3] for item in ranked[: self._surgery_steps()])
+        self.selected_channels = tuple(self._channel(item) for item in self.selected_candidates)
         return candidate
 
     def _publish(self, model: Any, destination: Path) -> Path:
@@ -532,20 +610,44 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def _surgery(self, context: StageContext) -> StageResult:
         proof = self._ensure_loaded()
         candidate = self.selected or self._search()
-        assert self.selected_channel is not None
-        model = copy.deepcopy(proof.model)
-        removal = remove_huggingface_mlp_channels(model, (self.selected_channel,))
+        if not self.selected_candidates:
+            self._search()
+        if not self.selected_channels:
+            raise FirstPartyOptimizeRuntimeError("active search did not select a physical channel")
         artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
             "artifact_dir", "artifacts"
         )
         artifact_root = Path(cast(str, artifact_dir))
-        destination = artifact_root / "optimize" / context.run.run_id / "hf-mlp-channel"
-        artifact = self._publish(model, destination)
-        reloaded = self._reload(artifact)
-        if not self._generation_smoke(reloaded):
-            raise FirstPartyOptimizeRuntimeError(
-                "reloaded artifact failed the inference smoke test"
+        sequence_root = artifact_root / "optimize" / context.run.run_id / "hf-mlp-sequence"
+        original_channels = self.selected_channels
+        edits: list[HuggingFaceEdit] = []
+        for index, original_channel in enumerate(original_channels):
+            current_channel = original_channel - sum(
+                prior < original_channel for prior in original_channels[:index]
             )
+
+            def apply_edit(model: Any, channel: int = current_channel) -> object:
+                return remove_huggingface_mlp_channels(model, (channel,))
+
+            edits.append(
+                HuggingFaceEdit(
+                    f"mlp-channel-{original_channel}",
+                    "remove_mlp_channel",
+                    apply_edit,
+                )
+            )
+        sequence = run_huggingface_cumulative_sequence(
+            copy.deepcopy(proof.model),
+            tuple(edits),
+            output_root=sequence_root,
+            source_outcome_id=self.source_digest or self.plan.plan_id,
+            publish=self._publish,
+            reload=self._reload,
+            generate=self._generation_smoke,
+        )
+        self.surgery_sequence = sequence
+        artifact = sequence.stages[-1].artifact
+        reloaded = sequence.final_model
         self.artifact = artifact
         self.artifact_digest = _sha256(artifact)
         self.reloaded_model = reloaded
@@ -553,10 +655,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             OptimizeStage.SURGERY,
             json.dumps(
                 {
-                    "operation": "remove_mlp_channel",
-                    "channel": self.selected_channel,
-                    "old_intermediate_size": removal.old_intermediate_size,
-                    "new_intermediate_size": removal.new_intermediate_size,
+                    "operation": "cumulative_remove_mlp_channels",
+                    "channels": list(original_channels),
+                    "stages": [item.to_record() for item in sequence.stages],
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
                 },
@@ -572,6 +673,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage
         try:
+            self._hydrate(context)
             if stage is OptimizeStage.PROFILE:
                 proof = self._ensure_loaded()
                 return self._result(
@@ -603,7 +705,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "from the component graph",
                     measured=True,
                     constraints_passed=bool(candidates),
-                    alternatives=tuple(item.candidate_id for item in candidates[:8]),
+                    alternatives=tuple(sorted(item.candidate_id for item in candidates[:8])),
                 )
             if stage is OptimizeStage.ACTIVE_SEARCH:
                 candidate = self._search()
@@ -616,14 +718,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 )
                 return self._result(
                     stage,
-                    json.dumps(dict(self.selected_measurement), sort_keys=True),
+                    json.dumps(
+                        {
+                            "candidate_id": candidate.candidate_id,
+                            "channels": list(self.selected_channels),
+                            "measurement": dict(self.selected_measurement),
+                        },
+                        sort_keys=True,
+                    ),
                     measured=True,
                     constraints_passed=True,
                     candidate=candidate,
                     evaluation_id=evaluation_id,
                     alternatives=tuple(
-                        item.candidate_id for item in self.candidates if item != candidate
-                    )[:8],
+                        sorted(
+                            item.candidate_id for item in self.candidates if item != candidate
+                        )[:8]
+                    ),
                 )
             if stage is OptimizeStage.SURGERY:
                 return self._surgery(context)
