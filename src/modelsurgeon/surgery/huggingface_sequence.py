@@ -6,7 +6,7 @@ import copy
 import hashlib
 import json
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -79,6 +79,7 @@ class HuggingFaceStageEvidence:
     outcome: PhysicalArtifactOutcome
     reloadable: bool
     generation_smoke: bool
+    evaluation: Mapping[str, object] | None = None
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -88,6 +89,7 @@ class HuggingFaceStageEvidence:
             "artifact": str(self.artifact),
             "reloadable": self.reloadable,
             "generation_smoke": self.generation_smoke,
+            "evaluation": None if self.evaluation is None else dict(self.evaluation),
             "outcome": self.outcome.to_record(),
         }
 
@@ -102,6 +104,7 @@ class HuggingFaceCumulativeRun:
     failed_index: int | None
     failure_reason: str | None
     final_model: Any
+    failed_evaluation: Mapping[str, object] | None = None
     schema_version: int = HUGGINGFACE_CUMULATIVE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -120,6 +123,9 @@ class HuggingFaceCumulativeRun:
             "reconciliation": self.reconciliation.to_record(),
             "failed_index": self.failed_index,
             "failure_reason": self.failure_reason,
+            "failed_evaluation": (
+                None if self.failed_evaluation is None else dict(self.failed_evaluation)
+            ),
         }
 
 
@@ -252,6 +258,7 @@ def run_huggingface_cumulative_sequence(
     publish: HuggingFaceArtifactPublisher,
     reload: HuggingFaceArtifactReloader,
     generate: HuggingFaceGenerationSmoke,
+    evaluate: Callable[[Any], Mapping[str, object]] | None = None,
 ) -> HuggingFaceCumulativeRun:
     """Apply mixed edits with save/reload/generate gates after every accepted stage.
 
@@ -273,6 +280,7 @@ def run_huggingface_cumulative_sequence(
     parent_id: str | None = None
     failed_index: int | None = None
     failure_reason: str | None = None
+    failed_evaluation: Mapping[str, object] | None = None
     cumulative_parameter_delta = 0
     cumulative_storage_delta = 0
     edit_order: list[str] = []
@@ -288,6 +296,18 @@ def run_huggingface_cumulative_sequence(
             reloaded = reload(published)
             if generate(reloaded) is not True:
                 raise HuggingFaceCumulativeError("generation smoke did not return true")
+            evaluation: Mapping[str, object] | None = None
+            if evaluate is not None:
+                evaluation = evaluate(reloaded)
+                if not isinstance(evaluation, Mapping):
+                    raise HuggingFaceCumulativeError(
+                        "cumulative evaluator must return a mapping"
+                    )
+                if evaluation.get("accepted") is not True:
+                    failed_evaluation = dict(evaluation)
+                    raise HuggingFaceCumulativeError(
+                        "cumulative physical evaluation rejected the child"
+                    )
             after = _snapshot(reloaded)
             cumulative_parameter_delta += after.parameters - before.parameters
             cumulative_storage_delta += after.storage_bytes - before.storage_bytes
@@ -314,7 +334,14 @@ def run_huggingface_cumulative_sequence(
             break
         stages.append(
             HuggingFaceStageEvidence(
-                index, edit.mutation_id, edit.operation, published, outcome, True, True
+                index,
+                edit.mutation_id,
+                edit.operation,
+                published,
+                outcome,
+                True,
+                True,
+                evaluation,
             )
         )
         accepted_model = reloaded
@@ -334,6 +361,7 @@ def run_huggingface_cumulative_sequence(
         failed_index,
         failure_reason,
         accepted_model,
+        failed_evaluation,
     )
 
 

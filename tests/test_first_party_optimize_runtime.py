@@ -152,6 +152,8 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     assert surgery is not None and surgery.artifact_digest is not None
     surgery_detail = json.loads(surgery.detail)
     assert len(surgery_detail["stages"]) == 2
+    assert all(item["evaluation"]["accepted"] for item in surgery_detail["stages"])
+    assert surgery_detail["failed_index"] is None
     assert {item["path"] for item in surgery_detail["artifact_manifest"]} >= {
         "config.json",
         "model.safetensors",
