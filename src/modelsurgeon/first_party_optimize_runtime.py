@@ -47,7 +47,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
     enumerate_mutation_candidates,
 )
-from modelsurgeon.experiments.hardware import collect_hardware_inventory
+from modelsurgeon.experiments.hardware import HardwareInventory, collect_hardware_inventory
 from modelsurgeon.experiments.optimization_evidence import (
     OptimizationEvidenceOutcome,
     OptimizationEvidenceRecord,
@@ -195,6 +195,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.search_evidence_publications: dict[str, Mapping[str, object]] = {}
         self.boundary_evidence: dict[str, Mapping[str, object]] = {}
         self.runtime_hardware: Mapping[str, object] | None = None
+        self.resource_preflight: Mapping[str, object] | None = None
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -244,6 +245,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             measured_frontier = detail.get("measured_frontier")
             if isinstance(measured_frontier, Mapping):
                 self.measured_frontier = measured_frontier
+            resource_preflight = detail.get("resource_preflight")
+            if isinstance(resource_preflight, Mapping):
+                self.resource_preflight = resource_preflight
             selected_candidate_ids = detail.get("selected_candidate_ids")
             if isinstance(selected_candidate_ids, list) and all(
                 isinstance(item, str) for item in selected_candidate_ids
@@ -475,17 +479,26 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             strict=False
         )
 
+    @staticmethod
+    def _existing_probe_path(path: Path) -> Path:
+        probe_path = path.expanduser().absolute().resolve(strict=False)
+        while not probe_path.exists() and probe_path != probe_path.parent:
+            probe_path = probe_path.parent
+        return probe_path if probe_path.exists() else Path.cwd()
+
+    def _collect_runtime_hardware(self, probe_path: Path | None = None) -> HardwareInventory:
+        if probe_path is None:
+            resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+            artifact_dir = resolved_config.get("artifact_dir", "artifacts")
+            if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+                raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+            probe_path = Path(artifact_dir)
+        return collect_hardware_inventory(self._existing_probe_path(probe_path))
+
     def _runtime_hardware_record(self) -> Mapping[str, object]:
         if self.runtime_hardware is not None:
             return self.runtime_hardware
-        resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
-        artifact_dir = resolved_config.get("artifact_dir", "artifacts")
-        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
-            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
-        probe_path = Path(artifact_dir).expanduser().absolute().resolve(strict=False)
-        if not probe_path.exists():
-            probe_path = probe_path.parent if probe_path.parent.exists() else Path.cwd()
-        self.runtime_hardware = collect_hardware_inventory(probe_path).to_record()
+        self.runtime_hardware = self._collect_runtime_hardware().to_record()
         return self.runtime_hardware
 
     @staticmethod
@@ -495,6 +508,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return "oom"
         if "timeout" in text or "timed out" in text:
             return "timeout"
+        if any(
+            marker in text
+            for marker in ("unknown", "unavailable", "unobservable", "not observable")
+        ):
+            return "unknown"
         if "unsupported" in text:
             return "unsupported"
         return "runtime_failure"
@@ -788,6 +806,168 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         return self.proof
 
+    @staticmethod
+    def _model_storage_bytes(model: Any) -> int:
+        total = 0
+        parameter_count = 0
+        try:
+            parameters = model.parameters()
+            for parameter in parameters:
+                numel = getattr(parameter, "numel", None)
+                element_size = getattr(parameter, "element_size", None)
+                if not callable(numel) or not callable(element_size):
+                    raise FirstPartyOptimizeRuntimeError(
+                        "model parameter storage size is unknown"
+                    )
+                parameter_bytes = int(numel()) * int(element_size())
+                if parameter_bytes < 0:
+                    raise FirstPartyOptimizeRuntimeError(
+                        "model parameter storage size is invalid"
+                    )
+                total += parameter_bytes
+                parameter_count += 1
+        except FirstPartyOptimizeRuntimeError:
+            raise
+        except Exception as error:
+            raise FirstPartyOptimizeRuntimeError(
+                f"model parameter storage size is unknown: {type(error).__name__}"
+            ) from error
+        if parameter_count == 0 or total <= 0:
+            raise FirstPartyOptimizeRuntimeError("model parameter storage size is unknown")
+        return total
+
+    @staticmethod
+    def _model_cuda_devices(model: Any) -> tuple[int, ...]:
+        devices: set[int] = set()
+        try:
+            for parameter in model.parameters():
+                device = getattr(parameter, "device", None)
+                if getattr(device, "type", None) != "cuda":
+                    continue
+                index = getattr(device, "index", None)
+                devices.add(0 if index is None else int(index))
+        except Exception as error:
+            raise FirstPartyOptimizeRuntimeError(
+                f"model CUDA placement is unknown: {type(error).__name__}"
+            ) from error
+        return tuple(sorted(devices))
+
+    def _preflight_resources(
+        self,
+        model: Any,
+        destination_root: Path,
+        *,
+        phase: str,
+    ) -> Mapping[str, object]:
+        """Require live capacity before search or any physical artifact write."""
+
+        if not phase.strip():
+            raise FirstPartyOptimizeRuntimeError("resource preflight phase is required")
+        inventory = self._collect_runtime_hardware(destination_root)
+        inventory_record = inventory.to_record()
+        self.runtime_hardware = inventory_record
+
+        available_ram = inventory.memory.available_bytes
+        if not isinstance(available_ram, int) or available_ram <= 0:
+            raise FirstPartyOptimizeRuntimeError(
+                "available system memory is unknown; refusing first-party execution"
+            )
+        model_bytes = self._model_storage_bytes(model)
+        working_set_bytes = model_bytes * 2
+        if working_set_bytes > self.plan.budget.max_ram_bytes:
+            raise FirstPartyOptimizeRuntimeError(
+                "estimated candidate working set exceeds max_ram_bytes"
+            )
+        if working_set_bytes > available_ram:
+            raise FirstPartyOptimizeRuntimeError(
+                "insufficient available system memory for candidate evaluation"
+            )
+
+        source_path = Path(self._model_source()).expanduser().absolute().resolve(strict=False)
+        source_bytes = _directory_bytes(source_path) if source_path.exists() else None
+        estimated_artifact_bytes = max(model_bytes, source_bytes or 0)
+        if estimated_artifact_bytes > self.plan.budget.max_artifact_bytes:
+            raise FirstPartyOptimizeRuntimeError(
+                "estimated candidate artifact exceeds max_artifact_bytes"
+            )
+        artifact_count = self._surgery_steps()
+        estimated_disk_bytes = estimated_artifact_bytes * artifact_count
+        if estimated_disk_bytes > self.plan.budget.max_disk_bytes:
+            raise FirstPartyOptimizeRuntimeError(
+                "estimated retained candidate artifacts exceed max_disk_bytes"
+            )
+        if estimated_disk_bytes > inventory.disk.free_bytes:
+            raise FirstPartyOptimizeRuntimeError(
+                "insufficient disk headroom for retained candidate artifacts"
+            )
+
+        cuda_devices = self._model_cuda_devices(model)
+        requires_cuda = self.plan.hardware_profile.device.lower().startswith("cuda")
+        if requires_cuda and not inventory.cuda.available:
+            raise FirstPartyOptimizeRuntimeError(
+                "CUDA runtime is unsupported for the requested hardware profile"
+            )
+        if requires_cuda and not inventory.cuda.devices:
+            raise FirstPartyOptimizeRuntimeError(
+                "CUDA device capacity is unknown for the requested hardware profile"
+            )
+
+        free_vram_bytes: int | None = None
+        estimated_vram_bytes = 0
+        if cuda_devices:
+            if not inventory.cuda.available:
+                raise FirstPartyOptimizeRuntimeError(
+                    "CUDA runtime availability is unknown for the loaded model"
+                )
+            torch = self._ensure_loaded()._torch
+            free_samples: list[int] = []
+            try:
+                mem_get_info = torch.cuda.mem_get_info
+                for device_index in cuda_devices:
+                    free, _ = mem_get_info(device_index)
+                    free_samples.append(int(free))
+            except Exception as error:
+                raise FirstPartyOptimizeRuntimeError(
+                    f"available VRAM is unknown: {type(error).__name__}"
+                ) from error
+            if not free_samples or any(value <= 0 for value in free_samples):
+                raise FirstPartyOptimizeRuntimeError(
+                    "available VRAM is unknown; refusing CUDA candidate evaluation"
+                )
+            free_vram_bytes = sum(free_samples)
+            estimated_vram_bytes = model_bytes
+            if self.plan.budget.max_vram_bytes is not None and (
+                estimated_vram_bytes > self.plan.budget.max_vram_bytes
+            ):
+                raise FirstPartyOptimizeRuntimeError(
+                    "estimated CUDA candidate working set exceeds max_vram_bytes"
+                )
+            if estimated_vram_bytes > free_vram_bytes:
+                raise FirstPartyOptimizeRuntimeError(
+                    "insufficient available VRAM for candidate evaluation"
+                )
+
+        result: Mapping[str, object] = {
+            "status": "ready",
+            "phase": phase,
+            "authority": "live_hardware_inventory_and_model_tensor_storage",
+            "hardware_inventory": inventory_record,
+            "model_parameter_bytes": model_bytes,
+            "estimated_working_set_bytes": working_set_bytes,
+            "estimated_candidate_artifact_bytes": estimated_artifact_bytes,
+            "source_artifact_bytes": source_bytes,
+            "estimated_retained_disk_bytes": estimated_disk_bytes,
+            "planned_artifact_count": artifact_count,
+            "available_ram_bytes": available_ram,
+            "available_disk_bytes": inventory.disk.free_bytes,
+            "cuda_devices": list(cuda_devices),
+            "estimated_vram_bytes": estimated_vram_bytes,
+            "available_vram_bytes": free_vram_bytes,
+            "budget": self.plan.budget.to_record(),
+        }
+        self.resource_preflight = result
+        return result
+
     def _result(
         self,
         stage: OptimizeStage,
@@ -829,14 +1009,26 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
     def _unsupported(self, stage: OptimizeStage, detail: str) -> StageResult:
         run_key = f"{self.plan.plan_id}:{stage.value}:{detail}"
+        classification = self._failure_classification(detail)
+        outcome = (
+            OptimizationEvidenceOutcome.UNKNOWN
+            if classification == "unknown"
+            else OptimizationEvidenceOutcome.UNSUPPORTED
+        )
+        workflow_outcome = (
+            WorkflowOutcome.UNKNOWN
+            if classification == "unknown"
+            else WorkflowOutcome.UNSUPPORTED
+        )
         reference = self._record_runtime_boundary(
-            stage, OptimizationEvidenceOutcome.UNSUPPORTED, detail
+            stage, outcome, detail
         )
         return StageResult(
-            WorkflowOutcome.UNSUPPORTED,
-            "unsupported_" + hashlib.sha256(run_key.encode()).hexdigest(),
+            workflow_outcome,
+            ("unknown_" if classification == "unknown" else "unsupported_")
+            + hashlib.sha256(run_key.encode()).hexdigest(),
             json.dumps(
-                {"status": "unsupported", "reason": detail, "evidence": reference},
+                {"status": workflow_outcome.value, "reason": detail, "evidence": reference},
                 sort_keys=True,
             ),
             complete=True,
@@ -1194,6 +1386,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
     def _search(self) -> MutationCandidate:
         proof = self._ensure_loaded()
+        artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
+            "artifact_dir", "artifacts"
+        )
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        self._preflight_resources(
+            proof.model,
+            Path(artifact_dir),
+            phase="active_search",
+        )
         candidates = self.candidates or self._enumerate()
         if not candidates:
             raise FirstPartyOptimizeRuntimeError("no adapter-supported candidates exist")
@@ -1334,6 +1536,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 f"refusing to overwrite candidate artifact: {destination}"
             )
+        self._preflight_resources(model, destination.parent, phase="artifact_write")
         destination.mkdir(parents=True)
         model.save_pretrained(destination, safe_serialization=True)
         tokenizer = self._ensure_loaded()._tokenizer
@@ -1348,6 +1551,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 "Hugging Face publication must produce exactly one safetensors weight file"
             )
+        artifact_bytes = _directory_bytes(destination)
+        if artifact_bytes > self.plan.budget.max_artifact_bytes:
+            raise FirstPartyOptimizeRuntimeError(
+                "published candidate artifact exceeds max_artifact_bytes"
+            )
+        if self.resource_preflight is not None:
+            self.resource_preflight = {
+                **self.resource_preflight,
+                "published_artifact_bytes": artifact_bytes,
+            }
         return files[0]
 
     def _reload(self, artifact: Path) -> Any:
@@ -1545,6 +1758,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         artifact_root = Path(cast(str, artifact_dir))
         sequence_root = artifact_root / "optimize" / context.run.run_id / "hf-physical-sequence"
+        self._preflight_resources(proof.model, sequence_root, phase="physical_surgery")
         original_channels = self.selected_channels
         first_candidate = self.selected_candidates[0]
 
@@ -1623,6 +1837,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "failed_evaluation": sequence.failed_evaluation,
                     "state_updates": list(self.state_updates),
                     "evidence_observations": list(evidence_observations),
+                    "resource_preflight": self.resource_preflight,
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
                     "artifact_manifest": _tree_entries(artifact.parent),
@@ -2035,6 +2250,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "meta_guidance": self.meta_guidance,
                             "search_comparison": self.search_comparison,
                             "measured_frontier": self.measured_frontier,
+                            "resource_preflight": self.resource_preflight,
                             "measurement": dict(self.selected_measurement),
                             "evidence_observations": [
                                 reference

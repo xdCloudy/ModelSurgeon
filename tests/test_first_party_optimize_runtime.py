@@ -16,7 +16,18 @@ from modelsurgeon.config import (
     Settings,
     SurgeonConfig,
 )
-from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
+from modelsurgeon.experiments.hardware import (
+    CPUInventory,
+    CUDAInventory,
+    DiskInventory,
+    HardwareInventory,
+    MemoryInventory,
+    SoftwareInventory,
+)
+from modelsurgeon.first_party_optimize_runtime import (
+    FirstPartyOptimizeRuntimeError,
+    build_first_party_optimize_runtime,
+)
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeInterrupted,
@@ -127,6 +138,10 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     assert frontier["status"] == "measured"
     assert Path(frontier["archive_path"]).is_file()
     assert frontier["preferred_candidate_id"] == detail["candidate_id"]
+    resource_preflight = detail["resource_preflight"]
+    assert resource_preflight["status"] == "ready"
+    assert resource_preflight["available_ram_bytes"] > 0
+    assert resource_preflight["available_disk_bytes"] > 0
     assert frontier["frontier_candidate_ids"]
     assert detail["feature_evidence"]
     assert all(Path(item["cache"]["path"]).is_file() for item in detail["feature_evidence"])
@@ -148,6 +163,51 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
         for item in measurements
     )
     assert all(item["parameter_delta"] < 0 for item in measurements)
+
+
+@pytest.mark.parametrize(
+    ("available_ram", "free_disk", "message"),
+    (
+        (None, 1 << 40, "available system memory is unknown"),
+        (1 << 40, 1, "insufficient disk headroom"),
+    ),
+)
+def test_first_party_resource_preflight_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    available_ram: int | None,
+    free_disk: int,
+    message: str,
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    runtime = build_first_party_optimize_runtime(plan)
+    proof = runtime._ensure_loaded()  # type: ignore[attr-defined]
+    inventory = HardwareInventory(
+        "Linux",
+        "test",
+        "test-version",
+        CPUInventory("x86_64", "test-cpu", 4),
+        MemoryInventory(1 << 40, available_ram),
+        DiskInventory(str(tmp_path), 1 << 40, free_disk),
+        CUDAInventory(False, None, (), ()),
+        SoftwareInventory("3.12", "CPython", "test", "test"),
+    )
+    monkeypatch.setattr(runtime, "_collect_runtime_hardware", lambda _path: inventory)
+    with pytest.raises(FirstPartyOptimizeRuntimeError, match=message):
+        runtime._preflight_resources(proof.model, tmp_path / "artifacts", phase="test")  # type: ignore[attr-defined]
 
 
 def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: Path) -> None:
