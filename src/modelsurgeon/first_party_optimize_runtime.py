@@ -39,6 +39,7 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
     HuggingFaceMLPProofConfig,
     HuggingFaceMLPProofRuntime,
 )
+from modelsurgeon.config import ObjectiveConfig, OptimizeMetric
 from modelsurgeon.experiments.candidates import (
     CandidateEnumeratorConfig,
     CandidateFilter,
@@ -187,6 +188,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.meta_predictions: dict[str, float] = {}
         self.meta_order: tuple[str, ...] = ()
         self.search_comparison: Mapping[str, object] | None = None
+        self.measured_frontier: Mapping[str, object] | None = None
+        self.campaign_run_id: str | None = None
         self.state_updates: tuple[Mapping[str, object], ...] = ()
         self.evidence_publications: dict[str, Mapping[str, object]] = {}
         self.search_evidence_publications: dict[str, Mapping[str, object]] = {}
@@ -204,6 +207,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def _hydrate(self, context: StageContext) -> None:
         """Rebuild runtime state from durable stage evidence after a restart."""
 
+        self.campaign_run_id = context.run.run_id
         for stage in context.completed_results.values():
             if stage.artifact_digest is not None and self.artifact_digest is None:
                 self.artifact_digest = stage.artifact_digest
@@ -237,6 +241,22 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             measurement = detail.get("measurement")
             if isinstance(measurement, Mapping):
                 self.selected_measurement = measurement
+            measured_frontier = detail.get("measured_frontier")
+            if isinstance(measured_frontier, Mapping):
+                self.measured_frontier = measured_frontier
+            selected_candidate_ids = detail.get("selected_candidate_ids")
+            if isinstance(selected_candidate_ids, list) and all(
+                isinstance(item, str) for item in selected_candidate_ids
+            ):
+                candidates = self.candidates or self._enumerate()
+                selected_by_id = {item.candidate_id: item for item in candidates}
+                hydrated = tuple(
+                    selected_by_id[item]
+                    for item in selected_candidate_ids
+                    if item in selected_by_id
+                )
+                if hydrated:
+                    self.selected_candidates = hydrated
             channels = detail.get("channels")
             if isinstance(channels, list) and all(
                 isinstance(channel, int) and not isinstance(channel, bool) and channel >= 0
@@ -1037,6 +1057,141 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "token_count": measured["token_count"],
         }
 
+    @staticmethod
+    def _objective_value(
+        metric: OptimizeMetric, measurement: Mapping[str, object]
+    ) -> tuple[float, float] | None:
+        if metric is OptimizeMetric.QUALITY:
+            baseline = _number(measurement["baseline_perplexity"], "baseline.perplexity")
+            candidate = _number(measurement["candidate_perplexity"], "candidate.perplexity")
+            return baseline / candidate, 1.0
+        if metric is OptimizeMetric.PERPLEXITY:
+            return (
+                _number(measurement["candidate_perplexity"], "candidate.perplexity"),
+                _number(measurement["baseline_perplexity"], "baseline.perplexity"),
+            )
+        if metric is OptimizeMetric.PARAMETER_COUNT:
+            return (
+                _number(measurement["candidate_parameter_count"], "candidate.parameter_count"),
+                _number(measurement["baseline_parameter_count"], "baseline.parameter_count"),
+            )
+        if metric is OptimizeMetric.LATENCY:
+            return (
+                _number(measurement["candidate_median_seconds"], "candidate.median_seconds"),
+                _number(measurement["baseline_median_seconds"], "baseline.median_seconds"),
+            )
+        return None
+
+    def _build_measured_frontier(
+        self,
+        candidates: tuple[MutationCandidate, ...],
+        measurements: Mapping[str, Mapping[str, object]],
+    ) -> Mapping[str, object]:
+        from modelsurgeon.search.objectives import ObjectiveObservation, objectives_from_config
+        from modelsurgeon.search.pareto import (
+            ParetoArchive,
+            ParetoCandidate,
+            ParetoObjectiveValue,
+        )
+
+        root = _mapping(self.plan.resolved_config, "resolved configuration")
+        objective_config = ObjectiveConfig.model_validate(
+            _mapping(root.get("objective", {}), "objective")
+        )
+        objective_set = objectives_from_config(objective_config)
+        values_by_candidate: dict[str, dict[OptimizeMetric, tuple[float, float]]] = {}
+        missing: set[OptimizeMetric] = set()
+        for candidate in candidates:
+            measurement = measurements.get(candidate.candidate_id)
+            if measurement is None:
+                continue
+            values: dict[OptimizeMetric, tuple[float, float]] = {}
+            for term in objective_set.terms:
+                value = self._objective_value(term.metric, measurement)
+                if value is None:
+                    missing.add(term.metric)
+                else:
+                    values[term.metric] = value
+            if len(values) == len(objective_set.terms):
+                values_by_candidate[candidate.candidate_id] = values
+        objective_record = objective_set.to_record()
+        if missing:
+            result: Mapping[str, object] = {
+                "status": "unknown",
+                "reason": "declared Pareto objectives require runtime measurements not "
+                "available during in-memory candidate evaluation",
+                "missing_metrics": sorted(metric.value for metric in missing),
+                "objective_set": objective_record,
+                "candidate_count": len(values_by_candidate),
+            }
+            self.measured_frontier = result
+            return result
+        if not values_by_candidate:
+            raise FirstPartyOptimizeRuntimeError(
+                "no measured candidate has complete declared Pareto objectives"
+            )
+
+        artifact_dir = root.get("artifact_dir", "artifacts")
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        campaign_id = self.campaign_run_id or self.plan.plan_id
+        archive_path = (
+            Path(artifact_dir).expanduser().absolute().resolve(strict=False)
+            / "optimize"
+            / campaign_id
+            / "measured-candidate-frontier.sqlite"
+        )
+        candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+        with ParetoArchive(archive_path, objective_set) as archive:
+            for candidate_id in sorted(values_by_candidate):
+                candidate = candidate_by_id[candidate_id]
+                measurement = measurements[candidate_id]
+                values = values_by_candidate[candidate_id]
+                archive.put(
+                    ParetoCandidate(
+                        candidate_id,
+                        tuple(
+                            ParetoObjectiveValue(metric, value[0])
+                            for metric, value in sorted(
+                                values.items(), key=lambda item: item[0].value
+                            )
+                        ),
+                        {
+                            "candidate": candidate.to_record(),
+                            "measurement": dict(measurement),
+                            "artifact_status": "physical_in_memory_only",
+                        },
+                    )
+                )
+            frontier_ids = tuple(
+                entry.candidate.candidate_id for entry in archive.entries(frontier_only=True)
+            )
+        scores = {
+            candidate_id: objective_set.score(
+                tuple(
+                    ObjectiveObservation(metric, value[0], value[1])
+                    for metric, value in sorted(
+                        values_by_candidate[candidate_id].items(),
+                        key=lambda item: item[0].value,
+                    )
+                )
+            ).reward
+            for candidate_id in frontier_ids
+        }
+        preferred_id = sorted(frontier_ids, key=lambda item: (-scores[item], item))[0]
+        result = {
+            "status": "measured",
+            "archive_path": str(archive_path),
+            "archive_sha256": _digest_file(archive_path),
+            "objective_set": objective_record,
+            "candidate_count": len(values_by_candidate),
+            "frontier_candidate_ids": list(frontier_ids),
+            "preferred_candidate_id": preferred_id,
+            "artifact_status": "frontier_candidates_require_reload_and_deployment_validation",
+        }
+        self.measured_frontier = result
+        return result
+
     def _search(self) -> MutationCandidate:
         proof = self._ensure_loaded()
         candidates = self.candidates or self._enumerate()
@@ -1146,6 +1301,32 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             for item in self.selected_candidates
             if item.scope is CandidateScope.MLP_CHANNEL
         )
+        frontier = self._build_measured_frontier(
+            tuple(item[3] for item in scored),
+            {item[3].candidate_id: item[4] for item in scored},
+        )
+        preferred_id = frontier.get("preferred_candidate_id")
+        if isinstance(preferred_id, str) and preferred_id in by_id:
+            candidate = by_id[preferred_id]
+            self.selected = candidate
+            self.selected_measurement = self.actual_measurements[preferred_id]
+            ordered = [candidate]
+            ordered.extend(
+                item[3]
+                for item in ranked
+                if item[3].candidate_id != preferred_id
+            )
+            self.selected_candidates = tuple(ordered[: self._surgery_steps()])
+            self.selected_channel = (
+                self._channel(candidate)
+                if candidate.scope is CandidateScope.MLP_CHANNEL
+                else None
+            )
+            self.selected_channels = tuple(
+                self._channel(item)
+                for item in self.selected_candidates
+                if item.scope is CandidateScope.MLP_CHANNEL
+            )
         return candidate
 
     def _publish(self, model: Any, destination: Path) -> Path:
@@ -1836,6 +2017,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         {
                             "candidate_id": candidate.candidate_id,
                             "candidate_scope": candidate.scope.value,
+                            "selected_candidate_ids": [
+                                item.candidate_id for item in self.selected_candidates
+                            ],
                             "channels": list(self.selected_channels),
                             "feature_evidence": [
                                 {
@@ -1850,6 +2034,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "feature_cache_root": str(self._feature_cache_root()),
                             "meta_guidance": self.meta_guidance,
                             "search_comparison": self.search_comparison,
+                            "measured_frontier": self.measured_frontier,
                             "measurement": dict(self.selected_measurement),
                             "evidence_observations": [
                                 reference
@@ -2021,14 +2206,34 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     return self._unsupported(
                         stage, "Pareto publication requires retained deployment evidence"
                     )
+                if (
+                    self.measured_frontier is None
+                    or self.measured_frontier.get("status") != "measured"
+                ):
+                    return self._unsupported(
+                        stage,
+                        "declared Pareto objectives were not fully measured for candidate "
+                        "selection",
+                    )
+                frontier_ids_raw = (
+                    ()
+                    if self.measured_frontier is None
+                    else self.measured_frontier.get("frontier_candidate_ids", ())
+                )
+                frontier_ids = (
+                    tuple(item for item in frontier_ids_raw if isinstance(item, str))
+                    if isinstance(frontier_ids_raw, (list, tuple))
+                    else ()
+                )
                 return self._result(
                     stage,
                     json.dumps(
                         {
-                            "selection": "one measured feasible HF artifact selected on "
-                            "quality and physical parameter reduction",
+                            "selection": "one measured feasible HF artifact selected from "
+                            "the declared-objective candidate frontier",
                             "baseline_deployment": dict(self.deployment_baseline),
                             "candidate_deployment": dict(self.deployment),
+                            "measured_frontier": self.measured_frontier,
                         },
                         sort_keys=True,
                     ),
@@ -2041,6 +2246,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         json.dumps(dict(self.selected_measurement), sort_keys=True).encode()
                     ).hexdigest(),
                     transaction_state=TransactionState.COMMITTED,
+                    alternatives=tuple(
+                        item
+                        for item in frontier_ids
+                        if self.selected is not None and item != self.selected.candidate_id
+                    ),
                 )
             if stage is OptimizeStage.REPORT:
                 return self._result(

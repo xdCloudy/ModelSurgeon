@@ -118,9 +118,16 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     pareto = run.stages[-2].result
     assert pareto is not None
     assert "decode_tokens_per_second" in pareto.detail
+    pareto_detail = json.loads(pareto.detail)
+    assert pareto_detail["measured_frontier"]["status"] == "measured"
     active_search = run.stages[4].result
     assert active_search is not None
     detail = json.loads(active_search.detail)
+    frontier = detail["measured_frontier"]
+    assert frontier["status"] == "measured"
+    assert Path(frontier["archive_path"]).is_file()
+    assert frontier["preferred_candidate_id"] == detail["candidate_id"]
+    assert frontier["frontier_candidate_ids"]
     assert detail["feature_evidence"]
     assert all(Path(item["cache"]["path"]).is_file() for item in detail["feature_evidence"])
     assert len(list(Path(detail["feature_cache_root"]).glob("*.json"))) >= len(
