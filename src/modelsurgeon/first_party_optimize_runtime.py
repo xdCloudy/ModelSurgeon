@@ -14,7 +14,6 @@ import copy
 import gc
 import hashlib
 import json
-import math
 import os
 import statistics
 import time
@@ -42,6 +41,10 @@ from modelsurgeon.adapters.huggingface.proof_runtime import (
     HuggingFaceMLPProofRuntime,
 )
 from modelsurgeon.config import ObjectiveConfig, OptimizeMetric
+from modelsurgeon.evaluation.quality_gate import (
+    QualityGateError,
+    evaluate_perplexity_quality_gate,
+)
 from modelsurgeon.experiments.candidates import (
     CandidateEnumeratorConfig,
     CandidateFilter,
@@ -191,74 +194,16 @@ def _perplexity_quality_gate(
     max_perplexity_delta: float | None,
     profile_max_perplexity_delta: float | None,
 ) -> dict[str, object]:
-    """Evaluate every declared perplexity quality bound against one baseline.
-
-    Perplexity is a lower-is-better metric, so its quality-retention ratio is
-    defined as ``baseline / candidate``.  The user constraint and the selected
-    quality profile are retained separately: the former is the hard contract,
-    while the latter remains a visible conservative profile guard.
-    """
-
-    values = (
-        ("baseline_perplexity", baseline_perplexity),
-        ("candidate_perplexity", candidate_perplexity),
-        ("min_quality_retention_ratio", min_quality_retention_ratio),
-    )
-    for label, value in values:
-        if not math.isfinite(value):
-            raise FirstPartyOptimizeRuntimeError(f"{label} must be finite")
-    if baseline_perplexity <= 0 or candidate_perplexity <= 0:
-        raise FirstPartyOptimizeRuntimeError(
-            "perplexity must be positive for quality-retention evaluation"
+    try:
+        return evaluate_perplexity_quality_gate(
+            baseline_perplexity,
+            candidate_perplexity,
+            min_quality_retention_ratio=min_quality_retention_ratio,
+            max_perplexity_delta=max_perplexity_delta,
+            profile_max_perplexity_delta=profile_max_perplexity_delta,
         )
-    if not 0.0 <= min_quality_retention_ratio <= 1.0:
-        raise FirstPartyOptimizeRuntimeError(
-            "min_quality_retention_ratio must be between zero and one"
-        )
-    optional_values: tuple[tuple[str, float | None], ...] = (
-        ("max_perplexity_delta", max_perplexity_delta),
-        ("profile_max_perplexity_delta", profile_max_perplexity_delta),
-    )
-    for optional_label, optional_value in optional_values:
-        if optional_value is not None and (
-            not math.isfinite(optional_value) or optional_value < 0
-        ):
-            raise FirstPartyOptimizeRuntimeError(
-                f"{optional_label} must be finite and non-negative when present"
-            )
-
-    delta = candidate_perplexity - baseline_perplexity
-    retention_ratio = baseline_perplexity / candidate_perplexity
-    retention_passed = retention_ratio >= min_quality_retention_ratio
-    explicit_delta_passed = (
-        max_perplexity_delta is None or delta <= max_perplexity_delta
-    )
-    profile_delta_passed = (
-        profile_max_perplexity_delta is None or delta <= profile_max_perplexity_delta
-    )
-    failures: list[str] = []
-    if not retention_passed:
-        failures.append("minimum quality-retention ratio violated")
-    if not explicit_delta_passed:
-        failures.append("maximum perplexity delta violated")
-    if not profile_delta_passed:
-        failures.append("quality-profile perplexity guard violated")
-    return {
-        "metric": "perplexity",
-        "measurement_authority": "physical_evaluation",
-        "baseline_perplexity": baseline_perplexity,
-        "candidate_perplexity": candidate_perplexity,
-        "perplexity_delta": delta,
-        "quality_retention_ratio": retention_ratio,
-        "min_quality_retention_ratio": min_quality_retention_ratio,
-        "max_perplexity_delta": max_perplexity_delta,
-        "profile_max_perplexity_delta": profile_max_perplexity_delta,
-        "retention_constraint_passed": retention_passed,
-        "max_delta_constraint_passed": explicit_delta_passed,
-        "quality_profile_guard_passed": profile_delta_passed,
-        "accepted": retention_passed and explicit_delta_passed and profile_delta_passed,
-        "rejection_reasons": failures,
-    }
+    except QualityGateError as error:
+        raise FirstPartyOptimizeRuntimeError(str(error)) from error
 
 
 def _directory_bytes(path: Path) -> int:
