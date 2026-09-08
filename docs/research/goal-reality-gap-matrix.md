@@ -18,7 +18,7 @@ and retained evidence from the real model/runtime boundary.
 | Hardware-grounded behavior | Hardware profiles and inventory exist; the narrow runtime measures CPU forward timing. | Partial | Replace planning-only envelopes with runtime-enforced RAM/VRAM/disk measurements and failure evidence. |
 | Stateful evidence flywheel | Existing experiment/dataset/registry schemas are available. | Partial | Publish optimize observations into the reusable feature/evidence store and enforce rediscovery/state-dependent candidates. |
 | Meta-Surgeon comparison | Baseline surgeon and active-learning studies exist independently. | Not connected | Run equal-budget held-out comparisons against random, magnitude, handcrafted, and no-guidance search. |
-| Conversational control | Chat contracts and bounded execution adapter exist. | Not connected | Route chat execution to the first-party runtime only for capabilities backed by this matrix. |
+| Conversational control | Confirmed chat plans route through the same first-party runtime as direct optimize execution, with canonical campaign state and approval evidence. | Partial | Extend chat-executable coverage as additional model formats, operations, and task metrics gain real runtime evidence. |
 | Independent acceptance campaign | Unit/fixture coverage is broad; no fresh multi-family end-to-end acceptance campaign has been claimed. | Not complete | Run and retain fresh evidence across multiple model families/configurations, including honest no-feasible cells. |
 
 The default optimize path therefore remains an experimental, narrow verified
