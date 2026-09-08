@@ -33,6 +33,7 @@ from .inspection import (
     no_provider_inspection_context,
 )
 from .local_gguf import (
+    LlamaCliRuntime,
     LocalGGUFProvider,
     LocalGGUFProviderConfig,
     LocalGGUFProviderError,
@@ -85,6 +86,39 @@ def _installed_runtime_revision() -> str:
             "provider_unavailable",
             "llama-cpp-python is not installed; install a separately managed local runtime",
         ) from error
+
+
+def _external_runtime_revision(executable: Path) -> str:
+    """Resolve and pin the version string of an explicit llama-cli binary."""
+
+    import subprocess
+
+    resolved = executable.expanduser().resolve(strict=False)
+    if not resolved.is_file():
+        raise ChatSessionError(
+            "provider_unavailable", f"llama-cli executable does not exist: {executable}"
+        )
+    try:
+        result = subprocess.run(
+            (str(resolved), "--version"),
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10.0,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ChatSessionError(
+            "provider_unavailable", "llama-cli executable could not report its revision"
+        ) from error
+    revision = (result.stdout or result.stderr).strip()
+    if result.returncode != 0 or not revision:
+        raise ChatSessionError(
+            "provider_unavailable", "llama-cli executable returned no usable revision"
+        )
+    return revision.splitlines()[0].strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +231,7 @@ def _build_provider(
     max_output_tokens: int,
     max_wall_seconds: float,
     provider_factory: ProviderFactory | None,
+    runtime_executable: Path | None = None,
     validated_model: tuple[Path, str, str] | None = None,
 ) -> tuple[TextModelProvider, Path | None, str | None, str | None, str | None]:
     if provider_kind is ProviderKind.NONE:
@@ -214,7 +249,11 @@ def _build_provider(
             "model_revision_mismatch",
             "--model-revision does not match the local model SHA-256",
         )
-    selected_runtime_revision = runtime_revision or _installed_runtime_revision()
+    selected_runtime_revision = runtime_revision or (
+        _external_runtime_revision(runtime_executable)
+        if runtime_executable is not None
+        else _installed_runtime_revision()
+    )
     config = LocalGGUFProviderConfig(
         resolved,
         computed_revision,
@@ -224,7 +263,20 @@ def _build_provider(
         max_context_tokens=max_input_tokens + max_output_tokens,
         max_wall_seconds=max_wall_seconds,
     )
-    provider = LocalGGUFProvider(config) if provider_factory is None else provider_factory(config)
+    if provider_factory is not None:
+        provider = provider_factory(config)
+    elif runtime_executable is not None:
+        provider = LocalGGUFProvider(
+            config,
+            runtime_factory=lambda **kwargs: LlamaCliRuntime(
+                executable=runtime_executable,
+                max_wall_seconds=max_wall_seconds,
+                **kwargs,
+            ),
+            runtime_version=selected_runtime_revision,
+        )
+    else:
+        provider = LocalGGUFProvider(config)
     return provider, resolved, computed_revision, architecture, selected_runtime_revision
 
 
@@ -238,6 +290,7 @@ def bootstrap_chat_session(
     max_input_tokens: int = 2048,
     max_output_tokens: int = 1024,
     max_wall_seconds: float = 60.0,
+    runtime_executable: Path | None = None,
     provider_factory: ProviderFactory | None = None,
     hardware_profile_factory: Callable[[str], HardwareProfile] | None = None,
     execution_adapter: ChatOptimizeAdapter | None = None,
@@ -289,6 +342,7 @@ def bootstrap_chat_session(
         max_output_tokens=max_output_tokens,
         max_wall_seconds=max_wall_seconds,
         provider_factory=provider_factory,
+        runtime_executable=runtime_executable,
         validated_model=validated_model,
     )
     try:

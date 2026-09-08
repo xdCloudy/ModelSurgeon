@@ -283,7 +283,11 @@ def inspect_local_chat_model(
 ) -> ChatInspectionContext:
     """Inspect a local GGUF with the same engine-owned APIs used by direct workflows."""
 
-    resolved = path.expanduser().resolve(strict=False)
+    # Keep the lexical filename for format validation and provenance.  HF
+    # snapshot caches commonly link ``*.gguf`` entries to hash-only blobs;
+    # resolving before the suffix check would incorrectly reject those real
+    # immutable model files as unsupported.
+    resolved = path.expanduser().absolute()
     if not resolved.is_file():
         raise ChatInspectionError("model_missing", f"chat model file does not exist: {path}")
     if resolved.suffix.lower() != ".gguf":

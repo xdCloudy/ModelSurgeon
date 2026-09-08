@@ -75,7 +75,7 @@ def _render_progress(event: ChatProgressEvent, *, output_json: bool) -> None:
 def chat_command(
     model: Annotated[
         Path,
-        typer.Argument(help="Local text-model path; the initial chat slice accepts GGUF only"),
+        typer.Argument(help="Local GGUF text-model path"),
     ],
     provider: Annotated[
         ProviderKind,
@@ -87,7 +87,14 @@ def chat_command(
     ] = None,
     runtime_revision: Annotated[
         str | None,
-        typer.Option("--runtime-revision", help="Pinned llama-cpp-python revision"),
+        typer.Option("--runtime-revision", help="Pinned local text-runtime revision"),
+    ] = None,
+    runtime_executable: Annotated[
+        Path | None,
+        typer.Option(
+            "--runtime-executable",
+            help="Explicit llama-cli executable for an external local GGUF runtime",
+        ),
     ] = None,
     max_turns: Annotated[
         int,
@@ -223,6 +230,7 @@ def chat_command(
             provider_kind=provider,
             model_revision=model_revision,
             runtime_revision=runtime_revision,
+            runtime_executable=runtime_executable,
             max_turns=max_turns,
             max_input_tokens=max_input_tokens,
             max_output_tokens=max_output_tokens,
