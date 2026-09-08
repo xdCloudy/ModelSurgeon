@@ -5,8 +5,9 @@
   - Added a content-addressed, user-supplied JSONL code exact-match evaluator
     to the first-party Hugging Face runtime. Greedy baseline and candidate
     generations retain dataset/output digests and are enforced by the same
-    quality-retention gate as perplexity; native GGUF and conversational coding
-    requests without an explicit benchmark remain fail-closed.
+    quality-retention gate as perplexity; native GGUF remains fail-closed, while
+    conversational coding requests now carry an explicitly declared existing
+    local benchmark through the exact spec and engine boundary.
 
   - Connected the first-party Hugging Face optimizer to an explicit
     rank-bounded low-rank projection scope. Candidates are physically

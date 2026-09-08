@@ -28,6 +28,8 @@ from modelsurgeon.conversation import (
     SourceSpan,
     invoke_provider,
 )
+from modelsurgeon.search import compile_intent_record
+from modelsurgeon.search.spec_preview import build_spec_preview
 
 
 def _string(value: str) -> bytes:
@@ -218,6 +220,44 @@ def test_local_provider_accepts_goal_style_allow_no_more_than_quality_loss(
     assert "ambiguity-task-quality" in {
         item["ambiguity_id"] for item in intent["ambiguities"]
     }
+
+
+def test_local_provider_carries_explicit_coding_benchmark_into_spec(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "fixture.gguf"
+    _gguf(path)
+    dataset = tmp_path / "coding.jsonl"
+    dataset.write_text(
+        '{"id":"one","prompt":"write a function","reference":"return 1"}\n',
+        encoding="utf-8",
+    )
+
+    result = invoke_provider(
+        _provider(path, mode="compact"),
+        InterpretIntentRequest(
+            "request-task-quality",
+            f'Make this model faster, preserve coding ability, use coding benchmark: "{dataset}", '
+            "and allow no more than 2% quality loss.",
+        ),
+    )
+
+    assert result.outcome is ProviderOutcome.SUPPORTED
+    assert result.output is not None
+    intent = result.output.intent.to_record()
+    assert intent["outcome"] == "executable"
+    assert intent["ambiguities"] == []
+    spec = intent["emitted_spec"]
+    assert isinstance(spec, dict)
+    task_quality = spec["task_quality"]
+    assert isinstance(task_quality, dict)
+    assert task_quality["method"] == "code_exact_match"
+    assert task_quality["dataset"] == str(dataset.resolve())
+    compilation = compile_intent_record(result.output.intent)
+    assert compilation.executable
+    preview = build_spec_preview(result.output.intent, compilation=compilation)
+    assert preview.spec is not None
+    assert preview.spec["task_quality"] == task_quality
 
 
 def test_llama_cli_runtime_uses_bounded_argument_list(tmp_path: Path, monkeypatch: Any) -> None:

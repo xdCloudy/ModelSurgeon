@@ -27,6 +27,8 @@ from modelsurgeon.config import (
     ObjectiveTermConfig,
     OptimizeMetric,
     Settings,
+    TaskQualitySpecError,
+    task_quality_from_spec,
 )
 from modelsurgeon.conversation.campaign import CanonicalCampaignRecorder
 from modelsurgeon.conversation.campaign_state import (
@@ -351,10 +353,28 @@ _OBJECTIVE_METRICS: dict[str, OptimizeMetric] = {
 }
 
 
-def _settings_for_contract(base: Settings, contract: ObjectiveContract) -> Settings:
+def _settings_for_contract(
+    base: Settings,
+    contract: ObjectiveContract,
+    spec: Mapping[str, object] | None = None,
+) -> Settings:
     from modelsurgeon.search.objective_contract import ConstraintDirection
 
     values = base.canonical_dict()
+    if spec is not None:
+        try:
+            task_quality = task_quality_from_spec(spec)
+        except TaskQualitySpecError as error:
+            raise ChatExecutionError("invalid_spec", str(error), ToolOutcome.UNSUPPORTED) from error
+        if task_quality is not None:
+            dataset = task_quality.get("dataset")
+            if not isinstance(dataset, str) or not Path(dataset).expanduser().is_file():
+                raise ChatExecutionError(
+                    "invalid_spec",
+                    "task-quality benchmark dataset is not a readable local file",
+                    ToolOutcome.UNSUPPORTED,
+                )
+            values["task_quality"] = task_quality
     constraints = dict(cast(Mapping[str, object], values["constraints"]))
     objectives = dict(cast(Mapping[str, object], values["objective"]))
     mapped_constraints: dict[str, str] = {
@@ -798,8 +818,9 @@ class ChatOptimizeAdapter:
                 ToolFailureCode.INVALID_INPUT, "spec preview is not registered"
             )
         try:
-            contract = _contract_from_submission(self._submission_for_preview(preview))
-            settings = _settings_for_contract(self.settings, contract)
+            submission = self._submission_for_preview(preview)
+            contract = _contract_from_submission(submission)
+            settings = _settings_for_contract(self.settings, contract, submission.spec)
             plan = build_optimize_plan(
                 settings,
                 preset=self.preset,

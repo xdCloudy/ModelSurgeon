@@ -36,7 +36,7 @@ _PEM = re.compile(
 )
 _SECRET_KEY = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|"
-    r"password|secret|token)"
+    r"password|secret|(?<!new_)token)"
 )
 
 
