@@ -81,6 +81,11 @@ from modelsurgeon.surgery.huggingface_sequence import (
     HuggingFaceStageEvidence,
     run_huggingface_cumulative_sequence,
 )
+from modelsurgeon.surgery.lora_repair import (
+    LoRAOutputMode,
+    LoRARepairConfig,
+    run_bounded_lora_repair,
+)
 
 
 class FirstPartyOptimizeRuntimeError(RuntimeError):
@@ -967,6 +972,285 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         }
         self.resource_preflight = result
         return result
+
+    def _repair_settings(self) -> Mapping[str, object]:
+        root = _mapping(self.plan.resolved_config, "resolved configuration")
+        return _mapping(root.get("repair", {}), "repair")
+
+    def _repair_examples(self) -> tuple[dict[str, Any], ...]:
+        proof = self._ensure_loaded()
+        torch = proof._torch
+        examples: list[dict[str, Any]] = []
+        for chunk in proof._chunks[: min(len(proof._chunks), 8)]:
+            input_ids = torch.tensor((chunk,), dtype=torch.long)
+            examples.append(
+                {
+                    "input_ids": input_ids,
+                    "attention_mask": torch.ones_like(input_ids),
+                    "labels": input_ids.clone(),
+                }
+            )
+        if not examples:
+            raise FirstPartyOptimizeRuntimeError(
+                "LoRA repair calibration examples are unavailable"
+            )
+        return tuple(examples)
+
+    def _repair_targets(self, model: Any) -> tuple[str, ...]:
+        configured = self._repair_settings().get("target_modules", ())
+        if not isinstance(configured, (list, tuple)) or not all(
+            isinstance(item, str) for item in configured
+        ):
+            raise FirstPartyOptimizeRuntimeError("repair.target_modules must be a list of paths")
+        if configured:
+            targets = tuple(configured)
+        else:
+            torch = self._ensure_loaded()._torch
+            targets = tuple(
+                sorted(
+                    name
+                    for name, module in model.named_modules()
+                    if isinstance(module, torch.nn.Linear)
+                    and (name.endswith(".down_proj") or name.endswith(".o_proj"))
+                )[:2]
+            )
+        if not targets:
+            raise FirstPartyOptimizeRuntimeError(
+                "no supported Linear modules are available for LoRA repair"
+            )
+        torch = self._ensure_loaded()._torch
+        for name in targets:
+            module = dict(model.named_modules()).get(name)
+            if not isinstance(module, torch.nn.Linear):
+                raise FirstPartyOptimizeRuntimeError(
+                    f"repair target {name!r} is not a supported Linear module"
+                )
+        return tuple(sorted(set(targets)))
+
+    @staticmethod
+    def _checkpoint_id(digest: str) -> str:
+        value = digest.removeprefix("sha256:")
+        if len(value) != 64:
+            value = hashlib.sha256(digest.encode()).hexdigest()
+        return "checkpoint_" + value
+
+    def _repair(self, context: StageContext) -> StageResult:
+        settings = self._repair_settings()
+        method = settings.get("method", "none")
+        if not isinstance(method, str) or not method.strip():
+            raise FirstPartyOptimizeRuntimeError("repair.method must be text")
+        if method == "none":
+            if self.artifact is None or self.artifact_digest is None:
+                return self._unsupported(
+                    OptimizeStage.REPAIR,
+                    "repair was not requested and no physical artifact is available",
+                )
+            return self._result(
+                OptimizeStage.REPAIR,
+                json.dumps(
+                    {
+                        "status": "not_requested",
+                        "method": method,
+                        "artifact": str(self.artifact),
+                        "artifact_digest": self.artifact_digest,
+                    },
+                    sort_keys=True,
+                ),
+                artifact_digest=self.artifact_digest,
+                candidate=self.selected,
+                constraints_passed=True,
+                transaction_state=TransactionState.COMMITTED,
+            )
+        if method != "lora":
+            return self._unsupported(
+                OptimizeStage.REPAIR,
+                f"first-party Hugging Face repair method {method!r} is unsupported",
+            )
+        if self.artifact is None or self.artifact_digest is None or self.reloaded_model is None:
+            return self._unsupported(
+                OptimizeStage.REPAIR,
+                "LoRA repair requires a published reloaded physical artifact",
+            )
+
+        proof = self._ensure_loaded()
+        artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
+            "artifact_dir", "artifacts"
+        )
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        repair_root = (
+            Path(artifact_dir)
+            / "optimize"
+            / context.run.run_id
+            / "hf-lora-repair"
+        )
+        self._preflight_resources(self.reloaded_model, repair_root, phase="repair")
+        parent_model = self.reloaded_model
+        parent_measurement = proof.measure_model(
+            parent_model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        repair_model = copy.deepcopy(parent_model)
+        targets = self._repair_targets(repair_model)
+        max_steps_value = settings.get("max_steps")
+        max_steps = (
+            self.plan.budget.repair_steps
+            if max_steps_value is None
+            else _integer(max_steps_value, 1, "repair.max_steps")
+        )
+        config = LoRARepairConfig(
+            rank=_integer(settings.get("rank"), 4, "repair.rank"),
+            alpha=_number(settings.get("alpha", 8.0), "repair.alpha"),
+            dropout=_number(settings.get("dropout", 0.0), "repair.dropout"),
+            learning_rate=_number(
+                settings.get("learning_rate", 1e-3), "repair.learning_rate"
+            ),
+            max_steps=min(max_steps, self.plan.budget.repair_steps),
+            seed=_integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed"),
+            output_mode=LoRAOutputMode.MERGED,
+        )
+        repair_result = run_bounded_lora_repair(
+            repair_model,
+            self._repair_examples(),
+            targets,
+            config,
+            source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
+            candidate_checkpoint_id=self._checkpoint_id(self.artifact_digest),
+        )
+        repaired_measurement = proof.measure_model(
+            repair_model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        parent_perplexity = _number(parent_measurement["perplexity"], "parent.perplexity")
+        repaired_perplexity = _number(
+            repaired_measurement["perplexity"], "repaired.perplexity"
+        )
+        accepted = (
+            repaired_perplexity <= parent_perplexity
+        )
+        detail: dict[str, object] = {
+            "method": method,
+            "status": "accepted" if accepted else "rejected",
+            "repair": repair_result.to_record(),
+            "targets": list(targets),
+            "parent_measurement": dict(parent_measurement),
+            "repaired_measurement": dict(repaired_measurement),
+            "resource_preflight": self.resource_preflight,
+            "artifact": str(self.artifact),
+            "artifact_digest": self.artifact_digest,
+        }
+        if not accepted:
+            self._record_optimization_observation(
+                stage="repair",
+                state_id="rejected:" + self.artifact_digest,
+                outcome=OptimizationEvidenceOutcome.REJECTED,
+                candidate_id=(None if self.selected is None else self.selected.candidate_id),
+                mutation_id=None,
+                measurement={
+                    "parent": dict(parent_measurement),
+                    "repaired": dict(repaired_measurement),
+                    "measurement_authority": "physical_repair_evaluation",
+                },
+                failure={"reason": "repair did not improve the measured parent artifact"},
+                lineage={"method": method, "targets": list(targets)},
+            )
+            return self._result(
+                OptimizeStage.REPAIR,
+                json.dumps(detail, sort_keys=True),
+                measured=True,
+                constraints_passed=True,
+                artifact_digest=self.artifact_digest,
+                candidate=self.selected,
+                transaction_state=TransactionState.COMMITTED,
+            )
+
+        destination = repair_root / "candidate"
+        repaired_artifact = self._publish(repair_model, destination)
+        reloaded = self._reload(repaired_artifact)
+        if not self._generation_smoke(reloaded):
+            raise FirstPartyOptimizeRuntimeError("repaired artifact failed inference smoke")
+        reloaded_measurement = proof.measure_model(
+            reloaded,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        reloaded_perplexity = _number(
+            reloaded_measurement["perplexity"], "reloaded_repaired.perplexity"
+        )
+        if reloaded_perplexity > parent_perplexity:
+            detail.update(
+                {
+                    "status": "rejected",
+                    "reloaded_measurement": dict(reloaded_measurement),
+                    "rejected_artifact": str(repaired_artifact),
+                    "rejected_artifact_digest": _artifact_digest(repaired_artifact.parent),
+                    "rejection_reason": "reloaded repair was worse than its parent",
+                }
+            )
+            self._record_optimization_observation(
+                stage="repair",
+                state_id="rejected_reload:" + self.artifact_digest,
+                outcome=OptimizationEvidenceOutcome.REJECTED,
+                candidate_id=(None if self.selected is None else self.selected.candidate_id),
+                mutation_id=None,
+                measurement={
+                    "parent": dict(parent_measurement),
+                    "repaired": dict(reloaded_measurement),
+                    "measurement_authority": "physical_reloaded_repair_evaluation",
+                },
+                artifact={
+                    "path": str(repaired_artifact.parent),
+                    "digest": detail["rejected_artifact_digest"],
+                },
+                failure={"reason": detail["rejection_reason"]},
+                lineage={"method": method, "targets": list(targets)},
+            )
+            return self._result(
+                OptimizeStage.REPAIR,
+                json.dumps(detail, sort_keys=True),
+                measured=True,
+                constraints_passed=True,
+                artifact_digest=self.artifact_digest,
+                candidate=self.selected,
+                transaction_state=TransactionState.COMMITTED,
+            )
+
+        self.artifact = repaired_artifact
+        self.artifact_digest = _artifact_digest(repaired_artifact.parent)
+        self.reloaded_model = reloaded
+        detail.update(
+            {
+                "status": "accepted",
+                "artifact": str(repaired_artifact),
+                "artifact_digest": self.artifact_digest,
+                "reloaded_measurement": dict(reloaded_measurement),
+            }
+        )
+        self._record_optimization_observation(
+            stage="repair",
+            state_id="accepted:" + self.artifact_digest,
+            outcome=OptimizationEvidenceOutcome.ACCEPTED,
+            candidate_id=(None if self.selected is None else self.selected.candidate_id),
+            mutation_id=None,
+            measurement={
+                "parent": dict(parent_measurement),
+                "repaired": dict(reloaded_measurement),
+                "measurement_authority": "physical_reloaded_repair_evaluation",
+            },
+            artifact={
+                "path": str(repaired_artifact.parent),
+                "digest": self.artifact_digest,
+            },
+            lineage={"method": method, "targets": list(targets)},
+        )
+        return self._result(
+            OptimizeStage.REPAIR,
+            json.dumps(detail, sort_keys=True),
+            measured=True,
+            constraints_passed=True,
+            artifact_digest=self.artifact_digest,
+            candidate=self.selected,
+            transaction_state=TransactionState.COMMITTED,
+        )
 
     def _result(
         self,
@@ -2273,12 +2557,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 )
             if stage is OptimizeStage.SURGERY:
                 return self._surgery(context)
-            if stage in {OptimizeStage.REPAIR, OptimizeStage.QUANTIZATION}:
-                reason = (
-                    "repair is not connected to the verified HF MLP runtime"
-                    if stage is OptimizeStage.REPAIR
-                    else "quantization is not connected to the verified HF MLP runtime"
-                )
+            if stage is OptimizeStage.REPAIR:
+                return self._repair(context)
+            if stage is OptimizeStage.QUANTIZATION:
+                reason = "quantization is not connected to the verified HF MLP runtime"
                 reference = self._record_runtime_boundary(
                     stage, OptimizationEvidenceOutcome.UNSUPPORTED, reason
                 )

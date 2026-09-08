@@ -12,6 +12,7 @@ from modelsurgeon.config import (
     CalibrationConfig,
     ConstraintConfig,
     ModelConfig,
+    RepairConfig,
     SearchConfig,
     Settings,
     SurgeonConfig,
@@ -116,13 +117,10 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     assert profile_detail["hardware_inventory"]["memory"]["total_bytes"] is not None
     repair_detail = json.loads(run.stages[6].result.detail)
     quantization_detail = json.loads(run.stages[7].result.detail)
-    assert repair_detail["status"] == "unsupported"
+    assert repair_detail["status"] == "not_requested"
+    assert repair_detail["method"] == "none"
     assert quantization_detail["status"] == "unsupported"
-    assert Path(repair_detail["evidence"]["path"]).is_file()
     assert Path(quantization_detail["evidence"]["path"]).is_file()
-    assert json.loads(Path(repair_detail["evidence"]["path"]).read_text())["outcome"] == (
-        "unsupported"
-    )
     assert run.accepted_artifact_digest is not None
     assert run.accepted_artifact_digest != run.source_artifact_digest
     assert (tmp_path / "artifacts" / "optimize" / run.run_id).is_dir()
@@ -281,6 +279,49 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     )
     assert resumed.outcome is WorkflowOutcome.SUPPORTED
     assert resumed.accepted_artifact_digest == surgery.artifact_digest
+
+
+def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: Path) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        repair=RepairConfig(
+            method="lora",
+            target_modules=("model.layers.0.mlp.down_proj",),
+            max_steps=1,
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=1, repair_steps=1),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    surgery = run.stages[5].result
+    repair = run.stages[6].result
+    assert surgery is not None and repair is not None
+    detail = json.loads(repair.detail)
+    assert detail["method"] == "lora"
+    assert detail["status"] in {"accepted", "rejected"}
+    assert detail["repair"]["completed_steps"] == 1
+    assert detail["repair"]["resource_use"]["wall_seconds"] >= 0
+    assert detail["parent_measurement"]["perplexity"] > 0
+    assert detail["repaired_measurement"]["perplexity"] > 0
 
 
 @pytest.mark.parametrize(

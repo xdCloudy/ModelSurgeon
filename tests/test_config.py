@@ -11,6 +11,7 @@ from modelsurgeon.config import (
     ObjectiveConfig,
     OptimizeMetric,
     ProviderConfig,
+    RepairConfig,
     SearchConfig,
     Settings,
 )
@@ -77,6 +78,18 @@ def test_search_scopes_are_non_empty_and_unique() -> None:
         SearchConfig(scopes=("attention_head", "attention_head"))
     with pytest.raises(ValidationError, match="non-empty"):
         SearchConfig(scopes=())
+
+
+def test_repair_config_is_explicit_and_canonical() -> None:
+    assert Settings().repair.method == "none"
+    configured = RepairConfig(
+        method="lora",
+        target_modules=("model.layers.0.mlp.down_proj",),
+        max_steps=2,
+    )
+    assert configured.method == "lora"
+    with pytest.raises(ValidationError, match="sorted, unique"):
+        RepairConfig(method="lora", target_modules=("b", "a"))
 
 
 def test_environment_overrides_nested_hardware_settings(

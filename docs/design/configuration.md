@@ -10,6 +10,7 @@ ModelSurgeon configuration is a versioned, immutable hierarchy implemented by `m
 - `model`: source path/ID, immutable revision, container format, and requested compute dtype.
 - `calibration`: dataset identity, split, bounded samples/batch/sequence length, and seed.
 - `features`: independently enabled weight, spectral, activation, gradient, correlation, topology, and runtime groups.
+- `repair`: explicit no-repair control or bounded first-party LoRA settings and target modules.
 - `objective`: quality and resource constraints plus an ordered, duplicate-free set of optimization dimensions.
 - `hardware`: full/tensor/streaming/automatic memory mode, RAM/VRAM ceilings, CPU offload, and mixed precision.
 - `safety`: overwrite, remote-code, and atomic-write policy.
