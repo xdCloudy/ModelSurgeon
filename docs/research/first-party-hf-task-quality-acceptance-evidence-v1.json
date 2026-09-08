@@ -1,0 +1,156 @@
+{
+  "record_type": "first_party_hf_task_quality_acceptance_campaign",
+  "schema_version": 1,
+  "status": "completed_with_measured_no_feasible_candidate",
+  "tool_revision": "first-party-hf-acceptance-v3",
+  "git_revision": "79ba950451b01d76c983111c2c90774df9a835c0",
+  "recorded_at": "2026-09-08T16:10:20.720422+01:00",
+  "request_contract": {
+    "quality_profile": "quality",
+    "min_quality_retention_ratio": 0.99,
+    "search_scope": "mlp_channel",
+    "evaluations": 2,
+    "task_quality": {
+      "method": "code_exact_match",
+      "dataset": "docs/research/task-quality-code-exact-match-v1.jsonl",
+      "dataset_revision": "modelsurgeon-task-quality-code-exact-match-v1",
+      "dataset_sha256": "sha256:9c9ba60768e0c94a8c311495f12be40508a933543296ea89751dd151464fd5d8",
+      "split": "test",
+      "max_samples": 4,
+      "max_new_tokens": 32
+    },
+    "calibration": {
+      "path": "work/acceptance-campaign-calibration.txt",
+      "sha256": "sha256:8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5"
+    }
+  },
+  "environment": {
+    "os": "Windows 11 10.0.26200",
+    "python": "3.12.13",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "cuda_available": false,
+    "ram_total_bytes": 68422938624
+  },
+  "models": [
+    {
+      "family": "llama",
+      "model": "HuggingFaceTB/SmolLM-135M",
+      "path": "D:/Stored Models/models--HuggingFaceTB--SmolLM-135M/snapshots/1d461723eec654e65efdc40cf49301c89c0c92f4",
+      "revision": "1d461723eec654e65efdc40cf49301c89c0c92f4",
+      "source_digest": "sha256:eaa517d882397b825a190fcbf31d3a0b8c2de85ea25d6dd011b44f6b1f77012d",
+      "run_id": "optimize_run_60897e0bba4f3de2f30e17973e69d31979564fdabbebed10567c8eed7e2bc890",
+      "baseline": {
+        "perplexity": 118.30797654653699,
+        "task_quality": {
+          "metric": "code_exact_match",
+          "accuracy": 0.0,
+          "matches": 0,
+          "total": 4,
+          "measurement_authority": "physical_model_evaluation"
+        }
+      },
+      "candidate_search": {
+        "candidate_count": 2,
+        "measured_candidate_count": 2,
+        "candidates": [
+          {
+            "candidate_id": "cand_91c36d1a27c0dffac3576ce710d5abac07058e8fe70af345e4b975366f11cf1a",
+            "outcome": "rejected",
+            "parameter_delta": -51840,
+            "storage_delta_bytes": -207360,
+            "perplexity_delta": -3.230413035647217,
+            "task_quality": {
+              "baseline_accuracy": 0.0,
+              "candidate_accuracy": 0.0,
+              "accepted": false,
+              "inconclusive": true,
+              "reason": "task-quality retention cannot be evaluated from a zero baseline score"
+            }
+          },
+          {
+            "candidate_id": "cand_a31b79e0248457ad6b236feb0935d004920260ca63b96bf75abd1e171dd38cca",
+            "outcome": "rejected",
+            "parameter_delta": -51840,
+            "storage_delta_bytes": -207360,
+            "perplexity_delta": 1.848788588807821,
+            "task_quality": {
+              "baseline_accuracy": 0.0,
+              "candidate_accuracy": 0.0,
+              "accepted": false,
+              "inconclusive": true,
+              "reason": "task-quality retention cannot be evaluated from a zero baseline score"
+            }
+          }
+        ],
+        "active_search": "no measured candidate met the declared quality constraints"
+      },
+      "accepted_artifact_digest": null,
+      "raw_run_record": "work/acceptance-task-quality-v2-artifacts/d-stored-models-models--huggingfacetb--smollm-135m-snapshots-1d461723eec654e65efdc40cf49301c89c0c92f4/run.json"
+    },
+    {
+      "family": "qwen",
+      "model": "Qwen/Qwen2.5-0.5B",
+      "path": "D:/Stored Models/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "source_digest": "sha256:7ddcb4ca4de8a90486d7d0f504f6ebd2557a6aa7b3ef4e41147db2e579d168ab",
+      "run_id": "optimize_run_eca14b659206a5499792d74a52054dc9763ee2d5c5b550992bdafb678d0c9c4c",
+      "baseline": {
+        "perplexity": 142.2795398011654,
+        "task_quality": {
+          "metric": "code_exact_match",
+          "accuracy": 1.0,
+          "matches": 4,
+          "total": 4,
+          "measurement_authority": "physical_model_evaluation"
+        }
+      },
+      "candidate_search": {
+        "candidate_count": 2,
+        "measured_candidate_count": 2,
+        "candidates": [
+          {
+            "candidate_id": "cand_06035159e5db5906eac83a7f5f88bb2c70d2882d285e3e9afed710dbcfde4702",
+            "outcome": "rejected",
+            "parameter_delta": -64512,
+            "storage_delta_bytes": -258048,
+            "perplexity_delta": 0.40206884322168435,
+            "task_quality": {
+              "baseline_accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "retention_ratio": 1.0,
+              "accepted": true,
+              "measurement_authority": "physical_model_evaluation"
+            },
+            "rejection_reasons": ["quality-profile perplexity guard violated"]
+          },
+          {
+            "candidate_id": "cand_636aa9f284f6edf515f0c80054b32553347e99108b5953da0fd01335c100cd4c",
+            "outcome": "rejected",
+            "parameter_delta": -64512,
+            "storage_delta_bytes": -258048,
+            "perplexity_delta": 0.34799055924597155,
+            "task_quality": {
+              "baseline_accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "retention_ratio": 1.0,
+              "accepted": true,
+              "measurement_authority": "physical_model_evaluation"
+            },
+            "rejection_reasons": ["quality-profile perplexity guard violated"]
+          }
+        ],
+        "active_search": "no measured candidate met the declared quality constraints"
+      },
+      "accepted_artifact_digest": null,
+      "raw_run_record": "work/acceptance-task-quality-v2-artifacts/d-stored-models-models--qwen--qwen2.5-0.5b-snapshots-060db6499f32faf8b98477b0a26969ef7d8b9987/run.json"
+    }
+  ],
+  "limitations": [
+    "This is a bounded CPU campaign with two physical MLP-channel candidates per model.",
+    "No artifact was promoted because no candidate satisfied the combined quality policy.",
+    "SmolLM-135M produced a zero exact-match baseline, so task-quality retention was correctly classified as inconclusive rather than treated as success.",
+    "The benchmark is a small code exact-match protocol and does not establish broad coding ability, production coverage, or Meta-Surgeon transfer improvement."
+  ]
+}

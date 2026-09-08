@@ -1,0 +1,4 @@
+{"id":"add-two-integers","prompt":"Write only a Python function named add that returns the sum of arguments a and b. Do not include explanation.","reference":"def add(a, b):\n    return a + b"}
+{"id":"is-even","prompt":"Write only a Python function named is_even that returns True when integer n is even and False otherwise. Do not include explanation.","reference":"def is_even(n):\n    return n % 2 == 0"}
+{"id":"clamp-value","prompt":"Write only a Python function named clamp that returns value limited inclusively between low and high. Do not include explanation.","reference":"def clamp(value, low, high):\n    return max(low, min(value, high))"}
+{"id":"reverse-string","prompt":"Write only a Python function named reverse_string that returns text reversed. Do not include explanation.","reference":"def reverse_string(text):\n    return text[::-1]"}

@@ -35,6 +35,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [first-party native GGUF chat-controlled campaign evidence](first-party-native-gguf-chat-campaign-v1.json)
 - [first-party Hugging Face chat-controlled acceptance evidence](first-party-hf-chat-acceptance-evidence-v1.json)
 - [first-party Hugging Face quality-gate acceptance evidence](first-party-hf-quality-gate-evidence-v1.json)
+- [first-party Hugging Face task-quality acceptance evidence](first-party-hf-task-quality-acceptance-evidence-v1.json)
 - [v1.2 quantization-order study protocol](v1.2-quantization-order-study-v1.json)
 - [v1.2 physical compression and quality-loss Pareto study](v1.2-physical-pareto-study-v1.json)
 - [v1.3 empirical hardware and runtime profile](v1.3-hardware-profile-v1.json)

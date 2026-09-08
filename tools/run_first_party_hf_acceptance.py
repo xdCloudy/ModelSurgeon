@@ -10,6 +10,7 @@ import subprocess
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal, cast
 
 from modelsurgeon.config import (
     CalibrationConfig,
@@ -19,12 +20,13 @@ from modelsurgeon.config import (
     SearchConfig,
     Settings,
     SurgeonConfig,
+    TaskQualityConfig,
 )
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import OptimizeOrchestrator
 
-TOOL_REVISION = "first-party-hf-acceptance-v2"
+TOOL_REVISION = "first-party-hf-acceptance-v3"
 
 
 def _model_reference(value: str) -> tuple[str, str]:
@@ -145,6 +147,11 @@ def _run_cell(
     surgeon_registry: Path | None,
     surgeon_card: str | None,
     surgeon_signing_env: str | None,
+    task_quality_dataset: Path | None,
+    task_quality_dataset_revision: str | None,
+    task_quality_split: str,
+    task_quality_max_new_tokens: int,
+    task_quality_max_samples: int | None,
 ) -> dict[str, object]:
     model_path = _resolve_model(identifier, revision)
     slug = _slug(identifier)
@@ -159,7 +166,27 @@ def _run_cell(
             max_sequence_length=32,
             seed=1729,
         ),
-        search=SearchConfig(scopes=(search_scope,), low_rank_rank=low_rank_rank),
+        task_quality=(
+            TaskQualityConfig(
+                method="code_exact_match",
+                dataset=task_quality_dataset,
+                dataset_revision=task_quality_dataset_revision,
+                split=task_quality_split,
+                max_new_tokens=task_quality_max_new_tokens,
+                max_samples=task_quality_max_samples,
+            )
+            if task_quality_dataset is not None
+            else TaskQualityConfig()
+        ),
+        search=SearchConfig(
+            scopes=(
+                cast(
+                    Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"],
+                    search_scope,
+                ),
+            ),
+            low_rank_rank=low_rank_rank,
+        ),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.99),
         surgeon=(
             SurgeonConfig(
@@ -257,6 +284,15 @@ def main() -> int:
         "--surgeon-signing-env",
         help="environment variable containing the Meta-Surgeon card secret",
     )
+    parser.add_argument(
+        "--task-quality-dataset",
+        type=Path,
+        help="pinned UTF-8 JSONL code benchmark for real task-quality evidence",
+    )
+    parser.add_argument("--task-quality-dataset-revision")
+    parser.add_argument("--task-quality-split", default="test")
+    parser.add_argument("--task-quality-max-new-tokens", type=int, default=32)
+    parser.add_argument("--task-quality-max-samples", type=int)
     args = parser.parse_args()
     if len(args.model) < 2:
         parser.error("acceptance campaigns require at least two model cells")
@@ -277,6 +313,21 @@ def main() -> int:
     calibration_text = args.calibration_text.expanduser().absolute().resolve()
     if not calibration_text.is_file():
         parser.error(f"calibration text does not exist: {calibration_text}")
+    task_quality_dataset = (
+        None
+        if args.task_quality_dataset is None
+        else args.task_quality_dataset.expanduser().absolute().resolve()
+    )
+    if task_quality_dataset is not None and not task_quality_dataset.is_file():
+        parser.error(f"task-quality dataset does not exist: {task_quality_dataset}")
+    if args.task_quality_dataset_revision is not None and task_quality_dataset is None:
+        parser.error("--task-quality-dataset-revision requires --task-quality-dataset")
+    if not args.task_quality_split.strip():
+        parser.error("--task-quality-split must not be blank")
+    if args.task_quality_max_new_tokens <= 0:
+        parser.error("--task-quality-max-new-tokens must be positive")
+    if args.task_quality_max_samples is not None and args.task_quality_max_samples <= 0:
+        parser.error("--task-quality-max-samples must be positive")
     if args.output.exists():
         parser.error(f"refusing to overwrite existing output: {args.output}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -301,6 +352,11 @@ def main() -> int:
                 surgeon_registry=args.surgeon_registry,
                 surgeon_card=args.surgeon_card,
                 surgeon_signing_env=args.surgeon_signing_env,
+                task_quality_dataset=task_quality_dataset,
+                task_quality_dataset_revision=args.task_quality_dataset_revision,
+                task_quality_split=args.task_quality_split,
+                task_quality_max_new_tokens=args.task_quality_max_new_tokens,
+                task_quality_max_samples=args.task_quality_max_samples,
             )
         except Exception as error:
             failures = True
@@ -333,6 +389,16 @@ def main() -> int:
             "surgeon_signing_env": args.surgeon_signing_env,
             "calibration_text": str(calibration_text),
             "calibration_sha256": _sha256(calibration_text),
+            "task_quality_dataset": (
+                None if task_quality_dataset is None else str(task_quality_dataset)
+            ),
+            "task_quality_dataset_sha256": (
+                None if task_quality_dataset is None else _sha256(task_quality_dataset)
+            ),
+            "task_quality_dataset_revision": args.task_quality_dataset_revision,
+            "task_quality_split": args.task_quality_split,
+            "task_quality_max_new_tokens": args.task_quality_max_new_tokens,
+            "task_quality_max_samples": args.task_quality_max_samples,
         },
         "models": cells,
     }
