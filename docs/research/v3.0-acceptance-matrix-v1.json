@@ -1,0 +1,180 @@
+{
+  "record_type": "v30_acceptance_matrix",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v3.0-acceptance-matrix-v1",
+  "issue": 490,
+  "milestone": "v3.0",
+  "status": "bounded_gate",
+  "authority_boundary": {
+    "trusted_authorities": [
+      "validated_modelsurgeon_engine",
+      "canonical_evidence_and_provenance",
+      "approval_and_budget_policy",
+      "artifact_integrity_and_recovery_contract"
+    ],
+    "ux_completion_is_optimizer_correctness": false,
+    "provider_text_is_authoritative": false,
+    "optimizer_quality_is_claimed_by_this_gate": false
+  },
+  "outcome_vocabulary": [
+    "supported",
+    "unsupported",
+    "failed",
+    "unknown",
+    "inconclusive",
+    "known_skip"
+  ],
+  "cells": [
+    {
+      "id": "setup_configuration",
+      "surface": "installation and configuration",
+      "evidence_class": "real_cli_and_contract_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_setup.py",
+        "tests/test_provider_configuration.py",
+        "tests/test_config_io.py",
+        "tests/test_cli_help_contract.py"
+      ],
+      "notes": "Project-managed Python environment and local setup metadata only; no installer claim."
+    },
+    {
+      "id": "offline_fixture_manifest",
+      "surface": "licensed tiny fixture manifest and offline setup",
+      "evidence_class": "pinned_metadata_fixture_and_real_cli",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_setup.py",
+        "tests/test_tiny_models.py"
+      ],
+      "notes": "The manifest pins four upstream revisions but commits no model weights."
+    },
+    {
+      "id": "provider_paths",
+      "surface": "no-LLM, local, offline, and provider diagnostics",
+      "evidence_class": "real_cli_and_provider_contract_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_provider_configuration.py",
+        "tests/test_provider_interface.py",
+        "tests/test_provider_conformance.py",
+        "tests/test_local_gguf_provider.py",
+        "tests/test_v22_provider_release.py"
+      ],
+      "notes": "No-LLM and diagnostics are exercised directly; local runtime and live hosted quality remain bounded or unsupported."
+    },
+    {
+      "id": "compiler_clarification_negotiation",
+      "surface": "intent compiler, clarification, and constraint negotiation",
+      "evidence_class": "direct_python_contract_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_intent_compiler.py",
+        "tests/test_clarification.py",
+        "tests/test_v24_clarification_release.py",
+        "tests/test_negotiation_study.py",
+        "tests/test_v25_constraint_negotiation_release.py",
+        "tests/test_search_constraints.py"
+      ],
+      "notes": "Contract and fail-closed behavior are measured; this cell does not establish optimizer optimality."
+    },
+    {
+      "id": "tools_state_explanations",
+      "surface": "tools, campaign state, explanations, and evidence queries",
+      "evidence_class": "direct_python_and_cli_contract_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_conversational_tools.py",
+        "tests/test_campaign_state.py",
+        "tests/test_evidence_query.py",
+        "tests/test_claim_evidence.py",
+        "tests/test_v28_evidence_grounding_release.py",
+        "tests/test_v30_conversational_journey.py"
+      ],
+      "notes": "Canonical state and evidence are authoritative; rendered explanations are projections."
+    },
+    {
+      "id": "approvals_artifacts_provenance",
+      "surface": "approvals, hard constraints, provenance, and artifact validation",
+      "evidence_class": "direct_python_contract_and_negative_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_scoped_approvals.py",
+        "tests/test_policy_precedence.py",
+        "tests/test_artifact_integrity.py",
+        "tests/test_artifact_outcome.py",
+        "tests/test_untrusted_artifact_boundaries.py",
+        "tests/test_signed_evidence.py",
+        "tests/test_v29_conversational_security_release.py"
+      ],
+      "notes": "Approval, provenance, artifact, and hard-constraint refusals are retained as evidence."
+    },
+    {
+      "id": "direct_api_parity",
+      "surface": "direct CLI/Python APIs and no-LLM parity",
+      "evidence_class": "real_cli_and_direct_api_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_public_api_contract.py",
+        "tests/test_surgeon_cli_contract.py",
+        "tests/test_optimization.py",
+        "tests/test_optimization_package.py",
+        "tests/test_v21_intent_contract.py",
+        "tests/test_v30_conversational_journey.py"
+      ],
+      "notes": "Parity means equivalent typed records and policy outcomes, not equivalent optimizer measurements."
+    },
+    {
+      "id": "recovery_replay_reproducibility",
+      "surface": "state recovery, replay, reproducibility, and resumability",
+      "evidence_class": "direct_python_contract_and_replay_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_campaign_recovery.py",
+        "tests/test_recoverability.py",
+        "tests/test_oom_recovery.py",
+        "tests/test_replay_environment.py",
+        "tests/test_reproduce_cli.py",
+        "tests/test_reproducibility_manifest.py",
+        "tests/test_v27_campaign_recovery.py"
+      ],
+      "notes": "Replay is bounded by exact revisions, lock identity, environment compatibility, and declared tolerances."
+    },
+    {
+      "id": "adversarial_security",
+      "surface": "adversarial, policy, isolation, and security regression suites",
+      "evidence_class": "fixed_corpus_and_security_contract_tests",
+      "expected_outcome": "supported",
+      "tests": [
+        "tests/test_adversarial_resistance.py",
+        "tests/test_conversational_adversarial_corpus.py",
+        "tests/test_policy_precedence.py",
+        "tests/test_provider_interface.py",
+        "tests/test_v29_conversational_security_release.py"
+      ],
+      "notes": "The bounded corpus is replayed and negative observations remain retained; hostile process containment is not claimed."
+    },
+    {
+      "id": "optimizer_capability",
+      "surface": "measured optimizer quality and representative model surgery",
+      "evidence_class": "explicit_boundary",
+      "expected_outcome": "unsupported",
+      "tests": [],
+      "notes": "No licensed weights are committed or downloaded by this gate; UX completion and planning output are not optimizer correctness evidence."
+    },
+    {
+      "id": "cuda_and_hosted",
+      "surface": "CUDA and live hosted provider capability",
+      "evidence_class": "explicit_boundary",
+      "expected_outcome": "unsupported",
+      "tests": [],
+      "notes": "No CUDA device, hosted credentials, or live provider endpoint is required or claimed."
+    }
+  ],
+  "required_evidence": [
+    "docs/research/v3.0-acceptance-evidence-v1.json",
+    "docs/release/v3.0-acceptance-security-reproducibility-review.md",
+    "tools/audit_v30_acceptance.py",
+    "tests/test_v30_acceptance.py"
+  ]
+}
