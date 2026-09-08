@@ -1,4 +1,4 @@
-"""Unified, read-only optimize planning command."""
+"""Unified optimize planning and first-party execution command."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from modelsurgeon.experiments import (
     OptimizationPackageError,
     write_reproducibility_package,
 )
+from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import (
     OptimizePlanError,
     build_optimize_plan,
@@ -27,7 +28,6 @@ from modelsurgeon.optimization import (
 from modelsurgeon.optimization_orchestrator import (
     OptimizeOrchestrator,
     OptimizeOrchestratorError,
-    PreflightRuntime,
     load_optimize_runtime,
 )
 from modelsurgeon.provider_kind import ProviderKind
@@ -45,6 +45,13 @@ def optimize_command(
     revision: Annotated[
         str | None,
         typer.Option("--revision", help="Immutable source model revision"),
+    ] = None,
+    calibration_text: Annotated[
+        Path | None,
+        typer.Option(
+            "--calibration-text",
+            help="Local UTF-8 calibration text for first-party Hugging Face execution",
+        ),
     ] = None,
     provider: Annotated[
         ProviderKind | None,
@@ -105,7 +112,10 @@ def optimize_command(
         bool,
         typer.Option(
             "--execute",
-            help="Execute the bounded workflow through a trusted runtime adapter",
+            help=(
+                "Execute the bounded workflow with the first-party Hugging Face runtime; "
+                "--runtime may select an external adapter"
+            ),
         ),
     ] = False,
     state: Annotated[
@@ -173,6 +183,8 @@ def optimize_command(
         overrides["model.path"] = model
     if revision is not None:
         overrides["model.revision"] = revision
+    if calibration_text is not None:
+        overrides["calibration.dataset"] = str(calibration_text)
     if no_llm:
         overrides.update(
             {
@@ -237,7 +249,9 @@ def optimize_command(
                         "--approval-reuse policy must be one_time or reusable"
                     ) from error
             selected_runtime = (
-                PreflightRuntime() if runtime is None else load_optimize_runtime(runtime)
+                build_first_party_optimize_runtime(plan)
+                if runtime is None
+                else load_optimize_runtime(runtime)
             )
             run_record = OptimizeOrchestrator(plan, state).run(
                 selected_runtime,
