@@ -259,11 +259,6 @@ def run_huggingface_cumulative_sequence(
     reload: HuggingFaceArtifactReloader,
     generate: HuggingFaceGenerationSmoke,
     evaluate: Callable[[Any], Mapping[str, object]] | None = None,
-    on_accept: Callable[
-        [Any, int, tuple[HuggingFaceStageEvidence, ...]], HuggingFaceEdit | None
-    ]
-    | None = None,
-    max_stages: int | None = None,
 ) -> HuggingFaceCumulativeRun:
     """Apply mixed edits with save/reload/generate gates after every accepted stage.
 
@@ -276,8 +271,6 @@ def run_huggingface_cumulative_sequence(
         raise HuggingFaceCumulativeError("cumulative sequence requires at least one edit")
     if not source_outcome_id.strip():
         raise HuggingFaceCumulativeError("source outcome identity is required")
-    if max_stages is not None and max_stages <= 0:
-        raise HuggingFaceCumulativeError("max_stages must be positive when provided")
     initial = _snapshot(source_model)
     sequence_id = _sequence_id(edits)
     root = Path(output_root)
@@ -291,11 +284,8 @@ def run_huggingface_cumulative_sequence(
     cumulative_parameter_delta = 0
     cumulative_storage_delta = 0
     edit_order: list[str] = []
-    pending_edits = list(edits)
-    index = 0
 
-    while index < len(pending_edits):
-        edit = pending_edits[index]
+    for index, edit in enumerate(edits):
         candidate = copy.deepcopy(accepted_model)
         before = _snapshot(accepted_model)
         child = root / f"{sequence_id}.stage-{index:02d}-{edit.mutation_id}"
@@ -356,14 +346,6 @@ def run_huggingface_cumulative_sequence(
         )
         accepted_model = reloaded
         parent_id = outcome.outcome_id
-        if on_accept is not None:
-            next_edit = on_accept(accepted_model, index, tuple(stages))
-            if (
-                next_edit is not None
-                and (max_stages is None or len(stages) < max_stages)
-            ):
-                pending_edits.append(next_edit)
-        index += 1
 
     if not stages:
         raise HuggingFaceCumulativeError(f"first cumulative edit failed: {failure_reason}")
