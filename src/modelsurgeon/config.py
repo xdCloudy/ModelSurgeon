@@ -198,6 +198,12 @@ class RepairConfig(StrictConfigModel):
         return value
 
 
+class QuantizationConfig(StrictConfigModel):
+    """Optional first-party quantization selected by the optimize runtime."""
+
+    method: Literal["none", "dynamic_int8"] = "none"
+
+
 class ObjectiveConfig(StrictConfigModel):
     """Hard quality/resource constraints and optimization dimensions."""
 
@@ -374,6 +380,7 @@ class Settings(BaseSettings):
     surgeon: SurgeonConfig = Field(default_factory=SurgeonConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     repair: RepairConfig = Field(default_factory=RepairConfig)
+    quantization: QuantizationConfig = Field(default_factory=QuantizationConfig)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)
