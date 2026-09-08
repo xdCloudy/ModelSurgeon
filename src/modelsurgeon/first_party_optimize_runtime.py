@@ -668,6 +668,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "stages": [item.to_record() for item in sequence.stages],
                     "source_digest": self.source_digest,
                     "artifact": str(artifact),
+                    "artifact_manifest": _tree_entries(artifact.parent),
                 },
                 sort_keys=True,
             ),
