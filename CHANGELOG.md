@@ -8,6 +8,12 @@
     first-party manifest, reloaded and remeasured before acceptance, with
     rejection evidence retained and partial failed publications cleaned up.
 
+  - Added a reusable revision-pinned first-party Hugging Face acceptance
+    campaign tool and retained a strict CPU evidence tranche across public tiny
+    Llama and Mistral checkpoints. The evidence records real cumulative
+    surgery, reload, deployment, Pareto, provenance and hardware results while
+    keeping production-scale and task-quality limitations explicit.
+
   - Prepared the bounded v3.0 conversational product release candidate for
     issue #491. Integrated the v2.1-v2.9 P0 exit evidence, executable release
     manifest/checklist, packaging and setup guidance, migration and direct API
