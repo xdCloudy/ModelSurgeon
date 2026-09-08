@@ -82,7 +82,8 @@ to these records and must not add execution authority to the provider layer.
 ## Local GGUF adapter
 
 `LocalGGUFProvider` is the bounded offline adapter for a licensed `.gguf`
-fixture. Install it with `uv sync --extra dev --extra local --locked`, pin the
+fixture. Install the project with `uv sync --extra dev --locked`, then provision
+the local runtime separately from a reviewed source and pin the
 model revision and the `llama-cpp-python` runtime revision, and keep the model
 path in disposable local storage. The adapter opens the file through
 ModelSurgeon's read-only GGUF parser before loading the runtime; missing,

@@ -83,7 +83,7 @@ def _installed_runtime_revision() -> str:
     except importlib.metadata.PackageNotFoundError as error:
         raise ChatSessionError(
             "provider_unavailable",
-            "llama-cpp-python is not installed; install the local provider extra",
+            "llama-cpp-python is not installed; install a separately managed local runtime",
         ) from error
 
 

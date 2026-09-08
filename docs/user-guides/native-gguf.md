@@ -165,11 +165,18 @@ clarification, and evidence explanation. It is separate from Surgeon Tensors
 and from the target model being edited: provider output cannot select a surgery,
 approve an artifact, or replace deterministic ModelSurgeon execution.
 
-Install the pinned project environment and an explicitly selected local runtime:
+Install the pinned project environment before provisioning an explicitly selected
+local runtime:
 
 ~~~bash
-uv sync --extra dev --extra local --locked
+uv sync --extra dev --locked
 ~~~
+
+The project does not install `llama-cpp-python` automatically because its
+current dependency graph includes the unmaintained `diskcache` package, which
+has an unsafe pickle-deserialization advisory and no patched release. If a
+local runtime is required, provision it separately from a reviewed source and
+keep its cache directory inaccessible to untrusted writers.
 
 Place a licensed, already-downloaded GGUF in disposable local storage. Record
 its source repository, license, revision, SHA-256, architecture metadata, and

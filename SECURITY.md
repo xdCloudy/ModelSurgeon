@@ -33,11 +33,11 @@ The v3.0 product release preserves these limits and audits them through the
 [v3.0 release manifest](docs/research/v3.0-product-release-v1.json); it is not
 a general security certification.
 
-GitHub currently reports a moderate advisory for the optional local-provider
-dependency `diskcache` 5.6.3 (GHSA-w8v5-vhqr-4h9v / CVE-2025-69872), which uses
-pickle serialization by default and has no patched version listed. The core
-package does not import it; it arrives through the optional
-`llama-cpp-python` extra. Until that dependency is replaced or patched, do not
-expose its cache directory to untrusted writers and do not treat the optional
-local provider as production-safe.
+The core package does not depend on `diskcache` and does not import it. The
+optional local GGUF adapter requires a separately managed `llama-cpp-python`
+runtime; current releases of that runtime pull unmaintained `diskcache`, which
+uses pickle serialization by default and has no patched release. Do not expose
+that runtime's cache directory to untrusted writers, and do not treat the
+optional local provider as production-safe until its dependency graph is
+replaced or patched.
 

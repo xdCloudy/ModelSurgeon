@@ -221,7 +221,7 @@ class LocalGGUFProvider:
                 import llama_cpp  # type: ignore[import-not-found]
             except ImportError as error:
                 raise LocalGGUFUnsupportedError(
-                    "llama-cpp-python is not installed; install the local extra"
+                    "llama-cpp-python is not installed; install a separately managed local runtime"
                 ) from error
             factory: RuntimeFactory = llama_cpp.Llama
             runtime_version = str(getattr(llama_cpp, "__version__", ""))
