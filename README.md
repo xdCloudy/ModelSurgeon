@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/xdCloudy/ModelSurgeon/actions/workflows/ci.yml/badge.svg)](https://github.com/xdCloudy/ModelSurgeon/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-F59E0B)](https://github.com/xdCloudy/ModelSurgeon/milestones)
+[![Status: experimental](https://img.shields.io/badge/status-experimental-F59E0B)](https://github.com/xdCloudy/ModelSurgeon/milestones)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-4C7CBF)](LICENSE)
 
 **Local-first, evidence-driven structural optimization for Hugging Face and GGUF models.**
@@ -119,6 +119,13 @@ The results include negative findings where a learned policy or repair did not b
 - optional CUDA-capable PyTorch environment for GPU workflows
 - optional external `llama.cpp` tools for native GGUF validation and benchmarking
 
+The locked project environment installs the core package and its supported
+development/Hugging Face surfaces. The optional local GGUF adapter is not
+installed by the lockfile: current `llama-cpp-python` releases pull the
+unmaintained `diskcache` package, which has an unsafe pickle-deserialization
+advisory with no patched release. Provision that runtime separately only from
+a reviewed source, and never expose its cache directory to untrusted writers.
+
 ```bash
 git clone https://github.com/xdCloudy/ModelSurgeon.git
 cd ModelSurgeon
@@ -192,6 +199,13 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `optimize` | Plan or execute a bounded, resumable autonomous optimization workflow. |
 | `reproduce` | Verify and optionally replay an immutable persisted experiment recipe. |
 | `report` | Render deterministic JSON or offline HTML evidence reports. |
+| `explorer` | Generate a self-contained offline benchmark and evidence explorer. |
+| `migrate` | Migrate a supported v2.0 config, campaign, or evidence record. |
+| `progress` | Inspect bounded campaign progress and lifecycle state. |
+| `registry` | Inspect and manage registered immutable artifacts and bundles. |
+| `benchmark` | Run or inspect bounded benchmark workflows. |
+| `campaign` | Inspect and manage canonical campaign state. |
+| `provider` | Diagnose provider availability without starting a provider. |
 | `setup` | Check or initialize the local-first data layout without downloading models. |
 
 Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract. Generate shell-specific completion instructions with `modelsurgeon --show-completion`; use `--install-completion` only when you intend to modify the current user's shell configuration.
@@ -418,6 +432,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), the [architecture compatibility matrix](
 ```text
 src/modelsurgeon/
 ├── adapters/         # Hugging Face, safetensors, GGUF, architecture boundaries
+├── active_learning/   # candidate pools, acquisition, uncertainty, and calibration
 ├── graph/            # canonical components, topology, coupling, constraints
 ├── features/         # static, spectral, activation, gradient, runtime evidence
 ├── instrumentation/  # calibration, hooks, bounded aggregation
@@ -428,7 +443,9 @@ src/modelsurgeon/
 ├── surgeon/          # heuristic and learned decision models
 ├── search/           # constrained policies, state, Pareto infrastructure
 ├── explain/          # decision summaries and reproducible reports
-└── cli/              # user-facing orchestration
+├── conversation/     # bounded providers, clarification, approvals, and recovery
+├── cli/              # user-facing orchestration and command groups
+└── root modules      # configuration, migration, policy, providers, setup, and validation
 ```
 
 ## Development
