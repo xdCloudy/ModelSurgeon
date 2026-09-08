@@ -157,6 +157,25 @@ class SurgeonConfig(StrictConfigModel):
         return self
 
 
+class SearchConfig(StrictConfigModel):
+    """Physical candidate scopes supported by the first-party search path."""
+
+    scopes: tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...] = (
+        "mlp_channel",
+    )
+    max_surgery_steps: int | None = Field(default=None, gt=0)
+
+    @field_validator("scopes")
+    @classmethod
+    def validate_scopes(
+        cls,
+        value: tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...],
+    ) -> tuple[Literal["mlp_channel", "attention_head", "transformer_layer"], ...]:
+        if not value or len(value) != len(set(value)):
+            raise ValueError("search scopes must be non-empty and unique")
+        return value
+
+
 class ObjectiveConfig(StrictConfigModel):
     """Hard quality/resource constraints and optimization dimensions."""
 
@@ -331,6 +350,7 @@ class Settings(BaseSettings):
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
     features: FeatureConfig = Field(default_factory=FeatureConfig)
     surgeon: SurgeonConfig = Field(default_factory=SurgeonConfig)
+    search: SearchConfig = Field(default_factory=SearchConfig)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)

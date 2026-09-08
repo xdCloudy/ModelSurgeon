@@ -1,10 +1,10 @@
 """First-party execution boundary for the verified Hugging Face optimize cell.
 
-This module intentionally supports one narrow, real path first: local or pinned
-Hugging Face causal LMs exposing the adapter-defined gated MLP layout.  It uses
-the existing proof runtime for measurement and the existing physical surgery
-and reload contracts for publication.  Other formats and operations return an
-explicit unsupported outcome instead of being represented by placeholder data.
+This module intentionally supports a bounded, real path first: local or pinned
+Hugging Face causal LMs exposing adapter-defined gated-MLP, attention, or layer
+layouts. It uses the existing proof runtime for measurement and the existing
+physical surgery and reload contracts for publication. Other formats and
+operations return an explicit unsupported outcome instead of placeholder data.
 """
 
 from __future__ import annotations
@@ -26,6 +26,12 @@ from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceLoadRequest,
     load_causal_lm,
 )
+from modelsurgeon.adapters.huggingface.physical_attention import (
+    remove_huggingface_attention_heads,
+)
+from modelsurgeon.adapters.huggingface.physical_layers import (
+    remove_huggingface_transformer_layers,
+)
 from modelsurgeon.adapters.huggingface.physical_mlp import (
     remove_huggingface_mlp_channels,
 )
@@ -46,7 +52,13 @@ from modelsurgeon.experiments.optimization_evidence import (
     OptimizationEvidenceRecord,
     OptimizationEvidenceStore,
 )
-from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionCache
+from modelsurgeon.features.cache import FeaturePartition, FeaturePartitionCache, FeaturePartitionKey
+from modelsurgeon.features.schema import (
+    FeatureKind,
+    FeatureRecord,
+    PrecisionProvenance,
+    PrecisionSource,
+)
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
     MemoryTelemetryError,
@@ -155,7 +167,7 @@ def _directory_bytes(path: Path) -> int:
 
 
 class HuggingFaceOptimizeRuntime(OptimizeRuntime):
-    """Execute one real, bounded HF MLP-channel optimization workflow."""
+    """Execute one real, bounded HF structural optimization workflow."""
 
     def __init__(self, plan: OptimizePlan) -> None:
         self.plan = plan
@@ -165,6 +177,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.selected: MutationCandidate | None = None
         self.selected_channel: int | None = None
         self.selected_measurement: Mapping[str, object] | None = None
+        self.baseline_runtime_measurement: Mapping[str, object] | None = None
         self.selected_channels: tuple[int, ...] = ()
         self.selected_candidates: tuple[MutationCandidate, ...] = ()
         self.candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
@@ -206,8 +219,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     None,
                 )
                 if self.selected is not None:
-                    self.selected_channel = self._channel(self.selected)
-                    self.selected_channels = (self.selected_channel,)
+                    if self.selected.scope is CandidateScope.MLP_CHANNEL:
+                        self.selected_channel = self._channel(self.selected)
+                        self.selected_channels = (self.selected_channel,)
+                    else:
+                        self.selected_channel = None
+                        self.selected_channels = ()
             try:
                 detail = json.loads(stage.detail)
             except (TypeError, json.JSONDecodeError):
@@ -259,6 +276,45 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError("search.max_surgery_steps must be positive")
         return min(steps, self.plan.budget.evaluations)
 
+    def _candidate_scopes(self) -> tuple[CandidateScope, ...]:
+        root = _mapping(self.plan.resolved_config, "resolved configuration")
+        raw_search = root.get("search")
+        raw_scopes = (
+            (CandidateScope.MLP_CHANNEL.value,)
+            if raw_search is None
+            else _mapping(raw_search, "search").get(
+                "scopes", (CandidateScope.MLP_CHANNEL.value,)
+            )
+        )
+        if not isinstance(raw_scopes, (list, tuple)) or not raw_scopes:
+            raise FirstPartyOptimizeRuntimeError("search.scopes must be a non-empty list")
+        by_name = {
+            "mlp_channel": CandidateScope.MLP_CHANNEL,
+            "channel": CandidateScope.MLP_CHANNEL,
+            "attention_head": CandidateScope.ATTENTION_HEAD,
+            "head": CandidateScope.ATTENTION_HEAD,
+            "transformer_layer": CandidateScope.TRANSFORMER_LAYER,
+            "layer": CandidateScope.TRANSFORMER_LAYER,
+        }
+        try:
+            scopes = tuple(by_name[str(item)] for item in raw_scopes)
+        except KeyError as error:
+            raise FirstPartyOptimizeRuntimeError(
+                f"unsupported first-party candidate scope: {error.args[0]}"
+            ) from error
+        if len(scopes) != len(set(scopes)):
+            raise FirstPartyOptimizeRuntimeError("search.scopes must be unique")
+        unsupported = set(scopes) - {
+            CandidateScope.MLP_CHANNEL,
+            CandidateScope.ATTENTION_HEAD,
+            CandidateScope.TRANSFORMER_LAYER,
+        }
+        if unsupported:
+            raise FirstPartyOptimizeRuntimeError(
+                "configured candidate scope is not supported by the HF runtime"
+            )
+        return scopes
+
     def _meta_rank(self, candidates: tuple[MutationCandidate, ...]) -> tuple[str, ...]:
         from modelsurgeon.surgeon.matrix import transform_inference_record
         from modelsurgeon.surgeon.pretrained_registry import (
@@ -272,6 +328,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             self.meta_guidance = {
                 "status": "not_configured",
                 "measurement_authority": "physical_evaluation",
+            }
+            return ()
+        if any(candidate.scope is not CandidateScope.MLP_CHANNEL for candidate in candidates):
+            self.meta_guidance = {
+                "status": "unsupported_scope",
+                "measurement_authority": "physical_evaluation",
+                "reason": "the verified Meta-Surgeon bundle is trained for MLP-channel features",
             }
             return ()
         surgeon = _mapping(raw_surgeon, "surgeon")
@@ -468,7 +531,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 dataset=dataset,
                 hardware=hardware,
                 versions={
-                    "runtime": "first_party_hf_mlp",
+                    "runtime": "first_party_hf_physical_search",
                     "config_digest": self.plan.config_digest,
                     "plan_digest": self.plan.plan_id,
                     "evidence_schema_version": 1,
@@ -549,7 +612,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "runtime_inventory": dict(self._runtime_hardware_record()),
             },
             versions={
-                "runtime": "first_party_hf_mlp",
+                "runtime": "first_party_hf_physical_search",
                 "config_digest": self.plan.config_digest,
                 "plan_digest": self.plan.plan_id,
                 "source_artifact_digest": self.source_digest,
@@ -574,7 +637,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def _build_search_comparison(
         self,
         candidates: tuple[MutationCandidate, ...],
-        ranked: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]],
+        ranked: list[tuple[float, float, str, MutationCandidate, Mapping[str, object]]],
     ) -> None:
         from modelsurgeon.surgeon.ranking import rank_random
 
@@ -768,7 +831,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 seed=_integer(
                     _config_value(self.plan, "calibration", "seed"), 0, "calibration.seed"
                 ),
-                filters=CandidateFilter(scopes=(CandidateScope.MLP_CHANNEL,)),
+                filters=CandidateFilter(scopes=self._candidate_scopes()),
                 max_candidates=max(1, self.plan.budget.evaluations),
             ),
         )
@@ -783,32 +846,195 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError("candidate has no valid MLP channel index")
         return value
 
-    def _search(self) -> MutationCandidate:
-        proof = self._ensure_loaded()
-        candidates = self.candidates or self._enumerate()
-        if not candidates:
+    @staticmethod
+    def _parameter(candidate: MutationCandidate, name: str) -> int:
+        value = dict(candidate.request.parameters).get(name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             raise FirstPartyOptimizeRuntimeError(
-                "no adapter-supported MLP channel candidates exist"
+                f"candidate has no valid {name} parameter"
             )
-        allowed = self.plan.quality_profile.max_perplexity_delta
-        allowed = 0.05 if allowed is None else allowed
-        unique: dict[int, MutationCandidate] = {}
-        for candidate in candidates:
-            unique.setdefault(self._channel(candidate), candidate)
-        candidate_pool = tuple(sorted(unique.values(), key=lambda item: item.candidate_id))
-        for candidate in candidate_pool:
+        return value
+
+    def _operation_key(
+        self, candidate: MutationCandidate, model: Any
+    ) -> tuple[str, tuple[int, ...]]:
+        scope = candidate.scope
+        if scope is CandidateScope.MLP_CHANNEL:
+            return scope.value, (self._channel(candidate),)
+        if scope is CandidateScope.TRANSFORMER_LAYER:
+            return scope.value, (self._parameter(candidate, "layer_index"),)
+        if scope is CandidateScope.ATTENTION_HEAD:
+            query_heads = getattr(getattr(model, "config", None), "num_attention_heads", None)
+            kv_heads = getattr(getattr(model, "config", None), "num_key_value_heads", query_heads)
+            if (
+                not isinstance(query_heads, int)
+                or not isinstance(kv_heads, int)
+                or query_heads <= 0
+                or kv_heads <= 0
+                or query_heads % kv_heads != 0
+            ):
+                raise FirstPartyOptimizeRuntimeError("attention metadata is not divisible")
+            head = self._parameter(candidate, "head_index")
+            group_size = query_heads // kv_heads
+            group = head // group_size
+            return scope.value, tuple(
+                range(group * group_size, (group + 1) * group_size)
+            )
+        raise FirstPartyOptimizeRuntimeError(f"unsupported candidate scope: {scope.value}")
+
+    def _apply_candidate(self, model: Any, candidate: MutationCandidate) -> object:
+        if candidate.scope is CandidateScope.MLP_CHANNEL:
+            return remove_huggingface_mlp_channels(model, (self._channel(candidate),))
+        if candidate.scope is CandidateScope.ATTENTION_HEAD:
+            _, heads = self._operation_key(candidate, model)
+            return remove_huggingface_attention_heads(model, heads)
+        if candidate.scope is CandidateScope.TRANSFORMER_LAYER:
+            return remove_huggingface_transformer_layers(
+                model, (self._parameter(candidate, "layer_index"),)
+            )
+        raise FirstPartyOptimizeRuntimeError(
+            f"unsupported candidate scope: {candidate.scope.value}"
+        )
+
+    def _structural_feature_partition(
+        self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
+    ) -> FeaturePartition:
+        layer = self._parameter(candidate, "layer_index")
+        if candidate.scope is CandidateScope.ATTENTION_HEAD:
+            module_path = f"model.layers.{layer}.self_attn"
+        elif candidate.scope is CandidateScope.TRANSFORMER_LAYER:
+            module_path = f"model.layers.{layer}"
+        else:
+            raise FirstPartyOptimizeRuntimeError("structural features require a non-MLP candidate")
+        module = dict(proof.model.named_modules()).get(module_path)
+        if module is None:
+            raise FirstPartyOptimizeRuntimeError(f"candidate module is missing: {module_path}")
+        parameters = tuple(module.parameters())
+        if not parameters:
+            raise FirstPartyOptimizeRuntimeError(
+                f"candidate module has no parameters: {module_path}"
+            )
+        parameter_count = sum(int(parameter.numel()) for parameter in parameters)
+        l1_norm = sum(
+            float(parameter.detach().float().abs().sum().cpu().item())
+            for parameter in parameters
+        )
+        precision = PrecisionProvenance(
+            PrecisionSource.HIGH_PRECISION,
+            storage_dtype="model_storage",
+            compute_dtype="float32",
+        )
+        records = tuple(
+            FeatureRecord(
+                component_id=candidate.component_id,
+                name=name,
+                kind=FeatureKind.SCALAR,
+                value=float(value),
+                dtype="float32",
+                extractor="first_party_structural",
+                extractor_version="1",
+                precision=precision,
+                metadata=(
+                    ("module_path", module_path),
+                    ("scope", candidate.scope.value),
+                ),
+            )
+            for name, value in (
+                ("parameter_count", parameter_count),
+                ("weight_l1_norm", l1_norm),
+                ("layer_index", layer),
+            )
+        )
+        key = FeaturePartitionKey(
+            model_revision=str(proof._model_target.revision),
+            input_revision=str(proof._dataset.revision),
+            component_id=candidate.component_id,
+            extractor="first_party_structural",
+            extractor_version="1",
+        )
+        checksum = hashlib.sha256(
+            json.dumps(
+                [item.to_record() for item in records],
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        return FeaturePartition(key, records, checksum)
+
+    def _prepare_candidate_features(
+        self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
+    ) -> None:
+        if candidate.scope is CandidateScope.MLP_CHANNEL:
             partitions = proof.pre_mutation_feature_partitions(candidate)
             if len(partitions) != 1:
                 raise FirstPartyOptimizeRuntimeError(
                     "HF feature extraction must produce one candidate partition"
                 )
             partition = partitions[0]
-            self.feature_cache_entries[candidate.candidate_id] = (
-                self._publish_feature_partition(partition)
+        else:
+            partition = self._structural_feature_partition(proof, candidate)
+        self.feature_cache_entries[candidate.candidate_id] = self._publish_feature_partition(
+            partition
+        )
+        self.candidate_features[candidate.candidate_id] = tuple(
+            item.to_record() for item in partition.records
+        )
+
+    def _measure_candidate(
+        self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
+    ) -> Mapping[str, object]:
+        if candidate.scope is CandidateScope.MLP_CHANNEL:
+            channel = self._channel(candidate)
+            return proof.measure_channel_set(
+                tuple((layer, channel) for layer in range(proof._discovery.shape.layers)),
+                repetitions=self.plan.quality_profile.evaluation_repetitions,
+            ).to_record()
+        if self.baseline_runtime_measurement is None:
+            self.baseline_runtime_measurement = proof.measure_model(
+                proof.model,
+                repetitions=self.plan.quality_profile.evaluation_repetitions,
             )
-            self.candidate_features[candidate.candidate_id] = tuple(
-                item.to_record() for item in partitions[0].records
+        candidate_model = copy.deepcopy(proof.model)
+        mutation = self._apply_candidate(candidate_model, candidate)
+        measured = proof.measure_model(
+            candidate_model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        baseline = self.baseline_runtime_measurement
+        return {
+            "scope": candidate.scope.value,
+            "mutation": (
+                mutation.to_record() if hasattr(mutation, "to_record") else str(mutation)
+            ),
+            "baseline_perplexity": baseline["perplexity"],
+            "masked_perplexity": measured["perplexity"],
+            "perplexity_delta": _number(measured["perplexity"], "candidate.perplexity")
+            - _number(baseline["perplexity"], "baseline.perplexity"),
+            "baseline_median_seconds": baseline["median_seconds"],
+            "masked_median_seconds": measured["median_seconds"],
+            "latency_delta_seconds": _number(
+                measured["median_seconds"], "candidate.median_seconds"
             )
+            - _number(baseline["median_seconds"], "baseline.median_seconds"),
+            "measurement_wall_seconds": measured["median_seconds"],
+            "repetitions": measured["repetitions"],
+            "token_count": measured["token_count"],
+        }
+
+    def _search(self) -> MutationCandidate:
+        proof = self._ensure_loaded()
+        candidates = self.candidates or self._enumerate()
+        if not candidates:
+            raise FirstPartyOptimizeRuntimeError("no adapter-supported candidates exist")
+        allowed = self.plan.quality_profile.max_perplexity_delta
+        allowed = 0.05 if allowed is None else allowed
+        unique: dict[tuple[str, tuple[int, ...]], MutationCandidate] = {}
+        for candidate in candidates:
+            unique.setdefault(self._operation_key(candidate, proof.model), candidate)
+        candidate_pool = tuple(sorted(unique.values(), key=lambda item: item.candidate_id))
+        for candidate in candidate_pool:
+            self._prepare_candidate_features(proof, candidate)
         meta_order = self._meta_rank(candidate_pool)
         by_id = {candidate.candidate_id: candidate for candidate in candidate_pool}
         evaluation_order = (
@@ -816,13 +1042,30 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             if meta_order
             else candidate_pool
         )
-        scored: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]] = []
+        scored: list[tuple[float, float, str, MutationCandidate, Mapping[str, object]]] = []
         for candidate in evaluation_order:
-            channel = self._channel(candidate)
-            measurement: Mapping[str, object] = proof.measure_channel_set(
-                tuple((layer, channel) for layer in range(proof._discovery.shape.layers)),
-                repetitions=self.plan.quality_profile.evaluation_repetitions,
-            ).to_record()
+            try:
+                measurement = self._measure_candidate(proof, candidate)
+            except Exception as error:
+                self._record_optimization_observation(
+                    stage="active_search",
+                    state_id="source:" + (self.source_digest or self.plan.plan_id),
+                    outcome=OptimizationEvidenceOutcome.FAILED,
+                    candidate_id=candidate.candidate_id,
+                    mutation_id=candidate.request.mutation_id,
+                    measurement=None,
+                    failure={
+                        "reason": str(error),
+                        "classification": self._failure_classification(error),
+                    },
+                    feature_records=self.candidate_features.get(candidate.candidate_id, ()),
+                    feature_cache=self.feature_cache_entries.get(candidate.candidate_id),
+                    lineage={
+                        "parent_state": "source",
+                        "mutation": candidate.request.to_record(),
+                    },
+                )
+                continue
             self.actual_measurements[candidate.candidate_id] = measurement
             delta = _number(measurement["perplexity_delta"], "perplexity_delta")
             prediction_value = self.meta_predictions.get(candidate.candidate_id)
@@ -863,23 +1106,31 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     (
                         delta,
                         _number(measurement["latency_delta_seconds"], "latency_delta_seconds"),
-                        channel,
+                        candidate.request.mutation_id,
                         candidate,
                         measurement,
                     )
                 )
         if not scored:
             raise FirstPartyOptimizeRuntimeError(
-                f"no measured channel met max perplexity delta {allowed:.12g}"
+                f"no measured candidate met max perplexity delta {allowed:.12g}"
             )
         ranked = sorted(scored, key=lambda item: (item[0], item[1], item[2]))
         self._build_search_comparison(candidate_pool, ranked)
-        _, _, channel, candidate, measurement = ranked[0]
+        _, _, _, candidate, measurement = ranked[0]
         self.selected = candidate
-        self.selected_channel = channel
+        self.selected_channel = (
+            self._channel(candidate)
+            if candidate.scope is CandidateScope.MLP_CHANNEL
+            else None
+        )
         self.selected_measurement = measurement
         self.selected_candidates = tuple(item[3] for item in ranked[: self._surgery_steps()])
-        self.selected_channels = tuple(self._channel(item) for item in self.selected_candidates)
+        self.selected_channels = tuple(
+            self._channel(item)
+            for item in self.selected_candidates
+            if item.scope is CandidateScope.MLP_CHANNEL
+        )
         return candidate
 
     def _publish(self, model: Any, destination: Path) -> Path:
@@ -1089,23 +1340,27 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         candidate = self.selected or self._search()
         if not self.selected_candidates:
             self._search()
-        if not self.selected_channels:
-            raise FirstPartyOptimizeRuntimeError("active search did not select a physical channel")
+        if not self.selected_candidates:
+            raise FirstPartyOptimizeRuntimeError(
+                "active search did not select a physical candidate"
+            )
         artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
             "artifact_dir", "artifacts"
         )
         artifact_root = Path(cast(str, artifact_dir))
-        sequence_root = artifact_root / "optimize" / context.run.run_id / "hf-mlp-sequence"
+        sequence_root = artifact_root / "optimize" / context.run.run_id / "hf-physical-sequence"
         original_channels = self.selected_channels
-        first_channel = self._channel(self.selected_candidates[0])
+        first_candidate = self.selected_candidates[0]
 
-        def apply_first(model: Any, channel: int = first_channel) -> object:
-            return remove_huggingface_mlp_channels(model, (channel,))
+        def apply_first(
+            model: Any, selected_candidate: MutationCandidate = first_candidate
+        ) -> object:
+            return self._apply_candidate(model, selected_candidate)
 
         edits = (
             HuggingFaceEdit(
-                f"mlp-channel-{first_channel}",
-                "remove_mlp_channel",
+                f"{first_candidate.scope.value}-{first_candidate.request.mutation_id[:12]}",
+                f"remove_{first_candidate.scope.value}",
                 apply_first,
             ),
         )
@@ -1160,7 +1415,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             OptimizeStage.SURGERY,
             json.dumps(
                 {
-                    "operation": "cumulative_remove_mlp_channels",
+                    "operation": f"cumulative_remove_{first_candidate.scope.value}",
+                    "candidate_scopes": [
+                        item.scope.value for item in self.selected_candidates
+                    ],
                     "channels": list(original_channels),
                     "stages": [item.to_record() for item in sequence.stages],
                     "failed_index": sequence.failed_index,
@@ -1223,22 +1481,20 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         0,
                         "calibration.seed",
                     ),
-                    filters=CandidateFilter(scopes=(CandidateScope.MLP_CHANNEL,)),
+                    filters=CandidateFilter(scopes=self._candidate_scopes()),
                     max_candidates=max(1, self.plan.budget.evaluations),
                 ),
             )
             state_candidates: list[dict[str, object]] = []
             for candidate in report.candidates:
-                partitions = child_proof.pre_mutation_feature_partitions(candidate)
-                if len(partitions) != 1:
-                    raise FirstPartyOptimizeRuntimeError(
-                        "child-state feature extraction must produce one candidate partition"
-                    )
+                self._prepare_candidate_features(child_proof, candidate)
                 state_candidates.append(
                     {
                         "candidate_id": candidate.candidate_id,
                         "component_id": str(candidate.component_id),
-                        "cache": self._publish_feature_partition(partitions[0]),
+                        "scope": candidate.scope.value,
+                        "features": list(self.candidate_features[candidate.candidate_id]),
+                        "cache": self.feature_cache_entries[candidate.candidate_id],
                     }
                 )
             shape = child_proof._discovery.shape
@@ -1289,54 +1545,88 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     0,
                     "calibration.seed",
                 ),
-                filters=CandidateFilter(scopes=(CandidateScope.MLP_CHANNEL,)),
+                filters=CandidateFilter(scopes=self._candidate_scopes()),
                 max_candidates=max(1, self.plan.budget.evaluations),
             ),
         )
         allowed = self.plan.quality_profile.max_perplexity_delta
         allowed = 0.05 if allowed is None else allowed
-        measurements: list[tuple[float, float, int, MutationCandidate]] = []
+        measurements: list[
+            tuple[float, float, str, MutationCandidate, Mapping[str, object]]
+        ] = []
+        failed_measurements: list[dict[str, object]] = []
         for candidate in report.candidates:
-            channel = self._channel(candidate)
-            measured = child_proof.measure_channel_set(
-                tuple((layer, channel) for layer in range(child_proof._discovery.shape.layers)),
-                repetitions=self.plan.quality_profile.evaluation_repetitions,
-            ).to_record()
+            try:
+                measured = self._measure_candidate(child_proof, candidate)
+            except Exception as error:
+                failed_measurements.append(
+                    {
+                        "candidate_id": candidate.candidate_id,
+                        "scope": candidate.scope.value,
+                        "perplexity_delta": None,
+                        "latency_delta_seconds": None,
+                        "accepted_by_mask": False,
+                        "failure": {
+                            "reason": str(error),
+                            "classification": self._failure_classification(error),
+                        },
+                    }
+                )
+                continue
             delta = _number(measured["perplexity_delta"], "state.perplexity_delta")
             latency = _number(measured["latency_delta_seconds"], "state.latency_delta_seconds")
-            measurements.append((delta, latency, channel, candidate))
+            measurements.append(
+                (delta, latency, candidate.request.mutation_id, candidate, measured)
+            )
         eligible = [item for item in measurements if item[0] <= allowed]
         ranked = sorted(eligible, key=lambda item: (item[0], item[1], item[2]))
         state["candidate_measurements"] = [
             {
                 "candidate_id": item[3].candidate_id,
-                "channel": item[2],
+                "scope": item[3].scope.value,
+                **(
+                    {"channel": self._channel(item[3])}
+                    if item[3].scope is CandidateScope.MLP_CHANNEL
+                    else {}
+                ),
                 "perplexity_delta": item[0],
                 "latency_delta_seconds": item[1],
                 "accepted_by_mask": item in eligible,
             }
             for item in sorted(measurements, key=lambda item: item[3].candidate_id)
-        ]
+        ] + sorted(failed_measurements, key=lambda item: str(item["candidate_id"]))
         if not ranked:
             state["next_edit"] = None
             state["stopping_reason"] = "no state-conditioned candidate met the quality gate"
             self.state_updates = (*self.state_updates, state)
             return None
         selected = ranked[0][3]
-        channel = self._channel(selected)
+        selected_identifier = selected.request.mutation_id
         state["next_edit"] = {
             "candidate_id": selected.candidate_id,
-            "channel": channel,
+            "scope": selected.scope.value,
+            "mutation_id": selected_identifier,
+            **(
+                {"channel": self._channel(selected)}
+                if selected.scope is CandidateScope.MLP_CHANNEL
+                else {}
+            ),
             "selection_authority": "reloaded_child_physical_evaluation",
         }
         self.state_updates = (*self.state_updates, state)
 
-        def apply_next(next_model: Any, selected_channel: int = channel) -> object:
-            return remove_huggingface_mlp_channels(next_model, (selected_channel,))
+        def apply_next(
+            next_model: Any, selected_candidate: MutationCandidate = selected
+        ) -> object:
+            return self._apply_candidate(next_model, selected_candidate)
 
         return HuggingFaceEdit(
-            f"state-mlp-channel-{channel}",
-            "remove_mlp_channel_from_rediscovered_state",
+            (
+                f"state-mlp-channel-{self._channel(selected)}"
+                if selected.scope is CandidateScope.MLP_CHANNEL
+                else f"state-{selected.scope.value}-{selected_identifier[:12]}"
+            ),
+            f"remove_{selected.scope.value}_from_rediscovered_state",
             apply_next,
         )
 
@@ -1475,7 +1765,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             if stage is OptimizeStage.CAPABILITY:
                 self._ensure_loaded()
                 return self._result(
-                    stage, "HF gated-MLP physical channel removal is adapter-supported"
+                    stage,
+                    json.dumps(
+                        {
+                            "supported_scopes": sorted(
+                                scope.value for scope in self._candidate_scopes()
+                            ),
+                            "physical_measurements_authoritative": True,
+                        },
+                        sort_keys=True,
+                    ),
                 )
             if stage is OptimizeStage.BASELINE:
                 self.baseline = self._ensure_loaded().baseline_measurement()
@@ -1495,8 +1794,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 candidates = self._enumerate()
                 return self._result(
                     stage,
-                    f"enumerated {len(candidates)} real MLP-channel candidates "
-                    "from the component graph",
+                    json.dumps(
+                        {
+                            "candidate_count": len(candidates),
+                            "scopes": sorted({item.scope.value for item in candidates}),
+                            "source": "component_graph",
+                        },
+                        sort_keys=True,
+                    ),
                     measured=True,
                     constraints_passed=bool(candidates),
                     alternatives=tuple(sorted(item.candidate_id for item in candidates[:8])),
@@ -1515,6 +1820,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     json.dumps(
                         {
                             "candidate_id": candidate.candidate_id,
+                            "candidate_scope": candidate.scope.value,
                             "channels": list(self.selected_channels),
                             "feature_evidence": [
                                 {
