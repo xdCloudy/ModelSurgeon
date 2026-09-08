@@ -77,6 +77,11 @@ benchmark status](docs/research/v2.0-autonomous-benchmark.md).
 The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
+
+The first fresh multi-family first-party acceptance tranche is retained in the
+[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v1.json).
+It covers pinned tiny Llama and Mistral checkpoints on CPU; it is evidence for
+the bounded path, not a production-scale or task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 

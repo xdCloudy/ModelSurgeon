@@ -1,0 +1,115 @@
+{
+  "record_type": "first_party_hf_acceptance_evidence",
+  "schema_version": 1,
+  "campaign_tool": "tools/run_first_party_hf_acceptance.py",
+  "tool_revision": "first-party-hf-acceptance-v1",
+  "recorded_at": "2026-09-08T09:00:14+01:00",
+  "git_revision": "7d9b7ed31b070b8b316039f3414f559b235ddae7",
+  "raw_campaign_record": {
+    "path": "work/acceptance-campaign-2026-09-08.json",
+    "sha256": "29a29f6f7ed133fe0c0198018c97f665cbb12b189664f02f423d9cd1834f2ac9"
+  },
+  "command": "uv run --extra hf python tools/run_first_party_hf_acceptance.py --model hf-internal-testing/tiny-random-LlamaForCausalLM@9fb191250dd56d0ba7ec9785a025ed29c03d5998 --model hf-internal-testing/tiny-random-MistralForCausalLM@7517176934d50d00707900b92ef6a95c782e51a2 --calibration-text work/acceptance-campaign-calibration.txt --output work/acceptance-campaign-2026-09-08.json --artifact-root work/acceptance-artifacts-2026-09-08 --preset balanced --quality-profile quality --evaluations 2",
+  "contract": {
+    "min_quality_retention_ratio": 0.99,
+    "quality_profile": "quality",
+    "preset": "balanced",
+    "evaluations": 2,
+    "calibration_sha256": "8115143f09adf8c052b30d72981e4f5dcb536e0c0b1893767deb196f68f9ded5"
+  },
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.12.13 CPython",
+    "pytorch": "2.13.0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1",
+    "logical_cores": 20,
+    "total_ram_bytes": 68422938624,
+    "cuda_available": false
+  },
+  "models": [
+    {
+      "identifier": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "family": "llama",
+      "revision": "9fb191250dd56d0ba7ec9785a025ed29c03d5998",
+      "run_id": "optimize_run_17740ab9fd998daacb93dc0a91613f975239f88c755fca414924412af2182635",
+      "outcome": "supported",
+      "status": "completed",
+      "source_artifact_digest": "sha256:33f3bb3e98d1148bb14988277fc9710787e5f00b16340d65c9e5a427fc1b2625",
+      "accepted_artifact_digest": "sha256:3e9efc01f5b2401561bb3360bc6f73775496df053ca73a270de2cfc0b3c8cb47",
+      "baseline": {
+        "perplexity": 32821.64166939536,
+        "token_count": 20,
+        "parameter_count": 1032272
+      },
+      "accepted_candidate": {
+        "perplexity_delta": -3.9562277492586873,
+        "parameter_delta": -96,
+        "storage_delta_bytes": -384,
+        "latency_delta_seconds": 0.0001186000881716609,
+        "reloadable": true,
+        "generation_smoke": true,
+        "accepted_sequence_steps": 2,
+        "cumulative_parameter_delta": -192,
+        "cumulative_storage_delta_bytes": -768
+      },
+      "deployment": {
+        "disk_bytes": 7751675,
+        "peak_ram_bytes": 445509632,
+        "prefill_tokens_per_second": 4134.79432266114,
+        "decode_tokens_per_second": 570.1782485696731,
+        "latency_seconds": 0.015478000161238015,
+        "load_time_seconds": 0.009675199980847538
+      },
+      "pareto": {
+        "candidate_count": 2,
+        "archive_sha256": "2b53e446cc74bc2b8821e5d714ae89960a3ecf13c466c30664fea9a03508d0f5",
+        "status": "measured"
+      }
+    },
+    {
+      "identifier": "hf-internal-testing/tiny-random-MistralForCausalLM",
+      "family": "mistral",
+      "revision": "7517176934d50d00707900b92ef6a95c782e51a2",
+      "run_id": "optimize_run_ea5320991f2810aa0f7f452119b6a7190ce3d2a64530eedf5a6b04686e2fc742",
+      "outcome": "supported",
+      "status": "completed",
+      "source_artifact_digest": "sha256:265978a335d3d5f7c6f29c26579942dd76a44b182d986c9318b642ab97fddda7",
+      "accepted_artifact_digest": "sha256:cf3c3a15c52692f122a9ade6e277f540db215c7e1c17ee7ed10e772ed16375bc",
+      "baseline": {
+        "perplexity": 31065.33907601082,
+        "token_count": 19,
+        "parameter_count": 2061408
+      },
+      "accepted_candidate": {
+        "perplexity_delta": -2.2452741749802954,
+        "parameter_delta": -192,
+        "storage_delta_bytes": -768,
+        "latency_delta_seconds": -0.0009196000173687935,
+        "reloadable": true,
+        "generation_smoke": true,
+        "accepted_sequence_steps": 2,
+        "cumulative_parameter_delta": -384,
+        "cumulative_storage_delta_bytes": -1536
+      },
+      "deployment": {
+        "disk_bytes": 11753477,
+        "peak_ram_bytes": 463179776,
+        "prefill_tokens_per_second": 4356.484908211359,
+        "decode_tokens_per_second": 525.9801277346955,
+        "latency_seconds": 0.016767000081017613,
+        "load_time_seconds": 0.010792599990963936
+      },
+      "pareto": {
+        "candidate_count": 1,
+        "archive_sha256": "c38aa8ef216d2dcae83cb86f9015f2406188877bfb75abff4d9c3690f69997b3",
+        "status": "measured"
+      }
+    }
+  ],
+  "limitations": [
+    "This is a bounded CPU-only campaign on public tiny checkpoints, not a claim of production-scale model coverage.",
+    "The quality gate is perplexity on the pinned local calibration text; no task-specific coding benchmark was run.",
+    "Repair and quantization were explicit no-op controls in this campaign; their real paths are covered separately.",
+    "The campaign does not establish Meta-Surgeon transfer improvement or cross-hardware transfer."
+  ]
+}
