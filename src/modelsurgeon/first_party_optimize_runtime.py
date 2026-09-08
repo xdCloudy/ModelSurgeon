@@ -13,6 +13,7 @@ import copy
 import gc
 import hashlib
 import json
+import os
 import statistics
 import time
 from collections.abc import Callable, Mapping
@@ -159,6 +160,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.selected_channels: tuple[int, ...] = ()
         self.selected_candidates: tuple[MutationCandidate, ...] = ()
         self.candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
+        self.actual_measurements: dict[str, Mapping[str, object]] = {}
+        self.meta_guidance: Mapping[str, object] | None = None
+        self.meta_predictions: dict[str, float] = {}
+        self.meta_order: tuple[str, ...] = ()
+        self.search_comparison: Mapping[str, object] | None = None
         self.surgery_sequence: HuggingFaceCumulativeRun | None = None
         self.artifact: Path | None = None
         self.artifact_digest: str | None = None
@@ -238,6 +244,167 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         if steps < 1:
             raise FirstPartyOptimizeRuntimeError("search.max_surgery_steps must be positive")
         return min(steps, self.plan.budget.evaluations)
+
+    def _meta_rank(self, candidates: tuple[MutationCandidate, ...]) -> tuple[str, ...]:
+        from modelsurgeon.surgeon.matrix import transform_inference_record
+        from modelsurgeon.surgeon.pretrained_registry import (
+            PretrainedRegistryError,
+            PretrainedSurgeonRegistry,
+        )
+
+        resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
+        raw_surgeon = resolved_config.get("surgeon")
+        if raw_surgeon is None:
+            self.meta_guidance = {
+                "status": "not_configured",
+                "measurement_authority": "physical_evaluation",
+            }
+            return ()
+        surgeon = _mapping(raw_surgeon, "surgeon")
+        card_digest = surgeon.get("card_digest")
+        if card_digest is None:
+            self.meta_guidance = {
+                "status": "not_configured",
+                "measurement_authority": "physical_evaluation",
+            }
+            return ()
+        registry_root = surgeon.get("registry_root")
+        secret_env = surgeon.get("signing_env")
+        if not isinstance(registry_root, str) or not registry_root.strip():
+            raise FirstPartyOptimizeRuntimeError("surgeon.registry_root is required")
+        if not isinstance(card_digest, str) or not card_digest.strip():
+            raise FirstPartyOptimizeRuntimeError("surgeon.card_digest is required")
+        if not isinstance(secret_env, str) or not secret_env.strip():
+            raise FirstPartyOptimizeRuntimeError("surgeon.signing_env is required")
+        secret = os.environ.get(secret_env)
+        if not secret:
+            raise FirstPartyOptimizeRuntimeError(
+                f"Meta-Surgeon signing secret environment variable is missing: {secret_env}"
+            )
+        try:
+            registry = PretrainedSurgeonRegistry(registry_root)
+            card, bundle = registry.resolve(
+                card_digest,
+                secret=secret.encode("utf-8"),
+                expected_feature_schema_version=1,
+                expected_target_schema_version=1,
+            )
+        except (OSError, PretrainedRegistryError) as error:
+            raise FirstPartyOptimizeRuntimeError(
+                f"Meta-Surgeon bundle could not be verified or loaded: {error}"
+            ) from error
+
+        proof = self._ensure_loaded()
+        predictions: dict[str, float] = {}
+        for candidate in candidates:
+            raw_features = self.candidate_features.get(candidate.candidate_id)
+            if raw_features is None:
+                raise FirstPartyOptimizeRuntimeError(
+                    "Meta-Surgeon inference is missing candidate feature evidence"
+                )
+            record = {
+                "example_id": candidate.candidate_id,
+                "model": proof._model_target.to_record(),
+                "mutation": {"plan": {"request": candidate.request.to_record()}},
+                "pre_mutation_features": list(raw_features),
+                "versions": {
+                    "feature_schema_version": bundle.preprocessor.source_feature_schema_version
+                },
+            }
+            try:
+                row = transform_inference_record(
+                    record, bundle.preprocessor, refuse_missing=False
+                )
+                predicted = bundle.model.predict((row,))
+            except Exception as error:
+                raise FirstPartyOptimizeRuntimeError(
+                    f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
+                ) from error
+            prediction_value = predicted[0] if len(predicted) == 1 else None
+            if not isinstance(prediction_value, (int, float)):
+                raise FirstPartyOptimizeRuntimeError(
+                    f"Meta-Surgeon returned an invalid prediction for {candidate.candidate_id}"
+                )
+            predictions[candidate.candidate_id] = float(cast(int | float, prediction_value))
+
+        higher_is_better = bundle.card.target_name in {"behavior", "safe_mutation"}
+        ordered = tuple(
+            candidate_id
+            for candidate_id, _ in sorted(
+                predictions.items(),
+                key=lambda item: (
+                    -item[1] if higher_is_better else item[1],
+                    item[0],
+                ),
+            )
+        )
+        self.meta_predictions = predictions
+        self.meta_order = ordered
+        self.meta_guidance = {
+            "status": "verified_bundle",
+            "card_digest": card_digest,
+            "bundle_digest": card.bundle_digest,
+            "target": bundle.card.target_name,
+            "direction": "higher_is_better" if higher_is_better else "lower_is_better",
+            "predictions": dict(sorted(predictions.items())),
+            "ordered_candidates": list(ordered),
+            "measurement_authority": "physical_evaluation",
+        }
+        return ordered
+
+    def _build_search_comparison(
+        self,
+        candidates: tuple[MutationCandidate, ...],
+        ranked: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]],
+    ) -> None:
+        from modelsurgeon.surgeon.ranking import rank_random
+
+        actual = {item[3].candidate_id: item[0] for item in ranked}
+        best_delta = ranked[0][0]
+        magnitudes: dict[str, float] = {}
+        for candidate in candidates:
+            values = [
+                float(cast(int | float, item["value"]))
+                for item in self.candidate_features.get(candidate.candidate_id, ())
+                if item.get("name") == "weight_l1_norm"
+                and isinstance(item.get("value"), (int, float))
+            ]
+            if values:
+                magnitudes[candidate.candidate_id] = statistics.fmean(values)
+        magnitude_order = tuple(
+            item[0]
+            for item in sorted(
+                magnitudes.items(), key=lambda item: (item[1], item[0])
+            )
+        )
+        seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
+        random_order = tuple(
+            item.candidate_id
+            for item in rank_random(candidates, seed=seed).entries
+        )
+
+        def baseline_record(name: str, candidate_id: str | None) -> dict[str, object]:
+            if candidate_id is None or candidate_id not in actual:
+                return {"method": name, "candidate_id": None, "measured": False}
+            measured_delta = actual[candidate_id]
+            return {
+                "method": name,
+                "candidate_id": candidate_id,
+                "measured": True,
+                "measured_perplexity_delta": measured_delta,
+                "regret_vs_measured_best": measured_delta - best_delta,
+            }
+
+        self.search_comparison = {
+            "measured_authority": "physical_evaluation",
+            "measured_best": ranked[0][3].candidate_id,
+            "baselines": [
+                baseline_record("meta_surgeon", self.meta_order[0] if self.meta_order else None),
+                baseline_record("magnitude", magnitude_order[0] if magnitude_order else None),
+                baseline_record("random", random_order[0] if random_order else None),
+                baseline_record("no_guidance", ranked[0][3].candidate_id),
+            ],
+        }
 
     def _model_source(self) -> str:
         value = _config_value(self.plan, "model", "path")
@@ -391,8 +558,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         unique: dict[int, MutationCandidate] = {}
         for candidate in candidates:
             unique.setdefault(self._channel(candidate), candidate)
-        scored: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]] = []
-        for channel, candidate in sorted(unique.items()):
+        candidate_pool = tuple(sorted(unique.values(), key=lambda item: item.candidate_id))
+        for candidate in candidate_pool:
             partitions = proof.pre_mutation_feature_partitions(candidate)
             if len(partitions) != 1:
                 raise FirstPartyOptimizeRuntimeError(
@@ -401,10 +568,21 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             self.candidate_features[candidate.candidate_id] = tuple(
                 item.to_record() for item in partitions[0].records
             )
+        meta_order = self._meta_rank(candidate_pool)
+        by_id = {candidate.candidate_id: candidate for candidate in candidate_pool}
+        evaluation_order = (
+            tuple(by_id[candidate_id] for candidate_id in meta_order if candidate_id in by_id)
+            if meta_order
+            else candidate_pool
+        )
+        scored: list[tuple[float, float, int, MutationCandidate, Mapping[str, object]]] = []
+        for candidate in evaluation_order:
+            channel = self._channel(candidate)
             measurement: Mapping[str, object] = proof.measure_channel_set(
                 tuple((layer, channel) for layer in range(proof._discovery.shape.layers)),
                 repetitions=self.plan.quality_profile.evaluation_repetitions,
             ).to_record()
+            self.actual_measurements[candidate.candidate_id] = measurement
             delta = _number(measurement["perplexity_delta"], "perplexity_delta")
             if delta <= allowed:
                 scored.append(
@@ -421,6 +599,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 f"no measured channel met max perplexity delta {allowed:.12g}"
             )
         ranked = sorted(scored, key=lambda item: (item[0], item[1], item[2]))
+        self._build_search_comparison(candidate_pool, ranked)
         _, _, channel, candidate, measurement = ranked[0]
         self.selected = candidate
         self.selected_channel = channel
@@ -749,6 +928,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                                     self.candidate_features.items()
                                 )
                             ],
+                            "meta_guidance": self.meta_guidance,
+                            "search_comparison": self.search_comparison,
                             "measurement": dict(self.selected_measurement),
                         },
                         sort_keys=True,

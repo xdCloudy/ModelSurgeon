@@ -129,6 +129,33 @@ class FeatureConfig(StrictConfigModel):
     runtime: bool = True
 
 
+class SurgeonConfig(StrictConfigModel):
+    """Optional signed Meta-Surgeon bundle used for candidate guidance."""
+
+    registry_root: Path | None = None
+    card_digest: str | None = None
+    signing_env: str | None = None
+
+    @field_validator("card_digest", "signing_env")
+    @classmethod
+    def reject_blank_surgeon_values(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("Meta-Surgeon values cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def require_complete_surgeon_identity(self) -> SurgeonConfig:
+        values = (self.registry_root, self.card_digest, self.signing_env)
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError(
+                "surgeon.registry_root, surgeon.card_digest, and surgeon.signing_env "
+                "must be supplied together"
+            )
+        return self
+
+
 class ObjectiveConfig(StrictConfigModel):
     """Hard quality/resource constraints and optimization dimensions."""
 
@@ -302,6 +329,7 @@ class Settings(BaseSettings):
     model: ModelConfig = Field(default_factory=ModelConfig)
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
     features: FeatureConfig = Field(default_factory=FeatureConfig)
+    surgeon: SurgeonConfig = Field(default_factory=SurgeonConfig)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     hardware: HardwareConfig = Field(default_factory=HardwareConfig)

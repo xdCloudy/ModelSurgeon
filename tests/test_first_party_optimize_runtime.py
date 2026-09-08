@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from modelsurgeon.config import CalibrationConfig, ConstraintConfig, ModelConfig, Settings
+from modelsurgeon.config import (
+    CalibrationConfig,
+    ConstraintConfig,
+    ModelConfig,
+    Settings,
+    SurgeonConfig,
+)
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import (
@@ -18,6 +24,15 @@ from modelsurgeon.optimization_orchestrator import (
     WorkflowOutcome,
     WorkflowStatus,
 )
+from modelsurgeon.surgeon import (
+    DEFAULT_TARGET_SCHEMA,
+    LinearConfig,
+    LinearSurgeonModel,
+    PretrainedSurgeonCard,
+    PretrainedSurgeonRegistry,
+    TrainingModelIdentity,
+)
+from modelsurgeon.surgeon.matrix import NumericPreprocessor, SurgeonPreprocessor
 
 torch = pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
@@ -142,3 +157,92 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     )
     assert resumed.outcome is WorkflowOutcome.SUPPORTED
     assert resumed.accepted_artifact_digest == surgery.artifact_digest
+
+
+def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+
+    registry = PretrainedSurgeonRegistry(tmp_path / "surgeon-registry")
+    preprocessor = SurgeonPreprocessor(
+        (NumericPreprocessor("weight_l1_norm", 0.0, 1.0),), (), 1, 1
+    )
+    model = LinearSurgeonModel(
+        preprocessor.output_feature_names,
+        "perplexity",
+        (-1.0, 0.0),
+        0.0,
+        LinearConfig(max_epochs=1),
+        1,
+    )
+    training_model = TrainingModelIdentity("tiny/source", "source-revision")
+    evidence = registry.bundles.artifacts.put_bytes(b"held-out-evidence")
+    bundle = registry.bundles.publish(
+        model,
+        preprocessor,
+        DEFAULT_TARGET_SCHEMA,
+        training_models=(training_model,),
+        metrics={"ranking": 0.5},
+        split_manifest={"version": "test"},
+        provenance={"test": True},
+    )
+    card = PretrainedSurgeonCard(
+        str(bundle.metadata.digest),
+        "meta-surgeon-test",
+        "test-revision",
+        (training_model,),
+        (str(evidence.metadata.digest),),
+        1,
+        1,
+        1,
+        ("mlp_channel",),
+        ("fp32",),
+        ("cpu",),
+        {"minimum_support_coverage": 1.0},
+        {"model_families": ["llama"]},
+        "Apache-2.0",
+        (("ranking", 0.5),),
+        ("test bundle is not a production-quality transfer claim",),
+    )
+    published = registry.publish(card, key_id="test-key", secret=b"test-secret")
+    monkeypatch.setenv("MODELSURGEON_TEST_META_KEY", "test-secret")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        surgeon=SurgeonConfig(
+            registry_root=registry.root,
+            card_digest=str(published.artifact.metadata.digest),
+            signing_env="MODELSURGEON_TEST_META_KEY",
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=2),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    active = run.stages[4].result
+    assert active is not None
+    detail = json.loads(active.detail)
+    assert detail["meta_guidance"]["status"] == "verified_bundle"
+    assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
+    assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
+        "meta_surgeon",
+        "magnitude",
+        "random",
+        "no_guidance",
+    }
