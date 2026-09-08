@@ -984,22 +984,30 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     def _measure_candidate(
         self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
     ) -> Mapping[str, object]:
-        if candidate.scope is CandidateScope.MLP_CHANNEL:
-            channel = self._channel(candidate)
-            return proof.measure_channel_set(
-                tuple((layer, channel) for layer in range(proof._discovery.shape.layers)),
-                repetitions=self.plan.quality_profile.evaluation_repetitions,
-            ).to_record()
         if self.baseline_runtime_measurement is None:
             self.baseline_runtime_measurement = proof.measure_model(
                 proof.model,
                 repetitions=self.plan.quality_profile.evaluation_repetitions,
             )
         candidate_model = copy.deepcopy(proof.model)
+        baseline_parameter_count = sum(
+            int(parameter.numel()) for parameter in proof.model.parameters()
+        )
+        baseline_storage_bytes = sum(
+            int(parameter.numel()) * int(parameter.element_size())
+            for parameter in proof.model.parameters()
+        )
         mutation = self._apply_candidate(candidate_model, candidate)
         measured = proof.measure_model(
             candidate_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        candidate_parameter_count = sum(
+            int(parameter.numel()) for parameter in candidate_model.parameters()
+        )
+        candidate_storage_bytes = sum(
+            int(parameter.numel()) * int(parameter.element_size())
+            for parameter in candidate_model.parameters()
         )
         baseline = self.baseline_runtime_measurement
         return {
@@ -1007,16 +1015,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "mutation": (
                 mutation.to_record() if hasattr(mutation, "to_record") else str(mutation)
             ),
+            "measurement_authority": "physical_model_evaluation",
             "baseline_perplexity": baseline["perplexity"],
-            "masked_perplexity": measured["perplexity"],
+            "candidate_perplexity": measured["perplexity"],
             "perplexity_delta": _number(measured["perplexity"], "candidate.perplexity")
             - _number(baseline["perplexity"], "baseline.perplexity"),
             "baseline_median_seconds": baseline["median_seconds"],
-            "masked_median_seconds": measured["median_seconds"],
+            "candidate_median_seconds": measured["median_seconds"],
             "latency_delta_seconds": _number(
                 measured["median_seconds"], "candidate.median_seconds"
             )
             - _number(baseline["median_seconds"], "baseline.median_seconds"),
+            "baseline_parameter_count": baseline_parameter_count,
+            "candidate_parameter_count": candidate_parameter_count,
+            "parameter_delta": candidate_parameter_count - baseline_parameter_count,
+            "baseline_storage_bytes": baseline_storage_bytes,
+            "candidate_storage_bytes": candidate_storage_bytes,
+            "storage_delta_bytes": candidate_storage_bytes - baseline_storage_bytes,
             "measurement_wall_seconds": measured["median_seconds"],
             "repetitions": measured["repetitions"],
             "token_count": measured["token_count"],
@@ -1565,7 +1580,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         "scope": candidate.scope.value,
                         "perplexity_delta": None,
                         "latency_delta_seconds": None,
-                        "accepted_by_mask": False,
+                        "accepted_by_quality_gate": False,
                         "failure": {
                             "reason": str(error),
                             "classification": self._failure_classification(error),
@@ -1591,7 +1606,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 ),
                 "perplexity_delta": item[0],
                 "latency_delta_seconds": item[1],
-                "accepted_by_mask": item in eligible,
+                "accepted_by_quality_gate": item in eligible,
             }
             for item in sorted(measurements, key=lambda item: item[3].candidate_id)
         ] + sorted(failed_measurements, key=lambda item: str(item["candidate_id"]))

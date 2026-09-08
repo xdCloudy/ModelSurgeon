@@ -131,10 +131,16 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
         Path(item["path"]).is_file()
         for item in detail["evidence_observations"]
     )
-    assert all(
+    measurements = [
         json.loads(Path(item["path"]).read_text(encoding="utf-8"))["measurement"]
         for item in detail["evidence_observations"]
+    ]
+    assert all(measurements)
+    assert all(
+        item["measurement_authority"] == "physical_model_evaluation"
+        for item in measurements
     )
+    assert all(item["parameter_delta"] < 0 for item in measurements)
 
 
 def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: Path) -> None:
@@ -249,6 +255,10 @@ def test_first_party_runtime_executes_real_attention_and_layer_scopes(
     active_detail = json.loads(active.detail)
     surgery_detail = json.loads(surgery.detail)
     assert active_detail["candidate_scope"] == runtime_scope
+    assert active_detail["measurement"]["measurement_authority"] == (
+        "physical_model_evaluation"
+    )
+    assert active_detail["measurement"]["parameter_delta"] < 0
     assert surgery_detail["candidate_scopes"] == [runtime_scope]
     assert surgery_detail["stages"][0]["evaluation"]["accepted"] is True
     assert surgery.artifact_digest is not None
