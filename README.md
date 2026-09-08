@@ -95,7 +95,12 @@ an ineligible Qwen candidate (held-out AUC 0.375), so physical measurements
 remain authoritative and no transfer improvement is claimed. Unsupported GPT-2,
 resource-negative TinyLlama, and no-feasible low-rank outcomes remain visible
 as fail-closed evidence. These records demonstrate the bounded HF path, not
-production-scale coverage or a task-quality claim.
+production-scale coverage. A fresh two-model task-quality campaign also ran
+the pinned four-example code exact-match benchmark at the physical candidate
+boundary: Qwen2.5-0.5B retained 4/4 matches on both measured candidates but
+both were rejected by the perplexity guard, while SmolLM-135M had a measured
+zero baseline and correctly retained task-quality inconclusive rejections. See
+the [task-quality acceptance evidence](docs/research/first-party-hf-task-quality-acceptance-evidence-v1.json).
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
@@ -123,6 +128,13 @@ and measured all six with the pinned llama.cpp tools, and correctly retained
 an unsupported result because every candidate failed the quality gate. No
 candidate was promoted and the source remained untouched. See the [chat
 campaign record](docs/research/first-party-native-gguf-chat-campaign-v1.json).
+
+The task-quality acceptance runner accepts a revision-pinned local JSONL
+benchmark through `--task-quality-dataset` and records its digest, revision,
+split, sample limit, output digests, and physical baseline/candidate scores.
+The current campaign is evidence for the bounded evaluator and combined gate;
+it does not establish broad coding ability or a successful task-quality
+artifact.
 
 | Area | State | Current capability |
 | --- | --- | --- |
@@ -161,6 +173,9 @@ Measured evidence currently includes:
   interpreter to drive a pinned SmolLM-135M Hugging Face target through
   measured search, physical reload evaluation, and immutable artifact
   publication; and
+- a fresh two-model task-quality campaign using the pinned code exact-match
+  benchmark, retaining both the zero-baseline inconclusive result and the
+  Qwen task-quality-preserving but perplexity-rejected candidates; and
 - a **134.5M–7.25B** consumer-hardware ladder on Windows with an RTX 3060 12 GB and 64 GB RAM.
 
 The results include negative findings where a learned policy or repair did not beat the declared baseline. Start with the [v1.0 scientific results and limitations](docs/research/v1.0-scientific-results.md), [research index](docs/research/README.md), [First Surgeon evidence](docs/research/v0.5-first-surgeon-evidence.md), and [consumer scale evidence](docs/research/v0.8-consumer-scale-evidence.md).

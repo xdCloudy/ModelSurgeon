@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Added a revision-pinned task-quality acceptance campaign path. The runner
+    now accepts a local JSONL code benchmark, records its digest and revision,
+    and retains real baseline/candidate task scores alongside physical search
+    evidence. The first two-model CPU campaign preserved Qwen task quality but
+    rejected both candidates on the perplexity guard, and retained a zero-
+    baseline inconclusive result for SmolLM-135M.
+
   - Added a content-addressed, user-supplied JSONL code exact-match evaluator
     to the first-party Hugging Face runtime. Greedy baseline and candidate
     generations retain dataset/output digests and are enforced by the same
