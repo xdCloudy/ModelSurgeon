@@ -11,6 +11,7 @@ from modelsurgeon.config import (
     ObjectiveConfig,
     OptimizeMetric,
     ProviderConfig,
+    QuantizationConfig,
     RepairConfig,
     SearchConfig,
     Settings,
@@ -91,6 +92,11 @@ def test_repair_config_is_explicit_and_canonical() -> None:
     assert RepairConfig(method="distillation").method == "distillation"
     with pytest.raises(ValidationError, match="sorted, unique"):
         RepairConfig(method="lora", target_modules=("b", "a"))
+
+
+def test_quantization_config_is_explicit_and_canonical() -> None:
+    assert Settings().quantization.method == "none"
+    assert QuantizationConfig(method="dynamic_int8").method == "dynamic_int8"
 
 
 def test_environment_overrides_nested_hardware_settings(

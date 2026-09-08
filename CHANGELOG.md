@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Connected the first-party Hugging Face optimizer to a bounded CPU-scoped
+    dynamic-int8 quantization path. Quantized candidates are physically
+    evaluated, published as reloadable safe-tensors artifacts with a
+    first-party manifest, reloaded and remeasured before acceptance, with
+    rejection evidence retained and partial failed publications cleaned up.
+
   - Prepared the bounded v3.0 conversational product release candidate for
     issue #491. Integrated the v2.1-v2.9 P0 exit evidence, executable release
     manifest/checklist, packaging and setup guidance, migration and direct API

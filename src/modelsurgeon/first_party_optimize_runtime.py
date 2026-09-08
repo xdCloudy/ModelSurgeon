@@ -80,6 +80,12 @@ from modelsurgeon.surgery.distillation_repair import (
     TokenizerSignature,
     run_distillation_repair,
 )
+from modelsurgeon.surgery.huggingface_quantization import (
+    HuggingFaceQuantizationError,
+    load_huggingface_dynamic_int8,
+    publish_huggingface_dynamic_int8,
+    quantize_huggingface_dynamic_int8,
+)
 from modelsurgeon.surgery.huggingface_sequence import (
     HuggingFaceCumulativeRun,
     HuggingFaceEdit,
@@ -982,6 +988,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         root = _mapping(self.plan.resolved_config, "resolved configuration")
         return _mapping(root.get("repair", {}), "repair")
 
+    def _quantization_settings(self) -> Mapping[str, object]:
+        root = _mapping(self.plan.resolved_config, "resolved configuration")
+        return _mapping(root.get("quantization", {}), "quantization")
+
     def _repair_examples(self) -> tuple[dict[str, Any], ...]:
         proof = self._ensure_loaded()
         torch = proof._torch
@@ -1288,6 +1298,221 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         return self._result(
             OptimizeStage.REPAIR,
+            json.dumps(detail, sort_keys=True),
+            measured=True,
+            constraints_passed=True,
+            artifact_digest=self.artifact_digest,
+            candidate=self.selected,
+            transaction_state=TransactionState.COMMITTED,
+        )
+
+    def _quantization(self, context: StageContext) -> StageResult:
+        settings = self._quantization_settings()
+        method = settings.get("method", "none")
+        if not isinstance(method, str) or not method.strip():
+            raise FirstPartyOptimizeRuntimeError("quantization.method must be text")
+        if method == "none":
+            reason = "quantization was not requested"
+            reference = self._record_runtime_boundary(
+                OptimizeStage.QUANTIZATION, OptimizationEvidenceOutcome.UNSUPPORTED, reason
+            )
+            return self._result(
+                OptimizeStage.QUANTIZATION,
+                json.dumps(
+                    {
+                        "status": "unsupported",
+                        "method": method,
+                        "reason": reason,
+                        "evidence": reference,
+                    },
+                    sort_keys=True,
+                ),
+            )
+        if method != "dynamic_int8":
+            return self._unsupported(
+                OptimizeStage.QUANTIZATION,
+                f"first-party Hugging Face quantization method {method!r} is unsupported",
+            )
+        if self.artifact is None or self.artifact_digest is None or self.reloaded_model is None:
+            return self._unsupported(
+                OptimizeStage.QUANTIZATION,
+                "dynamic-int8 quantization requires a published reloaded physical artifact",
+            )
+
+        proof = self._ensure_loaded()
+        artifact_dir = _mapping(self.plan.resolved_config, "resolved configuration").get(
+            "artifact_dir", "artifacts"
+        )
+        if not isinstance(artifact_dir, str) or not artifact_dir.strip():
+            raise FirstPartyOptimizeRuntimeError("artifact_dir must be a path")
+        quantization_root = (
+            Path(artifact_dir) / "optimize" / context.run.run_id / "hf-dynamic-int8"
+        )
+        self._preflight_resources(self.reloaded_model, quantization_root, phase="quantization")
+        parent_model = self.reloaded_model
+        parent_measurement = proof.measure_model(
+            parent_model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        quantized_model = copy.deepcopy(parent_model)
+        try:
+            quantized_model, quantization_report = quantize_huggingface_dynamic_int8(
+                quantized_model
+            )
+        except HuggingFaceQuantizationError as error:
+            return self._unsupported(OptimizeStage.QUANTIZATION, str(error))
+        quantized_measurement = proof.measure_model(
+            quantized_model,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        parent_perplexity = _number(parent_measurement["perplexity"], "parent.perplexity")
+        quantized_perplexity = _number(
+            quantized_measurement["perplexity"], "quantized.perplexity"
+        )
+        allowed = self.plan.quality_profile.max_perplexity_delta
+        allowed = 0.05 if allowed is None else allowed
+        accepted = (
+            quantized_perplexity - parent_perplexity <= allowed
+            and quantization_report.storage_delta_bytes < 0
+        )
+        detail: dict[str, object] = {
+            "method": method,
+            "status": "accepted" if accepted else "rejected",
+            "quantization": quantization_report.to_record(),
+            "parent_measurement": dict(parent_measurement),
+            "quantized_measurement": dict(quantized_measurement),
+            "resource_preflight": self.resource_preflight,
+            "artifact": str(self.artifact),
+            "artifact_digest": self.artifact_digest,
+        }
+        if not accepted:
+            reason = (
+                "quantized quality exceeded the declared limit"
+                if quantized_perplexity - parent_perplexity > allowed
+                else "quantized storage did not decrease"
+            )
+            self._record_optimization_observation(
+                stage="quantization",
+                state_id="rejected:" + self.artifact_digest,
+                outcome=OptimizationEvidenceOutcome.REJECTED,
+                candidate_id=(None if self.selected is None else self.selected.candidate_id),
+                mutation_id=None,
+                measurement={
+                    "parent": dict(parent_measurement),
+                    "quantized": dict(quantized_measurement),
+                    "measurement_authority": "physical_quantization_evaluation",
+                },
+                failure={"reason": reason},
+                lineage={"method": method},
+            )
+            detail["rejection_reason"] = reason
+            return self._result(
+                OptimizeStage.QUANTIZATION,
+                json.dumps(detail, sort_keys=True),
+                measured=True,
+                constraints_passed=True,
+                artifact_digest=self.artifact_digest,
+                candidate=self.selected,
+                transaction_state=TransactionState.COMMITTED,
+            )
+
+        destination = quantization_root / "candidate"
+        try:
+            quantized_artifact, published_report = publish_huggingface_dynamic_int8(
+                quantized_model,
+                destination,
+                source_weight_bytes=quantization_report.source_weight_bytes,
+            )
+        except HuggingFaceQuantizationError as error:
+            raise FirstPartyOptimizeRuntimeError(str(error)) from error
+        tokenizer = proof._tokenizer
+        save_tokenizer = getattr(tokenizer, "save_pretrained", None)
+        if not callable(save_tokenizer):
+            raise FirstPartyOptimizeRuntimeError(
+                "quantized Hugging Face publication requires a reloadable tokenizer"
+            )
+        save_tokenizer(destination)
+        reloaded = self._reload(quantized_artifact)
+        if not self._generation_smoke(reloaded):
+            raise FirstPartyOptimizeRuntimeError(
+                "reloaded dynamic-int8 artifact failed inference smoke"
+            )
+        reloaded_measurement = proof.measure_model(
+            reloaded,
+            repetitions=self.plan.quality_profile.evaluation_repetitions,
+        )
+        reloaded_perplexity = _number(
+            reloaded_measurement["perplexity"], "reloaded_quantized.perplexity"
+        )
+        if reloaded_perplexity - parent_perplexity > allowed:
+            detail.update(
+                {
+                    "status": "rejected",
+                    "reloaded_measurement": dict(reloaded_measurement),
+                    "rejected_artifact": str(quantized_artifact),
+                    "rejected_artifact_digest": _artifact_digest(quantized_artifact.parent),
+                    "rejection_reason": "reloaded quantized model exceeded the quality limit",
+                }
+            )
+            self._record_optimization_observation(
+                stage="quantization",
+                state_id="rejected_reload:" + self.artifact_digest,
+                outcome=OptimizationEvidenceOutcome.REJECTED,
+                candidate_id=(None if self.selected is None else self.selected.candidate_id),
+                mutation_id=None,
+                measurement={
+                    "parent": dict(parent_measurement),
+                    "quantized": dict(reloaded_measurement),
+                    "measurement_authority": "physical_reloaded_quantization_evaluation",
+                },
+                artifact={
+                    "path": str(quantized_artifact.parent),
+                    "digest": detail["rejected_artifact_digest"],
+                },
+                failure={"reason": detail["rejection_reason"]},
+                lineage={"method": method},
+            )
+            return self._result(
+                OptimizeStage.QUANTIZATION,
+                json.dumps(detail, sort_keys=True),
+                measured=True,
+                constraints_passed=True,
+                artifact_digest=self.artifact_digest,
+                candidate=self.selected,
+                transaction_state=TransactionState.COMMITTED,
+            )
+
+        self.artifact = quantized_artifact
+        self.artifact_digest = _artifact_digest(quantized_artifact.parent)
+        self.reloaded_model = reloaded
+        detail.update(
+            {
+                "status": "accepted",
+                "artifact": str(quantized_artifact),
+                "artifact_digest": self.artifact_digest,
+                "reloaded_measurement": dict(reloaded_measurement),
+                "published_quantization": published_report.to_record(),
+            }
+        )
+        self._record_optimization_observation(
+            stage="quantization",
+            state_id="accepted:" + self.artifact_digest,
+            outcome=OptimizationEvidenceOutcome.ACCEPTED,
+            candidate_id=(None if self.selected is None else self.selected.candidate_id),
+            mutation_id=None,
+            measurement={
+                "parent": dict(parent_measurement),
+                "quantized": dict(reloaded_measurement),
+                "measurement_authority": "physical_reloaded_quantization_evaluation",
+            },
+            artifact={
+                "path": str(quantized_artifact.parent),
+                "digest": self.artifact_digest,
+            },
+            lineage={"method": method},
+        )
+        return self._result(
+            OptimizeStage.QUANTIZATION,
             json.dumps(detail, sort_keys=True),
             measured=True,
             constraints_passed=True,
@@ -1892,6 +2117,21 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         return files[0]
 
     def _reload(self, artifact: Path) -> Any:
+        quantization_manifest = artifact.parent / "modelsurgeon-quantization.json"
+        if quantization_manifest.is_file():
+            trust_remote_code = _config_value(
+                self.plan, "safety", "trust_remote_code"
+            )
+            if not isinstance(trust_remote_code, bool):
+                raise FirstPartyOptimizeRuntimeError(
+                    "safety.trust_remote_code must be boolean"
+                )
+            try:
+                return load_huggingface_dynamic_int8(
+                    artifact.parent, trust_remote_code=trust_remote_code
+                )
+            except HuggingFaceQuantizationError as error:
+                raise FirstPartyOptimizeRuntimeError(str(error)) from error
         result = load_causal_lm(
             HuggingFaceLoadRequest(
                 model=str(artifact.parent),
@@ -2604,21 +2844,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             if stage is OptimizeStage.REPAIR:
                 return self._repair(context)
             if stage is OptimizeStage.QUANTIZATION:
-                reason = "quantization is not connected to the verified HF MLP runtime"
-                reference = self._record_runtime_boundary(
-                    stage, OptimizationEvidenceOutcome.UNSUPPORTED, reason
-                )
-                return self._result(
-                    stage,
-                    json.dumps(
-                        {
-                            "status": "unsupported",
-                            "reason": reason,
-                            "evidence": reference,
-                        },
-                        sort_keys=True,
-                    ),
-                )
+                return self._quantization(context)
             if stage is OptimizeStage.DEPLOYMENT_BENCHMARK:
                 if self.reloaded_model is None or self.artifact_digest is None:
                     return self._unsupported(
