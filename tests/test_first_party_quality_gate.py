@@ -75,6 +75,40 @@ def test_runtime_reads_hard_constraints_from_the_resolved_plan() -> None:
     assert gate["accepted"] is False
 
 
+def test_runtime_combines_task_quality_with_perplexity_gate() -> None:
+    runtime = object.__new__(HuggingFaceOptimizeRuntime)
+    runtime.plan = SimpleNamespace(
+        resolved_config={"constraints": {"min_quality_retention_ratio": 0.99}},
+        quality_profile=SimpleNamespace(max_perplexity_delta=10.0),
+    )
+
+    accepted = runtime._quality_gate_for_measurements(
+        {
+            "perplexity": 100.0,
+            "task_quality": {"exact_match_accuracy": 1.0},
+        },
+        {
+            "perplexity": 100.0,
+            "task_quality": {"exact_match_accuracy": 1.0},
+        },
+    )
+    rejected = runtime._quality_gate_for_measurements(
+        {
+            "perplexity": 100.0,
+            "task_quality": {"exact_match_accuracy": 1.0},
+        },
+        {
+            "perplexity": 100.0,
+            "task_quality": {"exact_match_accuracy": 0.98},
+        },
+    )
+
+    assert accepted["accepted"] is True
+    assert accepted["task_quality_gate"]["accepted"] is True
+    assert rejected["accepted"] is False
+    assert rejected["task_quality_gate"]["accepted"] is False
+
+
 @pytest.mark.parametrize(
     ("baseline", "candidate", "message"),
     (

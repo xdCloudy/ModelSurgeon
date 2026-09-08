@@ -118,6 +118,43 @@ class CalibrationConfig(StrictConfigModel):
         return value
 
 
+class TaskQualityConfig(StrictConfigModel):
+    """Optional real task-quality benchmark for hard quality preservation."""
+
+    method: Literal["none", "code_exact_match"] = "none"
+    dataset: Path | None = None
+    dataset_revision: str | None = None
+    split: str = "test"
+    max_new_tokens: int = Field(default=128, gt=0)
+    max_samples: int | None = Field(default=None, gt=0)
+
+    @field_validator("dataset", "dataset_revision")
+    @classmethod
+    def reject_blank_task_quality_values(
+        cls, value: Path | str | None
+    ) -> Path | str | None:
+        if value is not None and not str(value).strip():
+            raise ValueError("task-quality values cannot be blank")
+        return value
+
+    @field_validator("split")
+    @classmethod
+    def reject_blank_task_quality_split(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("task_quality.split cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def require_dataset_for_enabled_method(self) -> TaskQualityConfig:
+        if self.method == "none" and (
+            self.dataset is not None or self.dataset_revision is not None
+        ):
+            raise ValueError("task_quality.dataset requires an enabled task-quality method")
+        if self.method != "none" and self.dataset is None:
+            raise ValueError("task_quality.dataset is required for an enabled task-quality method")
+        return self
+
+
 class FeatureConfig(StrictConfigModel):
     """Feature extractor groups enabled for a run."""
 
@@ -418,6 +455,7 @@ class Settings(BaseSettings):
     artifact_dir: Path = Path("artifacts")
     model: ModelConfig = Field(default_factory=ModelConfig)
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
+    task_quality: TaskQualityConfig = Field(default_factory=TaskQualityConfig)
     features: FeatureConfig = Field(default_factory=FeatureConfig)
     surgeon: SurgeonConfig = Field(default_factory=SurgeonConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)

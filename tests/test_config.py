@@ -16,6 +16,7 @@ from modelsurgeon.config import (
     RuntimeConfig,
     SearchConfig,
     Settings,
+    TaskQualityConfig,
 )
 from modelsurgeon.provider_kind import ProviderKind
 
@@ -98,6 +99,20 @@ def test_repair_config_is_explicit_and_canonical() -> None:
 def test_quantization_config_is_explicit_and_canonical() -> None:
     assert Settings().quantization.method == "none"
     assert QuantizationConfig(method="dynamic_int8").method == "dynamic_int8"
+
+
+def test_task_quality_config_requires_a_dataset_when_enabled() -> None:
+    assert Settings().task_quality.method == "none"
+    configured = TaskQualityConfig(
+        method="code_exact_match",
+        dataset="coding.jsonl",
+        dataset_revision="dataset-r1",
+    )
+    assert configured.max_new_tokens == 128
+    with pytest.raises(ValidationError, match="dataset is required"):
+        TaskQualityConfig(method="code_exact_match")
+    with pytest.raises(ValidationError, match="requires an enabled"):
+        TaskQualityConfig(dataset="coding.jsonl")
 
 
 def test_native_runtime_requires_ordered_batch_geometry() -> None:

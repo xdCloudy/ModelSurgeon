@@ -127,7 +127,7 @@ campaign record](docs/research/first-party-native-gguf-chat-campaign-v1.json).
 | Area | State | Current capability |
 | --- | --- | --- |
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
-| Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
+| Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, runtime telemetry, and an explicit local JSONL code exact-match evaluator for configured HF task-quality preservation. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
 | First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes. The same orchestrator routes an explicit native-GGUF contract for Llama/dense-Qwen MLP-channel candidates to physical streaming surgery and pinned external llama.cpp validation; HF remains the broader and independently accepted path. Measured baselines, seeded candidates, resource preflight, physical reload, rollback, lineage, Pareto selection, and evidence publication remain authoritative. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
@@ -463,6 +463,16 @@ evidence, while physical evaluation decides selection and records measured
 regret against magnitude, random, and no-guidance orderings. Equal-budget
 held-out transfer comparisons across model families and hardware are still
 experimental and are not implied by enabling this option.
+
+For an explicit task-quality hard guard, configure
+`task_quality.method: code_exact_match` and point `task_quality.dataset` at a
+pinned UTF-8 JSONL file whose records contain `id`, `prompt`, and `reference`.
+The first-party HF runtime performs greedy generation for every example,
+records the dataset and output digests, and applies the measured task-quality
+retention gate alongside perplexity at candidate, reload, repair, quantization,
+and deployment boundaries. Native GGUF task-quality evaluation is unsupported
+and fails closed. Conversational coding requests without a declared benchmark
+remain clarification-required.
 
 Each measured search candidate and physical child also receives an immutable
 optimization-evidence record containing the model, dataset, hardware,

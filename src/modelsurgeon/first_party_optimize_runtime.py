@@ -45,6 +45,10 @@ from modelsurgeon.evaluation.quality_gate import (
     QualityGateError,
     evaluate_perplexity_quality_gate,
 )
+from modelsurgeon.evaluation.task_quality import (
+    TaskQualityEvaluationError,
+    evaluate_code_quality_gate,
+)
 from modelsurgeon.experiments.candidates import (
     CandidateEnumeratorConfig,
     CandidateFilter,
@@ -180,6 +184,27 @@ def _integer(value: object, default: int, label: str) -> int:
     return selected
 
 
+def _optional_integer(value: object, label: str) -> int | None:
+    if value is None:
+        return None
+    selected = _integer(value, 0, label)
+    if selected <= 0:
+        raise FirstPartyOptimizeRuntimeError(f"{label} must be positive when present")
+    return selected
+
+
+def _text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise FirstPartyOptimizeRuntimeError(f"{label} must be a non-empty string")
+    return value
+
+
+def _optional_text(value: object, label: str) -> str | None:
+    if value is None:
+        return None
+    return _text(value, label)
+
+
 def _number(value: object, label: str) -> float:
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise FirstPartyOptimizeRuntimeError(f"{label} must be numeric")
@@ -276,6 +301,74 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             ),
             max_perplexity_delta=max_delta,
             profile_max_perplexity_delta=self.plan.quality_profile.max_perplexity_delta,
+        )
+
+    def _quality_gate_for_measurements(
+        self,
+        baseline: Mapping[str, object],
+        candidate: Mapping[str, object],
+    ) -> dict[str, object]:
+        """Combine perplexity and any explicitly configured task-quality gate."""
+
+        perplexity_gate = self._quality_gate(
+            _number(baseline["perplexity"], "baseline.perplexity"),
+            _number(candidate["perplexity"], "candidate.perplexity"),
+        )
+        baseline_task = baseline.get("task_quality")
+        candidate_task = candidate.get("task_quality")
+        if baseline_task is None and candidate_task is None:
+            return perplexity_gate
+        if not isinstance(baseline_task, Mapping) or not isinstance(candidate_task, Mapping):
+            raise FirstPartyOptimizeRuntimeError(
+                "configured task-quality evaluation produced incomplete evidence"
+            )
+        try:
+            task_gate = evaluate_code_quality_gate(
+                _number(
+                    baseline_task.get("exact_match_accuracy"),
+                    "baseline.task_quality.exact_match_accuracy",
+                ),
+                _number(
+                    candidate_task.get("exact_match_accuracy"),
+                    "candidate.task_quality.exact_match_accuracy",
+                ),
+                min_quality_retention_ratio=_number(
+                    _mapping(
+                        _mapping(self.plan.resolved_config, "resolved configuration").get(
+                            "constraints"
+                        ),
+                        "constraints",
+                    ).get("min_quality_retention_ratio", 0.98),
+                    "constraints.min_quality_retention_ratio",
+                ),
+            )
+        except TaskQualityEvaluationError as error:
+            raise FirstPartyOptimizeRuntimeError(str(error)) from error
+        combined = dict(perplexity_gate)
+        combined["task_quality_gate"] = task_gate
+        combined["accepted"] = bool(perplexity_gate["accepted"]) and bool(
+            task_gate["accepted"]
+        )
+        reasons = list(cast(list[str], perplexity_gate["rejection_reasons"]))
+        reasons.extend(
+            f"task quality: {reason}"
+            for reason in cast(list[str], task_gate["rejection_reasons"])
+        )
+        combined["rejection_reasons"] = reasons
+        return combined
+
+    def _quality_gate_for_candidate_record(
+        self, measurement: Mapping[str, object]
+    ) -> dict[str, object]:
+        return self._quality_gate_for_measurements(
+            {
+                "perplexity": measurement.get("baseline_perplexity"),
+                "task_quality": measurement.get("baseline_task_quality"),
+            },
+            {
+                "perplexity": measurement.get("candidate_perplexity"),
+                "task_quality": measurement.get("candidate_task_quality"),
+            },
         )
 
     def _hydrate(self, context: StageContext) -> None:
@@ -803,10 +896,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 return {"method": name, "candidate_id": None, "measured": False}
             measurement = actual[candidate_id]
             measured_delta = _number(measurement["perplexity_delta"], "perplexity_delta")
-            quality_gate = self._quality_gate(
-                _number(measurement["baseline_perplexity"], "baseline_perplexity"),
-                _number(measurement["candidate_perplexity"], "candidate_perplexity"),
-            )
+            quality_gate = self._quality_gate_for_candidate_record(measurement)
             return {
                 "method": name,
                 "candidate_id": candidate_id,
@@ -865,6 +955,31 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "calibration.max_sequence_length",
         )
         requested_tokens = max(sequence_length * samples, sequence_length * 2)
+        task_quality = _mapping(
+            _mapping(self.plan.resolved_config, "resolved configuration").get(
+                "task_quality", {}
+            ),
+            "task_quality",
+        )
+        task_method = task_quality.get("method", "none")
+        if task_method not in {"none", "code_exact_match"}:
+            raise FirstPartyOptimizeRuntimeError(
+                f"unsupported task_quality.method: {task_method!r}"
+            )
+        task_dataset = task_quality.get("dataset")
+        if task_method == "code_exact_match" and not isinstance(task_dataset, str):
+            raise FirstPartyOptimizeRuntimeError(
+                "task_quality.dataset is required for code_exact_match"
+            )
+        if task_method == "none" and task_dataset is not None:
+            raise FirstPartyOptimizeRuntimeError(
+                "task_quality.dataset requires task_quality.method=code_exact_match"
+            )
+        task_dataset_path = (
+            None
+            if task_method == "none"
+            else Path(_text(task_dataset, "task_quality.dataset")).expanduser()
+        )
         return HuggingFaceMLPProofRuntime(
             HuggingFaceMLPProofConfig(
                 model=model,
@@ -878,6 +993,30 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 max_tokens=requested_tokens,
                 safe_perplexity_delta=self.plan.quality_profile.max_perplexity_delta or 0.05,
                 seed=_integer(calibration_config.get("seed"), 0, "calibration.seed"),
+                task_quality_dataset=task_dataset_path,
+                task_quality_revision=(
+                    None
+                    if task_method == "none"
+                    else _optional_text(
+                        task_quality.get("dataset_revision"),
+                        "task_quality.dataset_revision",
+                    )
+                ),
+                task_quality_split=_text(
+                    task_quality.get("split", "test"), "task_quality.split"
+                ),
+                task_quality_max_new_tokens=_integer(
+                    task_quality.get("max_new_tokens", 128),
+                    1,
+                    "task_quality.max_new_tokens",
+                ),
+                task_quality_max_samples=(
+                    None
+                    if task_method == "none"
+                    else _optional_integer(
+                        task_quality.get("max_samples"), "task_quality.max_samples"
+                    )
+                ),
             )
         )
 
@@ -1227,9 +1366,6 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
         source_baseline = self.baseline or proof.baseline_measurement()
-        source_baseline_perplexity = _number(
-            source_baseline["perplexity"], "baseline.perplexity"
-        )
         repair_model = copy.deepcopy(parent_model)
         targets = self._repair_targets(repair_model)
         max_steps_value = settings.get("max_steps")
@@ -1304,8 +1440,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         repaired_perplexity = _number(
             repaired_measurement["perplexity"], "repaired.perplexity"
         )
-        repair_quality_gate = self._quality_gate(
-            source_baseline_perplexity, repaired_perplexity
+        repair_quality_gate = self._quality_gate_for_measurements(
+            source_baseline, repaired_measurement
         )
         accepted = repaired_perplexity <= parent_perplexity and bool(
             repair_quality_gate["accepted"]
@@ -1373,8 +1509,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         reloaded_perplexity = _number(
             reloaded_measurement["perplexity"], "reloaded_repaired.perplexity"
         )
-        reloaded_quality_gate = self._quality_gate(
-            source_baseline_perplexity, reloaded_perplexity
+        reloaded_quality_gate = self._quality_gate_for_measurements(
+            source_baseline, reloaded_measurement
         )
         if reloaded_perplexity > parent_perplexity or not bool(
             reloaded_quality_gate["accepted"]
@@ -1541,15 +1677,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             quantized_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
-        quantized_perplexity = _number(
-            quantized_measurement["perplexity"], "quantized.perplexity"
-        )
         source_baseline = self.baseline or proof.baseline_measurement()
-        source_baseline_perplexity = _number(
-            source_baseline["perplexity"], "baseline.perplexity"
-        )
-        quantization_quality_gate = self._quality_gate(
-            source_baseline_perplexity, quantized_perplexity
+        quantization_quality_gate = self._quality_gate_for_measurements(
+            source_baseline, quantized_measurement
         )
         accepted = (
             bool(quantization_quality_gate["accepted"])
@@ -1630,11 +1760,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             reloaded,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
-        reloaded_perplexity = _number(
-            reloaded_measurement["perplexity"], "reloaded_quantized.perplexity"
-        )
-        reloaded_quality_gate = self._quality_gate(
-            source_baseline_perplexity, reloaded_perplexity
+        reloaded_quality_gate = self._quality_gate_for_measurements(
+            source_baseline, reloaded_measurement
         )
         if not bool(reloaded_quality_gate["accepted"]):
             detail.update(
@@ -2076,10 +2203,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             for parameter in candidate_model.parameters()
         )
         baseline = self.baseline_runtime_measurement
-        quality_gate = self._quality_gate(
-            _number(baseline["perplexity"], "baseline.perplexity"),
-            _number(measured["perplexity"], "candidate.perplexity"),
-        )
+        quality_gate = self._quality_gate_for_measurements(baseline, measured)
         return {
             "scope": candidate.scope.value,
             "mutation": (
@@ -2104,6 +2228,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "storage_delta_bytes": candidate_storage_bytes - baseline_storage_bytes,
             "measurement_wall_seconds": measured["median_seconds"],
             "repetitions": measured["repetitions"],
+            "baseline_task_quality": baseline.get("task_quality"),
+            "candidate_task_quality": measured.get("task_quality"),
             "token_count": measured["token_count"],
             "quality_gate": quality_gate,
         }
@@ -2297,10 +2423,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 continue
             self.actual_measurements[candidate.candidate_id] = measurement
             delta = _number(measurement["perplexity_delta"], "perplexity_delta")
-            quality_gate = self._quality_gate(
-                _number(measurement["baseline_perplexity"], "baseline_perplexity"),
-                _number(measurement["candidate_perplexity"], "candidate_perplexity"),
-            )
+            quality_gate = self._quality_gate_for_candidate_record(measurement)
             accepted_by_quality_gate = bool(quality_gate["accepted"])
             prediction_value = self.meta_predictions.get(candidate.candidate_id)
             prediction = (
@@ -2789,8 +2912,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             repetitions=self.plan.quality_profile.evaluation_repetitions,
         )
         baseline_perplexity = _number(baseline["perplexity"], "baseline.perplexity")
-        perplexity = _number(measurement["perplexity"], "child.perplexity")
-        quality_gate = self._quality_gate(baseline_perplexity, perplexity)
+        quality_gate = self._quality_gate_for_measurements(baseline, measurement)
         return {
             "measurement": dict(measurement),
             "baseline_perplexity": baseline_perplexity,
@@ -3241,9 +3363,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     artifact.parent,
                     label="candidate",
                 )
-                quality_gate = self._quality_gate(
-                    _number(baseline["perplexity"], "baseline.perplexity"),
-                    _number(candidate_quality["perplexity"], "deployment.perplexity"),
+                quality_gate = self._quality_gate_for_measurements(
+                    baseline, candidate_quality
                 )
                 constraints = _mapping(
                     _mapping(self.plan.resolved_config, "resolved configuration").get(

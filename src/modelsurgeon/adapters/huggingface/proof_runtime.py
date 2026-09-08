@@ -27,6 +27,10 @@ from modelsurgeon.adapters.huggingface.loader import (
     load_causal_lm,
 )
 from modelsurgeon.cli.experiment import ResolvedExperiment, SingleMutationExperimentResult
+from modelsurgeon.evaluation.task_quality import (
+    CodeExactMatchDataset,
+    evaluate_code_exact_match,
+)
 from modelsurgeon.evaluation.tiered import (
     EscalationAction,
     EvaluationTier,
@@ -122,6 +126,11 @@ class HuggingFaceMLPProofConfig:
     safe_perplexity_delta: float = 0.25
     seed: int = 42
     tool_revision: str | None = None
+    task_quality_dataset: Path | None = None
+    task_quality_revision: str | None = None
+    task_quality_split: str = "test"
+    task_quality_max_new_tokens: int = 128
+    task_quality_max_samples: int | None = None
 
     def __post_init__(self) -> None:
         if not self.model.strip():
@@ -140,6 +149,22 @@ class HuggingFaceMLPProofConfig:
             raise HuggingFaceMLPProofError("safe_perplexity_delta must be finite and non-negative")
         if isinstance(self.seed, bool) or self.seed < 0 or self.seed >= 1 << 64:
             raise HuggingFaceMLPProofError("seed must be an unsigned 64-bit integer")
+        task_values = (self.task_quality_dataset, self.task_quality_revision)
+        if any(value is not None and not str(value).strip() for value in task_values):
+            raise HuggingFaceMLPProofError("task-quality configuration values cannot be blank")
+        if self.task_quality_dataset is None and any(
+            value is not None
+            for value in (self.task_quality_revision, self.task_quality_max_samples)
+        ):
+            raise HuggingFaceMLPProofError(
+                "task-quality dataset is required when task-quality options are configured"
+            )
+        if not self.task_quality_split.strip():
+            raise HuggingFaceMLPProofError("task-quality split cannot be blank")
+        if self.task_quality_max_new_tokens <= 0:
+            raise HuggingFaceMLPProofError("task-quality max_new_tokens must be positive")
+        if self.task_quality_max_samples is not None and self.task_quality_max_samples <= 0:
+            raise HuggingFaceMLPProofError("task-quality max_samples must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -614,6 +639,16 @@ class HuggingFaceMLPProofRuntime:
             model_source=config.model,
             model_revision=loaded.provenance.resolved_revision,
         )
+        self._task_quality_dataset = (
+            None
+            if config.task_quality_dataset is None
+            else CodeExactMatchDataset.load(
+                config.task_quality_dataset,
+                revision=config.task_quality_revision,
+                split=config.task_quality_split,
+                max_samples=config.task_quality_max_samples,
+            )
+        )
         text, text_revision = _read_calibration_text(config.calibration_text)
         encoded = self._tokenizer(
             text,
@@ -701,6 +736,15 @@ class HuggingFaceMLPProofRuntime:
             "device_map": self.config.device_map,
             "dtype": self.config.dtype.value,
             "trust_remote_code": self.config.trust_remote_code,
+            "task_quality": (
+                None
+                if self._task_quality_dataset is None
+                else {
+                    "method": "code_exact_match",
+                    "dataset": self._task_quality_dataset.to_record(),
+                    "max_new_tokens": self.config.task_quality_max_new_tokens,
+                }
+            ),
         }
 
     def _dataset_target(
@@ -752,7 +796,20 @@ class HuggingFaceMLPProofRuntime:
             "token_count": baseline.token_count,
             "dataset": self._dataset.to_record(),
             "model": self._model_target.to_record(),
+            **self._task_quality_record(self.model),
         }
+
+    def _task_quality_record(self, model: Any) -> dict[str, object]:
+        if self._task_quality_dataset is None:
+            return {}
+        measurement = evaluate_code_exact_match(
+            model,
+            self._tokenizer,
+            self._torch,
+            self._task_quality_dataset,
+            max_new_tokens=self.config.task_quality_max_new_tokens,
+        )
+        return {"task_quality": measurement.to_record()}
 
     def measure_model(self, model: Any, *, repetitions: int = 1) -> dict[str, object]:
         """Measure a reloaded compatible model on the exact proof corpus.
@@ -785,6 +842,7 @@ class HuggingFaceMLPProofRuntime:
                 "token_count": final.token_count,
                 "median_seconds": statistics.median(timings),
                 "repetitions": repetitions,
+                **self._task_quality_record(model),
             }
         finally:
             self.model = old_model
