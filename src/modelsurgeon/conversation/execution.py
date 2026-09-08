@@ -54,6 +54,7 @@ from modelsurgeon.conversation.tools import (
     ToolResult,
 )
 from modelsurgeon.experiments.optimization_package import ApprovalReuse, plan_digest
+from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import (
     OptimizeOutcome,
     OptimizePlan,
@@ -65,7 +66,6 @@ from modelsurgeon.optimization_orchestrator import (
     OptimizeOrchestrator,
     OptimizeRuntime,
     OptimizeStage,
-    PreflightRuntime,
     StageContext,
     StageResult,
     WorkflowOutcome,
@@ -541,7 +541,10 @@ class ChatOptimizeAdapter:
         self.preset = preset
         self.hardware_profile = hardware_profile
         self.quality_profile = quality_profile
-        self.runtime = runtime or PreflightRuntime()
+        # Runtime construction is deferred until a confirmed plan exists.  This
+        # keeps model loading outside interpretation/preview and makes chat use
+        # the same first-party engine as direct CLI execution by default.
+        self.runtime = runtime
         self.approvals = tuple(sorted(set(approvals)))
         self.approval_expires_at = approval_expires_at
         self.approval_reuse = None if approval_reuse is None else dict(approval_reuse)
@@ -877,20 +880,21 @@ class ChatOptimizeAdapter:
             session_id=self._session_for_request(context.request.request_id),
             plan=prepared.plan,
             preview=self._preview_for_spec(prepared.spec_digest),
-                provider_context=self._provider_context_by_spec.get(prepared.spec_digest),
-                approval_id=self._submissions[prepared.plan_id].approval_id,
-                recorded_by=self.operator_id,
-                approval_expires_at=self.approval_expires_at,
-                approval_reuse=self.approval_reuse,
-            )
+            provider_context=self._provider_context_by_spec.get(prepared.spec_digest),
+            approval_id=self._submissions[prepared.plan_id].approval_id,
+            recorded_by=self.operator_id,
+            approval_expires_at=self.approval_expires_at,
+            approval_reuse=self.approval_reuse,
+        )
         campaign_id = recorder.campaign_id
         try:
             with self._lifecycle_lock:
                 pause_event = threading.Event()
                 self._active_tokens[campaign_id] = context.cancellation
                 self._pause_events[campaign_id] = pause_event
+            selected_runtime = self.runtime or build_first_party_optimize_runtime(prepared.plan)
             runtime = _ProgressRuntime(
-                self.runtime,
+                selected_runtime,
                 context.cancellation,
                 callback,
                 campaign_id,
@@ -1018,10 +1022,7 @@ class ChatOptimizeAdapter:
         if self.approval_expires_at is not None:
             try:
                 expiry = datetime.fromisoformat(self.approval_expires_at.replace("Z", "+00:00"))
-                expiry_ok = (
-                    expiry.tzinfo is not None
-                    and expiry.astimezone(UTC) > datetime.now(UTC)
-                )
+                expiry_ok = expiry.tzinfo is not None and expiry.astimezone(UTC) > datetime.now(UTC)
             except ValueError:
                 expiry_ok = False
         return (
