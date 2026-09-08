@@ -1560,6 +1560,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         evaluation_id: str | None = None,
         transaction_state: TransactionState | None = None,
         alternatives: tuple[str, ...] = (),
+        lineage: Mapping[str, object] | None = None,
     ) -> StageResult:
         run_key = f"{self.plan.plan_id}:{stage.value}:{detail}"
         evidence = "evidence_" + hashlib.sha256(run_key.encode()).hexdigest()
@@ -1585,6 +1586,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             transaction_state=transaction_state,
             artifact_immutable=artifact_digest is not None,
             alternatives=alternatives,
+            lineage={} if lineage is None else dict(lineage),
         )
 
     def _unsupported(self, stage: OptimizeStage, detail: str) -> StageResult:
@@ -2529,6 +2531,20 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.artifact = artifact
         self.artifact_digest = _artifact_digest(artifact.parent)
         self.reloaded_model = reloaded
+        sequence_record = sequence.to_record()
+        lineage_stages = [
+            {
+                "index": item.index,
+                "mutation_id": item.mutation_id,
+                "operation": item.operation,
+                "source_outcome_id": item.outcome.source_outcome_id,
+                "parent_outcome_id": item.outcome.parent_outcome_id,
+                "outcome_id": item.outcome.outcome_id,
+                "artifact_digest": item.outcome.artifact.digest,
+                "artifact": str(item.artifact),
+            }
+            for item in sequence.stages
+        ]
         return self._result(
             OptimizeStage.SURGERY,
             json.dumps(
@@ -2557,6 +2573,17 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             artifact_digest=self.artifact_digest,
             candidate=candidate,
             transaction_state=TransactionState.COMMITTED,
+            lineage={
+                "schema_version": 1,
+                "authority": "physical_reloaded_child",
+                "source_artifact_digest": self.source_digest,
+                "accepted_artifact_digest": self.artifact_digest,
+                "sequence_id": sequence.sequence_id,
+                "sequence": sequence_record,
+                "stages": lineage_stages,
+                "state_updates": list(self.state_updates),
+                "evidence_observations": list(evidence_observations),
+            },
         )
 
     def _evaluate_reloaded_child(self, model: Any) -> Mapping[str, object]:

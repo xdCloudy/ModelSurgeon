@@ -261,6 +261,14 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     surgery = paused.stages[5].result
     assert surgery is not None and surgery.artifact_digest is not None
     surgery_detail = json.loads(surgery.detail)
+    assert surgery.lineage["authority"] == "physical_reloaded_child"
+    assert surgery.lineage["sequence_id"] == surgery.lineage["sequence"]["sequence_id"]
+    assert len(surgery.lineage["stages"]) == 2
+    assert surgery.lineage["stages"][0]["parent_outcome_id"] is None
+    assert (
+        surgery.lineage["stages"][1]["parent_outcome_id"]
+        == surgery.lineage["stages"][0]["outcome_id"]
+    )
     assert len(surgery_detail["stages"]) == 2
     assert all(item["evaluation"]["accepted"] for item in surgery_detail["stages"])
     assert surgery_detail["failed_index"] is None
