@@ -88,6 +88,7 @@ def test_repair_config_is_explicit_and_canonical() -> None:
         max_steps=2,
     )
     assert configured.method == "lora"
+    assert RepairConfig(method="distillation").method == "distillation"
     with pytest.raises(ValidationError, match="sorted, unique"):
         RepairConfig(method="lora", target_modules=("b", "a"))
 
