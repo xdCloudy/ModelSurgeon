@@ -7,7 +7,7 @@ ModelSurgeon configuration is a versioned, immutable hierarchy implemented by `m
 
 ## Sections
 
-- `model`: source path/ID, immutable revision, container format, and requested compute dtype.
+- `model`: source path/ID, immutable revision, container format, optional explicit architecture family, and requested compute dtype. GGUF families must be explicit when the container architecture alias is ambiguous.
 - `calibration`: dataset identity, split, bounded samples/batch/sequence length, and seed.
 - `features`: independently enabled weight, spectral, activation, gradient, correlation, topology, and runtime groups.
 - `repair`: explicit no-repair control or bounded first-party LoRA/teacher-logit distillation settings and target modules.
@@ -18,6 +18,11 @@ ModelSurgeon configuration is a versioned, immutable hierarchy implemented by `m
 - `provider`: optional conversational provider identity, endpoint metadata, and
   hard request budgets. Its default is `kind=none`; the section contains no
   secret values.
+- `runtime`: pinned native GGUF executables (`llama-cli`, `llama-perplexity`,
+  and `llama-bench`), expected llama.cpp revision, thread/offload settings,
+  context and batch geometry, generation budget, repetitions, and timeout. The
+  native GGUF optimizer requires a complete runtime and calibration identity;
+  missing or mismatched fields fail closed.
 
 Safe defaults prohibit checkpoint overwrite and remote model code, require atomic writes, enable CPU offload, and target 98% quality retention. Resource limits must be positive, probabilities remain within `[0, 1]`, sample limits are positive, and seeds are non-negative.
 

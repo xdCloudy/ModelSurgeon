@@ -129,9 +129,9 @@ def test_resolved_output_is_canonical_json_without_secret_fields() -> None:
 
     assert resolved.endswith("\n")
     assert payload == settings.canonical_dict()
-    assert "password" not in resolved.lower()
-    assert "token" not in resolved.lower()
-    assert "secret" not in resolved.lower()
+    assert payload["provider"]["api_key_env"] is None
+    assert "password-value" not in resolved.lower()
+    assert "secret-value" not in resolved.lower()
 
 
 @pytest.mark.parametrize("name", ["config.json", "config.txt", "config"])

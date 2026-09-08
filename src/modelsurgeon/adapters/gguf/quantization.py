@@ -152,6 +152,13 @@ QUANT_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
         34,
         _fields(("delta_f16", 2), ("quants_i8", 32)),
     ),
+    GGMLQuantizationType.Q5_0: CodecLayout(
+        GGMLQuantizationType.Q5_0,
+        QuantizationFamily.LEGACY,
+        32,
+        22,
+        _fields(("delta_f16", 2), ("high_bits", 4), ("quants_u4", 16)),
+    ),
     GGMLQuantizationType.Q2_K: CodecLayout(
         GGMLQuantizationType.Q2_K,
         QuantizationFamily.K_QUANT,
@@ -292,13 +299,6 @@ LEGACY_STORAGE_LAYOUTS: dict[GGMLQuantizationType, CodecLayout] = {
         32,
         20,
         _fields(("delta_min_f16x2", 4), ("quants_u4", 16)),
-    ),
-    GGMLQuantizationType.Q5_0: CodecLayout(
-        GGMLQuantizationType.Q5_0,
-        QuantizationFamily.LEGACY,
-        32,
-        22,
-        _fields(("delta_f16", 2), ("high_bits", 4), ("quants_u4", 16)),
     ),
     GGMLQuantizationType.Q5_1: CodecLayout(
         GGMLQuantizationType.Q5_1,
