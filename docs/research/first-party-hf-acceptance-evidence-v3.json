@@ -1,0 +1,65 @@
+{
+  "record_type": "first_party_hf_acceptance_evidence",
+  "schema_version": 3,
+  "purpose": "expanded real-observation Meta-Surgeon transfer pilot",
+  "base_git_revision": "26d31a1",
+  "dataset": {
+    "builder": "tools/prepare_real_surgeon_transfer.py",
+    "example_count": 31,
+    "split_counts": {"train": 14, "validation": 11, "test": 6},
+    "grouping": "immutable model identifier and revision",
+    "held_out_models": ["Qwen/Qwen2.5-0.5B", "HuggingFaceTB/SmolLM2-135M"],
+    "source_models": [
+      "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "hf-internal-testing/tiny-random-MistralForCausalLM",
+      "HuggingFaceTB/SmolLM-135M"
+    ],
+    "examples_sha256": "sha256:453813f4e94f997a1e37bd77194979e37241d1128b99bd7dd9038e6737f9d7d4",
+    "split_sha256": "sha256:7986104021694f3cf316f88d223968ab5de65e83fb9cb3fab43e98463ff6a8a7"
+  },
+  "surgeon": {
+    "baseline": "logistic",
+    "target": "safe_mutation",
+    "threshold": {"perplexity": 0.05},
+    "bundle_digest": "sha256:9960751f729314cc1765a19ff9b14e84d0925ca14814e40b773ab59f623cda8f",
+    "card_digest": "sha256:6d333f8a30a541739ad3931f4edf0c673e4aac9cd9bf29a215a39b424cf73d9d",
+    "held_out_metrics": {
+      "auc": 0.375,
+      "pr_auc": 0.41666666666666663,
+      "calibration_error": 0.3333333333333333,
+      "precision_at_50": 0.3333333333333333,
+      "recall_at_50": 1.0
+    }
+  },
+  "campaign": {
+    "tool": "tools/run_first_party_hf_acceptance.py",
+    "record_path": "work/acceptance-meta-expanded-2026-09-08.json",
+    "record_sha256": "sha256:07fac4246296131c6765be135c42f85785f8a11be531c8d5cfa86ac75f56e9a6",
+    "quality_profile": "quality",
+    "preset": "balanced",
+    "evaluations": 3,
+    "search_scope": "mlp_channel",
+    "hardware": "Windows 11 CPU-only; 20 logical cores; 64 GiB-class host; CUDA unavailable",
+    "models": [
+      {
+        "identifier": "Qwen/Qwen2.5-0.5B",
+        "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+        "run_id": "optimize_run_6e1b2180c83e94df5ab7d5bfda7bc625b7cbc8c3e0e316150e50c5133cd6dda8",
+        "meta_choice": {"constraints_passed": false, "perplexity_delta": 0.34799055924597155, "regret_vs_measured_best": 0.585992161346212},
+        "no_guidance_choice": {"constraints_passed": true, "perplexity_delta": -0.23800160210024046, "regret_vs_measured_best": 0.0},
+        "physically_measured_candidates": 3,
+        "result": "negative_transfer_result"
+      },
+      {
+        "identifier": "HuggingFaceTB/SmolLM2-135M",
+        "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+        "run_id": "optimize_run_481a1943b1de2efabc83358f916788998b5532f5c38f1de3b2a780527a5d6d9a",
+        "meta_choice": {"constraints_passed": true, "perplexity_delta": -1.44589764608142, "regret_vs_measured_best": 0.0},
+        "no_guidance_choice": {"constraints_passed": true, "perplexity_delta": -1.44589764608142, "regret_vs_measured_best": 0.0},
+        "physically_measured_candidates": 3,
+        "result": "neutral_result"
+      }
+    ],
+    "conclusion": "The expanded safety classifier is a verified advisory path, but its held-out transfer quality is weak and it demonstrates no improvement over no-guidance. Predictions remain non-authoritative; all acceptance and promotion decisions came from physical evaluation."
+  }
+}

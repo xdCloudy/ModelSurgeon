@@ -80,14 +80,16 @@ policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-au
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
 Fresh revision-pinned first-party acceptance evidence is retained in the
-[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v2.json).
+[HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v3.json).
 It covers pinned tiny Llama and Mistral checkpoints plus real pretrained
 SmolLM-135M, Qwen2.5-0.5B, and SmolLM2-135M CPU cells, including two accepted
 rediscovered-state surgery stages on the latter two. The signed Meta-Surgeon
 pilot was verified and physically compared on held-out Qwen and SmolLM2
-candidates; it produced a negative transfer result, so physical measurements
-remain authoritative and no transfer improvement is claimed. A pretrained
-TinyLlama cell, an unsupported GPT-2 cell, and a rank-1 low-rank tranche that
+candidates; the expanded safety-classifier pilot matched no-guidance on
+SmolLM2 but selected an ineligible Qwen candidate (held-out AUC 0.375), so
+physical measurements remain authoritative and no transfer improvement is
+claimed. A pretrained TinyLlama cell, an unsupported GPT-2 cell, and a rank-1
+low-rank tranche that
 found no quality-feasible candidate are also retained as honest fail-closed
 outcomes. This is evidence for the bounded path, not a production-scale or
 task-quality claim.
