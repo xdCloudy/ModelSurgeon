@@ -10,9 +10,12 @@ explicit unsupported outcome instead of being represented by placeholder data.
 from __future__ import annotations
 
 import copy
+import gc
 import hashlib
 import json
-from collections.abc import Mapping
+import statistics
+import time
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -35,6 +38,12 @@ from modelsurgeon.experiments.candidates import (
     CandidateScope,
     MutationCandidate,
     enumerate_mutation_candidates,
+)
+from modelsurgeon.instrumentation.memory_telemetry import (
+    MemoryTelemetryConfig,
+    MemoryTelemetryError,
+    TorchCudaMemoryProvider,
+    collect_memory_telemetry,
 )
 from modelsurgeon.optimization import OptimizePlan
 from modelsurgeon.optimization_orchestrator import (
@@ -117,6 +126,14 @@ def _number(value: object, label: str) -> float:
     return float(value)
 
 
+def _directory_bytes(path: Path) -> int:
+    if path.is_file():
+        return path.stat().st_size
+    if not path.is_dir():
+        raise FirstPartyOptimizeRuntimeError(f"artifact path does not exist: {path}")
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+
 class HuggingFaceOptimizeRuntime(OptimizeRuntime):
     """Execute one real, bounded HF MLP-channel optimization workflow."""
 
@@ -132,7 +149,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.artifact_digest: str | None = None
         self.reloaded_model: Any | None = None
         self.baseline: Mapping[str, object] | None = None
+        self.deployment_baseline: Mapping[str, object] | None = None
         self.deployment: Mapping[str, object] | None = None
+        self.deployment_constraints_passed: bool | None = None
 
     def _model_source(self) -> str:
         value = _config_value(self.plan, "model", "path")
@@ -334,13 +353,167 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             HuggingFaceLoadRequest(
                 model=str(artifact.parent),
                 revision=str(artifact.parent.resolve()),
-                device_map="cpu",
+                device_map=("cpu" if self.plan.hardware_profile.device == "cpu" else "auto"),
                 dtype=_hf_dtype(_config_value(self.plan, "model", "dtype")),
                 local_files_only=True,
             )
         )
         result.model.eval()
         return result.model
+
+    @staticmethod
+    def _synchronize(torch: Any, model: Any) -> None:
+        try:
+            device = next(iter(model.parameters())).device
+        except StopIteration:
+            return
+        if getattr(device, "type", None) == "cuda":
+            torch.cuda.synchronize(device)
+
+    def _deployment_metrics(
+        self,
+        loader: Callable[[], Any],
+        artifact_path: Path | None,
+        *,
+        label: str,
+    ) -> dict[str, object]:
+        """Measure a model load and generation path with retained uncertainty."""
+
+        proof = self._ensure_loaded()
+        torch = proof._torch
+        load_samples: list[float] = []
+        model: Any | None = None
+        for index in range(7):
+            started = time.perf_counter()
+            loaded = loader()
+            loaded.eval()
+            self._synchronize(torch, loaded)
+            load_samples.append(time.perf_counter() - started)
+            if model is not None:
+                del model
+                gc.collect()
+            model = loaded
+            if index < 6:
+                del loaded
+                gc.collect()
+        if model is None:
+            raise FirstPartyOptimizeRuntimeError(f"{label} did not load a model")
+
+        tokenizer = proof._tokenizer
+        encoded = tokenizer("ModelSurgeon deployment benchmark", return_tensors="pt")
+        embeddings = model.get_input_embeddings()
+        input_ids = encoded["input_ids"].to(embeddings.weight.device)
+        prompt_tokens = int(input_ids.shape[-1])
+        if prompt_tokens <= 0:
+            raise FirstPartyOptimizeRuntimeError("deployment benchmark prompt is empty")
+        pad_token_id = getattr(tokenizer, "pad_token_id", None)
+        if pad_token_id is None:
+            pad_token_id = getattr(tokenizer, "eos_token_id", None)
+        if not isinstance(pad_token_id, int):
+            raise FirstPartyOptimizeRuntimeError(
+                "deployment benchmark tokenizer has no pad or EOS token"
+            )
+
+        def run_generation() -> dict[str, float | int]:
+            self._synchronize(torch, model)
+            prefill_started = time.perf_counter()
+            with torch.inference_mode():
+                output = model(input_ids=input_ids, use_cache=True)
+            self._synchronize(torch, model)
+            prefill_seconds = time.perf_counter() - prefill_started
+            del output
+            decode_started = time.perf_counter()
+            with torch.inference_mode():
+                generated = model.generate(
+                    input_ids,
+                    do_sample=False,
+                    max_new_tokens=8,
+                    pad_token_id=pad_token_id,
+                    use_cache=True,
+                )
+            self._synchronize(torch, model)
+            decode_seconds = time.perf_counter() - decode_started
+            generated_tokens = int(generated.shape[-1]) - prompt_tokens
+            del generated
+            if generated_tokens <= 0 or prefill_seconds <= 0 or decode_seconds <= 0:
+                raise FirstPartyOptimizeRuntimeError(
+                    "deployment benchmark produced no positive token/timing sample"
+                )
+            return {
+                "prefill_tokens_per_second": prompt_tokens / prefill_seconds,
+                "decode_tokens_per_second": generated_tokens / decode_seconds,
+                "latency_seconds": prefill_seconds + decode_seconds,
+                "prompt_tokens": prompt_tokens,
+                "decode_tokens": generated_tokens,
+            }
+
+        for _ in range(2):
+            run_generation()
+        inference_samples: list[dict[str, float | int]] = []
+        peak_ram_samples: list[int] = []
+        peak_vram_samples: list[int] = []
+        cuda_provider: TorchCudaMemoryProvider | None = None
+        try:
+            device = next(iter(model.parameters())).device
+            if getattr(device, "type", None) == "cuda":
+                cuda_provider = TorchCudaMemoryProvider(device=device)
+        except (StopIteration, MemoryTelemetryError):
+            cuda_provider = None
+        for repetition in range(7):
+            sample_box: list[dict[str, float | int]] = []
+
+            def operation(box: list[dict[str, float | int]] = sample_box) -> None:
+                box.append(run_generation())
+
+            report = collect_memory_telemetry(
+                f"hf-deployment-{label}-{repetition}",
+                operation,
+                MemoryTelemetryConfig(sampling_enabled=True, sample_interval_seconds=0.01),
+                cuda=cuda_provider,
+            )
+            if len(sample_box) != 1:
+                raise FirstPartyOptimizeRuntimeError(
+                    "deployment benchmark did not produce exactly one inference sample"
+                )
+            inference_samples.append(sample_box[0])
+            if report.peak_rss_bytes is not None:
+                peak_ram_samples.append(report.peak_rss_bytes)
+            if report.peak_cuda_allocated_bytes is not None:
+                peak_vram_samples.append(report.peak_cuda_allocated_bytes)
+
+        result: dict[str, object] = {
+            "label": label,
+            "load_time_samples": load_samples,
+            "load_time_seconds": statistics.median(load_samples),
+            "prefill_tokens_per_second_samples": [
+                float(item["prefill_tokens_per_second"]) for item in inference_samples
+            ],
+            "decode_tokens_per_second_samples": [
+                float(item["decode_tokens_per_second"]) for item in inference_samples
+            ],
+            "latency_seconds_samples": [
+                float(item["latency_seconds"]) for item in inference_samples
+            ],
+            "peak_ram_bytes_samples": peak_ram_samples,
+            "peak_vram_bytes_samples": peak_vram_samples or None,
+            "prompt_tokens": prompt_tokens,
+            "decode_tokens": int(
+                statistics.median([int(item["decode_tokens"]) for item in inference_samples])
+            ),
+            "disk_bytes": None if artifact_path is None else _directory_bytes(artifact_path),
+        }
+        result["prefill_tokens_per_second"] = statistics.median(
+            cast(list[float], result["prefill_tokens_per_second_samples"])
+        )
+        result["decode_tokens_per_second"] = statistics.median(
+            cast(list[float], result["decode_tokens_per_second_samples"])
+        )
+        result["latency_seconds"] = statistics.median(
+            cast(list[float], result["latency_seconds_samples"])
+        )
+        result["peak_ram_bytes"] = max(peak_ram_samples) if peak_ram_samples else None
+        result["peak_vram_bytes"] = max(peak_vram_samples) if peak_vram_samples else None
+        return result
 
     def _generation_smoke(self, model: Any) -> bool:
         proof = self._ensure_loaded()
@@ -465,22 +638,100 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         stage, "deployment benchmark requires a published reloaded artifact"
                     )
                 proof = self._ensure_loaded()
-                self.deployment = proof.measure_model(
+                candidate_quality = proof.measure_model(
                     self.reloaded_model,
                     repetitions=self.plan.quality_profile.evaluation_repetitions,
                 )
                 baseline = self.baseline or proof.baseline_measurement()
+                model_source = self._model_source()
+                revision = _config_value(self.plan, "model", "revision")
+                if not isinstance(revision, str) or not revision.strip():
+                    return self._unsupported(
+                        stage, "deployment benchmark requires a pinned model revision"
+                    )
+                source_path = Path(model_source).expanduser().absolute().resolve(strict=False)
+                device_map = "cpu" if self.plan.hardware_profile.device == "cpu" else "auto"
+
+                def load_source() -> Any:
+                    return load_causal_lm(
+                        HuggingFaceLoadRequest(
+                            model=model_source,
+                            revision=revision,
+                            device_map=device_map,
+                            dtype=_hf_dtype(_config_value(self.plan, "model", "dtype")),
+                            local_files_only=source_path.exists(),
+                        )
+                    ).model
+
+                self.deployment_baseline = self._deployment_metrics(
+                    load_source,
+                    source_path if source_path.exists() else None,
+                    label="baseline",
+                )
+                assert self.artifact is not None
+                artifact = self.artifact
+                self.deployment = self._deployment_metrics(
+                    lambda: self._reload(artifact),
+                    artifact.parent,
+                    label="candidate",
+                )
                 quality_delta = _number(
-                    self.deployment["perplexity"], "deployment.perplexity"
+                    candidate_quality["perplexity"], "deployment.perplexity"
                 ) - _number(baseline["perplexity"], "baseline.perplexity")
                 allowed = self.plan.quality_profile.max_perplexity_delta or 0.05
+                constraints = _mapping(
+                    _mapping(self.plan.resolved_config, "resolved configuration").get(
+                        "constraints"
+                    ),
+                    "constraints",
+                )
+                candidate_latency = _number(
+                    self.deployment["latency_seconds"], "candidate.latency_seconds"
+                )
+                baseline_latency = _number(
+                    self.deployment_baseline["latency_seconds"],
+                    "baseline.latency_seconds",
+                )
+                latency_gain = (
+                    0.0
+                    if baseline_latency <= 0
+                    else (baseline_latency - candidate_latency) / baseline_latency
+                )
+                max_ram = constraints.get("max_ram_bytes")
+                max_vram = constraints.get("max_vram_bytes")
+                min_latency_gain = constraints.get("min_latency_gain_ratio")
                 passed = quality_delta <= allowed
+                peak_ram = self.deployment["peak_ram_bytes"]
+                if isinstance(max_ram, int) and (
+                    not isinstance(peak_ram, int) or peak_ram > max_ram
+                ):
+                    passed = False
+                peak_vram = self.deployment["peak_vram_bytes"]
+                if isinstance(max_vram, int) and (
+                    not isinstance(peak_vram, int) or peak_vram > max_vram
+                ):
+                    passed = False
+                if isinstance(min_latency_gain, (int, float)) and latency_gain < float(
+                    min_latency_gain
+                ):
+                    passed = False
+                disk_bytes = self.deployment["disk_bytes"]
+                if (
+                    not isinstance(disk_bytes, int)
+                    or disk_bytes > self.plan.budget.max_artifact_bytes
+                ):
+                    passed = False
+                self.deployment_constraints_passed = passed
+                deployment_evidence = {
+                    "baseline": dict(self.deployment_baseline),
+                    "candidate": dict(self.deployment),
+                    "candidate_quality": dict(candidate_quality),
+                    "quality_delta": quality_delta,
+                    "latency_gain_ratio": latency_gain,
+                }
                 return self._result(
                     stage,
-                    json.dumps(
-                        {"deployment": dict(self.deployment), "quality_delta": quality_delta},
-                        sort_keys=True,
-                    ),
+                    json.dumps(deployment_evidence, sort_keys=True),
                     measured=True,
                     constraints_passed=passed,
                     artifact_digest=self.artifact_digest,
@@ -500,10 +751,26 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     return self._unsupported(
                         stage, "no measured feasible artifact is available for Pareto publication"
                     )
+                if self.deployment_constraints_passed is not True:
+                    return self._unsupported(
+                        stage,
+                        "deployment measurements did not satisfy every declared hard constraint",
+                    )
+                if self.deployment is None or self.deployment_baseline is None:
+                    return self._unsupported(
+                        stage, "Pareto publication requires retained deployment evidence"
+                    )
                 return self._result(
                     stage,
-                    "one measured feasible HF artifact selected on quality and "
-                    "physical parameter reduction",
+                    json.dumps(
+                        {
+                            "selection": "one measured feasible HF artifact selected on "
+                            "quality and physical parameter reduction",
+                            "baseline_deployment": dict(self.deployment_baseline),
+                            "candidate_deployment": dict(self.deployment),
+                        },
+                        sort_keys=True,
+                    ),
                     measured=True,
                     constraints_passed=True,
                     artifact_digest=self.artifact_digest,

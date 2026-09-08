@@ -40,6 +40,7 @@ jobs:
       - run: >-
           uv run pytest
           tests/test_hf_mlp_proof_integration.py
+          tests/test_first_party_optimize_runtime.py
           tests/test_surgeon_mlp_integration.py
           -q
 
