@@ -161,6 +161,15 @@ from .isolation import (
     redact_secret_text,
     redact_untrusted_value,
 )
+from .journey import (
+    JOURNEY_SCHEMA_VERSION,
+    ConversationalJourney,
+    JourneyContext,
+    JourneyError,
+    JourneyOutcome,
+    JourneyPhase,
+    JourneyResponse,
+)
 from .local_gguf import (
     LOCAL_GGUF_PROVIDER_REVISION,
     LOCAL_GGUF_STRUCTURED_SCHEMA,
@@ -322,6 +331,7 @@ __all__ = [
     "ENDPOINT_ADAPTER_SCHEMA_VERSION",
     "EVIDENCE_QUERY_SCHEMA_VERSION",
     "EVIDENCE_SNAPSHOT_SCHEMA_VERSION",
+    "JOURNEY_SCHEMA_VERSION",
     "LOCAL_GGUF_PROVIDER_REVISION",
     "LOCAL_GGUF_STRUCTURED_SCHEMA",
     "MAX_EVIDENCE_QUERY_BYTES",
@@ -398,6 +408,7 @@ __all__ = [
     "ConversationSummaryOutcome",
     "ConversationSummaryResult",
     "ConversationTranscriptEntry",
+    "ConversationalJourney",
     "EndpointAdapterError",
     "EndpointConfig",
     "EndpointHttpRequest",
@@ -433,6 +444,11 @@ __all__ = [
     "InterpretIntentRequest",
     "InterpretationStep",
     "IsolationFailure",
+    "JourneyContext",
+    "JourneyError",
+    "JourneyOutcome",
+    "JourneyPhase",
+    "JourneyResponse",
     "LocalGGUFProvider",
     "LocalGGUFProviderConfig",
     "LocalGGUFProviderError",

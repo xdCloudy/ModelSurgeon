@@ -18,6 +18,7 @@ from modelsurgeon.adapters.huggingface import (
 )
 from modelsurgeon.cli.benchmark import benchmark_app
 from modelsurgeon.cli.calibration import calibrate_command
+from modelsurgeon.cli.campaign import campaign_app
 from modelsurgeon.cli.chat import chat_command
 from modelsurgeon.cli.dataset import generate_dataset_command
 from modelsurgeon.cli.experiment import (
@@ -217,6 +218,7 @@ app.command("chat")(chat_command)
 app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")
 app.add_typer(benchmark_app, name="benchmark")
+app.add_typer(campaign_app, name="campaign")
 app.add_typer(provider_app, name="provider")
 app.add_typer(setup_app, name="setup")
 
