@@ -15,6 +15,12 @@
     GGUF providers without requiring an extra budget override. The lower
     programmatic session default remains available for constrained providers.
 
+  - Added the explicit `modelsurgeon.optimization.execute_first_party_optimize`
+    Python boundary. It builds the same plan as the CLI, selects the real
+    format-aware first-party runtime, and preserves approval, resumability,
+    source immutability, and canonical evidence through the existing
+    orchestrator.
+
   - Added a revision-pinned task-quality acceptance campaign path. The runner
     now accepts a local JSONL code benchmark, records its digest and revision,
     and retains real baseline/candidate task scores alongside physical search

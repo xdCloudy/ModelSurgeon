@@ -20,8 +20,10 @@ from modelsurgeon.optimization import (
     OptimizeOutcome,
     OptimizePlanError,
     build_optimize_plan,
+    execute_first_party_optimize,
     write_optimize_plan,
 )
+from modelsurgeon.optimization_orchestrator import WorkflowStatus
 
 
 def _settings(**overrides: object) -> Settings:
@@ -125,6 +127,24 @@ def test_plan_artifact_is_not_overwritten_by_default(tmp_path: Path) -> None:
     assert json.loads(path.read_text(encoding="utf-8"))["plan_id"] == plan.plan_id
     with pytest.raises(OptimizePlanError, match="overwrite"):
         write_optimize_plan(path, plan)
+
+
+def test_python_execution_boundary_is_approval_gated_without_source_mutation(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source-model"
+    source.mkdir()
+    state = tmp_path / "campaign.json"
+
+    run = execute_first_party_optimize(
+        Settings(model=ModelConfig(path=str(source), revision="sha256:source")),
+        state,
+    )
+
+    assert run.status is WorkflowStatus.PAUSED
+    assert run.outcome.value == OptimizeOutcome.UNKNOWN.value
+    assert state.is_file()
+    assert tuple(source.iterdir()) == ()
 
 
 def test_cli_dry_run_emits_json_without_creating_artifacts(tmp_path: Path) -> None:

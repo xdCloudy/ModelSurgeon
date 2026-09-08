@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from modelsurgeon.adapters import ModelFormat
 from modelsurgeon.config import Settings
 from modelsurgeon.experiments.identity import canonical_identity_json
+
+if TYPE_CHECKING:
+    from modelsurgeon.optimization_orchestrator import OptimizeRun
 
 OPTIMIZE_PLAN_SCHEMA_VERSION = 1
 
@@ -617,6 +621,54 @@ def write_optimize_plan(path: Path, plan: OptimizePlan, *, allow_overwrite: bool
     path.write_text(plan.canonical_json() + "\n", encoding="utf-8", newline="\n")
 
 
+def execute_first_party_optimize(
+    settings: Settings,
+    state_path: str | Path,
+    *,
+    preset: str | OptimizePreset = OptimizePreset.BALANCED,
+    hardware_profile: str = "cpu-small",
+    quality_profile: str = "balanced",
+    resume: bool = False,
+    approvals: Sequence[str] = (),
+    overrides: Mapping[str, str] | None = None,
+    approval_expires_at: str | None = None,
+    operator_id: str = "python",
+    operator_context: Mapping[str, str] | None = None,
+    approval_reuse: Mapping[str, str] | None = None,
+) -> OptimizeRun:
+    """Execute a real first-party campaign from the structured Python API.
+
+    Planning remains available through :func:`build_optimize_plan`. This
+    helper is the explicit execution boundary for Python callers: it resolves
+    the same plan used by the CLI, constructs the format-aware first-party
+    runtime, and routes execution through the approval-bound, resumable
+    orchestrator. Missing approvals therefore return a durable paused run
+    without loading or mutating the source model.
+    """
+
+    from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
+    from modelsurgeon.optimization_orchestrator import OptimizeOrchestrator
+
+    plan = build_optimize_plan(
+        settings,
+        preset=preset,
+        hardware_profile=hardware_profile,
+        quality_profile=quality_profile,
+        dry_run=False,
+    )
+    runtime = build_first_party_optimize_runtime(plan)
+    return OptimizeOrchestrator(plan, state_path).run(
+        runtime,
+        resume=resume,
+        approvals=approvals,
+        overrides=overrides,
+        approval_expires_at=approval_expires_at,
+        operator_id=operator_id,
+        operator_context=operator_context,
+        approval_reuse=approval_reuse,
+    )
+
+
 __all__ = [
     "OPTIMIZE_PLAN_SCHEMA_VERSION",
     "HardwareProfile",
@@ -632,5 +684,6 @@ __all__ = [
     "available_hardware_profiles",
     "available_quality_profiles",
     "build_optimize_plan",
+    "execute_first_party_optimize",
     "write_optimize_plan",
 ]
