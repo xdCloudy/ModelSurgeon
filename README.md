@@ -78,9 +78,11 @@ The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
-The first fresh multi-family first-party acceptance tranche is retained in the
+Fresh revision-pinned first-party acceptance evidence is retained in the
 [HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v1.json).
-It covers pinned tiny Llama and Mistral checkpoints on CPU; it is evidence for
+It covers pinned tiny Llama and Mistral checkpoints plus a pretrained
+SmolLM-135M CPU cell. A pretrained TinyLlama cell and an unsupported GPT-2
+cell are also retained as honest fail-closed outcomes. This is evidence for
 the bounded path, not a production-scale or task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
@@ -93,7 +95,7 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face path with configurable gated-MLP-channel, attention-head, and transformer-layer scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization with a first-party reloadable artifact manifest, complete self-contained child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; low-rank and GGUF remain explicit unsupported/not-connected boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. The first-party Hugging Face path records candidate measurements in `measured-candidate-frontier.sqlite` and fails closed at Pareto publication when a declared objective is not measured by the runtime. |
-| Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
+| Physical HF surgery | **Experimental** | Library-level layer, attention-head, gated-MLP, and low-rank edits have shape, parameter, save, and reload checks. The connected first-party optimizer currently publishes and evaluates gated-MLP-channel, attention-head, and transformer-layer children; low-rank remains an explicit not-connected boundary there. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
@@ -114,6 +116,9 @@ Measured evidence currently includes:
 - a leakage-free **3,000-mutation First Surgeon** campaign on SmolLM2-135M;
 - active-learning, uncertainty, transfer, pruning-baseline, and iterative-search studies;
 - real HF and native-GGUF physical mutation and repair runs; and
+- revision-pinned first-party acceptance cells on tiny Llama/Mistral and
+  pretrained SmolLM-135M, including retained unsupported/resource-negative
+  outcomes; and
 - a **134.5M–7.25B** consumer-hardware ladder on Windows with an RTX 3060 12 GB and 64 GB RAM.
 
 The results include negative findings where a learned policy or repair did not beat the declared baseline. Start with the [v1.0 scientific results and limitations](docs/research/v1.0-scientific-results.md), [research index](docs/research/README.md), [First Surgeon evidence](docs/research/v0.5-first-surgeon-evidence.md), and [consumer scale evidence](docs/research/v0.8-consumer-scale-evidence.md).
