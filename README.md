@@ -94,7 +94,9 @@ found no quality-feasible candidate are also retained as honest fail-closed
 outcomes. A separate [attention-head acceptance tranche](docs/research/first-party-hf-acceptance-evidence-v4.json)
 exercised that scope on Qwen2.5-0.5B and SmolLM2-135M and retained both
 strict-gate failures without promoting an artifact. This is evidence for the
-bounded path, not a production-scale or task-quality claim.
+bounded path, not a production-scale or task-quality claim. The corresponding
+[transformer-layer tranche](docs/research/first-party-hf-acceptance-evidence-v5.json)
+also retained strict-gate failures without promotion.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 
