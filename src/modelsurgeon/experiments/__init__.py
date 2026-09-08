@@ -104,6 +104,14 @@ from modelsurgeon.experiments.migrations import (
     migration_backup_guidance,
     open_experiment_database,
 )
+from modelsurgeon.experiments.optimization_evidence import (
+    OPTIMIZATION_EVIDENCE_SCHEMA_VERSION,
+    OptimizationEvidenceError,
+    OptimizationEvidenceOutcome,
+    OptimizationEvidenceRecord,
+    OptimizationEvidenceStore,
+    PublishedOptimizationEvidence,
+)
 from modelsurgeon.experiments.optimization_package import (
     APPROVAL_SCHEMA_VERSION,
     OPTIMIZATION_PACKAGE_SCHEMA_VERSION,
@@ -292,6 +300,7 @@ __all__ = [
     "MIN_PROBE_REPETITIONS",
     "MIN_PROBE_WARMUPS",
     "MUTATION_EXAMPLE_SCHEMA_VERSION",
+    "OPTIMIZATION_EVIDENCE_SCHEMA_VERSION",
     "OPTIMIZATION_PACKAGE_SCHEMA_VERSION",
     "PRECISION_CAPABILITY_SOURCE",
     "PRECISION_POLICY_VERSION",
@@ -387,6 +396,10 @@ __all__ = [
     "ModelTarget",
     "MutationExampleRecord",
     "OperationMemoryEstimates",
+    "OptimizationEvidenceError",
+    "OptimizationEvidenceOutcome",
+    "OptimizationEvidenceRecord",
+    "OptimizationEvidenceStore",
     "OptimizationPackageError",
     "PackageVerification",
     "PackageVerificationStatus",
@@ -411,6 +424,7 @@ __all__ = [
     "PromotionDecision",
     "PromotionOutcome",
     "PublishedArtifactReference",
+    "PublishedOptimizationEvidence",
     "QuantizationControl",
     "QuantizationControlKind",
     "RejectedMemoryMode",

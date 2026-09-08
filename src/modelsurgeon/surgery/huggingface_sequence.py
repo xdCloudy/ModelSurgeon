@@ -104,6 +104,7 @@ class HuggingFaceCumulativeRun:
     failed_index: int | None
     failure_reason: str | None
     final_model: Any
+    failed_mutation_id: str | None = None
     failed_evaluation: Mapping[str, object] | None = None
     schema_version: int = HUGGINGFACE_CUMULATIVE_SCHEMA_VERSION
 
@@ -123,6 +124,7 @@ class HuggingFaceCumulativeRun:
             "reconciliation": self.reconciliation.to_record(),
             "failed_index": self.failed_index,
             "failure_reason": self.failure_reason,
+            "failed_mutation_id": self.failed_mutation_id,
             "failed_evaluation": (
                 None if self.failed_evaluation is None else dict(self.failed_evaluation)
             ),
@@ -287,6 +289,7 @@ def run_huggingface_cumulative_sequence(
     parent_id: str | None = None
     failed_index: int | None = None
     failure_reason: str | None = None
+    failed_mutation_id: str | None = None
     failed_evaluation: Mapping[str, object] | None = None
     cumulative_parameter_delta = 0
     cumulative_storage_delta = 0
@@ -341,6 +344,7 @@ def run_huggingface_cumulative_sequence(
             _remove_child(child)
             failed_index = index
             failure_reason = str(error) or error.__class__.__name__
+            failed_mutation_id = edit.mutation_id
             break
         stages.append(
             HuggingFaceStageEvidence(
@@ -379,6 +383,7 @@ def run_huggingface_cumulative_sequence(
         failed_index,
         failure_reason,
         accepted_model,
+        failed_mutation_id,
         failed_evaluation,
     )
 
