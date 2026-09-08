@@ -85,8 +85,8 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, bounded cumulative physical resize with one child artifact per accepted step, complete child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
-| Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face gated-MLP channel path: measured baseline, seeded candidates, optional signed Meta-Surgeon ranking from real pre-mutation features, bounded cumulative physical resize with one child artifact per accepted step, complete child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; GGUF, repair, and quantization cells remain explicit unsupported/not-requested boundaries. |
+| Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
@@ -326,7 +326,14 @@ The default executor currently requires a local UTF-8 calibration text file and
 an adapter-supported gated-MLP Hugging Face model. Use `--runtime
 module:factory` only when supplying a separately reviewed runtime for another
 cell; the default path never substitutes metadata or synthetic benchmark values
-for model measurements.
+for model measurements. An optional signed Meta-Surgeon bundle can guide
+candidate ordering by adding `surgeon.registry_root`, `surgeon.card_digest`,
+and `surgeon.signing_env` to the resolved configuration. The signing secret is
+read only from that environment variable; predictions are retained as guidance
+evidence, while physical evaluation decides selection and records measured
+regret against magnitude, random, and no-guidance orderings. Equal-budget
+held-out transfer comparisons across model families and hardware are still
+experimental and are not implied by enabling this option.
 
 Repeat with `--resume` after an interruption. The verified Hugging Face path
 rehydrates its selected candidate, published cumulative child, and deployment
