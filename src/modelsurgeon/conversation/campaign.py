@@ -188,10 +188,16 @@ class CanonicalCampaignRecorder:
     ) -> None:
         if not preview.executable or preview.spec is None or preview.spec_identity is None:
             raise CampaignStateError("canonical campaign recording requires an executable preview")
+        if preview.policy_decision is None or not preview.policy_decision.executable:
+            raise CampaignStateError(
+                "canonical campaign recording requires an executable policy decision"
+            )
+        assert preview.policy_decision is not None
         self.path = Path(path)
         self.session_id = _text(session_id, "campaign session ID")
         self.plan = plan
         self.preview = preview
+        self.policy_decision = preview.policy_decision
         self.provider_context = {} if provider_context is None else dict(provider_context)
         self.approval_id = approval_id
         self.recorded_by = _text(recorded_by, "campaign recorder")
@@ -317,6 +323,7 @@ class CanonicalCampaignRecorder:
                 "plan": _plan_context(self.plan),
                 "hard_constraints": [dict(item) for item in self.preview.hard_constraints],
                 "provenance": dict(self.preview.provenance),
+                "policy_precedence": self.policy_decision.to_record(),
             },
             provider_context=self.provider_context,
             budget=CampaignBudget(
@@ -360,6 +367,8 @@ class CanonicalCampaignRecorder:
                 or plan_context.get("plan_id") != self.plan.plan_id
                 or current.approval.plan_id != self.plan.plan_id
                 or current.approval.plan_digest != "sha256:" + plan_digest(self.plan)
+                or current.policy_state.get("policy_precedence")
+                != self.policy_decision.to_record()
             ):
                 raise CampaignStateError("campaign identity or policy provenance has drifted")
             return current

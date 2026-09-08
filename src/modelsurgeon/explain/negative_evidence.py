@@ -28,6 +28,13 @@ from modelsurgeon.conversation.evidence_query import (
     EvidenceUncertainty,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.policy import (
+    PolicyCandidate,
+    PolicyDecision,
+    PolicyOutcome,
+    PolicySource,
+    resolve_policy,
+)
 
 NEGATIVE_EVIDENCE_EXPLANATION_SCHEMA_VERSION = 1
 
@@ -431,6 +438,7 @@ class NegativeEvidenceReport:
     missing_fields: tuple[str, ...]
     unavailable_fields: tuple[str, ...]
     report_id: str = ""
+    policy_decision: PolicyDecision | None = None
 
     def __post_init__(self) -> None:
         _text(self.query_id, "negative evidence query ID")
@@ -874,6 +882,41 @@ def _explanation(record: object) -> NegativeEvidenceExplanation:
 def build_negative_evidence_report(response: EvidenceQueryResponse) -> NegativeEvidenceReport:
     """Build a deterministic report from one canonical #475 response."""
 
+    evidence_outcome = (
+        PolicyOutcome.ALLOW
+        if response.status is EvidenceQueryStatus.COMPLETE and not response.missing_fields
+        else PolicyOutcome.UNKNOWN
+    )
+    policy_decision = resolve_policy(
+        "negative-evidence-explanation",
+        (
+            PolicyCandidate(
+                PolicySource.HARD_CONSTRAINTS,
+                PolicyOutcome.UNKNOWN,
+                "the negative-evidence query does not authorize constraint changes",
+            ),
+            PolicyCandidate(
+                PolicySource.VALIDATED_SPEC,
+                PolicyOutcome.UNKNOWN,
+                "no new executable specification is emitted by an explanation",
+            ),
+            PolicyCandidate(
+                PolicySource.EVIDENCE_STATUS,
+                evidence_outcome,
+                "incomplete or unavailable evidence remains explicitly non-executable",
+            ),
+            PolicyCandidate(
+                PolicySource.PROMPT,
+                PolicyOutcome.ALLOW,
+                "prompt text cannot turn negative evidence into acceptance",
+            ),
+            PolicyCandidate(
+                PolicySource.PROVIDER,
+                PolicyOutcome.ALLOW,
+                "provider text cannot replace the canonical evidence query",
+            ),
+        ),
+    )
     return NegativeEvidenceReport(
         response.query.query_id,
         response.snapshot.snapshot_id,
@@ -882,6 +925,7 @@ def build_negative_evidence_report(response: EvidenceQueryResponse) -> NegativeE
         tuple(_explanation(item.to_record()) for item in response.records),
         response.missing_fields,
         response.unavailable_fields,
+        policy_decision=policy_decision,
     )
 
 

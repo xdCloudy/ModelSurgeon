@@ -28,6 +28,7 @@ from modelsurgeon.conversation import (
     IntentProvenance,
     IntentRecord,
 )
+from modelsurgeon.policy import PolicyDecision
 
 from .intent_compiler import (
     CompilerDiagnostic,
@@ -182,6 +183,7 @@ class IntentPolicyDecision:
     provenance: IntentProvenance
     compilation: IntentCompilation
     schema_version: int = INTENT_POLICY_SCHEMA_VERSION
+    precedence: PolicyDecision | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != INTENT_POLICY_SCHEMA_VERSION:
@@ -200,6 +202,8 @@ class IntentPolicyDecision:
             raise IntentPolicyError("executable policy decision requires a contract")
         if self.outcome is not IntentOutcome.EXECUTABLE and self.contract is not None:
             raise IntentPolicyError("non-executable policy decision cannot contain a contract")
+        if self.precedence is not None and self.precedence.operation != "intent-compilation":
+            raise IntentPolicyError("intent precedence decision has the wrong operation")
 
     @property
     def contract(self) -> ObjectiveContract | None:
@@ -210,6 +214,12 @@ class IntentPolicyDecision:
     @property
     def executable(self) -> bool:
         return self.outcome is IntentOutcome.EXECUTABLE
+
+    @property
+    def policy_decision(self) -> PolicyDecision | None:
+        """Shared precedence decision retained beside the intent policy view."""
+
+        return self.precedence
 
     @property
     def decision_id(self) -> str:
@@ -387,6 +397,7 @@ class IntentPolicyEvaluator:
             ambiguities,
             intent.provenance,
             compiled,
+            precedence=compiled.policy_decision,
         )
 
 

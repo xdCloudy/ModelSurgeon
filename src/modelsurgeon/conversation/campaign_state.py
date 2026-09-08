@@ -23,6 +23,7 @@ from typing import Self, cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.optimization_package import ApprovalAuditRecord, ApprovalReuse
+from modelsurgeon.policy import PolicyDecision, PolicyDecisionError
 
 CAMPAIGN_STATE_SCHEMA_VERSION = 1
 CAMPAIGN_STATE_DB_SCHEMA_VERSION = 1
@@ -564,6 +565,16 @@ class CampaignState:
         object.__setattr__(
             self, "policy_state", _mapping(self.policy_state, "campaign policy state")
         )
+        raw_policy = self.policy_state.get("policy_precedence")
+        if raw_policy is not None:
+            try:
+                policy = PolicyDecision.from_record(raw_policy)
+            except PolicyDecisionError as error:
+                raise CampaignStateError("campaign policy precedence is malformed") from error
+            if not policy.executable:
+                raise CampaignStateError(
+                    "campaign state cannot be created from a non-executable policy decision"
+                )
         object.__setattr__(
             self, "provider_context", _mapping(self.provider_context, "provider context")
         )
@@ -582,6 +593,18 @@ class CampaignState:
     @property
     def hard_constraints(self) -> tuple[Mapping[str, object], ...]:
         return self.spec.hard_constraints
+
+    @property
+    def policy_decision(self) -> PolicyDecision | None:
+        """Return the persisted centralized policy decision, when present."""
+
+        raw = self.policy_state.get("policy_precedence")
+        if raw is None:
+            return None
+        try:
+            return PolicyDecision.from_record(raw)
+        except PolicyDecisionError as error:
+            raise CampaignStateError("campaign policy precedence is malformed") from error
 
     def to_record(self, *, include_transition: bool = True) -> dict[str, object]:
         record: dict[str, object] = {

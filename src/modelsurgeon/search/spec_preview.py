@@ -18,6 +18,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, cast
 
 from modelsurgeon.conversation import IntentField, IntentOutcome, IntentRecord
+from modelsurgeon.policy import PolicyDecision
 
 from .intent_policy import IntentPolicyDecision, PolicyDiagnostic, evaluate_intent_policy
 
@@ -238,6 +239,7 @@ class SpecPreview:
     approval_required: bool
     diff: SpecDiff | None = None
     schema_version: int = SPEC_PREVIEW_SCHEMA_VERSION
+    policy_decision: PolicyDecision | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != SPEC_PREVIEW_SCHEMA_VERSION:
@@ -258,6 +260,11 @@ class SpecPreview:
             raise SpecPreviewError("non-executable preview cannot expose a spec")
         if self.unresolved_fields != tuple(sorted(set(self.unresolved_fields))):
             raise SpecPreviewError("unresolved fields must be sorted and unique")
+        if self.policy_decision is not None:
+            if self.policy_decision.operation != "intent-compilation":
+                raise SpecPreviewError("preview policy decision has the wrong operation")
+            if self.outcome is IntentOutcome.EXECUTABLE and not self.policy_decision.executable:
+                raise SpecPreviewError("executable preview requires an allow policy decision")
 
     @property
     def executable(self) -> bool:
@@ -423,6 +430,7 @@ def build_spec_preview(
         selected.diagnostics,
         provenance,
         False if contract is None else contract.approval_policy.require_execution_approval,
+        policy_decision=selected.precedence,
     )
     if previous is None:
         return current
@@ -442,6 +450,7 @@ def build_spec_preview(
         current.provenance,
         current.approval_required,
         diff_spec_previews(previous, current),
+        policy_decision=current.policy_decision,
     )
 
 

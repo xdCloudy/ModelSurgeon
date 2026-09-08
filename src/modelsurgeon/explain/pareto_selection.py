@@ -34,6 +34,13 @@ from modelsurgeon.explain.pareto_alternatives import (
     ParetoResourceBounds,
     build_pareto_alternatives,
 )
+from modelsurgeon.policy import (
+    PolicyCandidate,
+    PolicyDecision,
+    PolicyOutcome,
+    PolicySource,
+    resolve_policy,
+)
 from modelsurgeon.search.objective_contract import (
     ConstraintDirection,
     ObjectiveContract,
@@ -228,6 +235,7 @@ class ParetoSelectionExplanation:
     provenance: FeasibilityProvenance
     schema_version: int = PARETO_SELECTION_EXPLANATION_SCHEMA_VERSION
     resource_usage_output_bytes: int = 0
+    policy_decision: PolicyDecision | None = None
 
     def __post_init__(self) -> None:
         _text(self.contract_id, "selection contract ID")
@@ -291,6 +299,9 @@ class ParetoSelectionExplanation:
             "rationale": self.rationale,
             "provenance": self.provenance.to_record(),
             "resource_usage_output_bytes": self.resource_usage_output_bytes,
+            "policy_decision": (
+                None if self.policy_decision is None else self.policy_decision.to_record()
+            ),
         }
 
     @property
@@ -783,6 +794,46 @@ def build_pareto_selection_explanation(
         approval_id=approval_id,
         selected_via_final_evidence=selected_via_final_evidence,
     )
+    policy_decision = resolve_policy(
+        "pareto-explanation",
+        (
+            PolicyCandidate(
+                PolicySource.HARD_CONSTRAINTS,
+                PolicyOutcome.ALLOW if selected is not None else PolicyOutcome.DENY,
+                "measured hard-constraint qualification is binding before soft trade-offs",
+            ),
+            PolicyCandidate(
+                PolicySource.VALIDATED_SPEC,
+                PolicyOutcome.ALLOW,
+                "the explanation is bound to the validated objective contract",
+            ),
+            PolicyCandidate(
+                PolicySource.APPROVAL_POLICY,
+                PolicyOutcome.ALLOW,
+                "approval metadata is retained but cannot change measured qualification",
+            ),
+            PolicyCandidate(
+                PolicySource.TOOL_CAPABILITY,
+                PolicyOutcome.ALLOW,
+                "only canonical evidence reached the explanation boundary",
+            ),
+            PolicyCandidate(
+                PolicySource.EVIDENCE_STATUS,
+                PolicyOutcome.ALLOW if selected is not None else PolicyOutcome.UNKNOWN,
+                "evidence status is explicit and incomplete evidence is not promoted",
+            ),
+            PolicyCandidate(
+                PolicySource.PROMPT,
+                PolicyOutcome.ALLOW,
+                "prompt wording cannot select an unqualified candidate",
+            ),
+            PolicyCandidate(
+                PolicySource.PROVIDER,
+                PolicyOutcome.ALLOW,
+                "provider text cannot override canonical evidence",
+            ),
+        ),
+    )
     result = ParetoSelectionExplanation(
         contract.contract_id,
         identity,
@@ -802,6 +853,7 @@ def build_pareto_selection_explanation(
         rule,
         rationale,
         pareto.provenance,
+        policy_decision=policy_decision,
     )
     for _ in range(3):
         output_bytes = len(canonical_identity_json(result.to_record()).encode("utf-8"))
