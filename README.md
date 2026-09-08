@@ -81,9 +81,10 @@ and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 Fresh revision-pinned first-party acceptance evidence is retained in the
 [HF acceptance evidence record](docs/research/first-party-hf-acceptance-evidence-v1.json).
 It covers pinned tiny Llama and Mistral checkpoints plus a pretrained
-SmolLM-135M CPU cell. A pretrained TinyLlama cell and an unsupported GPT-2
-cell are also retained as honest fail-closed outcomes. This is evidence for
-the bounded path, not a production-scale or task-quality claim.
+SmolLM-135M CPU cell. A pretrained TinyLlama cell, an unsupported GPT-2 cell,
+and a rank-1 low-rank tranche that found no quality-feasible candidate are also
+retained as honest fail-closed outcomes. This is evidence for the bounded
+path, not a production-scale or task-quality claim.
 The current line-by-line implementation audit against the north-star goal is
 kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.md).
 

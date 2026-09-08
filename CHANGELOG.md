@@ -8,6 +8,11 @@
     reconstructing the declared wrappers, measured again, and accepted or
     rejected through the existing quality, smoke, lineage, and rollback gates.
 
+  - Added an explicit search-scope contract to the first-party acceptance
+    campaign tool and retained an independent rank-1 low-rank tranche across
+    tiny Llama and Mistral cells. Both cells measured candidates and failed
+    closed under the strict quality gate; neither was promoted as a success.
+
   - Connected the first-party Hugging Face optimizer to a bounded CPU-scoped
     dynamic-int8 quantization path. Quantized candidates are physically
     evaluated, published as reloadable safe-tensors artifacts with a
