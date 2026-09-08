@@ -572,12 +572,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 model = proof._model_target.to_record()
                 dataset = proof._dataset.to_record()
                 hardware = dict(proof._hardware.to_record())
-                run_id = proof.run_id
+                proof_run_id: str | None = proof.run_id
+                run_id = self.campaign_run_id or proof_run_id or (
+                    "runtime_" + hashlib.sha256(self.plan.plan_id.encode()).hexdigest()
+                )
             else:
                 resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
                 model = _mapping(resolved_config.get("model"), "model")
                 dataset = _mapping(resolved_config.get("calibration"), "calibration")
                 hardware = {}
+                proof_run_id = None
                 run_id = "runtime_" + hashlib.sha256(self.plan.plan_id.encode()).hexdigest()
             hardware["runtime_inventory"] = dict(self._runtime_hardware_record())
             failure = {
@@ -607,6 +611,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "runtime": "first_party_hf_physical_search",
                     "config_digest": self.plan.config_digest,
                     "plan_digest": self.plan.plan_id,
+                    "proof_run_id": proof_run_id,
                     "evidence_schema_version": 1,
                 },
                 lineage={"boundary": True, "reason": reason},
@@ -655,8 +660,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         lineage: Mapping[str, object] | None = None,
     ) -> Mapping[str, object]:
         proof = self._ensure_loaded()
+        evidence_run_id = self.campaign_run_id or proof.run_id
         identity = {
-            "run_id": proof.run_id,
+            "run_id": evidence_run_id,
+            "proof_run_id": proof.run_id,
             "stage": stage,
             "state_id": state_id,
             "candidate_id": candidate_id,
@@ -674,7 +681,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             resolved_lineage["feature_cache"] = dict(feature_cache)
         record = OptimizationEvidenceRecord(
             observation_id=observation_id,
-            run_id=proof.run_id,
+            run_id=evidence_run_id,
             stage=stage,
             state_id=state_id,
             outcome=outcome,
@@ -688,6 +695,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "runtime": "first_party_hf_physical_search",
                 "config_digest": self.plan.config_digest,
                 "plan_digest": self.plan.plan_id,
+                "proof_run_id": proof.run_id,
                 "source_artifact_digest": self.source_digest,
                 "evidence_schema_version": 1,
             },
