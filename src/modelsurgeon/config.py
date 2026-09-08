@@ -208,6 +208,8 @@ class ProviderConfig(StrictConfigModel):
     provider_id: str = "none"
     model_id: str = "none"
     model_revision: str = "none"
+    model_path: Path | None = None
+    runtime_revision: str | None = None
     endpoint: str | None = None
     api_key_env: str | None = None
     request_timeout_seconds: float = Field(default=30.0, gt=0.0, le=3600.0)
@@ -219,6 +221,13 @@ class ProviderConfig(StrictConfigModel):
     def reject_blank_identity_values(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("provider identity values cannot be blank")
+        return value
+
+    @field_validator("runtime_revision")
+    @classmethod
+    def reject_blank_runtime_revision(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("runtime_revision cannot be blank")
         return value
 
     @field_validator("endpoint")
@@ -255,6 +264,8 @@ class ProviderConfig(StrictConfigModel):
                 self.provider_id != "none"
                 or self.model_id != "none"
                 or self.model_revision != "none"
+                or self.model_path is not None
+                or self.runtime_revision is not None
                 or self.endpoint is not None
                 or self.api_key_env is not None
             ):

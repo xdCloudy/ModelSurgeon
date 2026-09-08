@@ -8,7 +8,8 @@ from typing import Annotated
 
 import typer
 
-from modelsurgeon.config_io import ConfigurationFileError, load_settings
+from modelsurgeon.config_io import ConfigurationFileError, discover_settings
+from modelsurgeon.conversation.isolation import redact_secret_text
 from modelsurgeon.provider_kind import ProviderKind
 from modelsurgeon.providers import provider_diagnostics
 
@@ -21,6 +22,8 @@ def _overrides(
     provider_id: str | None,
     provider_model: str | None,
     provider_revision: str | None,
+    provider_model_path: str | None,
+    provider_runtime_revision: str | None,
     provider_endpoint: str | None,
     provider_api_key_env: str | None,
     no_llm: bool,
@@ -31,6 +34,8 @@ def _overrides(
             "provider.provider_id": "none",
             "provider.model_id": "none",
             "provider.model_revision": "none",
+            "provider.model_path": None,
+            "provider.runtime_revision": None,
             "provider.endpoint": None,
             "provider.api_key_env": None,
         }
@@ -39,6 +44,8 @@ def _overrides(
         "provider.provider_id": provider_id,
         "provider.model_id": provider_model,
         "provider.model_revision": provider_revision,
+        "provider.model_path": provider_model_path,
+        "provider.runtime_revision": provider_runtime_revision,
         "provider.endpoint": provider_endpoint,
         "provider.api_key_env": provider_api_key_env,
     }
@@ -55,9 +62,16 @@ def diagnostics_command(
     provider_id: Annotated[str | None, typer.Option("--provider-id")] = None,
     provider_model: Annotated[str | None, typer.Option("--provider-model")] = None,
     provider_revision: Annotated[str | None, typer.Option("--provider-revision")] = None,
+    provider_model_path: Annotated[str | None, typer.Option("--provider-model-path")] = None,
+    provider_runtime_revision: Annotated[
+        str | None, typer.Option("--provider-runtime-revision")
+    ] = None,
     provider_endpoint: Annotated[str | None, typer.Option("--provider-endpoint")] = None,
     provider_api_key_env: Annotated[str | None, typer.Option("--provider-api-key-env")] = None,
     no_llm: Annotated[bool, typer.Option("--no-llm")] = False,
+    offline: Annotated[
+        bool, typer.Option("--offline", help="Do not contact a remote provider")
+    ] = False,
     output_json: Annotated[
         bool,
         typer.Option("--json", help="Emit one JSON diagnostic record"),
@@ -66,13 +80,15 @@ def diagnostics_command(
     """Report provider availability without starting a provider or model."""
 
     try:
-        settings = load_settings(
+        discovery = discover_settings(
             config,
             cli_overrides=_overrides(
                 provider=provider,
                 provider_id=provider_id,
                 provider_model=provider_model,
                 provider_revision=provider_revision,
+                provider_model_path=provider_model_path,
+                provider_runtime_revision=provider_runtime_revision,
                 provider_endpoint=provider_endpoint,
                 provider_api_key_env=provider_api_key_env,
                 no_llm=no_llm,
@@ -83,15 +99,22 @@ def diagnostics_command(
             "record_type": "error",
             "category": "provider_configuration",
             "code": getattr(error, "code", "invalid_configuration"),
-            "message": str(error),
+            "message": redact_secret_text(str(error)),
         }
         if output_json:
             typer.echo(json.dumps(payload, sort_keys=True), err=True)
         else:
-            typer.echo(f"provider configuration error [{payload['code']}]: {error}", err=True)
+            typer.echo(
+                f"provider configuration error [{payload['code']}]: {payload['message']}",
+                err=True,
+            )
         raise typer.Exit(2) from error
 
-    diagnostic = provider_diagnostics(settings)
+    diagnostic = provider_diagnostics(
+        discovery.settings,
+        offline=offline,
+        configuration_digest=discovery.configuration_digest,
+    )
     if output_json:
         typer.echo(diagnostic.canonical_json())
     else:

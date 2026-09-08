@@ -27,6 +27,8 @@ def _provider(
     provider_id: str | None,
     model_id: str | None,
     revision: str | None,
+    model_path: Path | None,
+    runtime_revision: str | None,
     endpoint: str | None,
     api_key_env: str | None,
 ) -> ProviderConfig:
@@ -37,6 +39,8 @@ def _provider(
         provider_id=provider_id or "",
         model_id=model_id or "",
         model_revision=revision or "",
+        model_path=model_path,
+        runtime_revision=runtime_revision,
         endpoint=endpoint,
         api_key_env=api_key_env,
     )
@@ -52,6 +56,8 @@ def _request(
     provider_id: str | None,
     provider_model: str | None,
     provider_revision: str | None,
+    provider_model_path: Path | None,
+    provider_runtime_revision: str | None,
     provider_endpoint: str | None,
     provider_api_key_env: str | None,
     create_missing: bool,
@@ -68,6 +74,8 @@ def _request(
             provider_id,
             provider_model,
             provider_revision,
+            provider_model_path,
+            provider_runtime_revision,
             provider_endpoint,
             provider_api_key_env,
         ),
@@ -126,6 +134,10 @@ def diagnostics_command(
     provider_id: Annotated[str | None, typer.Option("--provider-id")] = None,
     provider_model: Annotated[str | None, typer.Option("--provider-model")] = None,
     provider_revision: Annotated[str | None, typer.Option("--provider-revision")] = None,
+    provider_model_path: Annotated[Path | None, typer.Option("--provider-model-path")] = None,
+    provider_runtime_revision: Annotated[
+        str | None, typer.Option("--provider-runtime-revision")
+    ] = None,
     provider_endpoint: Annotated[str | None, typer.Option("--provider-endpoint")] = None,
     provider_api_key_env: Annotated[str | None, typer.Option("--provider-api-key-env")] = None,
     output_json: Annotated[
@@ -144,6 +156,8 @@ def diagnostics_command(
                 provider_id=provider_id,
                 provider_model=provider_model,
                 provider_revision=provider_revision,
+                provider_model_path=provider_model_path,
+                provider_runtime_revision=provider_runtime_revision,
                 provider_endpoint=provider_endpoint,
                 provider_api_key_env=provider_api_key_env,
                 create_missing=False,
@@ -191,6 +205,10 @@ def init_command(
     provider_id: Annotated[str | None, typer.Option("--provider-id")] = None,
     provider_model: Annotated[str | None, typer.Option("--provider-model")] = None,
     provider_revision: Annotated[str | None, typer.Option("--provider-revision")] = None,
+    provider_model_path: Annotated[Path | None, typer.Option("--provider-model-path")] = None,
+    provider_runtime_revision: Annotated[
+        str | None, typer.Option("--provider-runtime-revision")
+    ] = None,
     provider_endpoint: Annotated[str | None, typer.Option("--provider-endpoint")] = None,
     provider_api_key_env: Annotated[str | None, typer.Option("--provider-api-key-env")] = None,
     force: Annotated[
@@ -212,6 +230,8 @@ def init_command(
                 provider_id=provider_id,
                 provider_model=provider_model,
                 provider_revision=provider_revision,
+                provider_model_path=provider_model_path,
+                provider_runtime_revision=provider_runtime_revision,
                 provider_endpoint=provider_endpoint,
                 provider_api_key_env=provider_api_key_env,
                 create_missing=True,

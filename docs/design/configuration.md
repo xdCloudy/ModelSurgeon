@@ -37,6 +37,13 @@ schema defaults < configuration file < environment < CLI overrides
 
 CLI integrations pass dotted overrides such as `hardware.max_vram_gb`; nested siblings are merged rather than erased. Unsupported extensions, non-mapping roots, invalid UTF-8, and parse failures raise `ConfigurationFileError` before schema validation. `dump_resolved_settings()` emits canonical JSON with no secret-bearing schema fields.
 
+`discover_settings()` exposes the same resolved `Settings` object together with
+a value-free, ordered source record (`defaults`, `file`, `environment`, `cli`)
+and a stable configuration digest. Source keys are sorted dotted paths; secret
+values and local paths are not copied into the discovery record. The CLI and
+Python diagnostics use this exact discovery result, so a diagnostic bundle can
+be reproduced without relying on process-global ordering.
+
 ## Canonical form
 
 `Settings.canonical_dict()` converts paths and enums into JSON-compatible values. `canonical_json()` uses sorted keys, compact separators, UTF-8 text, and the explicit `schema_version`. This form is suitable as an input to deterministic run IDs and reproducibility manifests. It does not include secrets because the v1 schema has no secret-bearing fields.
@@ -56,17 +63,22 @@ provider:
 
 `modelsurgeon optimize --no-llm` applies the same settings at the highest
 configuration-precedence level. Provider selection cannot change hard model,
-quality, resource, or safety constraints. Provider endpoints must be absolute
-HTTP(S) URLs without credentials, query strings, or fragments; API keys are
-referenced only by an uppercase environment-variable name and are never
-included in canonical settings.
+quality, resource, or safety constraints. Local selection may additionally set
+`model_path` and `runtime_revision`; remote selection uses `endpoint` and an
+optional `api_key_env` reference. Provider endpoints must be absolute HTTP(S)
+URLs without credentials, query strings, or fragments; API keys are referenced
+only by an uppercase environment-variable name and are never included in
+canonical settings.
 
 Use `modelsurgeon provider diagnostics --json` to inspect the selected mode
-without starting a model or importing an optional adapter. An unavailable
-adapter, missing key, malformed endpoint, or incomplete identity produces a
-stable code and an actionable message. Direct CLI/Python optimization does not
-resolve a provider and therefore remains usable in a clean core-only
-environment.
+without starting a model or contacting a remote endpoint. The record includes
+deterministic configuration discovery, a capability summary, and explicit
+`detected`, `measured`, `configured`, `unsupported`, or `unknown` cells. A
+missing local model/runtime, missing remote key, offline remote selection, or
+unprobed remote capability is retained as a stable negative/unknown result;
+the diagnostic does not substitute a provider or silently downgrade it. Direct
+CLI/Python optimization does not resolve a provider and therefore remains
+usable in a clean core-only environment.
 
 ## First-run data configuration
 

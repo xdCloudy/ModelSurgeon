@@ -21,8 +21,9 @@ from pathlib import Path
 from typing import Final
 
 from modelsurgeon.config import ProviderConfig
+from modelsurgeon.conversation.isolation import redact_secret_text, redact_untrusted_value
 from modelsurgeon.provider_kind import ProviderKind
-from modelsurgeon.providers import provider_diagnostics
+from modelsurgeon.providers import ProviderDiagnosticStatus, provider_diagnostics
 
 SETUP_SCHEMA_VERSION: Final = 1
 DEFAULT_MIN_FREE_BYTES: Final = 1 << 30
@@ -70,13 +71,13 @@ class SetupCheck:
     details: Mapping[str, object]
 
     def to_record(self) -> dict[str, object]:
-        return {
+        return redact_untrusted_value({
             "category": self.category,
             "code": self.code,
             "outcome": self.outcome.value,
-            "message": self.message,
+            "message": redact_secret_text(self.message),
             "details": dict(self.details),
-        }
+        })  # type: ignore[return-value]
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +133,10 @@ class SetupReport:
 
     def canonical_json(self) -> str:
         return json.dumps(
-            self.to_record(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            redact_untrusted_value(self.to_record()),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
         )
 
 
@@ -425,22 +429,31 @@ def _fixture_check(request: SetupRequest) -> SetupCheck:
 
 def _provider_check(request: SetupRequest) -> SetupCheck:
     config = request.provider or ProviderConfig()
-    if request.offline and config.kind is not ProviderKind.NONE:
+    if request.offline and (
+        config.kind in {ProviderKind.COMPATIBLE_ENDPOINT, ProviderKind.HOSTED}
+        or (config.kind is ProviderKind.LOCAL and config.model_path is None)
+    ):
         return _check(
             "provider",
             "offline_provider_disabled",
             SetupOutcome.UNSUPPORTED,
-            "offline mode permits only the explicit no-LLM path; no provider was contacted",
+            "offline mode permits local models with an explicit path or the no-LLM path; "
+            "no remote provider was contacted",
             kind=config.kind.value,
         )
-    diagnostic = provider_diagnostics(config)
+    diagnostic = provider_diagnostics(config, offline=request.offline)
+    details = {
+        "kind": config.kind.value,
+        "capability_state": diagnostic.state.value,
+        "capabilities": [item.to_record() for item in diagnostic.capabilities],
+    }
     if diagnostic.code == "no_llm":
         return _check(
             "provider",
             "no_llm",
             SetupOutcome.SUPPORTED,
             "no conversational provider is selected; direct CLI/Python paths remain available",
-            kind=config.kind.value,
+            **details,
         )
     if diagnostic.code == "missing_api_key":
         return _check(
@@ -448,15 +461,39 @@ def _provider_check(request: SetupRequest) -> SetupCheck:
             diagnostic.code,
             SetupOutcome.UNAVAILABLE,
             diagnostic.message,
-            kind=config.kind.value,
+            **details,
+        )
+    if diagnostic.status is ProviderDiagnosticStatus.SUPPORTED:
+        return _check(
+            "provider",
+            diagnostic.code,
+            SetupOutcome.SUPPORTED,
+            diagnostic.message,
+            **details,
+        )
+    if diagnostic.status is ProviderDiagnosticStatus.UNKNOWN:
+        return _check(
+            "provider",
+            diagnostic.code,
+            SetupOutcome.UNKNOWN,
+            diagnostic.message,
+            **details,
+        )
+    if diagnostic.status is ProviderDiagnosticStatus.FAILED:
+        return _check(
+            "provider",
+            diagnostic.code,
+            SetupOutcome.FAILED,
+            diagnostic.message,
+            **details,
         )
     return _check(
         "provider",
         diagnostic.code,
         SetupOutcome.UNSUPPORTED,
         diagnostic.message,
-        kind=config.kind.value,
         dependency=diagnostic.dependency,
+        **details,
     )
 
 

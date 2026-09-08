@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "issue": 487,
+  "purpose": "Provider selection, configuration discovery, and user-facing diagnostics evidence",
+  "base_revision": "646b45ee31b3b0ad003d681f74de8e44eb05661d",
+  "environment": {
+    "platform": "win32",
+    "python": "3.12.13",
+    "environment_setup": "uv sync --extra dev --locked",
+    "network_policy": "diagnostics and setup smoke paths made no remote provider request"
+  },
+  "validation": [
+    {
+      "command": "uv run --locked --extra dev pytest",
+      "outcome": "supported",
+      "result": "1687 passed, 28 skipped"
+    },
+    {
+      "command": "uv run --locked --extra dev pytest tests/test_provider_configuration.py tests/test_setup.py tests/test_config_io.py -q",
+      "outcome": "supported",
+      "result": "35 passed"
+    },
+    {
+      "command": "uv run --locked --extra dev ruff check .",
+      "outcome": "supported",
+      "result": "All checks passed"
+    },
+    {
+      "command": "uv run --locked --extra dev mypy src",
+      "outcome": "supported",
+      "result": "Success: no issues found in 328 source files"
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "supported",
+      "result": "no whitespace errors"
+    },
+    {
+      "command": "uv run --locked --extra dev python tools/audit_v22_provider_release.py",
+      "outcome": "supported",
+      "result": "v2.2 provider release boundary verified"
+    }
+  ],
+  "clean_environment_smoke": [
+    {
+      "command": "uv run modelsurgeon provider diagnostics --no-llm --json",
+      "outcome": "supported",
+      "result": "status=disabled; state=configured; code=no_llm"
+    },
+    {
+      "command": "uv run modelsurgeon setup init --data-dir .\\work\\issue487-clean-smoke\\offline --fixture tests\\fixtures\\tiny_hf_models_v1.json --offline --min-free-gb 0.000001 --json",
+      "outcome": "supported",
+      "result": "status=ready; fixture_manifest_supported; no_llm; configuration_initialized"
+    },
+    {
+      "command": "uv run modelsurgeon setup diagnostics --data-dir .\\work\\issue487-clean-smoke\\missing --fixture tests\\fixtures\\tiny_hf_models_v1.json --offline --min-free-gb 0.000001 --json",
+      "outcome": "unavailable",
+      "result": "status=needs_attention; missing_data_directory; missing_layout_directories"
+    },
+    {
+      "command": "uv run modelsurgeon provider diagnostics --provider compatible_endpoint --provider-id endpoint --provider-model model --provider-revision revision-1 --provider-endpoint https://provider.example/v1 --provider-api-key-env MODELSURGEON_ISSUE487_KEY --json",
+      "outcome": "unavailable",
+      "result": "status=unavailable; state=configured; code=missing_api_key; no secret value retained"
+    }
+  ],
+  "residual_unsupported_or_unknown_cells": [
+    "The explicit no-LLM provider reports all conversational capabilities as unsupported by design.",
+    "The local adapter's streaming capability remains unsupported; local runtime and licensed GGUF availability were not claimed by this smoke run.",
+    "A configured remote provider remains unknown until a bounded capability probe supplies a matching provider card.",
+    "No hosted-service quality, live endpoint, CUDA, installer, or target-weight support claim is made."
+  ]
+}

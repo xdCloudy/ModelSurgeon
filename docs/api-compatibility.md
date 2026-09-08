@@ -10,6 +10,7 @@ by these namespaces are experimental and may change without a compatibility prom
 | --- | --- |
 | `modelsurgeon.adapters` | Framework-neutral sources, sessions, capability discovery, family detection, and fail-closed competitor execution records. |
 | `modelsurgeon.conversation` | Typed conversational provider records plus experimental fail-closed hosted and compatible endpoint adapters. |
+| `modelsurgeon.providers` | Provider selection, deterministic configuration discovery/capability diagnostics, redacted failures, and no-LLM resolution. |
 | `modelsurgeon.graph` | Canonical component IDs, component graphs, validation, serialization, and remapping. |
 | `modelsurgeon.datasets` | Calibration identities, validated mutation examples, leakage-safe splits, hardware cost examples, profile-partitioned manifests, versioned mutation interaction evidence, and paired repair/recoverability outcomes. |
 | `modelsurgeon.features` | Versioned feature records, bounded primitive extractors, pre-mutation interaction feature contracts, and source-fitted architecture-normalized meta-feature schemas. |
@@ -56,6 +57,11 @@ storage implementation imports are intentionally not stable public API.
   configurations to `provider.kind=none` when the provider block is absent.
   Migration never requires a text LLM and never relaxes hard constraints,
   approval scope, resource budgets, or evidence status.
+- Provider diagnostic records are additive and schema-versioned. A configured
+  provider, detected runtime, measured capability, explicit unsupported cell,
+  and unknown capability are distinct states; readers must not collapse
+  `unknown` or `unsupported` into success. Direct CLI/Python callers and the
+  diagnostic CLI consume the same resolved settings and record shape.
 
 The package is currently pre-1.0. These rules prevent silent contract drift while the public
 surface is stabilized for the v1.0 release; they do not promise broad semver compatibility
