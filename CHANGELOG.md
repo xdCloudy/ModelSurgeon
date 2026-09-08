@@ -14,6 +14,11 @@
     surgery, reload, deployment, Pareto, provenance and hardware results while
     keeping production-scale and task-quality limitations explicit.
 
+  - Extended the acceptance evidence with a revision-pinned unsupported GPT-2
+    cell. The first-party runtime failed closed at architecture profiling and
+    retained the failure observation instead of presenting an artifact as
+    supported.
+
   - Prepared the bounded v3.0 conversational product release candidate for
     issue #491. Integrated the v2.1-v2.9 P0 exit evidence, executable release
     manifest/checklist, packaging and setup guidance, migration and direct API

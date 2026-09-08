@@ -9,6 +9,11 @@
     "path": "work/acceptance-campaign-2026-09-08.json",
     "sha256": "29a29f6f7ed133fe0c0198018c97f665cbb12b189664f02f423d9cd1834f2ac9"
   },
+  "negative_campaign_record": {
+    "path": "work/acceptance-campaign-2026-09-08-with-negative.json",
+    "sha256": "3fe0e46b08bbabcc8c2d2bd99dad2d707284f8809e52e8661092fb7c40063a75",
+    "additional_model": "sshleifer/tiny-gpt2@5f91d94bd9cd7190a9f3216ff93cd1dd95f2c7be"
+  },
   "command": "uv run --extra hf python tools/run_first_party_hf_acceptance.py --model hf-internal-testing/tiny-random-LlamaForCausalLM@9fb191250dd56d0ba7ec9785a025ed29c03d5998 --model hf-internal-testing/tiny-random-MistralForCausalLM@7517176934d50d00707900b92ef6a95c782e51a2 --calibration-text work/acceptance-campaign-calibration.txt --output work/acceptance-campaign-2026-09-08.json --artifact-root work/acceptance-artifacts-2026-09-08 --preset balanced --quality-profile quality --evaluations 2",
   "contract": {
     "min_quality_retention_ratio": 0.99,
@@ -106,10 +111,24 @@
       }
     }
   ],
+  "negative_cells": [
+    {
+      "identifier": "sshleifer/tiny-gpt2",
+      "revision": "5f91d94bd9cd7190a9f3216ff93cd1dd95f2c7be",
+      "run_id": "optimize_run_8bba8a37b308450ffaedcf74bad2efca4a3ff5d624b8d530870f9336134e8652",
+      "source_artifact_digest": "sha256:56345b7f25f85c6a09da10a13aabd723f03a011e1454221c65d0578a9a637fcd",
+      "outcome": "failed",
+      "failed_stage": "profile",
+      "failure_evidence_id": "failure_1c7af013f2d53f182d3b6f5ce1ae324ce046e74b590d02ebc3169bf4296df095",
+      "failure_observation_sha256": "3b132a9467ff99925e6e07c938c25b8f565b487e22c2d2c57df09655dfffa50e",
+      "reason": "first-party runtime failed during profile: no supported architecture alias matched explicit evidence: {'model_type': 'gpt2', 'architecture_names': ('GPT2LMHeadModel',), 'gguf_architecture': None}"
+    }
+  ],
   "limitations": [
     "This is a bounded CPU-only campaign on public tiny checkpoints, not a claim of production-scale model coverage.",
     "The quality gate is perplexity on the pinned local calibration text; no task-specific coding benchmark was run.",
     "Repair and quantization were explicit no-op controls in this campaign; their real paths are covered separately.",
-    "The campaign does not establish Meta-Surgeon transfer improvement or cross-hardware transfer."
+    "The campaign does not establish Meta-Surgeon transfer improvement or cross-hardware transfer.",
+    "The negative GPT-2 cell proves fail-closed classification for an unsupported family; it is not evidence of GPT-2 support."
   ]
 }
