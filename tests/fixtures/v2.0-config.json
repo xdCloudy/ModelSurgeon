@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "artifact_dir": "artifacts",
+  "model": {
+    "path": "models/tiny",
+    "revision": "fixture-revision",
+    "format": "huggingface",
+    "dtype": "auto"
+  },
+  "calibration": {
+    "dataset": null,
+    "dataset_revision": null,
+    "split": "train",
+    "samples": 64,
+    "batch_size": 1,
+    "max_sequence_length": 128,
+    "seed": 7
+  },
+  "features": {
+    "weights": true,
+    "spectral": true,
+    "activations": false,
+    "gradients": false,
+    "correlations": false,
+    "topology": true,
+    "runtime": true
+  },
+  "constraints": {
+    "min_quality_retention_ratio": 0.98,
+    "max_perplexity_delta": null,
+    "min_latency_gain_ratio": null,
+    "max_ram_bytes": null,
+    "max_vram_bytes": null,
+    "max_disk_bytes": null
+  },
+  "objective": {
+    "quality_retention": 0.98,
+    "max_perplexity_increase": null,
+    "min_latency_improvement": null,
+    "max_vram_gb": null,
+    "optimize": ["parameter_count", "latency"],
+    "terms": null
+  },
+  "hardware": {
+    "memory_mode": "auto",
+    "max_vram_gb": null,
+    "max_ram_gb": null,
+    "cpu_offload": true,
+    "mixed_precision": true
+  },
+  "safety": {
+    "allow_overwrite": false,
+    "trust_remote_code": false,
+    "require_atomic_writes": true
+  },
+  "log_level": "INFO"
+}

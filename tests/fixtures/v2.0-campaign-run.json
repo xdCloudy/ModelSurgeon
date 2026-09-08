@@ -1,0 +1,34 @@
+{
+  "record_type": "autonomous_optimize_run",
+  "schema_version": 2,
+  "run_id": "run_v20_fixture",
+  "plan_id": "plan_v20",
+  "plan_digest": "18648fc2367f1a4fc273a835cfcf8fb35c8300d63ba1d730fbedb202b7e91e41",
+  "plan_record": {
+    "plan_id": "plan_v20",
+    "record_type": "optimize_plan",
+    "schema_version": 1
+  },
+  "source_artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "completed",
+  "outcome": "supported",
+  "cursor": 11,
+  "stages": [
+    {"stage": "profile", "stage_id": "stage_profile", "dependencies": [], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_profile", "detail": "profile complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "capability", "stage_id": "stage_capability", "dependencies": ["profile"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_capability", "detail": "capability complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "baseline", "stage_id": "stage_baseline", "dependencies": ["profile", "capability"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_baseline", "detail": "baseline complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "candidate_generation", "stage_id": "stage_candidate_generation", "dependencies": ["profile", "capability", "baseline"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_candidate_generation", "detail": "candidate generation complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "active_search", "stage_id": "stage_active_search", "dependencies": ["profile", "capability", "baseline", "candidate_generation"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_active_search", "detail": "search complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "surgery", "stage_id": "stage_surgery", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_surgery", "detail": "surgery complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "repair", "stage_id": "stage_repair", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_repair", "detail": "repair complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "quantization", "stage_id": "stage_quantization", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery", "repair"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_quantization", "detail": "quantization complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "deployment_benchmark", "stage_id": "stage_deployment_benchmark", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery", "repair", "quantization"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_deployment_benchmark", "detail": "deployment benchmark complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}},
+    {"stage": "pareto", "stage_id": "stage_pareto", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery", "repair", "quantization", "deployment_benchmark"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_pareto", "detail": "measured candidate retained", "measured": true, "complete": true, "constraints_passed": true, "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "candidate_id": "candidate_fixture", "candidate_state_id": "state_fixture", "evaluation_id": "evaluation_fixture", "transaction_state": "committed", "artifact_immutable": true, "alternatives": []}},
+    {"stage": "report", "stage_id": "stage_report", "dependencies": ["profile", "capability", "baseline", "candidate_generation", "active_search", "surgery", "repair", "quantization", "deployment_benchmark", "pareto"], "status": "completed", "attempts": 1, "result": {"outcome": "supported", "evidence_id": "evidence_report", "detail": "report complete", "measured": false, "complete": true, "constraints_passed": false, "artifact_digest": null, "candidate_id": null, "candidate_state_id": null, "evaluation_id": null, "transaction_state": null, "artifact_immutable": false, "alternatives": []}}
+  ],
+  "approvals": [],
+  "overrides": [],
+  "accepted_artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "alternatives": [],
+  "reasons": []
+}

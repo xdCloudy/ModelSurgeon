@@ -30,6 +30,7 @@ from modelsurgeon.cli.experiment import (
 from modelsurgeon.cli.explorer import explorer_command
 from modelsurgeon.cli.features import features_command
 from modelsurgeon.cli.inspection import inspect_huggingface_model
+from modelsurgeon.cli.migrate import migrate_command
 from modelsurgeon.cli.optimize import optimize_command
 from modelsurgeon.cli.progress import progress_app
 from modelsurgeon.cli.proof import first_surgeon_proof_command
@@ -211,6 +212,7 @@ app.command("reproduce")(reproduce_command)
 app.command("report")(report_command)
 app.command("explorer")(explorer_command)
 app.command("optimize")(optimize_command)
+app.command("migrate")(migrate_command)
 app.command("chat")(chat_command)
 app.add_typer(progress_app, name="progress")
 app.add_typer(registry_app, name="registry")

@@ -1,0 +1,100 @@
+{
+  "record_type": "migration_compatibility_release",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v3.0-migration-compatibility-v1",
+  "status": "implemented",
+  "issue": 489,
+  "direct_automation": {
+    "no_llm_cli": "modelsurgeon optimize --no-llm",
+    "python_entry_point": "modelsurgeon.migration.migrate_record",
+    "provider_default": "none"
+  },
+  "supported_cells": [
+    {
+      "kind": "config",
+      "source": "v2.0 settings schema 1",
+      "target": "current settings schema 1",
+      "guarantee": "validate all settings and default only missing provider configuration to none"
+    },
+    {
+      "kind": "campaign",
+      "source": "v2.0 autonomous_optimize_run schema 2",
+      "target": "current autonomous_optimize_run schema 3",
+      "guarantee": "preserve plan/source identity, stage evidence, approvals, outcomes, reasons, and artifact lineage"
+    },
+    {
+      "kind": "evidence",
+      "source": "v2.0_campaign_evidence schema 1",
+      "target": "current canonical_campaign_evidence schema 1",
+      "guarantee": "preserve evidence identity, digests, provenance, measurement flags, and terminal outcome"
+    }
+  ],
+  "unsupported_cells": [
+    "unknown or future schemas",
+    "stage-only evidence without immutable source artifact digest",
+    "non-none conversational provider configuration in a v2.0 config",
+    "opaque, unsigned, or semantically ambiguous artifacts"
+  ],
+  "deprecation_policy": [
+    {
+      "source": "v2.0 settings schema 1",
+      "read_policy": "validate and migrate",
+      "write_policy": "current settings schema only",
+      "state": "deprecated migration-supported source"
+    },
+    {
+      "source": "v2.0 autonomous_optimize_run schema 2",
+      "read_policy": "upgrade before resume",
+      "write_policy": "current autonomous_optimize_run schema only",
+      "state": "deprecated migration-supported source"
+    },
+    {
+      "source": "v2.0_campaign_evidence schema 1",
+      "read_policy": "convert to canonical evidence",
+      "write_policy": "canonical evidence only",
+      "state": "deprecated migration-supported source"
+    },
+    {
+      "source": "unknown, future, provider-specific, or lineage-incomplete records",
+      "read_policy": "refuse before execution",
+      "write_policy": "never emit",
+      "state": "unsupported"
+    }
+  ],
+  "invariants": [
+    "migration is offline and does not call a text LLM",
+    "hard constraints and resource budgets are not relaxed",
+    "supported, unsupported, failed, and unknown outcomes remain distinct",
+    "unknown and inconclusive evidence is never promoted",
+    "current records are validated and returned unchanged",
+    "unknown, future, or mismatched schemas fail closed"
+  ],
+  "fixtures": [
+    "tests/fixtures/v2.0-config.json",
+    "tests/fixtures/v2.0-campaign-run.json",
+    "tests/fixtures/v2.0-campaign-evidence.json"
+  ],
+  "documentation": [
+    "docs/migration.md",
+    "docs/api-compatibility.md",
+    "README.md",
+    "ROADMAP.md",
+    "ARCHITECTURE.md",
+    "docs/goal.md"
+  ],
+  "implementation": [
+    "src/modelsurgeon/migration.py",
+    "src/modelsurgeon/cli/migrate.py"
+  ],
+  "tests": [
+    "tests/test_migration_compatibility.py",
+    "tools/audit_migration_compatibility.py"
+  ],
+  "verification": [
+    "uv run --locked --extra dev python tools/audit_migration_compatibility.py",
+    "uv run --locked --extra dev pytest tests/test_migration_compatibility.py -q",
+    "uv run --locked --extra dev ruff check .",
+    "uv run --locked --extra dev mypy src",
+    "uv run --locked --extra dev pytest"
+  ]
+}

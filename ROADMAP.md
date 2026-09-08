@@ -159,6 +159,13 @@ Turn a constrained user objective and hardware profile into an auditable capabil
 
 [GitHub milestone](https://github.com/xdCloudy/ModelSurgeon/milestone/31). Make conversation the primary supported UX while retaining direct CLI/Python automation. Entry is the v2.1-v2.9 stack and v2.0 release evidence; exit is an integrated local-first product workflow with setup, provider selection, diagnostics, campaign management, grounded explanations, approvals, migration guarantees, packaging guidance and end-to-end security/reproducibility acceptance. `Surgeon Tensors/` remains the learned Meta-Surgeon, `Text LLM/` remains the replaceable conversational model, and `Models/` remains user/target model data. v3.1+ returns the main research emphasis to the learned Meta-Surgeon.
 
+Issue #489 defines the bounded migration slice for this milestone. The
+[migration contract](docs/migration.md) and [release record](docs/research/v3.0-migration-compatibility-v1.json)
+cover v2.0 settings, autonomous campaign runs, and campaign evidence; retain
+identity, provenance, hard constraints, budgets, and negative outcomes; and
+refuse unknown, future, provider-specific, or lineage-incomplete records.
+Direct CLI/Python automation and `--no-llm` operation remain first-class.
+
 ## Central critical path
 
 ```text

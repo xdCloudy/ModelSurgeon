@@ -75,6 +75,21 @@ The planned boundary has four non-negotiable properties:
 
 The v2.1–v3.0 work is staged: v2.1 freezes the intent compiler contract; v2.2 adds replaceable providers; v2.3 adds the first chat vertical slice; v2.4 freezes bounded clarification; v2.5 closes explicit negotiation; v2.6 freezes the typed tool boundary; **v2.7 closes canonical campaign state and bounded recovery**; **v2.8 closes bounded evidence-grounded explanations**; **v2.9 closes the bounded approval/security gate** with the versioned [adversarial resistance corpus](docs/testing/adversarial-resistance.md); v3.0 integrates the product. Direct CLI/Python callers bypass the conversational layer and remain supported. A frozen boundary does not imply availability of later product layers, live external evidence, optimizer proof, hostile-process containment, or measurements absent from a canonical report.
 
+### v3.0 migration boundary
+
+The migration boundary is an offline adapter between declared record schemas,
+not another execution authority. The [v2.0-to-current migration contract](docs/migration.md)
+validates settings, autonomous run cursors, and campaign evidence before a
+caller can resume or publish. It preserves deterministic identities, source and
+artifact lineage, hard constraints, resource budgets, approval scope,
+provenance, and supported/unsupported/failed/unknown outcomes. A missing v2.0
+provider block becomes the explicit no-provider configuration; a non-`none`
+provider in a v2.0 record is refused because provider configuration belongs to a
+later control-plane boundary. Unknown, future, stage-only, opaque, or
+semantically ambiguous records fail closed. Current records are only
+read-validated and returned unchanged. No migration path imports or calls a
+text LLM, and the direct `optimize --no-llm` and Python APIs remain valid.
+
 The v2.7 recovery guarantee is tested by a bounded fixture matrix, not by a
 successful UI reconnect. Recovery compares canonical state, evidence cursors,
 retained artifacts, actions, budgets, provenance, hard constraints and source

@@ -47,6 +47,15 @@ storage implementation imports are intentionally not stable public API.
   approval, campaign, and feasibility records retain their identity; material
   amendments create a new spec/campaign identity and preserve the original
   evidence archive. Unknown amendment schema versions are rejected.
+- The v3.0 migration boundary is explicit and narrow. v2.0 settings, autonomous
+  run schema 2, and campaign evidence records have deterministic adapters in
+  [`docs/migration.md`](migration.md). Current records are validated and
+  returned unchanged; unknown, future, provider-specific, or semantically
+  ambiguous records fail closed before resume or publication.
+- The migration module is a direct Python/CLI utility and defaults legacy
+  configurations to `provider.kind=none` when the provider block is absent.
+  Migration never requires a text LLM and never relaxes hard constraints,
+  approval scope, resource budgets, or evidence status.
 
 The package is currently pre-1.0. These rules prevent silent contract drift while the public
 surface is stabilized for the v1.0 release; they do not promise broad semver compatibility

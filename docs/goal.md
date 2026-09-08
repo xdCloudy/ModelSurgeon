@@ -486,6 +486,9 @@ Potential milestones include:
 - conversational approval gates for expensive or consequential actions;
 - prompt-injection and tool-boundary hardening;
 - chat as the primary user experience by v3.0 while preserving direct CLI/Python access.
+- an explicit v3.0 migration boundary for v2.0 configuration, campaigns and
+  evidence: deterministic supported upgrades, retained negative outcomes and
+  provenance, fail-closed schema mismatch refusal, and no-LLM direct automation.
 
 The execution breakdown is intentionally staged so the conversational layer does not outrun the deterministic engine:
 
@@ -500,7 +503,7 @@ The execution breakdown is intentionally staged so the conversational layer does
 | v2.7 | **Closed by #474:** persist canonical campaign state and recover across pause, resume, cancel, reconnect, restart, stale/expired context and bounded summaries. | v2.3, v2.6, v1.9 resumability and v2.0 campaign state. | Versioned [release boundary](release/v2.7-stateful-campaigns-boundary.md): structured state remains authoritative, supported recovery is deterministic, and unsupported concurrency/distributed recovery is explicit. |
 | v2.8 | **Closed by #480:** explain measured outcomes, prediction-only decisions, uncertainty, failures, rollbacks and selection decisions from canonical evidence. | v2.6 grounding, v2.7 state, v2.0 evidence packages, and merged #475–#479. | Versioned [release boundary](release/v2.8-evidence-grounding-boundary.md) and [manifest](research/v2.8-evidence-grounding-release-v1.json): source-traceable qualified claims, retained negative/unknown/inconclusive evidence, canonical direct/report APIs, factuality thresholds, fail-closed audit, and explicit limitations. |
 | v2.9 | Add scoped approvals, plan diffs, provider/tool isolation, injection resistance and fail-closed policy precedence. | v2.6, v2.8 and v1.8-v2.0 security/provenance primitives. | **Closed by #485:** bounded pre-product gate with clean-environment evidence and explicit residual risk; no hostile-process or live-provider claim. |
-| v3.0 | Make conversation the primary UX while preserving direct CLI/Python automation and local-first operation. | v2.1-v2.9 exit criteria and v2.0 release evidence. | Integrated setup, diagnostics, campaign, explanation, approval, migration, packaging and end-to-end acceptance. |
+| v3.0 | Make conversation the primary UX while preserving direct CLI/Python automation and local-first operation. | v2.1-v2.9 exit criteria and v2.0 release evidence. | Integrated setup, diagnostics, campaign, explanation, approval, migration, packaging and end-to-end acceptance; the bounded migration slice is specified in [`docs/migration.md`](migration.md). |
 
 The key invariant is that the text LLM may **interpret, plan, explain and request actions**, but it may not override hard constraints, fabricate measurements, or promote unvalidated artifacts.
 
