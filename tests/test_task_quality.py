@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")
 
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
