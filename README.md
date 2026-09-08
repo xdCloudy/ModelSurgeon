@@ -27,12 +27,13 @@ It supports two complementary paths:
 
 The v2.1-v2.9 conversational contracts are integrated by the bounded v3.0
 product release around the existing `OptimizationSpec` contract. Conversation
-is the primary UX for the verified journey, but it is not a general agent
-runtime, universal hosted-provider claim, or optimization evidence. ModelSurgeon
-retains authority over constraints, surgery, validation and artifact
-publication. The state store persists campaign linkage, spec/constraint
-identity, approvals, budgets, provider context, lifecycle and retained
-evidence without persisting chat transcripts. See the [v3.0 product boundary](docs/release/v3.0-conversational-product-boundary.md),
+is a bounded control plane, not a general agent runtime, universal hosted-provider
+claim, or optimization evidence source. Confirmed chat plans are handed to the
+same first-party planner/orchestrator used by direct optimization; ModelSurgeon
+still owns constraints, surgery, measurement, validation, artifact publication,
+and the final decision. The state store persists campaign linkage, spec/constraint
+identity, approvals, budgets, provider context, lifecycle, and retained evidence
+without persisting chat transcripts. See the [v3.0 product boundary](docs/release/v3.0-conversational-product-boundary.md),
 the [v3.0 packaging and setup guide](docs/release/v3.0-packaging-and-setup.md),
 and the [v2.6
 release boundary](docs/release/v2.6-bounded-conversational-tool-boundary.md)
@@ -93,14 +94,14 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. Physical measurements remain authoritative; GGUF and other format-specific optimizer connections remain explicit boundaries. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes: measured baseline, seeded candidates, live RAM/disk/VRAM resource preflight, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, optional bounded LoRA or teacher-logit distillation repair on real calibration examples, optional CPU-scoped dynamic-int8 quantization, and low-rank safe-tensors artifacts with first-party reload manifests. The direct HF acceptance campaign is the current independent evidence; chat-to-HF acceptance remains a bounded integration gap. Physical measurements remain authoritative; GGUF and other format-specific optimizer connections remain explicit boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
 | Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. The first-party Hugging Face path records candidate measurements in `measured-candidate-frontier.sqlite` and fails closed at Pareto publication when a declared objective is not measured by the runtime. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and rank-bounded low-rank edits have shape, parameter, save, reload, and measured first-party acceptance checks on the bounded HF path. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
 | v2.0 migration and direct automation | **Bounded compatibility** | v2.0 config/campaign/evidence migration, explicit refusal for mismatches, preserved provenance/outcomes, and `--no-llm` CLI/Python paths. See the [migration contract](docs/migration.md) and [machine-readable release record](docs/research/v3.0-migration-compatibility-v1.json). |
-| Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. Text LLM/provider execution, representative model-family measurements, universal hosted support and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
+| Conversational control plane | **v3.0 bounded product integration** | The verified journey composes setup, provider diagnostics, clarification, typed tools, campaign state/recovery, evidence-grounded explanations and scoped approvals. A local GGUF text model supplies interpretation while a separately configured target model is inspected and optimized by the engine. Text-provider execution, chat-to-HF acceptance, representative model-family measurements, universal hosted support and live provider benchmarks remain experimental, unsupported or unknown as declared in the [release boundary](docs/release/v3.0-conversational-product-boundary.md). |
 | Constraint negotiation and infeasibility | **v2.5 milestone closed** | The release boundary reconciles grounded non-destructive infeasibility, measured-only Pareto alternatives, v2.0-scoped user approval, immutable amendments, preserved direct-API objective history, and retained negative/unsupported/prediction-only/inconclusive outcomes. Automatic relaxation is not supported. See the [v2.5 release boundary](docs/release/v2.5-constraint-negotiation-boundary.md) and [evidence manifest](docs/research/v2.5-constraint-negotiation-release-v1.json). |
 | Conversational tool boundary | **v2.6 bounded tool boundary** | Four allowlisted, capability-scoped tools with strict schemas, budgets, approval/transaction gates, grounded result envelopes, deterministic replay, and adversarial fixture evidence. General agent execution, live providers, campaign execution, and hostile-process containment remain unsupported or unclaimed. |
 | Conversational security and approval gate | **v2.9 bounded pre-product gate closed by #485** | Scoped approvals bind exact plans and material diffs; centralized policy fails closed; provider/tool trust zones copy and redact untrusted data; 18-case/69-variant adversarial evidence retains negative and unresolved observations; clean local replay covers approval, adversarial, isolation, replay, and direct API suites. Hostile-process containment, live providers/credentials, universal injection resistance, distributed recovery, optimizer proof, and product readiness remain unclaimed. See the [v2.9 boundary](docs/release/v2.9-conversational-security-boundary.md) and [release record](docs/research/v2.9-conversational-security-release-v1.json). |
@@ -194,12 +195,15 @@ for missing-directory, permission, disk-budget, provider, and runtime outcomes.
 
 ## CLI workflows
 
-The public CLI exposes the stable orchestration boundary. Lower-level HF and GGUF surgery APIs remain library-level while their end-user contracts are stabilized for v1.0.
+The public CLI exposes the stable planning and orchestration boundary. Lower-level
+HF and GGUF surgery APIs remain library-level; every public execution path still
+fails closed when the model layout, measurement, resource budget, or artifact
+contract is not supported.
 
 | Command | Purpose |
 | --- | --- |
 | `inspect` | Load and enumerate a Hugging Face causal language model. |
-| `chat` | Start an experimental bounded chat session around a local GGUF text model; optionally preview or execute a confirmed stable optimize plan. |
+| `chat` | Start an experimental bounded chat session around a local GGUF text model; optionally preview or execute a confirmed plan for a separately configured target model. |
 | `experiment` | Resolve, evaluate, and roll back one transactional mutation. |
 | `first-surgeon-proof` | Build a leakage-safe proof dataset through a runtime adapter. |
 | `first-surgeon-hf-proof` | Run real HF MLP-channel masks and create the proof dataset. |
@@ -223,6 +227,45 @@ The public CLI exposes the stable orchestration boundary. Lower-level HF and GGU
 | `setup` | Check or initialize the local-first data layout without downloading models. |
 
 Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract. Generate shell-specific completion instructions with `modelsurgeon --show-completion`; use `--install-completion` only when you intend to modify the current user's shell configuration.
+
+### Use the bounded chat control plane
+
+`chat` uses a local GGUF text model for interpretation. The optimization target
+is configured separately, so the text model is never treated as the authority
+over tensors, measurements, approvals, or artifacts. Preview a plan first:
+
+```bash
+uv run modelsurgeon chat ./models/text-model.gguf \
+  --target-model HuggingFaceTB/SmolLM2-135M \
+  --target-revision <immutable-revision> \
+  --preview-plan \
+  --request "Reduce latency while preserving quality" \
+  --json
+```
+
+After reviewing the returned plan and digest, execute only with an explicit
+approval identity, the required approval scopes, and durable state:
+
+```bash
+uv run modelsurgeon chat ./models/text-model.gguf \
+  --target-model HuggingFaceTB/SmolLM2-135M \
+  --target-revision <immutable-revision> \
+  --execute \
+  --state artifacts/chat-campaign/run.json \
+  --approval-id <approved-plan-approval-id> \
+  --approve plan_review \
+  --approve source_model \
+  --approve resource_budget \
+  --approve artifact_write \
+  --request "Reduce latency while preserving quality" \
+  --json
+```
+
+The provider runtime is optional and separately managed; use `--provider none`
+only for explicit no-provider contract checks. Direct `optimize --execute`
+remains the recommended automation path, and the current independent physical
+acceptance evidence is for that first-party Hugging Face path rather than a
+production-scale conversational benchmark.
 
 <details>
 <summary><strong>Run the First Surgeon workflow</strong></summary>
@@ -323,7 +366,6 @@ uv run modelsurgeon optimize \
   --hardware-profile cpu-small \
   --execute \
   --state artifacts/optimize/run.json \
-  --runtime my_project.runtime:factory \
   --approve plan_review \
   --approve source_model \
   --approve resource_budget \
@@ -336,7 +378,7 @@ uv run modelsurgeon optimize \
 The default executor currently requires a local UTF-8 calibration text file and
 an adapter-supported Hugging Face causal model. The default search scope is
 `mlp_channel`; a resolved `search.scopes` list can select
-`attention_head` or `transformer_layer` when the model's physical layout passes
+`attention_head`, `transformer_layer`, or `low_rank` when the model's physical layout passes
 the adapter checks. Use `--runtime
 module:factory` only when supplying a separately reviewed runtime for another
 cell; the default path never substitutes metadata or synthetic benchmark values
