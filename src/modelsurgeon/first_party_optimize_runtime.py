@@ -80,28 +80,34 @@ def _digest_file(path: Path) -> str:
 
 
 def _digest_tree(path: Path) -> str:
-    if path.is_file():
-        return _digest_file(path)
-    if not path.is_dir():
-        raise FirstPartyOptimizeRuntimeError(f"model source does not exist: {path}")
-    entries: list[dict[str, object]] = []
-    for child in sorted(item for item in path.rglob("*") if item.is_file()):
-        entries.append(
-            {
-                "path": child.relative_to(path).as_posix(),
-                "sha256": _digest_file(child),
-                "size": child.stat().st_size,
-            }
-        )
+    entries = _tree_entries(path)
     if not entries:
-        raise FirstPartyOptimizeRuntimeError("model source directory is empty")
+        raise FirstPartyOptimizeRuntimeError(f"model source does not exist: {path}")
     return hashlib.sha256(
         json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 
 
-def _sha256(path: Path) -> str:
-    return "sha256:" + _digest_file(path)
+def _tree_entries(path: Path) -> list[dict[str, object]]:
+    if path.is_file():
+        return [{"path": path.name, "sha256": _digest_file(path), "size": path.stat().st_size}]
+    if not path.is_dir():
+        raise FirstPartyOptimizeRuntimeError(f"model source does not exist: {path}")
+    entries = [
+        {
+            "path": child.relative_to(path).as_posix(),
+            "sha256": _digest_file(child),
+            "size": child.stat().st_size,
+        }
+        for child in sorted(item for item in path.rglob("*") if item.is_file())
+    ]
+    if not entries:
+        raise FirstPartyOptimizeRuntimeError("model source directory is empty")
+    return entries
+
+
+def _artifact_digest(path: Path) -> str:
+    return "sha256:" + _digest_tree(path)
 
 
 def _config_value(plan: OptimizePlan, section: str, key: str) -> object:
@@ -205,7 +211,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 artifact_value = detail.get("artifact")
                 if isinstance(artifact_value, str) and artifact_value:
                     artifact = Path(artifact_value).expanduser().absolute().resolve(strict=False)
-                    if artifact.is_file() and _sha256(artifact) == stage.artifact_digest:
+                    if artifact.is_file() and _artifact_digest(
+                        artifact.parent
+                    ) == stage.artifact_digest:
                         self.artifact = artifact
                         self.reloaded_model = self._reload(artifact)
             baseline = detail.get("baseline")
@@ -263,7 +271,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         model = self._model_source()
         source_path = Path(model).expanduser().absolute().resolve(strict=False)
         if source_path.exists():
-            self.source_digest = _digest_tree(source_path)
+            self.source_digest = _artifact_digest(source_path)
         revision = _config_value(self.plan, "model", "revision")
         if not isinstance(revision, str) or not revision.strip():
             raise FirstPartyOptimizeRuntimeError(
@@ -649,7 +657,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         artifact = sequence.stages[-1].artifact
         reloaded = sequence.final_model
         self.artifact = artifact
-        self.artifact_digest = _sha256(artifact)
+        self.artifact_digest = _artifact_digest(artifact.parent)
         self.reloaded_model = reloaded
         return self._result(
             OptimizeStage.SURGERY,
