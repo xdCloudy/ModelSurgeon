@@ -15,7 +15,7 @@
 
 </div>
 
-ModelSurgeon is experimental research software for learning which parts of a neural network can be removed, measuring the result, and preserving enough evidence to reproduce every decision. It combines canonical model structure, bounded feature collection, reversible experiments, learned surgeon models, constrained search, and transactional physical mutation.
+ModelSurgeon is experimental research software for learning which parts of a neural network can be removed, measuring the result, and preserving enough evidence to reproduce every decision. It combines canonical model structure, bounded feature collection, reversible experiments, learned surgeon models, constrained search, measured Pareto selection, and transactional physical mutation.
 
 It supports two complementary paths:
 
@@ -85,9 +85,9 @@ kept in the [goal-to-reality gap matrix](docs/research/goal-reality-gap-matrix.m
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
 | Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, and runtime telemetry. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
-| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face path with configurable gated-MLP-channel, attention-head, and transformer-layer scopes: measured baseline, seeded candidates, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, complete self-contained child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; low-rank, GGUF, repair, and quantization cells remain explicit unsupported/not-connected boundaries. |
+| First-party optimize execution | **Experimental** | Direct `optimize --execute` and confirmed chat execution share a real Hugging Face path with configurable gated-MLP-channel, attention-head, and transformer-layer scopes: measured baseline, seeded candidates, real structural features, physical in-memory candidate evaluation, optional signed Meta-Surgeon ranking for its supported MLP feature schema, revision-keyed feature-cache publication, a persisted measured Pareto frontier over the declared runtime-complete objectives, bounded cumulative physical resize with a real quality gate and rollback per child, accepted-child graph/feature rediscovery, complete self-contained child-directory manifest hashing, safetensors publication, reload/inference smoke, restart-safe child rehydration, post-publication quality, load, throughput, latency, memory, and size evidence. Physical measurements remain authoritative; low-rank, GGUF, repair, and quantization cells remain explicit unsupported/not-connected boundaries. |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
-| Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. |
+| Active learning and search | **Experimental** | Calibrated uncertainty, bounded candidate pools, acquisition policies, resumable scheduling, Pareto archives, and repair arms. The first-party Hugging Face path records candidate measurements in `measured-candidate-frontier.sqlite` and fails closed at Pareto publication when a declared objective is not measured by the runtime. |
 | Physical HF surgery | **Experimental** | Layer, attention-head, gated-MLP, and low-rank edits with shape, parameter, save, and reload checks. |
 | Native GGUF surgery | **Experimental** | Exact codecs, MLP/head/layer/low-rank edits, streaming output, requantization controls, and `llama.cpp` validation. |
 | Public/release surface | **Evidence-bounded** | v1.0 schemas, CLI workflows, reports, performance gates, security hardening, and release documentation. |
@@ -344,9 +344,17 @@ configuration, features, predictions, measurements, outcome, and parent/child
 lineage. Accepted, rejected, rolled-back, and failed observations remain
 available under the run's `optimization-evidence` directory for later
 leakage-audited learning; these records do not promote predictions to
-measurements. Profile and deployment stages retain live hardware inventory,
-and unconnected repair/quantization stages retain explicit `unsupported`
-records rather than being presented as successful operations.
+measurements. Active search also writes a measured objective archive at
+`artifacts/optimize/<run-id>/measured-candidate-frontier.sqlite`. Its preferred
+candidate is selected only from physically measured, objective-complete
+frontier entries; the archive is provenance for candidate selection, not a
+deployed artifact. If the declared objective set needs a metric that the
+runtime did not measure (for example, memory or disk size during in-memory
+candidate evaluation), the frontier is retained as `unknown` and the Pareto
+publication stage stops rather than filling the gap with an estimate. Profile
+and deployment stages retain live hardware inventory, and unconnected
+repair/quantization stages retain explicit `unsupported` records rather than
+being presented as successful operations.
 
 Repeat with `--resume` after an interruption. The verified Hugging Face path
 rehydrates its selected candidate, published cumulative child, and deployment
