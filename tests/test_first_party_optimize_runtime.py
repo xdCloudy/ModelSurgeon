@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -11,8 +12,11 @@ from modelsurgeon.config import CalibrationConfig, ConstraintConfig, ModelConfig
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.optimization import build_optimize_plan
 from modelsurgeon.optimization_orchestrator import (
+    OptimizeInterrupted,
     OptimizeOrchestrator,
+    OptimizeStage,
     WorkflowOutcome,
+    WorkflowStatus,
 )
 
 torch = pytest.importorskip("torch")
@@ -69,6 +73,7 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
     plan = replace(
         plan,
+        budget=replace(plan.budget, evaluations=2),
         quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
     )
     runtime = build_first_party_optimize_runtime(plan)
@@ -86,3 +91,46 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
     pareto = run.stages[-2].result
     assert pareto is not None
     assert "decode_tokens_per_second" in pareto.detail
+
+
+def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: Path) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=2),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+    state = tmp_path / "run.json"
+    first_party = build_first_party_optimize_runtime(plan)
+
+    class PauseBeforeDeployment:
+        def run_stage(self, context: object) -> object:
+            if getattr(context, "stage", None) is OptimizeStage.DEPLOYMENT_BENCHMARK:
+                raise OptimizeInterrupted()
+            return first_party.run_stage(context)  # type: ignore[arg-type]
+
+    approvals = tuple(item.code for item in plan.approvals if item.required)
+    paused = OptimizeOrchestrator(plan, state).run(PauseBeforeDeployment(), approvals=approvals)
+    assert paused.status is WorkflowStatus.PAUSED
+    surgery = paused.stages[5].result
+    assert surgery is not None and surgery.artifact_digest is not None
+    assert len(json.loads(surgery.detail)["stages"]) == 2
+
+    resumed = OptimizeOrchestrator(plan, state).run(
+        build_first_party_optimize_runtime(plan), resume=True, approvals=approvals
+    )
+    assert resumed.outcome is WorkflowOutcome.SUPPORTED
+    assert resumed.accepted_artifact_digest == surgery.artifact_digest
