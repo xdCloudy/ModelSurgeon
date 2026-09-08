@@ -1,0 +1,326 @@
+{
+  "record_type": "v30_acceptance_evidence",
+  "schema_version": 1,
+  "protocol_revision": "modelsurgeon-v3.0-acceptance-evidence-v1",
+  "issue": 490,
+  "milestone": "v3.0",
+  "status": "passed_with_explicit_skips",
+  "tested_revision": "b76db4679c05156372fbe3585d5ceb0bcbf10e40",
+  "branch": "issue-490-v30-acceptance",
+  "measurement_worktree_clean": true,
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "platform": "win32",
+    "python": "3.12.13",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-pc-windows-msvc)",
+    "dependency_setup": "uv sync --locked --extra dev"
+  },
+  "budgets": {
+    "command_timeout_seconds": 900,
+    "max_output_tail_chars": 4000,
+    "test_scope": "declared matrix cells plus CLI smokes",
+    "optimizer_budget": "not measured; no model-quality claim"
+  },
+  "fixture": {
+    "manifest": "tests/fixtures/tiny_hf_models_v1.json",
+    "manifest_sha256": "8ca381b2993e31904a32f7607027cf319a5b999dafbabc263f3aa6198fc8475c",
+    "weights_committed": false,
+    "families": [
+      "gemma",
+      "llama",
+      "mistral",
+      "qwen"
+    ],
+    "upstream_revisions_are_pinned": true
+  },
+  "cells": [
+    {
+      "id": "setup_configuration",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_setup.py tests/test_provider_configuration.py tests/test_config_io.py tests/test_cli_help_contract.py -q",
+        "exit_code": 0,
+        "duration_seconds": 3.766,
+        "outcome": "supported",
+        "output_tail": "..........................................................               [100%]",
+        "output_sha256": "60fa7aabcc416b6db90211a8e058e12359db81fe7392afc0293958973cd59871"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "offline_fixture_manifest",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_setup.py tests/test_tiny_models.py -q",
+        "exit_code": 0,
+        "duration_seconds": 2.125,
+        "outcome": "supported",
+        "output_tail": "....................                                                     [100%]",
+        "output_sha256": "d7968e58ab60bae73586fd71257b92509c5a863bd882bee62ea0e79791b80a2d"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "provider_paths",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_provider_configuration.py tests/test_provider_interface.py tests/test_provider_conformance.py tests/test_local_gguf_provider.py tests/test_v22_provider_release.py -q",
+        "exit_code": 0,
+        "duration_seconds": 2.937,
+        "outcome": "supported",
+        "output_tail": "....................................................                     [100%]",
+        "output_sha256": "f0f07754cc535a2eac292050e5fd3f61b906851823258a58a9b21dc289bd6723"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "compiler_clarification_negotiation",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_intent_compiler.py tests/test_clarification.py tests/test_v24_clarification_release.py tests/test_negotiation_study.py tests/test_v25_constraint_negotiation_release.py tests/test_search_constraints.py -q",
+        "exit_code": 0,
+        "duration_seconds": 2.985,
+        "outcome": "supported",
+        "output_tail": "...................................                                      [100%]",
+        "output_sha256": "40df5116b243a50bdf423f06cd9f79c687d7113477ea5eff66f7fa2a795cf220"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "tools_state_explanations",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_conversational_tools.py tests/test_campaign_state.py tests/test_evidence_query.py tests/test_claim_evidence.py tests/test_v28_evidence_grounding_release.py tests/test_v30_conversational_journey.py -q",
+        "exit_code": 0,
+        "duration_seconds": 6.578,
+        "outcome": "supported",
+        "output_tail": "..............................................                           [100%]",
+        "output_sha256": "95bd1939038df95cfb496ae95abd5cfb36bd2fae65c35d6d08ccd55764ef2930"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "approvals_artifacts_provenance",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_scoped_approvals.py tests/test_policy_precedence.py tests/test_artifact_integrity.py tests/test_artifact_outcome.py tests/test_untrusted_artifact_boundaries.py tests/test_signed_evidence.py tests/test_v29_conversational_security_release.py -q",
+        "exit_code": 0,
+        "duration_seconds": 3.64,
+        "outcome": "supported",
+        "output_tail": "..............................                                           [100%]",
+        "output_sha256": "118984a8df75e866d5c3969ea0be9434e90e13613d7200734f297671f042e845"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "direct_api_parity",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_public_api_contract.py tests/test_surgeon_cli_contract.py tests/test_optimization.py tests/test_optimization_package.py tests/test_v21_intent_contract.py tests/test_v30_conversational_journey.py -q",
+        "exit_code": 0,
+        "duration_seconds": 5.36,
+        "outcome": "supported",
+        "output_tail": "....................................                                     [100%]",
+        "output_sha256": "1cc1a4f16cec009b70fa9312b0e56dd91b2c3a01a808838cc59dd15ddcad6ada"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "recovery_replay_reproducibility",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_campaign_recovery.py tests/test_recoverability.py tests/test_oom_recovery.py tests/test_replay_environment.py tests/test_reproduce_cli.py tests/test_reproducibility_manifest.py tests/test_v27_campaign_recovery.py -q",
+        "exit_code": 0,
+        "duration_seconds": 7.203,
+        "outcome": "supported",
+        "output_tail": "..............................................                           [100%]",
+        "output_sha256": "95bd1939038df95cfb496ae95abd5cfb36bd2fae65c35d6d08ccd55764ef2930"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "adversarial_security",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev pytest tests/test_adversarial_resistance.py tests/test_conversational_adversarial_corpus.py tests/test_policy_precedence.py tests/test_provider_interface.py tests/test_v29_conversational_security_release.py -q",
+        "exit_code": 0,
+        "duration_seconds": 2.484,
+        "outcome": "supported",
+        "output_tail": ".................................                                        [100%]",
+        "output_sha256": "9fb239f8c9b75ec199c5c813a99577cca4c3b99db730be85d9566467a710fbb8"
+      },
+      "limitation": ""
+    },
+    {
+      "id": "optimizer_capability",
+      "observed_outcome": "unsupported",
+      "evidence": "explicit matrix boundary; no command is claimed",
+      "limitation": "No licensed weights are committed or downloaded by this gate; UX completion and planning output are not optimizer correctness evidence."
+    },
+    {
+      "id": "cuda_and_hosted",
+      "observed_outcome": "unsupported",
+      "evidence": "explicit matrix boundary; no command is claimed",
+      "limitation": "No CUDA device, hosted credentials, or live provider endpoint is required or claimed."
+    }
+  ],
+  "cli_smokes": [
+    {
+      "id": "smoke_setup_init",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev modelsurgeon setup init --data-dir C:\\Users\\Cloudy\\AppData\\Local\\Temp\\modelsurgeon-v30-_1bw0mvq\\setup --fixture tests/fixtures/tiny_hf_models_v1.json --offline --min-free-gb 0.000001 --json",
+        "exit_code": 0,
+        "duration_seconds": 1.531,
+        "outcome": "supported",
+        "output_tail": "{\"checks\":[{\"category\":\"platform_runtime\",\"code\":\"core_runtime_supported\",\"details\":{\"platform\":\"win32\",\"python\":\"3.12.13\"},\"message\":\"core CLI/Python runtime is supported; optional model runtimes are checked separately\",\"outcome\":\"supported\"},{\"category\":\"data_root\",\"code\":\"data_root_ready\",\"details\":{\"created\":true,\"path\":\"C:\\\\Users\\\\Cloudy\\\\AppData\\\\Local\\\\Temp\\\\modelsurgeon-v30-_1bw0mvq\\\\setup\"},\"message\":\"large mutable data has a writable user-owned location\",\"outcome\":\"supported\"},{\"category\":\"layout\",\"code\":\"layout_ready\",\"details\":{\"directories\":[\"Surgeon Tensors\",\"Text LLM\",\"Models\",\"Campaigns\\\\active\",\"Campaigns\\\\completed\",\"Evidence\",\"Benchmarks\",\"Artifacts\",\"Cache\",\"Logs\",\"Config\"]},\"message\":\"Surgeon Tensors, Text LLM, target Models, and run-output directories are separate\",\"outcome\":\"supported\"},{\"category\":\"disk_budget\",\"code\":\"disk_budget_available\",\"details\":{\"free_bytes\":3005571960832,\"path\":\"C:\\\\Users\\\\Cloudy\\\\AppData\\\\Local\\\\Temp\\\\modelsurgeon-v30-_1bw0mvq\\\\setup\",\"required_free_bytes\":1073},\"message\":\"free space meets the declared setup budget; model downloads are not performed\",\"outcome\":\"supported\"},{\"category\":\"supported_fixture\",\"code\":\"fixture_manifest_supported\",\"details\":{\"families\":[\"gemma\",\"llama\",\"mistral\",\"qwen\"],\"model_count\":4,\"path\":\"tests\\\\fixtures\\\\tiny_hf_models_v1.json\"},\"message\":\"existing local fixture manifest is recognized; no weights were downloaded\",\"outcome\":\"supported\"},{\"category\":\"provider\",\"code\":\"no_llm\",\"details\":{\"capabilities\":[{\"capability\":\"clarify_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"explain_evidence\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"interpret_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"streaming\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"structured_output\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"}],\"capability_state\":\"configured\",\"kind\":\"none\"},\"message\":\"no conversational provider is selected; direct CLI/Python paths remain available\",\"outcome\":\"supported\"},{\"category\":\"configuration\",\"code\":\"configuration_initialized\",\"details\":{\"path\":\"C:\\\\Users\\\\Cloudy\\\\AppData\\\\Local\\\\Temp\\\\modelsurgeon-v30-_1bw0mvq\\\\setup\\\\Config\\\\modelsurgeon.toml\"},\"message\":\"first-run manifest and user README are present\",\"outcome\":\"supported\"}],\"config_path\":\"C:\\\\Users\\\\Cloudy\\\\AppData\\\\Local\\\\Temp\\\\modelsurgeon-v30-_1bw0mvq\\\\setup\\\\Config\\\\modelsurgeon.toml\",\"data_root\":\"C:\\\\Users\\\\Cloudy\\\\AppData\\\\Local\\\\Temp\\\\modelsurgeon-v30-_1bw0mvq\\\\setup\",\"fixture\":\"tests\\\\fixtures\\\\tiny_hf_models_v1.json\",\"min_free_bytes\":1073,\"offline\":true,\"outcome\":\"supported\",\"record_type\":\"modelsurgeon_setup_report\",\"schema_version\":1,\"status\":\"ready\"}",
+        "output_sha256": "49ce621733ced98bbef7720fd3e6bf17cce345f215f04832df9add12ef2aed04"
+      },
+      "limitation": "metadata-only setup; no model weights are downloaded"
+    },
+    {
+      "id": "smoke_provider_no_llm",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev modelsurgeon provider diagnostics --no-llm --json",
+        "exit_code": 0,
+        "duration_seconds": 1.516,
+        "outcome": "supported",
+        "output_tail": "{\"capabilities\":[{\"capability\":\"clarify_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"explain_evidence\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"interpret_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"streaming\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"structured_output\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"}],\"code\":\"no_llm\",\"configuration\":{\"api_key_env\":\"<redacted>\",\"endpoint\":null,\"kind\":\"none\",\"max_input_size\":8192,\"max_output_size\":2048,\"model_id\":\"none\",\"model_path\":null,\"model_revision\":\"none\",\"provider_id\":\"none\",\"request_timeout_seconds\":30.0,\"runtime_revision\":null},\"configuration_digest\":\"sha256:ffd31a385d2a51da990a277b4a2f2913c19b175dee2461392b11f65d0e0553e2\",\"dependency\":null,\"details\":{},\"kind\":\"none\",\"message\":\"no text-model provider is configured; direct CLI/Python APIs remain available\",\"model_id\":\"none\",\"provider_id\":\"none\",\"record_type\":\"provider_diagnostic\",\"schema_version\":2,\"state\":\"configured\",\"status\":\"disabled\"}",
+        "output_sha256": "521fc8b3718ac4be2fac405343e0e1eadd84660352e168e3deff1dfc6d59f608"
+      },
+      "limitation": "no-LLM is intentionally provider-independent"
+    },
+    {
+      "id": "smoke_provider_offline",
+      "observed_outcome": "unsupported",
+      "evidence": {
+        "command": "uv run --locked --extra dev modelsurgeon provider diagnostics --provider compatible_endpoint --provider-id endpoint --provider-model model --provider-revision revision-1 --provider-endpoint https://provider.example/v1 --provider-api-key-env MODELSURGEON_V30_TEST_KEY --offline --json",
+        "exit_code": 0,
+        "duration_seconds": 1.515,
+        "outcome": "supported",
+        "output_tail": "{\"capabilities\":[{\"capability\":\"clarify_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"explain_evidence\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"interpret_intent\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"streaming\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"},{\"capability\":\"structured_output\",\"detail\":\"capability is disabled\",\"state\":\"unsupported\"}],\"code\":\"offline_provider_disabled\",\"configuration\":{\"api_key_env\":\"<redacted>\",\"endpoint\":\"https://provider.example/v1\",\"kind\":\"compatible_endpoint\",\"max_input_size\":8192,\"max_output_size\":2048,\"model_id\":\"model\",\"model_path\":null,\"model_revision\":\"revision-1\",\"provider_id\":\"endpoint\",\"request_timeout_seconds\":30.0,\"runtime_revision\":null},\"configuration_digest\":\"sha256:4995a0802e5a0fb64fe83757e48ecfa8dbdf5ea61bb337da5293ed08afa57a79\",\"dependency\":null,\"details\":{},\"kind\":\"compatible_endpoint\",\"message\":\"offline mode permits only local or explicit no-LLM operation; no remote provider was contacted\",\"model_id\":\"model\",\"provider_id\":\"endpoint\",\"record_type\":\"provider_diagnostic\",\"schema_version\":2,\"state\":\"unsupported\",\"status\":\"unsupported\"}",
+        "output_sha256": "585a52432836fca05df0409843938a1e15ee4e0ba3d26d22672f975f7e017dc8"
+      },
+      "limitation": "offline mode refuses remote provider execution by policy"
+    },
+    {
+      "id": "smoke_optimize_no_llm_plan",
+      "observed_outcome": "supported",
+      "evidence": {
+        "command": "uv run --locked --extra dev modelsurgeon optimize --no-llm --json",
+        "exit_code": 0,
+        "duration_seconds": 1.516,
+        "outcome": "supported",
+        "output_tail": "-small\",\"--quality-profile\",\"balanced\"],\"executable\":false,\"hardware_profile\":{\"cpu_threads\":2,\"device\":\"cpu\",\"disk_gb\":20.0,\"profile_id\":\"cpu-small\",\"ram_gb\":8.0,\"vram_gb\":null},\"inputs\":[{\"known\":false,\"name\":\"model.path\",\"required\":true,\"source\":\"Settings.model.path\",\"value\":null},{\"known\":false,\"name\":\"model.revision\",\"required\":true,\"source\":\"Settings.model.revision\",\"value\":null},{\"known\":true,\"name\":\"resolved_config\",\"required\":true,\"source\":\"Settings.canonical_dict\",\"value\":{\"artifact_dir\":\"artifacts\",\"calibration\":{\"batch_size\":1,\"dataset\":null,\"dataset_revision\":null,\"max_sequence_length\":2048,\"samples\":512,\"seed\":0,\"split\":\"train\"},\"constraints\":{\"max_disk_bytes\":null,\"max_perplexity_delta\":null,\"max_ram_bytes\":null,\"max_vram_bytes\":null,\"min_latency_gain_ratio\":null,\"min_quality_retention_ratio\":0.98},\"features\":{\"activations\":true,\"correlations\":false,\"gradients\":false,\"runtime\":true,\"spectral\":true,\"topology\":true,\"weights\":true},\"hardware\":{\"cpu_offload\":true,\"max_ram_gb\":null,\"max_vram_gb\":null,\"memory_mode\":\"auto\",\"mixed_precision\":true},\"log_level\":\"INFO\",\"model\":{\"dtype\":\"auto\",\"format\":\"huggingface\",\"path\":null,\"revision\":null},\"objective\":{\"max_perplexity_increase\":null,\"max_vram_gb\":null,\"min_latency_improvement\":null,\"optimize\":[\"parameter_count\",\"latency\"],\"quality_retention\":0.98,\"terms\":null},\"provider\":{\"api_key_env\":null,\"endpoint\":null,\"kind\":\"none\",\"max_input_size\":8192,\"max_output_size\":2048,\"model_id\":\"none\",\"model_path\":null,\"model_revision\":\"none\",\"provider_id\":\"none\",\"request_timeout_seconds\":30.0,\"runtime_revision\":null},\"safety\":{\"allow_overwrite\":false,\"require_atomic_writes\":true,\"trust_remote_code\":false},\"schema_version\":1}},{\"known\":true,\"name\":\"hardware_profile\",\"required\":true,\"source\":\"optimize profile registry\",\"value\":\"cpu-small\"},{\"known\":true,\"name\":\"quality_profile\",\"required\":true,\"source\":\"optimize quality registry\",\"value\":\"balanced\"}],\"limitations\":[\"planning is read-only; model execution is outside the v1.9 contract\",\"costs are conservative estimates until a retained campaign measurement exists\"],\"outcome\":\"unknown\",\"plan_id\":\"optimize_plan_15dfc82ceb676835d89ebbf2fa0f1fcf9df431e84bcdbcf51e09404c0310794e\",\"preset\":\"balanced\",\"quality_profile\":{\"confidence_level\":0.95,\"evaluation_repetitions\":3,\"max_perplexity_delta\":0.05,\"min_quality_retention\":0.98,\"profile_id\":\"balanced\"},\"record_type\":\"optimize_plan\",\"resolved_config\":{\"artifact_dir\":\"artifacts\",\"calibration\":{\"batch_size\":1,\"dataset\":null,\"dataset_revision\":null,\"max_sequence_length\":2048,\"samples\":512,\"seed\":0,\"split\":\"train\"},\"constraints\":{\"max_disk_bytes\":null,\"max_perplexity_delta\":null,\"max_ram_bytes\":null,\"max_vram_bytes\":null,\"min_latency_gain_ratio\":null,\"min_quality_retention_ratio\":0.98},\"features\":{\"activations\":true,\"correlations\":false,\"gradients\":false,\"runtime\":true,\"spectral\":true,\"topology\":true,\"weights\":true},\"hardware\":{\"cpu_offload\":true,\"max_ram_gb\":null,\"max_vram_gb\":null,\"memory_mode\":\"auto\",\"mixed_precision\":true},\"log_level\":\"INFO\",\"model\":{\"dtype\":\"auto\",\"format\":\"huggingface\",\"path\":null,\"revision\":null},\"objective\":{\"max_perplexity_increase\":null,\"max_vram_gb\":null,\"min_latency_improvement\":null,\"optimize\":[\"parameter_count\",\"latency\"],\"quality_retention\":0.98,\"terms\":null},\"provider\":{\"api_key_env\":null,\"endpoint\":null,\"kind\":\"none\",\"max_input_size\":8192,\"max_output_size\":2048,\"model_id\":\"none\",\"model_path\":null,\"model_revision\":\"none\",\"provider_id\":\"none\",\"request_timeout_seconds\":30.0,\"runtime_revision\":null},\"safety\":{\"allow_overwrite\":false,\"require_atomic_writes\":true,\"trust_remote_code\":false},\"schema_version\":1},\"resume_token\":\"b83d9408c1d5483a742955320180f890afac16c4540fffd0fa43c0df1440c558\",\"rollback_policy\":\"no-overwrite; executor must use atomic write and retain prior digest\",\"schema_version\":1,\"source_overwrite\":false,\"uncertainties\":[\"model.path is unresolved; supply an immutable local path or model identifier\",\"model.revision is unresolved; pin a revision before execution\"]}",
+        "output_sha256": "279f07c85365f9ede7d9f35e19585d02387ef60b98e039d7a8b582167673e918"
+      },
+      "limitation": "a read-only plan with unresolved model inputs is not optimizer evidence"
+    }
+  ],
+  "quality_gate": {
+    "status": "passed",
+    "commands": [
+      {
+        "command": "git diff --check",
+        "exit_code": 0,
+        "duration_seconds": 0.031,
+        "outcome": "supported",
+        "output_tail": "",
+        "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": "uv run --locked --extra dev ruff check src tests tools",
+        "exit_code": 0,
+        "duration_seconds": 0.078,
+        "outcome": "supported",
+        "output_tail": "All checks passed!",
+        "output_sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645"
+      },
+      {
+        "command": "uv run --locked --extra dev mypy src/modelsurgeon",
+        "exit_code": 0,
+        "duration_seconds": 0.516,
+        "outcome": "supported",
+        "output_tail": "Success: no issues found in 332 source files",
+        "output_sha256": "201253db583ae212718842b2654a3b5da3a6e2f76b59375c9d536b5d964090cb"
+      },
+      {
+        "command": "uv run --locked --extra dev python tools/audit_adversarial_resistance.py",
+        "exit_code": 0,
+        "duration_seconds": 0.969,
+        "outcome": "supported",
+        "output_tail": "-tool-promotion\",\n      \"error\": null,\n      \"observed\": {\n        \"budget\": {\n          \"max_evaluation_count\": 1,\n          \"max_memory_bytes\": 67108864,\n          \"max_output_bytes\": 65536,\n          \"max_wall_seconds\": 5.0\n        },\n        \"failure_code\": null,\n        \"handler_calls\": 1,\n        \"outcome\": \"supported\",\n        \"policy_preserved\": true,\n        \"promotion\": \"untrusted_only\",\n        \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n        \"provider_calls\": 0,\n        \"request_unchanged\": true,\n        \"secrets_redacted\": true,\n        \"trust_zone\": \"untrusted_tool\"\n      },\n      \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n      \"remediation_status\": \"covered\",\n      \"retained\": true,\n      \"severity\": \"high\",\n      \"status\": \"passed\",\n      \"threat_class\": \"hostile_tool_result\",\n      \"variant\": \"whitespace\"\n    },\n    {\n      \"case_id\": \"unvalidated-tool-promotion\",\n      \"error\": null,\n      \"observed\": {\n        \"budget\": {\n          \"max_evaluation_count\": 1,\n          \"max_memory_bytes\": 67108864,\n          \"max_output_bytes\": 65536,\n          \"max_wall_seconds\": 5.0\n        },\n        \"failure_code\": null,\n        \"handler_calls\": 1,\n        \"outcome\": \"supported\",\n        \"policy_preserved\": true,\n        \"promotion\": \"untrusted_only\",\n        \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n        \"provider_calls\": 0,\n        \"request_unchanged\": true,\n        \"secrets_redacted\": true,\n        \"trust_zone\": \"untrusted_tool\"\n      },\n      \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n      \"remediation_status\": \"covered\",\n      \"retained\": true,\n      \"severity\": \"high\",\n      \"status\": \"passed\",\n      \"threat_class\": \"hostile_tool_result\",\n      \"variant\": \"casefold\"\n    },\n    {\n      \"case_id\": \"unvalidated-tool-promotion\",\n      \"error\": null,\n      \"observed\": {\n        \"budget\": {\n          \"max_evaluation_count\": 1,\n          \"max_memory_bytes\": 67108864,\n          \"max_output_bytes\": 65536,\n          \"max_wall_seconds\": 5.0\n        },\n        \"failure_code\": null,\n        \"handler_calls\": 1,\n        \"outcome\": \"supported\",\n        \"policy_preserved\": true,\n        \"promotion\": \"untrusted_only\",\n        \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n        \"provider_calls\": 0,\n        \"request_unchanged\": true,\n        \"secrets_redacted\": true,\n        \"trust_zone\": \"untrusted_tool\"\n      },\n      \"provenance\": \"sha256:33a129dc1a4afc672c6e9e171ac0768e0cbd2d6e6b085a2772c65b5c35dfab4d\",\n      \"remediation_status\": \"covered\",\n      \"retained\": true,\n      \"severity\": \"high\",\n      \"status\": \"passed\",\n      \"threat_class\": \"hostile_tool_result\",\n      \"variant\": \"unicode_spacing\"\n    },\n    {\n      \"case_id\": \"hostile-process-containment-not-claimed\",\n      \"error\": null,\n      \"observed\": {\n        \"budget\": {\n          \"max_output_bytes\": 4096,\n          \"max_variants\": 1,\n          \"max_wall_seconds\": 0.1\n        },\n        \"failure_code\": \"isolation_failure\",\n        \"handler_calls\": 0,\n        \"outcome\": \"not_claimed\",\n        \"policy_preserved\": true,\n        \"promotion\": \"none\",\n        \"provenance\": \"sha256:8106e18e525580cfb0dec6a51726b860034366968b7d76205fdce72fc160b573\",\n        \"provider_calls\": 0,\n        \"request_unchanged\": true,\n        \"secrets_redacted\": true,\n        \"trust_zone\": \"untrusted_provider\"\n      },\n      \"provenance\": \"sha256:8106e18e525580cfb0dec6a51726b860034366968b7d76205fdce72fc160b573\",\n      \"remediation_status\": \"unresolved\",\n      \"retained\": true,\n      \"severity\": \"high\",\n      \"status\": \"passed\",\n      \"threat_class\": \"hostile_process\",\n      \"variant\": \"base\"\n    }\n  ],\n  \"passed\": 69,\n  \"record_type\": \"adversarial_resistance_audit\",\n  \"schema_version\": 1,\n  \"seed\": 482,\n  \"trusted_policy_wins\": true,\n  \"unresolved\": 1,\n  \"variant_count\": 69\n}",
+        "output_sha256": "7dba37907a06f746645935e9cdbe71b2f114ca509c1c52daceb02cb9c6eac89d"
+      },
+      {
+        "command": "uv run --locked --extra dev python tools/audit_v29_conversational_security_release.py",
+        "exit_code": 0,
+        "duration_seconds": 0.953,
+        "outcome": "supported",
+        "output_tail": "v2.9 conversational security and approval gate verified",
+        "output_sha256": "110d6c4a7f5f1a354b3749e2a62878e943c358750816d996fd52df3d661a2103"
+      },
+      {
+        "command": "uv run --locked --extra dev python tools/audit_migration_compatibility.py",
+        "exit_code": 0,
+        "duration_seconds": 0.906,
+        "outcome": "supported",
+        "output_tail": "v3.0 migration compatibility boundary verified",
+        "output_sha256": "9d8612ae378f18e8138881c0382c73a869445702ec0a1e8633887c48e5f419c5"
+      },
+      {
+        "command": "uv run --locked --extra dev pytest -q",
+        "exit_code": 0,
+        "duration_seconds": 54.281,
+        "outcome": "supported",
+        "output_tail": "........................................................................ [  4%]\n........................................................................ [  8%]\n........................................................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n........................................................................ [ 25%]\n........................................................................ [ 29%]\n........................................................................ [ 33%]\n.........................................ss............................. [ 37%]\n...............................s........................................ [ 41%]\n.........ss............................................................. [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n........................................................................ [ 58%]\n........................................................................ [ 62%]\n........................................................................ [ 66%]\n........................................................................ [ 70%]\n........................................................................ [ 75%]\n........................................................................ [ 79%]\n........................................................................ [ 83%]\n........................................................................ [ 87%]\n............................................sssss.sssss................. [ 91%]\n........................................................................ [ 95%]\n........................................................................ [100%]",
+        "output_sha256": "1fdb6faab7d8794c055dd58bebefb6ac5ac7b61c8ddce74db1282d10f40ed751"
+      }
+    ]
+  },
+  "claims": {
+    "supported": [
+      "bounded local contract and direct API acceptance",
+      "offline metadata fixture setup with pinned upstream revisions",
+      "no-LLM CLI/Python parity and explicit negative outcomes",
+      "approval, evidence, provenance, artifact, adversarial, and replay contracts"
+    ],
+    "unsupported": [
+      "live hosted provider execution and quality",
+      "external local provider runtime availability",
+      "CUDA execution in this environment"
+    ],
+    "not_claimed": [
+      "optimizer correctness, optimality, or model-quality improvement",
+      "representative model-family surgery from committed or downloaded weights",
+      "hostile operating-system process containment",
+      "universal architecture, filesystem, device, or deployment support"
+    ]
+  },
+  "known_skips": [
+    "The pinned tiny fixture manifest is metadata-only; target weights are not committed or downloaded.",
+    "The full pytest suite retains environment-dependent skips reported by pytest.",
+    "No CUDA device, hosted credential, live endpoint, or installed llama.cpp runtime was required."
+  ],
+  "failures": [],
+  "artifacts": [
+    {
+      "path": "docs/research/v3.0-acceptance-matrix-v1.json",
+      "role": "declarative acceptance matrix",
+      "sha256": "51300a59a21fc85589fec6507bb6d1d1de34ca32b29e2309361ba877b0ea9ca3"
+    },
+    {
+      "path": "docs/research/v3.0-acceptance-evidence-v1.json",
+      "role": "machine-readable execution evidence"
+    },
+    {
+      "path": "tools/audit_v30_acceptance.py",
+      "role": "executable audit and harness"
+    },
+    {
+      "path": "docs/release/v3.0-acceptance-security-reproducibility-review.md",
+      "role": "final review"
+    }
+  ]
+}
