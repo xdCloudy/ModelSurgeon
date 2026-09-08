@@ -79,9 +79,10 @@ The release-facing capability matrix, scientific limitations, and reproduction
 policy are in the [v2.0 release audit](docs/release/v2.0-autonomous-optimizer-audit.md)
 and [scientific report](docs/research/v2.0-autonomous-optimizer-report.md).
 
-Fresh revision-pinned first-party acceptance evidence is retained in four
-linked records: the [core HF acceptance record](docs/research/first-party-hf-acceptance-evidence-v3.json),
+Fresh revision-pinned first-party acceptance evidence is retained in linked
+records: the [core HF acceptance record](docs/research/first-party-hf-acceptance-evidence-v3.json),
 the [chat-controlled HF acceptance record](docs/research/first-party-hf-chat-acceptance-evidence-v1.json),
+the [chat task-quality acceptance record](docs/research/first-party-hf-chat-task-quality-acceptance-evidence-v1.json),
 the [attention-head tranche](docs/research/first-party-hf-acceptance-evidence-v4.json),
 and the [transformer-layer tranche](docs/research/first-party-hf-acceptance-evidence-v5.json).
 Together they cover pinned tiny Llama and Mistral checkpoints plus real
@@ -132,9 +133,13 @@ campaign record](docs/research/first-party-native-gguf-chat-campaign-v1.json).
 The task-quality acceptance runner accepts a revision-pinned local JSONL
 benchmark through `--task-quality-dataset` and records its digest, revision,
 split, sample limit, output digests, and physical baseline/candidate scores.
-The current campaign is evidence for the bounded evaluator and combined gate;
-it does not establish broad coding ability or a successful task-quality
-artifact.
+The direct runner and conversational control plane both use the same bounded
+evaluator and combined gate. A fresh chat-controlled Qwen2.5-0.5B campaign
+scored 4/4 exact matches at both baseline and candidate boundaries, passed the
+0.99 task and perplexity gates, and promoted a reloadable artifact without
+overwriting the source. Its CPU latency regressed by 3.82%, so this is not a
+speed-win claim or broad coding-coverage claim; see the [chat task-quality
+campaign record](docs/research/first-party-hf-chat-task-quality-acceptance-evidence-v1.json).
 
 | Area | State | Current capability |
 | --- | --- | --- |
@@ -350,10 +355,10 @@ uv run modelsurgeon chat ./models/text-model.gguf \
 The provider runtime is optional and separately managed; use `--provider none`
 only for explicit no-provider contract checks. Direct `optimize --execute`
 remains the recommended automation path, while the conversational path has
-now completed both an accepted HF campaign and a native-GGUF negative campaign
-under real runtime measurement. These campaigns are evidence for the bounded
-integration, not a production-scale conversational benchmark or a
-claim of universal target-model support.
+now completed accepted HF campaigns, including a task-quality-gated campaign,
+and a native-GGUF negative campaign under real runtime measurement. These
+campaigns are evidence for the bounded integration, not a production-scale
+conversational benchmark or a claim of universal target-model support.
 
 <details>
 <summary><strong>Run the First Surgeon workflow</strong></summary>
