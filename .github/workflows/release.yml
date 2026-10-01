@@ -64,7 +64,7 @@ jobs:
       attestations: write
     steps:
       - name: Download release inputs
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-${{ github.event.release.tag_name }}
           path: release
@@ -84,7 +84,7 @@ jobs:
       id-token: write
     steps:
       - name: Download release inputs
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-${{ github.event.release.tag_name }}
           path: release
