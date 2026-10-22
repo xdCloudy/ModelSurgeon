@@ -81,6 +81,24 @@ def test_transfer_preparation_rejects_missing_evidence_root(tmp_path: Path) -> N
         _iter_observations([tmp_path / "missing"])
 
 
+def test_transfer_preparation_rejects_file_as_evidence_root(tmp_path: Path) -> None:
+    root = tmp_path / "not-a-directory"
+    root.write_text("", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="transfer evidence root is not a directory"):
+        _iter_observations([root])
+
+
+def test_transfer_preparation_rejects_non_object_observation_json(tmp_path: Path) -> None:
+    root = tmp_path / "evidence"
+    observation_path = root / "optimization-evidence" / "observations" / "list.json"
+    observation_path.parent.mkdir(parents=True)
+    observation_path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        _iter_observations([root])
+
+
 def test_transfer_dataset_publishes_complete_directory(tmp_path: Path) -> None:
     output = tmp_path / "nested" / "transfer"
 
