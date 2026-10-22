@@ -38,6 +38,7 @@ class HuggingFaceRevisionError(HuggingFaceLoadError):
 
 _DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "cpu", "sequential"})
 _SHARDED_INDEX_NAMES = ("model.safetensors.index.json", "pytorch_model.bin.index.json")
+_MAX_SHARDED_INDEX_BYTES = 100 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,7 +166,13 @@ def _validate_shard_index(
     try:
         if not stat.S_ISREG(index_path.stat().st_mode):
             raise HuggingFaceModelError("checkpoint index is not a regular file")
-        payload = json.loads(index_path.read_text(encoding="utf-8"))
+        with index_path.open("rb") as stream:
+            raw_index = stream.read(_MAX_SHARDED_INDEX_BYTES + 1)
+        if len(raw_index) > _MAX_SHARDED_INDEX_BYTES:
+            raise HuggingFaceModelError(
+                f"checkpoint index exceeds {_MAX_SHARDED_INDEX_BYTES} bytes"
+            )
+        payload = json.loads(raw_index.decode("utf-8"))
     except HuggingFaceModelError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
