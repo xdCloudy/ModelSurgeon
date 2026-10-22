@@ -8,9 +8,9 @@
     runtime, retry, subprocess, provider, adapter, evaluation, study, and
     hardware-probe APIs. Non-finite values could evade range checks and defeat
     bounded work. Make package JSON serializers and parsers reject non-standard
-    NaN/Infinity tokens and numbers that overflow finite floating-point range,
-    and reject non-finite YAML/TOML values at config load, so persisted records
-    and outputs remain valid JSON.
+    NaN/Infinity tokens, numbers that overflow finite floating-point range, and
+    duplicate object keys. Reject non-finite YAML/TOML values at config load so
+    persisted records and outputs remain valid JSON with unambiguous fields.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

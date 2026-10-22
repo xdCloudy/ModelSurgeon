@@ -27,9 +27,20 @@ def _parse_finite_float(token: str) -> float:
     return value
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise JSONDecodeError(f"duplicate object key {key!r}", key, 0)
+        result[key] = value
+    return result
+
+
 def strict_json_loads(payload: str | bytes | bytearray, **kwargs: Any) -> Any:
-    """Parse JSON while rejecting non-finite and non-standard numeric values."""
-    controlled = {"parse_constant", "parse_float", "cls"}.intersection(kwargs)
+    """Parse unambiguous JSON while rejecting duplicate keys and non-finite numbers."""
+    controlled = {"parse_constant", "parse_float", "object_pairs_hook", "cls"}.intersection(
+        kwargs
+    )
     if controlled:
         names = ", ".join(sorted(controlled))
         raise TypeError(f"strict_json_loads controls {names}")
@@ -37,18 +48,22 @@ def strict_json_loads(payload: str | bytes | bytearray, **kwargs: Any) -> Any:
         payload,
         parse_constant=_reject_nonstandard_constant,
         parse_float=_parse_finite_float,
+        object_pairs_hook=_reject_duplicate_keys,
         **kwargs,
     )
 
 
 def strict_json_decoder(**kwargs: Any) -> JSONDecoder:
-    """Create a decoder that rejects non-finite and non-standard numeric values."""
-    controlled = {"parse_constant", "parse_float", "cls"}.intersection(kwargs)
+    """Create a decoder that rejects duplicate keys and non-finite numbers."""
+    controlled = {"parse_constant", "parse_float", "object_pairs_hook", "cls"}.intersection(
+        kwargs
+    )
     if controlled:
         names = ", ".join(sorted(controlled))
         raise TypeError(f"strict_json_decoder controls {names}")
     return JSONDecoder(
         parse_constant=_reject_nonstandard_constant,
         parse_float=_parse_finite_float,
+        object_pairs_hook=_reject_duplicate_keys,
         **kwargs,
     )
