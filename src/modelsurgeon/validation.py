@@ -53,7 +53,7 @@ class HostileOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class HostileFuzzLimits:
-    """Hard admission and subprocess limits for one corpus execution."""
+    """Input/output/time limits plus resource thresholds recorded for each run."""
 
     max_input_bytes: int = 64 * 1024
     max_output_bytes: int = 64 * 1024
