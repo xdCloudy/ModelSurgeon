@@ -121,27 +121,34 @@ def _is_symlink_or_junction(path: Path) -> bool:
     return path.is_symlink() or path.is_junction()
 
 
-def _open_candidate_pool_output(path: Path, *, append: bool) -> Any:
+def _open_candidate_pool_file(path: Path, flags: int, mode: str) -> Any:
     if _is_symlink_or_junction(path):
         raise CandidatePoolError("candidate pool files cannot be symbolic links or junctions")
-    flags = os.O_WRONLY | getattr(os, "O_BINARY", 0)
-    if append:
-        flags |= os.O_APPEND
-    else:
-        flags |= os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_BINARY", 0)
     if os.name == "posix":
         flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(path, flags, 0o666)
     except OSError as error:
-        raise CandidatePoolError(f"cannot open candidate pool output: {error}") from error
+        raise CandidatePoolError(f"cannot open candidate pool file: {error}") from error
     try:
         if not stat.S_ISREG(os.fstat(descriptor).st_mode) or _is_symlink_or_junction(path):
-            raise CandidatePoolError("candidate pool output is not a regular file")
-        return os.fdopen(descriptor, "ab" if append else "wb")
+            raise CandidatePoolError("candidate pool path is not a regular file")
+        if mode == "r":
+            return os.fdopen(descriptor, mode, encoding="utf-8")
+        return os.fdopen(descriptor, mode)
     except BaseException:
         os.close(descriptor)
         raise
+
+
+def _open_candidate_pool_output(path: Path, *, append: bool) -> Any:
+    flags = os.O_WRONLY
+    if append:
+        flags |= os.O_APPEND
+    else:
+        flags |= os.O_CREAT | os.O_EXCL
+    return _open_candidate_pool_file(path, flags, "ab" if append else "wb")
 
 
 def write_candidate_pool(
@@ -210,7 +217,8 @@ def _validate_resume(
     if output.exists() != checkpoint.exists():
         raise CandidatePoolError("candidate pool data and resume manifest must both exist")
     try:
-        raw = json.loads(checkpoint.read_text(encoding="utf-8"))
+        with _open_candidate_pool_file(checkpoint, os.O_RDONLY, "r") as stream:
+            raw = json.load(stream)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CandidatePoolError("candidate pool resume manifest is unreadable") from error
     if not isinstance(raw, Mapping):
@@ -227,7 +235,7 @@ def _validate_resume(
         raise CandidatePoolError("candidate pool resume bounds are invalid")
     count = 0
     try:
-        with output.open("rb") as stream:
+        with _open_candidate_pool_file(output, os.O_RDONLY, "rb") as stream:
             for line in stream:
                 digest.update(line)
                 if count >= expected_count:
