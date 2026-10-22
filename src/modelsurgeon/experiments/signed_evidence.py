@@ -355,11 +355,6 @@ class EvidenceVerification:
         }
 
 
-def _file_digest(path: Path, chunk_bytes: int) -> tuple[str, int]:
-    with path.open("rb") as stream:
-        return _stream_digest(stream, chunk_bytes)
-
-
 def _stream_digest(stream: BinaryIO, chunk_bytes: int) -> tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
@@ -436,9 +431,19 @@ def _open_bundle_member(root: Path, member_path: str) -> BinaryIO | None:
                 return None
         resolved_path = path.resolve(strict=True)
         resolved_path.relative_to(root)
-        if not resolved_path.is_file():
-            return None
-        return resolved_path.open("rb")
+        member_fd = os.open(
+            resolved_path,
+            os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0),
+        )
+        try:
+            if not stat.S_ISREG(os.fstat(member_fd).st_mode):
+                return None
+            stream = os.fdopen(member_fd, "rb")
+            member_fd = -1
+            return stream
+        finally:
+            if member_fd >= 0:
+                os.close(member_fd)
     except (OSError, RuntimeError, ValueError):
         return None
 
@@ -489,7 +494,14 @@ def build_evidence_bundle(
         path = _path(relative, "bundle member path")
         if len(members) >= active_limits.max_members:
             raise SignedEvidenceError("bundle exceeds its member limit")
-        digest, size = _file_digest(candidate, active_limits.chunk_bytes)
+        try:
+            stream = _open_bundle_member(resolved, path)
+            if stream is None:
+                raise SignedEvidenceError(f"bundle member is not a regular file: {path}")
+            with stream:
+                digest, size = _stream_digest(stream, active_limits.chunk_bytes)
+        except OSError as error:
+            raise SignedEvidenceError(f"cannot read bundle member {path}: {error}") from error
         total += size
         if total > active_limits.max_total_bytes:
             raise SignedEvidenceError("bundle exceeds its byte limit")
@@ -607,6 +619,7 @@ def verify_evidence_bundle(
         try:
             stream = _open_bundle_member(bundle_root, member.path)
             if stream is None:
+                issues.append(f"cannot read {member.path}: path is unsafe or not a regular file")
                 continue
             with stream:
                 digest, size = _stream_digest(stream, active_limits.chunk_bytes)
