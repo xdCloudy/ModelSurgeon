@@ -19,9 +19,12 @@ declared 0.25 CPU-hour campaign budget. Callers may supply tighter limits.
 Parser runners retain rejected, unsupported, failed, resource-limited, and
 unknown behavior. Subprocess runners disable the shell, enforce a wall timeout,
 and trigger child termination when combined stdout and stderr exceed the capture
-budget. They record non-zero exits as rejected evidence. Disk usage is measured
-after the run under the temporary directory; a caller-supplied working
-directory is outside that scan, and the measurement is not a disk quota.
+budget. They record non-zero exits as rejected evidence. The runner polls disk
+usage under its temporary directory while the child runs and terminates the
+child after an observed overage; it checks the directory again after the run.
+Polling can overshoot the threshold and miss brief spikes between scans. A
+caller-supplied working directory is outside that scan, so this is not a disk
+quota.
 `max_memory_bytes` is retained in corpus metadata but is not enforced by the
 runner. The runner does not isolate a child from filesystem access available to
 the current user. A timeout or excessive output is a retained result, never a

@@ -329,13 +329,40 @@ def _count_fuzz_output(
             return
 
 
+def _temporary_tree_bytes(root: Path) -> int:
+    total = 0
+    for directory, _, filenames in os.walk(root):
+        for filename in filenames:
+            path = Path(directory) / filename
+            try:
+                if not path.is_symlink():
+                    total += path.stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _monitor_temporary_tree(
+    root: Path,
+    limit: int,
+    observed_bytes: list[int],
+    exceeded: threading.Event,
+    stop: threading.Event,
+) -> None:
+    while not stop.wait(0.05):
+        observed_bytes[0] = _temporary_tree_bytes(root)
+        if observed_bytes[0] > limit:
+            exceeded.set()
+            return
+
+
 def run_subprocess_case(
     case: HostileFuzzCase,
     command: Sequence[str],
     *,
     cwd: str | Path | None = None,
 ) -> HostileFuzzResult:
-    """Run a target with bounded output capture and post-run temporary-file accounting."""
+    """Run a target with bounded output capture and temporary-tree monitoring."""
     if not command or any(not isinstance(argument, str) or not argument for argument in command):
         raise HostileFuzzError("subprocess command must contain non-empty strings")
     started = time.perf_counter()
@@ -367,9 +394,23 @@ def run_subprocess_case(
         assert process.stdout is not None
         output_bytes = [0]
         output_exceeded = threading.Event()
+        disk_exceeded = threading.Event()
+        stop_disk_monitor = threading.Event()
+        disk_bytes = [0]
         output_reader = threading.Thread(
             target=_count_fuzz_output,
             args=(process.stdout, output_bytes, case.limits.max_output_bytes, output_exceeded),
+            daemon=True,
+        )
+        disk_monitor = threading.Thread(
+            target=_monitor_temporary_tree,
+            args=(
+                Path(sandbox),
+                case.limits.max_disk_bytes,
+                disk_bytes,
+                disk_exceeded,
+                stop_disk_monitor,
+            ),
             daemon=True,
         )
 
@@ -382,13 +423,14 @@ def run_subprocess_case(
 
         input_writer = threading.Thread(target=write_payload, daemon=True)
         workers = (output_reader, input_writer)
+        disk_monitor.start()
         for worker in workers:
             worker.start()
 
         deadline = started + case.limits.timeout_seconds
         timed_out = False
         while True:
-            if output_exceeded.is_set():
+            if output_exceeded.is_set() or disk_exceeded.is_set():
                 _terminate_fuzz_process(process)
                 break
             if time.perf_counter() >= deadline:
@@ -401,6 +443,8 @@ def run_subprocess_case(
 
         for worker in workers:
             worker.join(timeout=0.5)
+        stop_disk_monitor.set()
+        disk_monitor.join(timeout=0.5)
         for stream in (process.stdin, process.stdout):
             try:
                 stream.close()
@@ -415,8 +459,10 @@ def run_subprocess_case(
                 output_bytes=output_bytes[0],
                 detail=f"timeout after {case.limits.timeout_seconds}s",
             )
-        disk_bytes = sum(path.stat().st_size for path in Path(sandbox).rglob("*") if path.is_file())
-        if output_exceeded.is_set() or disk_bytes > case.limits.max_disk_bytes:
+        disk_bytes[0] = max(disk_bytes[0], _temporary_tree_bytes(Path(sandbox)))
+        if output_exceeded.is_set() or disk_exceeded.is_set() or (
+            disk_bytes[0] > case.limits.max_disk_bytes
+        ):
             outcome = HostileOutcome.RESOURCE_LIMIT
         elif process.returncode == 0:
             outcome = HostileOutcome.ACCEPTED
@@ -430,6 +476,8 @@ def run_subprocess_case(
             detail=(
                 "output exceeded byte budget; child process terminated"
                 if output_exceeded.is_set()
+                else "temporary-directory bytes exceeded budget"
+                if disk_exceeded.is_set() or disk_bytes[0] > case.limits.max_disk_bytes
                 else f"returncode={process.returncode}"
             ),
         )
