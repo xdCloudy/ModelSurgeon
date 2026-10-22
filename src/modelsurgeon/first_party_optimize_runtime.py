@@ -540,6 +540,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             PretrainedSurgeonRegistry,
         )
 
+        self.meta_guidance = None
+        self.meta_predictions = {}
+        self.meta_order = ()
         resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
         raw_surgeon = resolved_config.get("surgeon")
         if raw_surgeon is None:
