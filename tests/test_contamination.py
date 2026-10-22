@@ -28,11 +28,40 @@ def test_exact_overlap_blocks_publishability_and_is_deterministic() -> None:
     first = audit_corpora(_sources(), items)
     second = audit_corpora(_sources(), items)
     assert first.status is ContaminationStatus.BLOCKED
+    assert first.to_record()["schema_version"] == 2
+    assert first.protocol_revision == "contamination-audit-v2"
     assert first.report_id == second.report_id
     assert first.findings[0].kind is FindingKind.EXACT_OVERLAP
     assert first.findings[0].action is FindingAction.BLOCK
     with pytest.raises(ContaminationAuditError, match="blocked"):
         first.require_publishable()
+
+
+def test_whitespace_normalized_exact_overlap_is_classified_as_exact() -> None:
+    items = (
+        CorpusItem("a", "train", "same  text\nacross lines"),
+        CorpusItem("b", "test", "same text across\tlines"),
+    )
+
+    report = audit_corpora(_sources(), items)
+
+    assert report.status is ContaminationStatus.BLOCKED
+    assert len(report.findings) == 1
+    assert report.findings[0].kind is FindingKind.EXACT_OVERLAP
+    assert report.findings[0].action is FindingAction.BLOCK
+    assert items[0].text_digest == items[1].text_digest
+
+
+def test_reused_item_ids_across_corpora_do_not_alias_shingle_sets() -> None:
+    items = (
+        CorpusItem("row-1", "train", "alpha beta gamma delta epsilon"),
+        CorpusItem("row-1", "test", "zeta eta theta iota kappa"),
+    )
+
+    report = audit_corpora(_sources(), items)
+
+    assert report.status is ContaminationStatus.CLEAN
+    assert report.findings == ()
 
 
 def test_near_overlap_moves_sample_and_changes_protocol_identity() -> None:
@@ -76,3 +105,89 @@ def test_resource_limit_retains_audit_limitation() -> None:
     )
     assert limited.status is ContaminationStatus.UNKNOWN
     assert limited.findings[0].kind is FindingKind.RESOURCE_LIMIT
+
+
+def test_item_byte_limit_returns_unknown_before_shingling() -> None:
+    report = audit_corpora(
+        _sources(),
+        (CorpusItem("large", "train", "é" * 3),),
+        ContaminationPolicy(max_item_bytes=4),
+    )
+
+    assert report.status is ContaminationStatus.UNKNOWN
+    assert report.audited_item_count == 0
+    assert report.compared_pair_count == 0
+    assert report.findings[0].kind is FindingKind.RESOURCE_LIMIT
+    assert report.findings[0].left_item_id == "large"
+
+
+def test_whitespace_only_corpus_item_is_rejected() -> None:
+    with pytest.raises(ContaminationAuditError, match="text cannot be empty"):
+        CorpusItem("blank", "train", " \t\n")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"ngram_size": True}, "matching threshold"),
+        ({"ngram_size": 1.5}, "matching threshold"),
+        ({"near_jaccard_threshold": True}, "matching threshold"),
+        ({"near_jaccard_threshold": float("nan")}, "matching threshold"),
+        ({"near_jaccard_threshold": 10**10000}, "matching threshold"),
+        ({"max_items": True}, "resource limits"),
+        ({"max_item_bytes": 1.5}, "resource limits"),
+        ({"max_pair_comparisons": "10"}, "resource limits"),
+        ({"license_safe_only": 1}, "must be a boolean"),
+    ),
+)
+def test_contamination_policy_rejects_malformed_configuration(
+    kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ContaminationAuditError, match=message):
+        ContaminationPolicy(**kwargs)
+
+
+def test_pair_budget_bounds_exact_and_ancestry_findings() -> None:
+    items = tuple(
+        CorpusItem(
+            f"item-{index}",
+            "train" if index < 3 else "test",
+            "duplicate content",
+            ancestry_ids=("shared-model",),
+        )
+        for index in range(6)
+    )
+
+    report = audit_corpora(
+        _sources(),
+        items,
+        ContaminationPolicy(max_pair_comparisons=2),
+    )
+
+    assert report.compared_pair_count == 2
+    assert report.status is ContaminationStatus.BLOCKED
+    assert sum(item.kind is FindingKind.EXACT_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.ANCESTRY_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.RESOURCE_LIMIT for item in report.findings) == 1
+
+
+def test_pair_budget_bounds_ancestry_only_comparisons() -> None:
+    items = tuple(
+        CorpusItem(
+            f"item-{index}",
+            "train" if index < 3 else "test",
+            f"unique content {index}",
+            ancestry_ids=("shared-model",),
+        )
+        for index in range(6)
+    )
+
+    report = audit_corpora(
+        _sources(),
+        items,
+        ContaminationPolicy(max_pair_comparisons=2),
+    )
+
+    assert report.compared_pair_count == 2
+    assert sum(item.kind is FindingKind.ANCESTRY_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.RESOURCE_LIMIT for item in report.findings) == 1
