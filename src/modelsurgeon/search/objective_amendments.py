@@ -812,6 +812,8 @@ class ObjectiveAmendmentHistory:
     entries: tuple[ObjectiveAmendment, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.entries, tuple):
+            raise ObjectiveAmendmentError("amendment history entries must be an immutable tuple")
         seen_amendment_ids: set[str] = set()
         for index, item in enumerate(self.entries):
             follows_same_amendment = (
