@@ -14,6 +14,7 @@ import json
 import os
 import re
 import stat
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -713,9 +714,15 @@ def render_evidence_bundle_index(index: EvidenceBundleIndex) -> str:
 
 
 def write_evidence_bundle_index(index: EvidenceBundleIndex, path: str | Path) -> None:
-    """Write an index atomically enough for inspection outside the content tree."""
+    """Atomically write an index without following a pre-planted temp symlink."""
 
     destination = Path(path)
-    temporary = destination.with_name(destination.name + ".partial")
-    temporary.write_text(render_evidence_bundle_index(index), encoding="utf-8")
-    os.replace(temporary, destination)
+    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.partial")
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            stream.write(render_evidence_bundle_index(index))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
