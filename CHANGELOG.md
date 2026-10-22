@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+  - Convert overflowing or invalid replay metric values into the documented
+    reproduction error instead of leaking numeric-conversion exceptions.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

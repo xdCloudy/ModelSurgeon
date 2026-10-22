@@ -446,16 +446,22 @@ def run_reproduction(
         measured = dict(executor.execute(plan))
     except Exception as error:
         raise ReproductionCommandError("reproduction executor failed") from error
-    if not all(
-        isinstance(name, str)
-        and name
-        and isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(float(value))
-        for name, value in measured.items()
-    ):
-        raise ReproductionCommandError("executor returned malformed metrics")
-    reproduced = {name: float(value) for name, value in measured.items()}
+    reproduced: dict[str, float] = {}
+    for name, metric_value in measured.items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(metric_value, (int, float))
+            or isinstance(metric_value, bool)
+        ):
+            raise ReproductionCommandError("executor returned malformed metrics")
+        try:
+            normalized = float(metric_value)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ReproductionCommandError("executor returned malformed metrics") from error
+        if not math.isfinite(normalized):
+            raise ReproductionCommandError("executor returned malformed metrics")
+        reproduced[name] = normalized
     originals = dict(plan.original_metrics)
     tolerances = {
         name: (absolute, relative) for name, absolute, relative in plan.tolerances
