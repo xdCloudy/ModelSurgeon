@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -12,6 +11,7 @@ from pathlib import Path
 from typing import Final
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 from .acquisition import AcquisitionReport
 
@@ -195,14 +195,8 @@ class ActiveScheduleStore:
         return result
 
     def _publish(self, schedule: ActiveEvaluationSchedule) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         payload = json.dumps(schedule.to_record(), indent=2, sort_keys=True) + "\n"
-        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        temporary.replace(self.path)
+        atomic_write_text(self.path, payload, replace_existing=True)
 
 
 def _entry(schedule: ActiveEvaluationSchedule, candidate_id: str) -> ScheduledEvaluation:
