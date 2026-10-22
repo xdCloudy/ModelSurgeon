@@ -25,7 +25,17 @@ def hub_snapshot_blob_root(checkpoint_root: Path) -> Path | None:
     cache_root = snapshots.parent
     if snapshots.name != "snapshots" or not cache_root.name.startswith("models--"):
         return None
-    return (cache_root.resolve() / "blobs").resolve()
+    try:
+        resolved_cache = cache_root.resolve()
+        resolved_snapshot = checkpoint_root.resolve()
+        resolved_blobs = (resolved_cache / "blobs").resolve()
+    except (OSError, RuntimeError):
+        return None
+    if not _inside(resolved_snapshot, resolved_cache) or not _inside(
+        resolved_blobs, resolved_cache
+    ):
+        return None
+    return resolved_blobs
 
 
 def validate_checkpoint_index_path(
