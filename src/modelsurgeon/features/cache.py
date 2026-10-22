@@ -121,7 +121,7 @@ def _error_provenance(raw: object) -> ErrorProvenance | None:
             reference_dtype=str(raw["reference_dtype"]),
             method=str(raw["method"]),
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise FeatureCacheError("invalid precision error provenance") from error
 
 
@@ -199,7 +199,7 @@ def _feature_record(raw: object) -> FeatureRecord:
             sample_context=_sample_context(raw.get("sample_context")),
             metadata=_metadata(raw.get("metadata", {})),
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise FeatureCacheError("invalid cached feature record") from error
 
 
