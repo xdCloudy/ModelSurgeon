@@ -11,10 +11,42 @@ from pathlib import Path
 from typing import Any, cast
 
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
+MAX_TASK_QUALITY_EXAMPLES = 4096
+MAX_TASK_QUALITY_NEW_TOKENS = 4096
+MAX_TASK_QUALITY_TOTAL_NEW_TOKENS = 1_000_000
 
 
 class TaskQualityEvaluationError(ValueError):
     """Raised when task-quality evidence cannot be measured safely."""
+
+
+def validate_task_quality_generation_budget(
+    max_new_tokens: int,
+    *,
+    sample_count: int | None = None,
+) -> None:
+    """Reject task-quality generation settings that exceed the shared workload budget."""
+
+    if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int):
+        raise TaskQualityEvaluationError("task-quality max_new_tokens must be an integer")
+    if not 1 <= max_new_tokens <= MAX_TASK_QUALITY_NEW_TOKENS:
+        raise TaskQualityEvaluationError(
+            "task-quality max_new_tokens must be between 1 and "
+            f"{MAX_TASK_QUALITY_NEW_TOKENS}"
+        )
+    if sample_count is None:
+        return
+    if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count <= 0:
+        raise TaskQualityEvaluationError("task-quality sample count must be a positive integer")
+    if sample_count > MAX_TASK_QUALITY_EXAMPLES:
+        raise TaskQualityEvaluationError(
+            f"task-quality sample count must not exceed {MAX_TASK_QUALITY_EXAMPLES}"
+        )
+    if sample_count * max_new_tokens > MAX_TASK_QUALITY_TOTAL_NEW_TOKENS:
+        raise TaskQualityEvaluationError(
+            "task-quality generation budget exceeds "
+            f"{MAX_TASK_QUALITY_TOTAL_NEW_TOKENS} total new tokens"
+        )
 
 
 def _canonical(value: object) -> str:
@@ -176,8 +208,9 @@ def evaluate_code_exact_match(
 ) -> CodeExactMatchMeasurement:
     """Run deterministic greedy generation and compare normalized completions."""
 
-    if max_new_tokens <= 0:
-        raise TaskQualityEvaluationError("task-quality max_new_tokens must be positive")
+    validate_task_quality_generation_budget(
+        max_new_tokens, sample_count=len(dataset.examples)
+    )
     try:
         input_device = next(iter(model.parameters())).device
     except (AttributeError, StopIteration) as error:
@@ -244,9 +277,14 @@ def evaluate_code_exact_match(
 def evaluate_code_exact_match_with_generator(
     dataset: CodeExactMatchDataset,
     generate: Callable[[str], str],
+    *,
+    max_new_tokens: int,
 ) -> CodeExactMatchMeasurement:
     """Measure exact-match quality through a runtime-specific text generator."""
 
+    validate_task_quality_generation_budget(
+        max_new_tokens, sample_count=len(dataset.examples)
+    )
     matches = 0
     output_digests: list[tuple[str, str]] = []
     for example in dataset.examples:
