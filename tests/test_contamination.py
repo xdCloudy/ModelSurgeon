@@ -113,6 +113,26 @@ def test_whitespace_only_corpus_item_is_rejected() -> None:
         CorpusItem("blank", "train", " \t\n")
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"ngram_size": True}, "matching threshold"),
+        ({"ngram_size": 1.5}, "matching threshold"),
+        ({"near_jaccard_threshold": True}, "matching threshold"),
+        ({"near_jaccard_threshold": float("nan")}, "matching threshold"),
+        ({"max_items": True}, "resource limits"),
+        ({"max_item_bytes": 1.5}, "resource limits"),
+        ({"max_pair_comparisons": "10"}, "resource limits"),
+        ({"license_safe_only": 1}, "must be a boolean"),
+    ),
+)
+def test_contamination_policy_rejects_malformed_configuration(
+    kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ContaminationAuditError, match=message):
+        ContaminationPolicy(**kwargs)
+
+
 def test_pair_budget_bounds_exact_and_ancestry_findings() -> None:
     items = tuple(
         CorpusItem(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -66,10 +67,24 @@ class ContaminationPolicy:
     max_item_bytes: int = 1_000_000
 
     def __post_init__(self) -> None:
-        if self.ngram_size < 1 or not 0.0 < self.near_jaccard_threshold <= 1.0:
+        if (
+            isinstance(self.ngram_size, bool)
+            or not isinstance(self.ngram_size, int)
+            or self.ngram_size < 1
+            or isinstance(self.near_jaccard_threshold, bool)
+            or not isinstance(self.near_jaccard_threshold, (int, float))
+            or not math.isfinite(self.near_jaccard_threshold)
+            or not 0.0 < self.near_jaccard_threshold <= 1.0
+        ):
             raise ContaminationAuditError("invalid contamination matching threshold")
-        if self.max_items <= 0 or self.max_item_bytes <= 0 or self.max_pair_comparisons <= 0:
+        limits = (self.max_items, self.max_item_bytes, self.max_pair_comparisons)
+        if any(
+            isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
+            for limit in limits
+        ):
             raise ContaminationAuditError("contamination resource limits must be positive")
+        if not isinstance(self.license_safe_only, bool):
+            raise ContaminationAuditError("license_safe_only must be a boolean")
 
     def to_record(self) -> dict[str, object]:
         return {
