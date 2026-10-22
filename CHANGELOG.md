@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Preflight Hugging Face sharded checkpoint indexes before model loading.
+    Reject absolute, escaping, symlinked-directory, malformed, and non-regular
+    shard paths, and pin Hub model loads to the snapshot inspected by preflight.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
