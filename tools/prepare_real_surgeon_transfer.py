@@ -35,7 +35,34 @@ def _number(value: object) -> float | None:
 
 
 def _model_key(model: dict[str, Any]) -> str:
-    return f"{model['identifier']}@{model['revision']}"
+    return str(model["identifier"])
+
+
+def _resolve_model_selectors(
+    selectors: set[str],
+    grouped: dict[str, list[dict[str, Any]]],
+) -> tuple[set[str], set[str]]:
+    revisions = {
+        identifier: {
+            str(example["model"]["revision"])
+            for example in examples
+        }
+        for identifier, examples in grouped.items()
+    }
+    resolved: set[str] = set()
+    unknown: set[str] = set()
+    for selector in selectors:
+        if "@" in selector:
+            identifier, revision = selector.rsplit("@", 1)
+            if revision in revisions.get(identifier, set()):
+                resolved.add(identifier)
+            else:
+                unknown.add(selector)
+        elif selector in revisions:
+            resolved.add(selector)
+        else:
+            unknown.add(selector)
+    return resolved, unknown
 
 
 def _observation_to_example(observation: dict[str, Any]) -> dict[str, Any] | None:
@@ -211,8 +238,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", action="append", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--test-model", action="append", default=[])
-    parser.add_argument("--validation-model", action="append", default=[])
+    parser.add_argument(
+        "--test-model",
+        action="append",
+        default=[],
+        help=(
+            "Model identifier or identifier@revision to hold out for test; "
+            "all revisions stay together"
+        ),
+    )
+    parser.add_argument(
+        "--validation-model",
+        action="append",
+        default=[],
+        help=(
+            "Model identifier or identifier@revision to hold out for validation; "
+            "all revisions stay together"
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -222,18 +265,19 @@ def main() -> int:
     if not selected:
         raise SystemExit("no measured active-search observations found")
 
-    test_models = set(args.test_model)
-    validation_models = set(args.validation_model)
-    overlap = test_models & validation_models
-    if overlap:
-        raise SystemExit(f"model identities cannot be in both held-out sets: {sorted(overlap)}")
-
     grouped: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     for example in selected.values():
         grouped[_model_key(example["model"])].append(example)
-    unknown = (test_models | validation_models) - set(grouped)
+    test_models, unknown_test = _resolve_model_selectors(set(args.test_model), grouped)
+    validation_models, unknown_validation = _resolve_model_selectors(
+        set(args.validation_model), grouped
+    )
+    unknown = unknown_test | unknown_validation
     if unknown:
         raise SystemExit(f"requested split model identities were not observed: {sorted(unknown)}")
+    overlap = test_models & validation_models
+    if overlap:
+        raise SystemExit(f"model identities cannot be in both held-out sets: {sorted(overlap)}")
 
     split_counts: Counter[str] = Counter()
     model_partitions: dict[str, str] = {}

@@ -1,4 +1,4 @@
-"""Deterministic leakage-safe splits by component, layer, or mutation family."""
+"""Deterministic leakage-safe splits by component, layer, mutation family, or model."""
 
 from __future__ import annotations
 
@@ -236,7 +236,7 @@ def _mutation_family_keys(example: MutationExampleRecord) -> tuple[str, ...]:
 
 
 def _model_identity_keys(example: MutationExampleRecord) -> tuple[str, ...]:
-    return (f"model_identity:{example.model.identifier}@{example.model.revision}",)
+    return (f"model_identity:{example.model.identifier}",)
 
 
 def group_keys(

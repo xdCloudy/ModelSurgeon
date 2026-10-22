@@ -170,6 +170,7 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
     observations.mkdir(parents=True)
     models = (
         ("observation-train", "model/train", "train-rev"),
+        ("observation-train-revision-2", "model/train", "train-rev-2"),
         ("observation-validation", "model/validation", "validation-rev"),
         ("observation-test", "model/test", "test-rev"),
     )
@@ -204,8 +205,9 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
     manifest = json.loads(Path("transfer/manifest.json").read_text(encoding="utf-8"))
     records = load_surgeon_records(Path("transfer/examples.jsonl"))
     split = load_grouped_proof_split(Path("transfer/split.json"))
-    assert manifest["example_count"] == 3
+    assert manifest["example_count"] == 4
     assert manifest["schema_version"] == 2
+    assert manifest["model_counts"]["model/train"] == 2
     assert manifest["dataset"] == str(Path("transfer") / "examples.jsonl")
     for artifact_name in ("examples.jsonl", "split.json"):
         artifact_bytes = (Path("transfer") / artifact_name).read_bytes()
@@ -214,10 +216,12 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
         assert integrity["size_bytes"] == len(artifact_bytes)
     assert split.mode is GroupedSplitMode.MODEL_IDENTITY
     assert split.partition_for("observation-train") is SplitPartition.TRAIN
+    assert split.partition_for("observation-train-revision-2") is SplitPartition.TRAIN
     assert split.partition_for("observation-validation") is SplitPartition.VALIDATION
     assert split.partition_for("observation-test") is SplitPartition.TEST
     assert {record["example_id"] for record in records} == {
         "observation-train",
+        "observation-train-revision-2",
         "observation-validation",
         "observation-test",
     }

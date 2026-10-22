@@ -1,4 +1,4 @@
-"""Tests for deterministic component, layer, and mutation-family splits."""
+"""Tests for deterministic component, layer, mutation-family, and model splits."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def test_component_overlap_forms_transitive_indivisible_group() -> None:
     assert sum(manifest.group_counts.values()) == 2
 
 
-def test_model_identity_grouping_keeps_revisions_indivisible() -> None:
+def test_model_identity_grouping_keeps_revisions_under_one_identifier_indivisible() -> None:
     examples = (
         _example("e1", ("model.layers.0.mlp.up_proj",), model_identifier="model/a"),
         _example("e2", ("model.layers.1.mlp.up_proj",), model_identifier="model/a"),
@@ -149,10 +149,12 @@ def test_model_identity_grouping_keeps_revisions_indivisible() -> None:
     )
 
     partitions = _partition_map(manifest)
-    assert partitions["e1"] is partitions["e2"]
-    assert partitions["e1"] is not partitions["e3"]
+    assert partitions["e1"] is partitions["e2"] is partitions["e3"]
     assert partitions["e1"] is not partitions["e4"]
-    assert len(manifest.groups) == 3
+    assert len(manifest.groups) == 2
+    identity_group = next(group for group in manifest.groups if "e1" in group.example_ids)
+    assert identity_group.example_ids == ("e1", "e2", "e3")
+    assert identity_group.keys == ("model_identity:model/a",)
     assert all(group.keys[0].startswith("model_identity:") for group in manifest.groups)
 
 
