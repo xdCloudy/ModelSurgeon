@@ -27,6 +27,13 @@ def _parse_finite_float(token: str) -> float:
     return value
 
 
+def _parse_integer(token: str) -> int:
+    try:
+        return int(token)
+    except ValueError as error:
+        raise JSONDecodeError("integer exceeds the supported parser limit", token, 0) from error
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -38,9 +45,13 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def strict_json_loads(payload: str | bytes | bytearray, **kwargs: Any) -> Any:
     """Parse unambiguous JSON while rejecting duplicate keys and non-finite numbers."""
-    controlled = {"parse_constant", "parse_float", "object_pairs_hook", "cls"}.intersection(
-        kwargs
-    )
+    controlled = {
+        "parse_constant",
+        "parse_float",
+        "parse_int",
+        "object_pairs_hook",
+        "cls",
+    }.intersection(kwargs)
     if controlled:
         names = ", ".join(sorted(controlled))
         raise TypeError(f"strict_json_loads controls {names}")
@@ -48,6 +59,7 @@ def strict_json_loads(payload: str | bytes | bytearray, **kwargs: Any) -> Any:
         payload,
         parse_constant=_reject_nonstandard_constant,
         parse_float=_parse_finite_float,
+        parse_int=_parse_integer,
         object_pairs_hook=_reject_duplicate_keys,
         **kwargs,
     )
@@ -55,15 +67,20 @@ def strict_json_loads(payload: str | bytes | bytearray, **kwargs: Any) -> Any:
 
 def strict_json_decoder(**kwargs: Any) -> JSONDecoder:
     """Create a decoder that rejects duplicate keys and non-finite numbers."""
-    controlled = {"parse_constant", "parse_float", "object_pairs_hook", "cls"}.intersection(
-        kwargs
-    )
+    controlled = {
+        "parse_constant",
+        "parse_float",
+        "parse_int",
+        "object_pairs_hook",
+        "cls",
+    }.intersection(kwargs)
     if controlled:
         names = ", ".join(sorted(controlled))
         raise TypeError(f"strict_json_decoder controls {names}")
     return JSONDecoder(
         parse_constant=_reject_nonstandard_constant,
         parse_float=_parse_finite_float,
+        parse_int=_parse_integer,
         object_pairs_hook=_reject_duplicate_keys,
         **kwargs,
     )
