@@ -532,7 +532,7 @@ def verify_evidence_bundle(
                 continue
             path = path.resolve(strict=True)
             path.relative_to(resolved)
-        except (OSError, ValueError):
+        except (OSError, RuntimeError, ValueError):
             continue
         if not path.is_file():
             continue
