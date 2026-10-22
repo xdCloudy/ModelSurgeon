@@ -124,6 +124,20 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
     return value
 
 
+def _surgeon_codec_label(value: str) -> str:
+    label = value.strip().casefold().removeprefix("torch.").replace("-", "_")
+    aliases = {
+        "float32": "fp32",
+        "float16": "fp16",
+        "bfloat16": "bf16",
+        "q4_k_m": "q4_k",
+        "q4_k_s": "q4_k",
+        "q5_k_m": "q5_k",
+        "q5_k_s": "q5_k",
+    }
+    return aliases.get(label, label)
+
+
 def _digest_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -695,14 +709,54 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             }
             return ()
 
-        inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
-        unknown_categories: set[str] = set()
+        candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
+        target_storage_codecs: set[str] = set()
         for candidate in candidates:
             raw_features = self.candidate_features.get(candidate.candidate_id)
             if raw_features is None:
                 raise FirstPartyOptimizeRuntimeError(
                     "Meta-Surgeon inference is missing candidate feature evidence"
                 )
+            candidate_features[candidate.candidate_id] = raw_features
+            for feature in raw_features:
+                precision = feature.get("precision")
+                if not isinstance(precision, Mapping):
+                    continue
+                storage_dtype = precision.get("storage_dtype")
+                if isinstance(storage_dtype, str) and storage_dtype.strip():
+                    target_storage_codecs.add(_surgeon_codec_label(storage_dtype))
+
+        supported_codecs = {
+            _surgeon_codec_label(codec) for codec in card.supported_codecs if codec.strip()
+        }
+        target_quantization = proof._model_target.quantization
+        if target_quantization is not None:
+            target_codec_labels = {_surgeon_codec_label(target_quantization)}
+            codec_supported = target_codec_labels.issubset(supported_codecs)
+        else:
+            target_codec_labels = {"none", *target_storage_codecs}
+            codec_supported = "none" in supported_codecs or (
+                bool(target_storage_codecs)
+                and target_storage_codecs.issubset(supported_codecs)
+            )
+        if not codec_supported:
+            self.meta_guidance = {
+                "status": "unsupported_codec",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_codecs": sorted(target_codec_labels),
+                "supported_codecs": list(card.supported_codecs),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for the target model codec"
+                ),
+            }
+            return ()
+
+        inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
+        unknown_categories: set[str] = set()
+        for candidate in candidates:
+            raw_features = candidate_features[candidate.candidate_id]
             record = {
                 "example_id": candidate.candidate_id,
                 "model": proof._model_target.to_record(),
