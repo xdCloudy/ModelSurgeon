@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import cast
 
 _MAX_HEADER_BYTES = 100 * 1024 * 1024
+_MAX_INDEX_BYTES = 100 * 1024 * 1024
 _DTYPE_BYTES = {
     "BOOL": 1,
     "U8": 1,
@@ -230,7 +231,15 @@ def _load_shard_index(path: Path) -> dict[str, str]:
     if not allowed_index:
         raise SafetensorsIndexError(f"safetensors shard index escapes its model directory: {path}")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        with path.open("rb") as stream:
+            raw_index = stream.read(_MAX_INDEX_BYTES + 1)
+        if len(raw_index) > _MAX_INDEX_BYTES:
+            raise SafetensorsIndexError(
+                f"safetensors shard index exceeds {_MAX_INDEX_BYTES} bytes: {path}"
+            )
+        value = json.loads(raw_index.decode("utf-8"))
+    except SafetensorsIndexError:
+        raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
     if not isinstance(value, Mapping) or not isinstance(value.get("weight_map"), Mapping):
