@@ -13,11 +13,12 @@ import hmac
 import json
 import os
 import re
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Final
+from typing import BinaryIO, Final
 
 SIGNED_EVIDENCE_SCHEMA_VERSION: Final[int] = 1
 SIGNATURE_ALGORITHM: Final[str] = "hmac-sha256"
@@ -358,10 +359,70 @@ def _file_digest(path: Path, chunk_bytes: int) -> tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
     with path.open("rb") as stream:
-        while chunk := stream.read(chunk_bytes):
-            digest.update(chunk)
-            size += len(chunk)
+        return _stream_digest(stream, chunk_bytes)
+
+
+def _stream_digest(stream: BinaryIO, chunk_bytes: int) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    while chunk := stream.read(chunk_bytes):
+        digest.update(chunk)
+        size += len(chunk)
     return digest.hexdigest(), size
+
+
+def _open_bundle_member(root: Path, member_path: str) -> BinaryIO | None:
+    """Open a member without following path-component symlinks where supported."""
+
+    parts = member_path.split("/")
+    if (
+        os.name == "posix"
+        and os.open in os.supports_dir_fd
+        and hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
+    ):
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        directory_fd = os.open(root.anchor, directory_flags)
+        try:
+            for part in root.parts[1:]:
+                next_fd = os.open(part, directory_flags, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            for part in parts[:-1]:
+                next_fd = os.open(part, directory_flags, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            member_fd = os.open(
+                parts[-1],
+                os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0),
+                dir_fd=directory_fd,
+            )
+            try:
+                if not stat.S_ISREG(os.fstat(member_fd).st_mode):
+                    return None
+                stream = os.fdopen(member_fd, "rb")
+                member_fd = -1
+                return stream
+            finally:
+                if member_fd >= 0:
+                    os.close(member_fd)
+        finally:
+            os.close(directory_fd)
+
+    path = root / Path(*parts)
+    try:
+        current = root
+        for part in parts:
+            current = current / part
+            if current.is_symlink():
+                return None
+        resolved_path = path.resolve(strict=True)
+        resolved_path.relative_to(root)
+        if not resolved_path.is_file():
+            return None
+        return resolved_path.open("rb")
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 def _merkle_root(members: tuple[EvidenceBundleMember, ...]) -> str:
@@ -516,28 +577,12 @@ def verify_evidence_bundle(
         if checked_members >= active_limits.max_members:
             issues.append("verification member limit exceeded")
             break
-        path = resolved / Path(*member.path.split("/"))
         try:
-            # Package indexes may come from untrusted archives. Reject a
-            # symlink in any component, then enforce containment after path
-            # resolution before opening the member.
-            current = resolved
-            has_symlink_component = False
-            for part in member.path.split("/"):
-                current = current / part
-                if current.is_symlink():
-                    has_symlink_component = True
-                    break
-            if has_symlink_component:
+            stream = _open_bundle_member(resolved, member.path)
+            if stream is None:
                 continue
-            path = path.resolve(strict=True)
-            path.relative_to(resolved)
-        except (OSError, RuntimeError, ValueError):
-            continue
-        if not path.is_file():
-            continue
-        try:
-            digest, size = _file_digest(path, active_limits.chunk_bytes)
+            with stream:
+                digest, size = _stream_digest(stream, active_limits.chunk_bytes)
         except OSError as error:
             issues.append(f"cannot read {member.path}: {error}")
             continue
