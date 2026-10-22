@@ -61,6 +61,7 @@ from modelsurgeon.surgeon.ranking import (
 )
 from modelsurgeon.surgeon.registry import SurgeonModelRegistry
 from modelsurgeon.surgeon.targets import DEFAULT_TARGET_SCHEMA, schema_with_thresholds
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 FIRST_SURGEON_EVIDENCE_VERSION = "1"
 
@@ -995,9 +996,7 @@ def write_first_surgeon_evidence(
 ) -> None:
     payload = canonical_identity_json(result.to_record()) + "\n"
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(payload)
+        atomic_write_text(path, payload, replace_existing=False)
     except FileExistsError as error:
         raise FirstSurgeonEvidenceError(
             f"evidence output already exists: {path}"

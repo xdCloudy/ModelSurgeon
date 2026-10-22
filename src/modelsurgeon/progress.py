@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
-import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 PROGRESS_SCHEMA_VERSION = 1
 _SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|credential)", re.IGNORECASE)
@@ -311,18 +310,12 @@ class ProgressStore:
 
     def _save(self, snapshot: ProgressSnapshot, events: Sequence[ProgressEvent]) -> None:
         destination = self._path(snapshot.campaign_id)
-        temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.partial")
         payload = {
             "schema_version": PROGRESS_SCHEMA_VERSION,
             "snapshot": snapshot.to_record(),
             "events": [item.to_record() for item in events],
         }
-        temporary.write_text(canonical_identity_json(payload), encoding="utf-8")
-        try:
-            os.replace(temporary, destination)
-        finally:
-            if temporary.exists():
-                temporary.unlink()
+        atomic_write_text(destination, canonical_identity_json(payload), replace_existing=True)
 
     def start(
         self,
@@ -516,11 +509,14 @@ class ProgressStore:
     ) -> Path:
         bundle = self.diagnostics(campaign_id, environment=environment)
         path = Path(destination)
-        if path.exists():
-            raise ProgressError(f"refusing to overwrite diagnostic bundle: {path}")
-        path.write_text(
-            canonical_identity_json(bundle.to_record()) + "\n", encoding="utf-8", newline="\n"
-        )
+        try:
+            atomic_write_text(
+                path,
+                canonical_identity_json(bundle.to_record()) + "\n",
+                replace_existing=False,
+            )
+        except FileExistsError as error:
+            raise ProgressError(f"refusing to overwrite diagnostic bundle: {path}") from error
         return path
 
 

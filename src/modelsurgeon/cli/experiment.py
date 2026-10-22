@@ -27,6 +27,7 @@ from modelsurgeon.surgery.serialization import (
     MutationProvenance,
     MutationRunRecord,
 )
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 EXPERIMENT_COMMAND_VERSION = "1"
 
@@ -247,11 +248,9 @@ def write_experiment_result(
     """Persist one result without overwriting an existing user artifact."""
 
     destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
     payload = result.canonical_json(redact_local_paths=redact_local_paths) + "\n"
     try:
-        with destination.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(payload)
+        atomic_write_text(destination, payload, replace_existing=False)
     except FileExistsError as error:
         raise ExperimentCommandError(
             f"experiment result destination already exists: {destination}"

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+  - Added a shared atomic text-file publisher and used it for optimize plans,
+    completed runs, resume state, signed-evidence indexes, deployment state,
+    progress and registry snapshots, calibration and hostile-input manifests,
+    migration outputs, reports, and explorers. It stages and flushes beside its
+    destination and preserves no-overwrite behavior even when writers race.
+    Replacements retain the existing regular file's permission bits.
+    Search, reproduction, benchmark, feature, experiment, and First Surgeon
+    proof outputs now use the same publisher instead of leaving a partial final
+    file after interruption.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

@@ -24,6 +24,7 @@ from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize
 from modelsurgeon.optimization import (
     OptimizePlanError,
     build_optimize_plan,
+    write_optimize_artifact,
     write_optimize_plan,
 )
 from modelsurgeon.optimization_orchestrator import (
@@ -347,13 +348,11 @@ def optimize_command(
             if run_record is None:
                 write_optimize_plan(output, plan, allow_overwrite=settings.safety.allow_overwrite)
             else:
-                if output.exists() and not settings.safety.allow_overwrite:
-                    raise OptimizePlanError(
-                        f"refusing to overwrite existing run artifact: {output}"
-                    )
-                output.parent.mkdir(parents=True, exist_ok=True)
-                output.write_text(
-                    run_record.canonical_json() + "\n", encoding="utf-8", newline="\n"
+                write_optimize_artifact(
+                    output,
+                    run_record.canonical_json() + "\n",
+                    artifact_kind="run",
+                    allow_overwrite=settings.safety.allow_overwrite,
                 )
     except (
         ConfigurationFileError,

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.explain.pareto_alternatives import ParetoAlternativesExplanation
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 EXPLORER_SCHEMA_VERSION = 1
 
@@ -287,9 +288,14 @@ def write_explorer(
     """Write one static explorer with exclusive-create semantics by default."""
 
     destination = Path(path)
-    if destination.exists() and not allow_overwrite:
-        raise ExplorerError(f"refusing to overwrite explorer: {destination}")
-    destination.write_text(artifact.html_text, encoding="utf-8", newline="\n")
+    try:
+        atomic_write_text(
+            destination,
+            artifact.html_text,
+            replace_existing=allow_overwrite,
+        )
+    except FileExistsError as error:
+        raise ExplorerError(f"refusing to overwrite explorer: {destination}") from error
     return destination
 
 

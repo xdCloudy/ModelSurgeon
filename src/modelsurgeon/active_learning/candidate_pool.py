@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 CANDIDATE_POOL_SCHEMA_VERSION: Final[int] = 1
 MAX_CANDIDATE_POOL_SIZE: Final[int] = 100_000
@@ -115,6 +117,40 @@ def cheap_candidate_features(candidate: MutationCandidate) -> CheapCandidateFeat
     )
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    return path.is_symlink() or path.is_junction()
+
+
+def _open_candidate_pool_file(path: Path, flags: int, mode: str) -> Any:
+    if _is_symlink_or_junction(path):
+        raise CandidatePoolError("candidate pool files cannot be symbolic links or junctions")
+    flags |= getattr(os, "O_BINARY", 0)
+    if os.name == "posix":
+        flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags, 0o666)
+    except OSError as error:
+        raise CandidatePoolError(f"cannot open candidate pool file: {error}") from error
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode) or _is_symlink_or_junction(path):
+            raise CandidatePoolError("candidate pool path is not a regular file")
+        if mode == "r":
+            return os.fdopen(descriptor, mode, encoding="utf-8")
+        return os.fdopen(descriptor, mode)
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _open_candidate_pool_output(path: Path, *, append: bool) -> Any:
+    flags = os.O_WRONLY
+    if append:
+        flags |= os.O_APPEND
+    else:
+        flags |= os.O_CREAT | os.O_EXCL
+    return _open_candidate_pool_file(path, flags, "ab" if append else "wb")
+
+
 def write_candidate_pool(
     candidates: Sequence[MutationCandidate],
     output: Path,
@@ -136,11 +172,13 @@ def write_candidate_pool(
         raise CandidatePoolError("candidate pool input IDs must be unique")
     output.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = output.with_suffix(output.suffix + ".manifest.json")
+    if _is_symlink_or_junction(output) or _is_symlink_or_junction(checkpoint):
+        raise CandidatePoolError("candidate pool files cannot be symbolic links or junctions")
     existing_count, digest = _validate_resume(output, checkpoint, selected, provenance)
     remaining = requested - existing_count
     to_write = remaining if max_new_candidates is None else min(remaining, max_new_candidates)
-    mode = "ab" if existing_count else "wb"
-    with output.open(mode) as stream:
+    append = bool(existing_count) or output.exists()
+    with _open_candidate_pool_output(output, append=append) as stream:
         for candidate in selected[existing_count : existing_count + to_write]:
             payload = _candidate_record(candidate, provenance)
             encoded = (canonical_identity_json(payload) + "\n").encode("utf-8")
@@ -179,7 +217,8 @@ def _validate_resume(
     if output.exists() != checkpoint.exists():
         raise CandidatePoolError("candidate pool data and resume manifest must both exist")
     try:
-        raw = json.loads(checkpoint.read_text(encoding="utf-8"))
+        with _open_candidate_pool_file(checkpoint, os.O_RDONLY, "r") as stream:
+            raw = json.load(stream)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CandidatePoolError("candidate pool resume manifest is unreadable") from error
     if not isinstance(raw, Mapping):
@@ -196,7 +235,7 @@ def _validate_resume(
         raise CandidatePoolError("candidate pool resume bounds are invalid")
     count = 0
     try:
-        with output.open("rb") as stream:
+        with _open_candidate_pool_file(output, os.O_RDONLY, "rb") as stream:
             for line in stream:
                 digest.update(line)
                 if count >= expected_count:
@@ -216,10 +255,5 @@ def _validate_resume(
 
 
 def _publish_manifest(path: Path, manifest: CandidatePoolManifest) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
     payload = json.dumps(manifest.to_record(), indent=2, sort_keys=True) + "\n"
-    with temporary.open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write(payload)
-        stream.flush()
-        os.fsync(stream.fileno())
-    temporary.replace(path)
+    atomic_write_text(path, payload, replace_existing=True)

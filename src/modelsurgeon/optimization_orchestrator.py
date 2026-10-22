@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
-import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -36,7 +35,7 @@ from modelsurgeon.experiments.optimization_package import (
     diff_plans,
     plan_digest,
 )
-from modelsurgeon.optimization import OptimizeOutcome, OptimizePlan
+from modelsurgeon.optimization import OptimizeOutcome, OptimizePlan, write_optimize_artifact
 from modelsurgeon.surgery.contracts import TransactionState
 
 ORCHESTRATOR_SCHEMA_VERSION = 3
@@ -493,14 +492,12 @@ class OptimizeStateStore:
         return _run_from_record(raw)
 
     def save(self, run: OptimizeRun) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(f".{self.path.name}.partial")
-        temporary.write_text(run.canonical_json() + "\n", encoding="utf-8", newline="\n")
-        try:
-            os.replace(temporary, self.path)
-        finally:
-            if temporary.exists():
-                temporary.unlink()
+        write_optimize_artifact(
+            self.path,
+            run.canonical_json() + "\n",
+            artifact_kind="run state",
+            allow_overwrite=True,
+        )
 
 
 def _source_digest(plan: OptimizePlan) -> str:
@@ -916,10 +913,7 @@ class OptimizeOrchestrator:
             and item.plan_digest == current_plan_digest
             and (item.active or item.code in fresh_codes)
         }
-        missing = sorted(
-            required
-            - active_codes
-        )
+        missing = sorted(required - active_codes)
         if missing:
             return replace(
                 run,

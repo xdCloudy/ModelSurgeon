@@ -33,6 +33,7 @@ from modelsurgeon.search.resume import (
     SearchResumeStore,
     SearchRngState,
 )
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 SEARCH_COMMAND_SCHEMA_VERSION = 1
 
@@ -368,10 +369,7 @@ def run_search_plan(
 
 
 def _write_output(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8", newline="\n") as handle:
-        handle.write(payload)
-        handle.write("\n")
+    atomic_write_text(path, payload + "\n", replace_existing=False)
 
 
 def search_command(

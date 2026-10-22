@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from modelsurgeon.migration import MigrationKind, MigrationRefusal, migrate_record
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 
 def _read_json(path: Path) -> object:
@@ -19,20 +20,14 @@ def _read_json(path: Path) -> object:
 
 
 def _write_json(path: Path, payload: object) -> None:
-    if path.exists():
-        raise MigrationRefusal(f"refusing to overwrite migration output: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.partial")
     try:
-        temporary.write_text(
+        atomic_write_text(
+            path,
             json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
+            replace_existing=False,
         )
-        temporary.replace(path)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+    except FileExistsError as error:
+        raise MigrationRefusal(f"refusing to overwrite migration output: {path}") from error
 
 
 def migrate_command(

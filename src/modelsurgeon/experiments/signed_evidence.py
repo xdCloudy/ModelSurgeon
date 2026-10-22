@@ -11,13 +11,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Final
+
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 SIGNED_EVIDENCE_SCHEMA_VERSION: Final[int] = 1
 SIGNATURE_ALGORITHM: Final[str] = "hmac-sha256"
@@ -43,9 +44,7 @@ class EvidenceVerificationStatus(StrEnum):
 
 
 def _canonical(value: object) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode(
-        "utf-8"
-    )
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
 def _text(value: object, label: str) -> str:
@@ -361,8 +360,7 @@ def _file_digest(path: Path, chunk_bytes: int) -> tuple[str, int]:
 
 def _merkle_root(members: tuple[EvidenceBundleMember, ...]) -> str:
     nodes = [
-        hashlib.sha256(b"member\0" + _canonical(item.to_record())).digest()
-        for item in members
+        hashlib.sha256(b"member\0" + _canonical(item.to_record())).digest() for item in members
     ]
     while len(nodes) > 1:
         if len(nodes) % 2:
@@ -579,9 +577,6 @@ def render_evidence_bundle_index(index: EvidenceBundleIndex) -> str:
 
 
 def write_evidence_bundle_index(index: EvidenceBundleIndex, path: str | Path) -> None:
-    """Write an index atomically enough for inspection outside the content tree."""
+    """Atomically replace an index for inspection outside the content tree."""
 
-    destination = Path(path)
-    temporary = destination.with_name(destination.name + ".partial")
-    temporary.write_text(render_evidence_bundle_index(index), encoding="utf-8")
-    os.replace(temporary, destination)
+    atomic_write_text(path, render_evidence_bundle_index(index), replace_existing=True)
