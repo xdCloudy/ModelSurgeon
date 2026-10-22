@@ -9,7 +9,11 @@ from typing import Annotated
 
 import typer
 
-from modelsurgeon.registry import LocalArtifactRegistry, RegistryError
+from modelsurgeon.registry import (
+    DEFAULT_REGISTRY_IMPORT_MAX_PAYLOAD_BYTES,
+    LocalArtifactRegistry,
+    RegistryError,
+)
 
 registry_app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 _DEFAULT_ROOT = Path("artifacts/registry")
@@ -116,6 +120,14 @@ def import_command(
     root: Annotated[Path, typer.Option("--root")] = _DEFAULT_ROOT,
     license_id: Annotated[str | None, typer.Option("--license")] = None,
     allow_unsigned: Annotated[bool, typer.Option("--allow-unsigned")] = False,
+    max_payload_bytes: Annotated[
+        int,
+        typer.Option(
+            "--max-payload-bytes",
+            min=1,
+            help="Maximum expanded payload size in bytes",
+        ),
+    ] = DEFAULT_REGISTRY_IMPORT_MAX_PAYLOAD_BYTES,
     output_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Verify and publish a complete bundle only after all checks pass."""
@@ -125,6 +137,7 @@ def import_command(
             bundle,
             accepted_licenses=() if license_id is None else (license_id,),
             allow_unsigned=allow_unsigned,
+            max_payload_bytes=max_payload_bytes,
         ),
         output_json,
     )

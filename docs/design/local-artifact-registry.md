@@ -33,7 +33,11 @@ digest and size, license allow-list, and optional detached HMAC signature before
 adding the object to the visible catalog. Evidence bundles require a signature
 unless the caller explicitly opts into the retained unsigned negative path.
 Import publishes only after all checks pass; failed imports do not create a
-visible catalog record.
+visible catalog record. Imports stream the payload into the content-addressed
+store and default to a 100 GiB expanded-payload limit plus a 1 MiB manifest
+limit. The ZIP directory is checked before parsing and limited to two entries
+and 1 MiB. Python callers can raise `max_payload_bytes`; the CLI provides
+`--max-payload-bytes` for larger artifacts.
 
 ```text
 modelsurgeon registry list --root artifacts/registry --json

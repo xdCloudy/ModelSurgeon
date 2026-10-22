@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 from typer.testing import CliRunner
 
+import modelsurgeon.registry as registry_module
 from modelsurgeon.cli.app import app
 from modelsurgeon.registry import LocalArtifactRegistry, RegistryError, RegistryOutcome
 
@@ -89,6 +91,68 @@ def test_unsigned_evidence_requires_explicit_negative_path(tmp_path: Path) -> No
     with pytest.raises(RegistryError, match="signature"):
         target.import_bundle(bundle)
     assert target.import_bundle(bundle, allow_unsigned=True).digest == artifact.digest
+
+
+def test_import_rejects_entry_count_before_opening_zipfile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "too-many-members.zip"
+    with ZipFile(bundle, "w") as archive:
+        archive.writestr("manifest.json", "{}")
+        archive.writestr("payload", b"payload")
+        archive.writestr("unexpected", b"extra")
+
+    def unexpected_zip_open(*args: object, **kwargs: object) -> None:
+        raise AssertionError("ZIP entries should be rejected before ZipFile opens them")
+
+    monkeypatch.setattr(registry_module, "ZipFile", unexpected_zip_open)
+    registry = LocalArtifactRegistry(tmp_path / "registry")
+    with pytest.raises(RegistryError, match="exactly two members"):
+        registry.import_bundle(bundle)
+
+
+def test_import_enforces_configurable_payload_limit(tmp_path: Path) -> None:
+    source = LocalArtifactRegistry(tmp_path / "source")
+    artifact = source.publish_bytes(b"bounded payload", kind="model")
+    bundle = tmp_path / "payload.zip"
+    source.export_bundle(artifact.digest, bundle)
+    target = LocalArtifactRegistry(tmp_path / "target")
+
+    with pytest.raises(RegistryError, match="payload exceeds the import size limit"):
+        target.import_bundle(bundle, max_payload_bytes=4)
+    assert target.import_bundle(bundle, max_payload_bytes=1024).digest == artifact.digest
+
+
+def test_import_accepts_zip64_directory_metadata(tmp_path: Path) -> None:
+    source = LocalArtifactRegistry(tmp_path / "source")
+    artifact = source.publish_bytes(b"zip64 payload", kind="model")
+    bundle = tmp_path / "zip64.zip"
+    source.export_bundle(artifact.digest, bundle)
+
+    archive_bytes = bundle.read_bytes()
+    eocd_offset = archive_bytes.rfind(b"PK\x05\x06")
+    eocd = struct.unpack_from("<4s4H2LH", archive_bytes, eocd_offset)
+    zip64_record = struct.pack(
+        "<4sQ2H2L4Q",
+        b"PK\x06\x06",
+        44,
+        45,
+        45,
+        0,
+        0,
+        eocd[3],
+        eocd[4],
+        eocd[5],
+        eocd[6],
+    )
+    locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, eocd_offset, 1)
+    sentinel_eocd = struct.pack(
+        "<4s4H2LH", b"PK\x05\x06", 0, 0, 0xFFFF, 0xFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0
+    )
+    bundle.write_bytes(archive_bytes[:eocd_offset] + zip64_record + locator + sentinel_eocd)
+
+    imported = LocalArtifactRegistry(tmp_path / "target").import_bundle(bundle)
+    assert imported.digest == artifact.digest
 
 
 def test_registry_cli_emits_stable_json(tmp_path: Path) -> None:
