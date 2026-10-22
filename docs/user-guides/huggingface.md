@@ -37,7 +37,7 @@ For a cached local snapshot, pass the snapshot path and add --local-files-only t
 
 ## 3. Run a bounded first experiment
 
-Create a small UTF-8 calibration text file from data you are allowed to use. Keep the run bounded while developing; increase the budget only after the contract and provenance are correct.
+Create a small UTF-8 calibration text file from data you are allowed to use. Calibration files are limited to 64 MiB, and the tokenizer truncates to the configured `max_tokens` before returning token IDs. Keep the run bounded while developing; increase the budget only after the contract and provenance are correct.
 
 ~~~bash
 uv run modelsurgeon first-surgeon-hf-proof "$MODEL_ID" ./calibration.txt \
