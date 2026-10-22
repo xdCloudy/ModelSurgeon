@@ -18,6 +18,9 @@ from typing import IO, Protocol
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 PLUGIN_SCHEMA_VERSION = 1
+_MAX_PLUGIN_REQUEST_BYTES = 4 * 1024 * 1024
+_MAX_PLUGIN_REQUEST_ITEMS = 100_000
+_MAX_PLUGIN_REQUEST_DEPTH = 64
 
 
 class PluginError(ValueError):
@@ -66,6 +69,114 @@ def _major(version: str) -> int:
     if not value.isdigit():
         raise PluginError("API versions must start with a numeric major")
     return int(value)
+
+
+def _json_string_bytes(value: str) -> int:
+    size = 2
+    for character in value:
+        codepoint = ord(character)
+        if character in {'"', "\\"} or character in {"\b", "\f", "\n", "\r", "\t"}:
+            size += 2
+        elif codepoint < 0x20:
+            size += 6
+        elif codepoint < 0x80:
+            size += 1
+        else:
+            try:
+                size += len(character.encode("utf-8"))
+            except UnicodeEncodeError as error:
+                raise PluginError("plugin request contains invalid Unicode") from error
+        if size > _MAX_PLUGIN_REQUEST_BYTES:
+            raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return size
+
+
+def _bounded_json_copy(value: object, budget: list[int], depth: int = 0) -> object:
+    """Validate and copy a JSON value while accounting its encoded size."""
+    budget[1] += 1
+    if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
+        raise PluginError("plugin request exceeds the JSON item limit")
+    if depth > _MAX_PLUGIN_REQUEST_DEPTH:
+        raise PluginError("plugin request exceeds the JSON nesting limit")
+
+    if value is None:
+        size = 4
+        result: object = None
+    elif isinstance(value, bool):
+        size = 4 if value else 5
+        result = value
+    elif isinstance(value, int):
+        if value.bit_length() > _MAX_PLUGIN_REQUEST_BYTES * 4:
+            raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+        try:
+            size = len(str(value))
+        except ValueError as error:
+            raise PluginError("plugin integer exceeds the serialized size limit") from error
+        result = value
+    elif isinstance(value, float):
+        try:
+            size = len(json.dumps(value, allow_nan=False))
+        except ValueError as error:
+            raise PluginError("plugin request contains a non-finite number") from error
+        result = value
+    elif isinstance(value, str):
+        size = _json_string_bytes(value)
+        result = value
+    elif isinstance(value, Mapping):
+        if len(value) > _MAX_PLUGIN_REQUEST_ITEMS // 2:
+            raise PluginError("plugin request exceeds the JSON item limit")
+        size = 2 + max(0, len(value) - 1)
+        copied: dict[str, object] = {}
+        try:
+            entries = tuple(value.items())
+        except (RuntimeError, ValueError) as error:
+            raise PluginError("plugin request changed while being validated") from error
+        for key, item in entries:
+            if not isinstance(key, str) or not key:
+                raise PluginError("plugin request objects require non-empty string keys")
+            budget[1] += 1
+            if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
+                raise PluginError("plugin request exceeds the JSON item limit")
+            size += _json_string_bytes(key) + 1
+            copied[key] = _bounded_json_copy(item, budget, depth + 1)
+        result = copied
+    elif isinstance(value, (list, tuple)):
+        if len(value) > _MAX_PLUGIN_REQUEST_ITEMS:
+            raise PluginError("plugin request exceeds the JSON item limit")
+        size = 2 + max(0, len(value) - 1)
+        try:
+            entries = tuple(value)
+        except (RuntimeError, ValueError) as error:
+            raise PluginError("plugin request changed while being validated") from error
+        result = [_bounded_json_copy(item, budget, depth + 1) for item in entries]
+    else:
+        raise PluginError(
+            f"plugin request value type {type(value).__name__} is not JSON-compatible"
+        )
+
+    budget[0] += size
+    if budget[0] > _MAX_PLUGIN_REQUEST_BYTES:
+        raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return result
+
+
+def _bounded_plugin_request_bytes(request: PluginRequest) -> bytes:
+    record = {
+        "schema_version": PLUGIN_SCHEMA_VERSION,
+        "request_id": request.request_id,
+        "kind": request.kind.value,
+        "required_capabilities": request.required_capabilities,
+        "payload": request.payload,
+        "source_artifact_digest": request.source_artifact_digest,
+        "config_digest": request.config_digest,
+        "seed": request.seed,
+        "budget": request.budget.to_record(),
+    }
+    safe_record = _bounded_json_copy(record, [0, 0])
+    encoded = canonical_identity_json(safe_record).encode("utf-8") + b"\n"
+    if len(encoded) > _MAX_PLUGIN_REQUEST_BYTES:
+        raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return encoded
 
 
 @dataclass(frozen=True, slots=True)
@@ -476,7 +587,7 @@ def invoke_subprocess(
     stdout_limit = min(request.budget.max_stdout_bytes, card.resource_budget.max_stdout_bytes)
     stderr_limit = min(request.budget.max_stderr_bytes, card.resource_budget.max_stderr_bytes)
     timeout_seconds = min(request.budget.max_wall_seconds, card.resource_budget.max_wall_seconds)
-    request_bytes = (request.canonical_json() + "\n").encode("utf-8")
+    request_bytes = _bounded_plugin_request_bytes(request)
     try:
         process = subprocess.Popen(
             list(command),
