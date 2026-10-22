@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Final
 
 CONTAMINATION_AUDIT_SCHEMA_VERSION: Final[int] = 1
-CONTAMINATION_PROTOCOL_REVISION: Final[str] = "contamination-audit-v1"
+CONTAMINATION_PROTOCOL_REVISION: Final[str] = "contamination-audit-v2"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
