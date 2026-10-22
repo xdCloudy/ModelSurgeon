@@ -6,9 +6,14 @@ import argparse
 import hashlib
 import json
 import tomllib
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 from tools.generate_release_notes import ReleaseNotesError, release_body
+
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
+    from repository_paths import is_repository_file
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIT_DOC = ROOT / "docs" / "release" / "v1.0-release-audit.md"
@@ -66,32 +71,11 @@ def audit_release(root: Path = ROOT, *, version: str) -> None:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
             raise ReleaseAuditError("reference manifest contains an invalid entry")
         manifest_path = entry["path"]
-        relative_path = PurePosixPath(manifest_path)
-        windows_path = PureWindowsPath(manifest_path)
-        if (
-            not manifest_path
-            or "\\" in manifest_path
-            or relative_path.is_absolute()
-            or windows_path.is_absolute()
-            or bool(windows_path.drive)
-            or ".." in relative_path.parts
-        ):
+        if not is_repository_file(root_path, manifest_path):
             raise ReleaseAuditError(
-                "reference manifest path must be a safe repository-relative path: "
-                f"{manifest_path!r}"
+                f"reference manifest path is missing or outside repository root: {manifest_path!r}"
             )
-        try:
-            path = (root_path / Path(*relative_path.parts)).resolve()
-        except (OSError, RuntimeError, ValueError) as error:
-            raise ReleaseAuditError(
-                f"reference manifest path cannot be resolved: {manifest_path!r}"
-            ) from error
-        if not path.is_relative_to(root_path):
-            raise ReleaseAuditError(
-                f"reference manifest path escapes repository root: {manifest_path!r}"
-            )
-        if not path.is_file():
-            raise ReleaseAuditError(f"reference manifest path does not exist: {entry['path']}")
+        path = (root_path / manifest_path).resolve()
         expected_hash = entry.get("sha256")
         if not isinstance(expected_hash, str) or len(expected_hash) != 64:
             raise ReleaseAuditError(f"reference manifest has no valid SHA-256: {entry['path']}")

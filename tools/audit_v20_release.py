@@ -8,6 +8,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class V20ReleaseAuditError(ValueError):
     """Raised when the v2.0 release record is incomplete or unsafe."""
@@ -43,10 +48,7 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _relative_file(root: Path, value: object, label: str) -> None:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts:
-        raise V20ReleaseAuditError(f"{label} must be a repository-relative path")
-    if not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise V20ReleaseAuditError(f"{label} references missing file {raw!r}")
 
 

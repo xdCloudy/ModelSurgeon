@@ -9,6 +9,11 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 from modelsurgeon.conversation import CAMPAIGN_STATE_SCHEMA_VERSION, CampaignState
 
 try:
@@ -92,8 +97,8 @@ def _files(root: Path, value: object, label: str) -> None:
     if not values:
         raise CampaignReleaseAuditError(f"{label} must not be empty")
     for index, raw in enumerate(values):
-        relative = Path(_text(raw, f"{label}[{index}]"))
-        if relative.is_absolute() or ".." in relative.parts or not (root / relative).is_file():
+        relative = _text(raw, f"{label}[{index}]")
+        if not is_repository_file(root, relative):
             raise CampaignReleaseAuditError(f"{label}[{index}] references a missing file")
 
 

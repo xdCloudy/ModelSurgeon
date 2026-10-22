@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-  - Confine v1.0 release reference-manifest paths to repository files, rejecting
-    absolute paths, traversal, and symlink escapes.
+  - Share repository-root path confinement across release and evidence audits,
+    rejecting absolute paths, traversal, and symlink escapes.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

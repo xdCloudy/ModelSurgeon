@@ -9,6 +9,11 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class ProviderReleaseAuditError(ValueError):
     """Raised when the v2.2 provider release record is incomplete or unsafe."""
@@ -69,8 +74,8 @@ def _require_list(value: object, label: str) -> list[Any]:
 
 def _check_paths(root: Path, values: object, label: str) -> None:
     for raw_path in _require_list(values, label):
-        path = root / _require_string(raw_path, f"{label} entry")
-        if not path.is_file():
+        path = _require_string(raw_path, f"{label} entry")
+        if not is_repository_file(root, path):
             raise ProviderReleaseAuditError(f"{label} references missing file {raw_path!r}")
 
 
