@@ -14,10 +14,12 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, cast
 
@@ -753,8 +755,36 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             }
             return ()
 
+        raw_minimum_support_coverage = card.calibration_policy.get(
+            "minimum_support_coverage"
+        )
+        minimum_support_coverage: float | None = None
+        if raw_minimum_support_coverage is not None:
+            parsed_minimum_support_coverage = math.nan
+            if isinstance(raw_minimum_support_coverage, (int, float)) and not isinstance(
+                raw_minimum_support_coverage, bool
+            ):
+                with suppress(OverflowError):
+                    parsed_minimum_support_coverage = float(raw_minimum_support_coverage)
+            if not math.isfinite(parsed_minimum_support_coverage) or not (
+                0.0 <= parsed_minimum_support_coverage <= 1.0
+            ):
+                self.meta_guidance = {
+                    "status": "invalid_calibration_policy",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": "minimum_support_coverage must be finite and within [0, 1]",
+                }
+                return ()
+            minimum_support_coverage = parsed_minimum_support_coverage
+
         inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
         unknown_categories: set[str] = set()
+        support_coverage_by_candidate: dict[str, float] = {}
+        support_feature_count = len(bundle.preprocessor.numeric) + len(
+            bundle.preprocessor.categorical
+        )
         for candidate in candidates:
             raw_features = candidate_features[candidate.candidate_id]
             record = {
@@ -780,11 +810,30 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     and feature_name.endswith("=<unknown>")
                     and value == 1.0
                 )
+                missing_numeric_features = {
+                    feature_name.removeprefix("missing:")
+                    for feature_name, value in zip(
+                        bundle.preprocessor.output_feature_names, row, strict=True
+                    )
+                    if feature_name.startswith("missing:") and value == 1.0
+                }
             except Exception as error:
                 raise FirstPartyOptimizeRuntimeError(
                     f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
                 ) from error
             unknown_categories.update(row_unknown_categories)
+            unsupported_feature_count = len(row_unknown_categories) + len(
+                missing_numeric_features
+            )
+            support_coverage_by_candidate[candidate.candidate_id] = (
+                1.0
+                if support_feature_count == 0
+                else max(
+                    0.0,
+                    (support_feature_count - unsupported_feature_count)
+                    / support_feature_count,
+                )
+            )
             inference_rows.append((candidate, row))
 
         if unknown_categories:
@@ -797,6 +846,25 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "reason": (
                     "target feature categories were absent from source training; "
                     "the Meta-Surgeon prediction was withheld"
+                ),
+            }
+            return ()
+
+        if minimum_support_coverage is not None and any(
+            coverage < minimum_support_coverage
+            for coverage in support_coverage_by_candidate.values()
+        ):
+            self.meta_guidance = {
+                "status": "abstained_low_support_coverage",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "minimum_support_coverage": minimum_support_coverage,
+                "support_coverage_by_candidate": dict(
+                    sorted(support_coverage_by_candidate.items())
+                ),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "one or more candidate rows fall below the signed minimum support coverage"
                 ),
             }
             return ()
