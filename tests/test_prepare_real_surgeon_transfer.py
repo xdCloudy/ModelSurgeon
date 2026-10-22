@@ -225,3 +225,43 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
         "observation-validation",
         "observation-test",
     }
+
+
+def test_transfer_preparation_rejects_revisions_in_different_splits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "evidence"
+    observations = root / "campaign" / "optimization-evidence" / "observations"
+    observations.mkdir(parents=True)
+    for observation_id, revision in (
+        ("observation-revision-1", "revision-1"),
+        ("observation-revision-2", "revision-2"),
+    ):
+        observation = _observation()
+        observation["observation_id"] = observation_id
+        observation["model"]["revision"] = revision
+        (observations / f"{observation_id}.json").write_text(
+            json.dumps(observation),
+            encoding="utf-8",
+        )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare_real_surgeon_transfer",
+            "--root",
+            str(root),
+            "--output",
+            "transfer",
+            "--validation-model",
+            "example/model@revision-1",
+            "--test-model",
+            "example/model@revision-2",
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="model identities cannot be in both held-out sets"):
+        main()
+
+    assert not Path("transfer").exists()
