@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
 
@@ -21,6 +22,10 @@ MODEL_ID = "HuggingFaceM4/tiny-random-LlamaForCausalLM"
 REVISION = "d3040b7c81a0a810fa13c6f392f3e304a0e121d5"
 
 
+class FakeEntryNotFoundError(Exception):
+    pass
+
+
 class OfflineAutoModel:
     calls: ClassVar[list[tuple[str, dict[str, Any]]]] = []
 
@@ -33,12 +38,34 @@ class OfflineAutoModel:
 
 
 @pytest.fixture(autouse=True)
-def offline_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
+def offline_transformers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     OfflineAutoModel.calls.clear()
+    snapshot_root = (
+        tmp_path
+        / "models--HuggingFaceM4--tiny-random-LlamaForCausalLM"
+        / "snapshots"
+        / REVISION
+    )
+    snapshot_root.mkdir(parents=True)
+    (snapshot_root / "config.json").write_text("{}", encoding="utf-8")
+
+    def fake_hf_hub_download(
+        *, repo_id: str, filename: str, revision: str | None, local_files_only: bool
+    ) -> str:
+        if filename == "config.json":
+            return str(snapshot_root / filename)
+        raise FakeEntryNotFoundError(filename)
 
     def fake_import(name: str) -> object:
         if name == "transformers":
             return SimpleNamespace(AutoModelForCausalLM=OfflineAutoModel)
+        if name == "huggingface_hub":
+            return SimpleNamespace(hf_hub_download=fake_hf_hub_download)
+        if name == "huggingface_hub.errors":
+            return SimpleNamespace(
+                EntryNotFoundError=FakeEntryNotFoundError,
+                LocalEntryNotFoundError=FakeEntryNotFoundError,
+            )
         raise AssertionError(f"integration test attempted unexpected dependency import {name!r}")
 
     monkeypatch.setattr(loader, "import_module", fake_import)

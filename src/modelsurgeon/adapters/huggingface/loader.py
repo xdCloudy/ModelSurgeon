@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import json
+import stat
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
 from pathlib import Path
 from typing import Any
+
+from modelsurgeon.adapters.checkpoint_paths import (
+    MAX_CHECKPOINT_INDEX_BYTES,
+    CheckpointPathError,
+    resolve_checkpoint_shard_path,
+    validate_checkpoint_index_path,
+)
 
 
 class HuggingFaceDType(StrEnum):
@@ -35,6 +44,7 @@ class HuggingFaceRevisionError(HuggingFaceLoadError):
 
 
 _DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "cpu", "sequential"})
+_SHARDED_INDEX_NAMES = ("model.safetensors.index.json", "pytorch_model.bin.index.json")
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +138,147 @@ def _resolved_revision(model: object, request: HuggingFaceLoadRequest) -> str:
     )
 
 
+def _validate_shard_index(
+    index_path: Path,
+    checkpoint_root: Path,
+    *,
+    hub_snapshot: bool,
+) -> None:
+    """Reject shard paths that escape the checkpoint or target special files."""
+    try:
+        validate_checkpoint_index_path(
+            index_path,
+            checkpoint_root,
+            hub_snapshot=hub_snapshot,
+        )
+    except CheckpointPathError as exc:
+        raise HuggingFaceModelError(str(exc)) from exc
+    try:
+        if not stat.S_ISREG(index_path.stat().st_mode):
+            raise HuggingFaceModelError("checkpoint index is not a regular file")
+        with index_path.open("rb") as stream:
+            raw_index = stream.read(MAX_CHECKPOINT_INDEX_BYTES + 1)
+        if len(raw_index) > MAX_CHECKPOINT_INDEX_BYTES:
+            raise HuggingFaceModelError(
+                f"checkpoint index exceeds {MAX_CHECKPOINT_INDEX_BYTES} bytes"
+            )
+        payload = json.loads(raw_index.decode("utf-8"))
+    except HuggingFaceModelError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise HuggingFaceModelError("checkpoint index is unreadable or invalid JSON") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("weight_map"), dict):
+        raise HuggingFaceModelError("checkpoint index must contain a weight_map object")
+
+    shard_names = tuple(payload["weight_map"].values())
+    string_shard_names = tuple(
+        shard_name for shard_name in shard_names if isinstance(shard_name, str)
+    )
+    if not string_shard_names or len(string_shard_names) != len(shard_names):
+        raise HuggingFaceModelError("checkpoint index contains an invalid shard filename")
+
+    for shard_name in set(string_shard_names):
+        try:
+            shard_path = resolve_checkpoint_shard_path(
+                checkpoint_root,
+                shard_name,
+                hub_snapshot=hub_snapshot,
+            )
+        except CheckpointPathError as exc:
+            raise HuggingFaceModelError(str(exc)) from exc
+        try:
+            shard_stat = shard_path.stat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise HuggingFaceModelError(
+                f"checkpoint shard cannot be inspected: {shard_name!r}"
+            ) from exc
+        if not stat.S_ISREG(shard_stat.st_mode):
+            raise HuggingFaceModelError(
+                f"checkpoint shard is not a regular file: {shard_name!r}"
+            )
+
+
+def _preflight_model_checkpoint(request: HuggingFaceLoadRequest) -> str | None:
+    """Validate checkpoint indexes before Transformers/Accelerate opens shards.
+
+    For Hub models, first resolve ``config.json`` so preflight and the actual load
+    use one immutable snapshot even when the requested revision is a moving ref.
+    """
+    model_path = Path(request.model)
+    if model_path.exists():
+        checkpoint_root = (
+            model_path.resolve() if model_path.is_dir() else model_path.resolve().parent
+        )
+        indexes = (
+            [model_path.resolve()]
+            if model_path.is_file() and model_path.name.endswith(".index.json")
+            else list(checkpoint_root.glob("*.index.json"))
+        )
+        for index_path in indexes:
+            _validate_shard_index(index_path, checkpoint_root, hub_snapshot=False)
+        return None
+
+    try:
+        hub = import_module("huggingface_hub")
+        hub_errors = import_module("huggingface_hub.errors")
+    except ImportError as exc:
+        raise HuggingFaceDependencyError(
+            "Hugging Face Hub metadata support is required to inspect model checkpoints"
+        ) from exc
+    download = hub.hf_hub_download
+    try:
+        config_path = Path(
+            download(
+                repo_id=request.model,
+                filename="config.json",
+                revision=request.revision,
+                local_files_only=request.local_files_only,
+            )
+        )
+    except Exception as exc:
+        raise HuggingFaceModelError(
+            f"failed to resolve immutable Hub snapshot for {request.model!r}: {exc}"
+        ) from exc
+    if config_path.name != "config.json" or config_path.parent.parent.name != "snapshots":
+        raise HuggingFaceRevisionError(
+            "Hugging Face Hub did not expose an immutable snapshot for model preflight"
+        )
+    resolved_revision = config_path.parent.name
+    snapshot_root = config_path.parent
+    for index_name in _SHARDED_INDEX_NAMES:
+        try:
+            index_path = Path(
+                download(
+                    repo_id=request.model,
+                    filename=index_name,
+                    revision=resolved_revision,
+                    local_files_only=request.local_files_only,
+                )
+            )
+        except Exception as exc:
+            error_types = tuple(
+                error_type
+                for error_type in (
+                    getattr(hub_errors, "EntryNotFoundError", None),
+                    getattr(hub_errors, "LocalEntryNotFoundError", None),
+                )
+                if isinstance(error_type, type)
+            )
+            if error_types and isinstance(exc, error_types):
+                continue
+            raise HuggingFaceModelError(
+                f"failed to inspect Hub checkpoint index {index_name!r}: {exc}"
+            ) from exc
+        if index_path.parent != snapshot_root or index_path.name != index_name:
+            raise HuggingFaceModelError(
+                f"Hub checkpoint index {index_name!r} was not resolved in the pinned snapshot"
+            )
+        _validate_shard_index(index_path, snapshot_root, hub_snapshot=True)
+    return resolved_revision
+
+
 def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
     """Load a causal LM with safe defaults and return reproducible provenance."""
     try:
@@ -138,9 +289,10 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
         ) from exc
 
     try:
+        resolved_hub_revision = _preflight_model_checkpoint(request)
         model = auto_model.from_pretrained(
             request.model,
-            revision=request.revision,
+            revision=resolved_hub_revision or request.revision,
             trust_remote_code=request.trust_remote_code,
             device_map=_transformers_device_map(request.device_map),
             torch_dtype=_torch_dtype(request.dtype),
@@ -148,6 +300,8 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
             low_cpu_mem_usage=request.low_cpu_mem_usage,
         )
     except Exception as exc:
+        if isinstance(exc, HuggingFaceLoadError):
+            raise
         exception_names = {exception_type.__name__ for exception_type in type(exc).mro()}
         if any("Revision" in name for name in exception_names):
             raise HuggingFaceRevisionError(
@@ -157,7 +311,18 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
     provenance = HuggingFaceLoadProvenance(
         source=request.model,
         requested_revision=request.revision,
-        resolved_revision=_resolved_revision(model, request),
+        resolved_revision=_resolved_revision(
+            model,
+            HuggingFaceLoadRequest(
+                model=request.model,
+                revision=resolved_hub_revision or request.revision,
+                trust_remote_code=request.trust_remote_code,
+                device_map=request.device_map,
+                dtype=request.dtype,
+                local_files_only=request.local_files_only,
+                low_cpu_mem_usage=request.low_cpu_mem_usage,
+            ),
+        ),
         trust_remote_code=request.trust_remote_code,
         device_map=request.device_map,
         dtype=request.dtype,

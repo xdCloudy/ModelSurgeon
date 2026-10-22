@@ -2,7 +2,9 @@
 
 ## Supported versions
 
-Until v1.0, only the latest `main` revision receives security fixes.
+Only the latest `main` revision receives security fixes. Published version tags
+are snapshots; security fixes are not backported to older tags or maintained
+release branches.
 
 ## Reporting
 

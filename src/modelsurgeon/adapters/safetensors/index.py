@@ -8,6 +8,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from modelsurgeon.adapters.checkpoint_paths import (
+    MAX_CHECKPOINT_INDEX_BYTES,
+    CheckpointPathError,
+    hub_snapshot_blob_root,
+    resolve_checkpoint_shard_path,
+    validate_checkpoint_index_path,
+)
+
 _MAX_HEADER_BYTES = 100 * 1024 * 1024
 _DTYPE_BYTES = {
     "BOOL": 1,
@@ -149,8 +157,24 @@ def inspect_safetensors_file(path: Path) -> tuple[SafetensorEntry, ...]:
 
 
 def _load_shard_index(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        raise SafetensorsIndexError(f"invalid safetensors shard index {path}")
+    root = path.parent.absolute()
+    hub_snapshot = hub_snapshot_blob_root(root) is not None
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        validate_checkpoint_index_path(path, root, hub_snapshot=hub_snapshot)
+    except CheckpointPathError as exc:
+        raise SafetensorsIndexError(str(exc)) from exc
+    try:
+        with path.open("rb") as stream:
+            raw_index = stream.read(MAX_CHECKPOINT_INDEX_BYTES + 1)
+        if len(raw_index) > MAX_CHECKPOINT_INDEX_BYTES:
+            raise SafetensorsIndexError(
+                f"safetensors shard index exceeds {MAX_CHECKPOINT_INDEX_BYTES} bytes: {path}"
+            )
+        value = json.loads(raw_index.decode("utf-8"))
+    except SafetensorsIndexError:
+        raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
     if not isinstance(value, Mapping) or not isinstance(value.get("weight_map"), Mapping):
@@ -162,6 +186,11 @@ def _load_shard_index(path: Path) -> dict[str, str]:
         for name, shard in weight_map.items()
     ):
         raise SafetensorsIndexError(f"{path} weight_map contains invalid entries")
+    for shard in {str(value) for value in weight_map.values()}:
+        try:
+            resolve_checkpoint_shard_path(root, shard, hub_snapshot=hub_snapshot)
+        except CheckpointPathError as exc:
+            raise SafetensorsIndexError(str(exc)) from exc
     return {str(name): str(shard) for name, shard in weight_map.items()}
 
 

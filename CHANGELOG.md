@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+  - Preflight Hugging Face sharded checkpoint indexes before model loading.
+    Bound index JSON reads to 100 MiB; reject absolute, escaping,
+    symlinked-directory, malformed, and non-regular shard paths; confine the
+    selected snapshot and blob store to the model cache; and pin model loads to
+    the snapshot inspected by preflight.
+    The standalone Safetensors metadata inspector now validates index and shard
+    containment before opening headers, bounds index reads to 100 MiB, and
+    allows Hub blob symlinks.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
