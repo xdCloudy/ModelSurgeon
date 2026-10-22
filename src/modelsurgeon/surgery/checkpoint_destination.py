@@ -143,7 +143,7 @@ class AtomicDirectoryDestination(AbstractContextManager["AtomicDirectoryDestinat
         if self.destination.exists() or self.destination.is_symlink():
             raise CheckpointDestinationError("directory destination already exists")
         self.destination.parent.mkdir(parents=True, exist_ok=True)
-        self.staging_path.mkdir()
+        self.staging_path.mkdir(mode=0o700)
         self._entered = True
         return self
 
