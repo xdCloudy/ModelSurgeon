@@ -35,6 +35,21 @@ def test_exact_overlap_blocks_publishability_and_is_deterministic() -> None:
         first.require_publishable()
 
 
+def test_whitespace_normalized_exact_overlap_is_classified_as_exact() -> None:
+    items = (
+        CorpusItem("a", "train", "same  text\nacross lines"),
+        CorpusItem("b", "test", "same text across\tlines"),
+    )
+
+    report = audit_corpora(_sources(), items)
+
+    assert report.status is ContaminationStatus.BLOCKED
+    assert len(report.findings) == 1
+    assert report.findings[0].kind is FindingKind.EXACT_OVERLAP
+    assert report.findings[0].action is FindingAction.BLOCK
+    assert items[0].text_digest == items[1].text_digest
+
+
 def test_near_overlap_moves_sample_and_changes_protocol_identity() -> None:
     items = (
         CorpusItem("a", "train", "alpha beta gamma delta epsilon"),

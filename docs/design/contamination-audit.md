@@ -11,9 +11,10 @@ and declared ancestry. Items retain only safe derived identity in reports:
 item ID, corpus ID, exact text digest, byte count, generated flag, and ancestry
 IDs. Raw text is used only during the bounded audit and is not serialized.
 
-The audit uses exact SHA-256 matches and deterministic token-shingle Jaccard
-matching under explicit item and pair budgets. Exact and ancestry overlaps
-block affected claims. Near overlaps produce a move-and-new-protocol action.
+The audit hashes text after collapsing whitespace for exact SHA-256 matching
+and deterministic token-shingle Jaccard matching under explicit item and pair
+budgets. Exact and ancestry overlaps block affected claims. Near overlaps
+produce a move-and-new-protocol action.
 Unavailable or unauditable licenses produce an unknown limitation, never a
 clean result. Resource exhaustion is retained as an unknown finding.
 

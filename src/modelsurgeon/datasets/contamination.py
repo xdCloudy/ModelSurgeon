@@ -137,10 +137,13 @@ class CorpusItem:
 
     @property
     def text_digest(self) -> str:
-        return _sha256(self.text)
+        return _sha256(self._normalized_text())
+
+    def _normalized_text(self) -> str:
+        return " ".join(self.text.split())
 
     def shingles(self, size: int) -> frozenset[str]:
-        normalized = " ".join(self.text.split())
+        normalized = self._normalized_text()
         tokens = normalized.split(" ")
         if len(tokens) <= size:
             return frozenset((normalized,))
