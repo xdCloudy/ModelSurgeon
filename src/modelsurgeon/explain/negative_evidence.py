@@ -28,6 +28,7 @@ from modelsurgeon.conversation.evidence_query import (
     EvidenceUncertainty,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.policy import (
     PolicyCandidate,
     PolicyDecision,
@@ -89,7 +90,7 @@ def _mapping(value: object, label: str) -> dict[str, JSONValue]:
     if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
         raise NegativeEvidenceExplanationError(f"{label} must be an object")
     try:
-        decoded = json.loads(_canonical(value))
+        decoded = strict_json_loads(_canonical(value))
     except json.JSONDecodeError as error:
         raise NegativeEvidenceExplanationError(f"{label} must be canonical JSON") from error
     if not isinstance(decoded, dict):

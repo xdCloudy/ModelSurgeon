@@ -86,7 +86,15 @@ def _request(
 def _emit(report: SetupReport, *, output_json: bool) -> None:
     record = report.to_record()
     if output_json:
-        typer.echo(json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        typer.echo(
+            json.dumps(
+                record,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        )
         return
     typer.echo(
         f"setup {record['status']} outcome={record['outcome']} "

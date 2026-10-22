@@ -12,6 +12,7 @@ import typer
 
 from modelsurgeon.config import ConstraintConfig, ObjectiveConfig, OptimizeMetric
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.constraints import (
     BaselineReference,
     ConstraintMetric,
@@ -192,7 +193,7 @@ def load_search_spec(path: Path) -> _SearchSpec:
     """Load a strict search plan and materialize its policy identity."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise SearchCommandError(f"cannot read search config: {error}") from error
     record = _exact(

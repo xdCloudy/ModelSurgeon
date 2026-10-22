@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import re
 from collections.abc import Mapping, Sequence
@@ -12,6 +11,7 @@ from enum import StrEnum
 from typing import cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 BENCHMARK_EVIDENCE_SCHEMA_VERSION = 1
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -485,7 +485,7 @@ def migrate_benchmark_record(raw: Mapping[str, object]) -> dict[str, object]:
         raise BenchmarkSchemaError("benchmark record must be an object")
     version = raw.get("schema_version")
     if version == BENCHMARK_EVIDENCE_SCHEMA_VERSION:
-        return cast(dict[str, object], json.loads(canonical_identity_json(raw)))
+        return cast(dict[str, object], strict_json_loads(canonical_identity_json(raw)))
     if version != 0:
         raise BenchmarkSchemaError(f"unsupported benchmark migration version: {version!r}")
     if "status" not in raw or "metrics" not in raw:
@@ -499,7 +499,7 @@ def migrate_benchmark_record(raw: Mapping[str, object]) -> dict[str, object]:
     migrated.setdefault("reliability", None)
     migrated.setdefault("outcome_reason", None)
     migrated.pop("cell_id", None)
-    return cast(dict[str, object], json.loads(canonical_identity_json(migrated)))
+    return cast(dict[str, object], strict_json_loads(canonical_identity_json(migrated)))
 
 
 def render_benchmark_report(record: BenchmarkEvidenceRecord, *, format: str = "json") -> str:

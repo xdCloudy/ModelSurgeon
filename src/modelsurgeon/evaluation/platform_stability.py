@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 PLATFORM_STABILITY_SCHEMA_VERSION = 1
 PLATFORM_TOLERANCE_REGISTRY_VERSION = 1
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -48,7 +50,13 @@ def _require_text(value: str, label: str) -> None:
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -420,7 +428,7 @@ def migrate_platform_stability_record(raw: Mapping[str, object]) -> dict[str, ob
         raise PlatformStabilityError("stability record must be an object")
     version = raw.get("schema_version", 0)
     if version == PLATFORM_STABILITY_SCHEMA_VERSION:
-        return cast(dict[str, object], json.loads(_canonical(raw)))
+        return cast(dict[str, object], strict_json_loads(_canonical(raw)))
     if version != 0:
         raise PlatformStabilityError(
             f"unsupported platform stability migration version: {version!r}"
@@ -430,4 +438,4 @@ def migrate_platform_stability_record(raw: Mapping[str, object]) -> dict[str, ob
     migrated.setdefault("status_reason", "migrated legacy stability record")
     migrated.setdefault("drift", DriftOutcome.UNKNOWN.value)
     migrated["migration"] = {"from_schema_version": 0, "to_schema_version": 1, "lossless": True}
-    return cast(dict[str, object], json.loads(_canonical(migrated)))
+    return cast(dict[str, object], strict_json_loads(_canonical(migrated)))

@@ -172,7 +172,9 @@ class TinyTransformerDouble:
                 for name, parameter in self._parameters
             ],
         }
-        encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+        encoded = json.dumps(
+            record, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
         return hashlib.sha256(encoded).hexdigest()
 
 

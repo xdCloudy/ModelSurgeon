@@ -102,7 +102,7 @@ def diagnostics_command(
             "message": redact_secret_text(str(error)),
         }
         if output_json:
-            typer.echo(json.dumps(payload, sort_keys=True), err=True)
+            typer.echo(json.dumps(payload, sort_keys=True, allow_nan=False), err=True)
         else:
             typer.echo(
                 f"provider configuration error [{payload['code']}]: {payload['message']}",

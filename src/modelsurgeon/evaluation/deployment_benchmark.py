@@ -100,8 +100,12 @@ class DeploymentMeasurementPolicy:
             raise DeploymentBenchmarkError(
                 "deployment benchmarks require at least seven repetitions"
             )
-        if self.timeout_seconds <= 0:
-            raise DeploymentBenchmarkError("deployment timeout must be positive")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise DeploymentBenchmarkError("deployment timeout must be finite and positive")
         if not 0 <= self.drift_tolerance < 1:
             raise DeploymentBenchmarkError("deployment drift tolerance must be in [0, 1)")
 

@@ -17,6 +17,7 @@ from enum import StrEnum
 from typing import cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.objective_contract import (
     ConstraintDirection,
     HardConstraint,
@@ -138,7 +139,7 @@ def _mapping(value: Mapping[str, object], label: str) -> dict[str, object]:
     if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
         raise FeasibilityExplanationError(f"{label} must be a JSON object")
     try:
-        decoded = json.loads(_canonical(value))
+        decoded = strict_json_loads(_canonical(value))
     except (TypeError, ValueError, json.JSONDecodeError) as error:
         raise FeasibilityExplanationError(f"{label} must contain canonical JSON values") from error
     if not isinstance(decoded, dict):

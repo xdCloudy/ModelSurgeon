@@ -21,9 +21,9 @@ def _registry(root: Path) -> LocalArtifactRegistry:
 
 def _emit(value: object, output_json: bool) -> None:
     if output_json:
-        typer.echo(json.dumps(value, sort_keys=True, separators=(",", ":")))
+        typer.echo(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False))
     else:
-        typer.echo(json.dumps(value, sort_keys=True, indent=2))
+        typer.echo(json.dumps(value, sort_keys=True, indent=2, allow_nan=False))
 
 
 def _run(operation: Callable[[], object], output_json: bool) -> None:
@@ -35,6 +35,7 @@ def _run(operation: Callable[[], object], output_json: bool) -> None:
                 json.dumps(
                     {"record_type": "error", "category": "registry", "message": str(error)},
                     sort_keys=True,
+                    allow_nan=False,
                 ),
                 err=True,
             )

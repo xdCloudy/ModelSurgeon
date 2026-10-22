@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import math
 import os
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -27,6 +28,7 @@ from modelsurgeon.evaluation.deployment_benchmark import (
     render_deployment_protocol,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 DEPLOYMENT_CLI_SCHEMA_VERSION = 1
 
@@ -37,7 +39,7 @@ class DeploymentCommandError(ValueError):
 
 def _read_json(path: Path) -> dict[str, object]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise DeploymentCommandError(f"cannot read JSON {path}: {error}") from error
     if not isinstance(raw, dict):
@@ -180,8 +182,12 @@ class SubprocessDeploymentRunner:
             raise DeploymentCommandError(
                 "deployment runner command must be a non-empty string array"
             )
-        if timeout_seconds <= 0:
-            raise DeploymentCommandError("deployment runner timeout must be positive")
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
+            raise DeploymentCommandError("deployment runner timeout must be finite and positive")
         self.command = tuple(command)
         self.timeout_seconds = timeout_seconds
 
@@ -209,7 +215,7 @@ class SubprocessDeploymentRunner:
                 cell, outcome, f"deployment runner exited with status {completed.returncode}"
             )
         try:
-            result = json.loads(completed.stdout)
+            result = strict_json_loads(completed.stdout)
         except json.JSONDecodeError as error:
             raise DeploymentCommandError(
                 "deployment runner did not emit one JSON result"

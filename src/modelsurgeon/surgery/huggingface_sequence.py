@@ -391,4 +391,7 @@ def run_huggingface_cumulative_sequence(
 def render_huggingface_sequence_report(run: HuggingFaceCumulativeRun) -> str:
     """Render a stable JSON report without serializing the live model object."""
 
-    return json.dumps(run.to_record(), sort_keys=True, separators=(",", ":")) + "\n"
+    return (
+        json.dumps(run.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        + "\n"
+    )

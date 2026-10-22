@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import math
 import subprocess
 import time
 from collections.abc import Iterable, Mapping, Sequence
@@ -13,6 +14,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 PLUGIN_SCHEMA_VERSION = 1
 
@@ -73,7 +75,11 @@ class PluginResourceBudget:
     max_artifact_bytes: int = 1 << 30
 
     def __post_init__(self) -> None:
-        if self.max_wall_seconds <= 0:
+        if (
+            isinstance(self.max_wall_seconds, bool)
+            or not math.isfinite(self.max_wall_seconds)
+            or self.max_wall_seconds <= 0
+        ):
             raise PluginError("plugin wall-time budget must be positive")
         if any(
             isinstance(value, bool) or value <= 0
@@ -459,7 +465,7 @@ def invoke_subprocess(
             wall_seconds=elapsed,
         )
     try:
-        parsed = _result_from_mapping(json.loads(completed.stdout), card.plugin_id)
+        parsed = _result_from_mapping(strict_json_loads(completed.stdout), card.plugin_id)
     except (json.JSONDecodeError, PluginError):
         return PluginResult(
             card.plugin_id,

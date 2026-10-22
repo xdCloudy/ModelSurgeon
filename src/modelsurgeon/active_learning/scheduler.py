@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Final
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 from .acquisition import AcquisitionReport
 
@@ -145,7 +146,7 @@ class ActiveScheduleStore:
 
     def load(self) -> ActiveEvaluationSchedule:
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(self.path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ActiveScheduleError("active schedule is unreadable") from error
         if (
@@ -197,7 +198,7 @@ class ActiveScheduleStore:
     def _publish(self, schedule: ActiveEvaluationSchedule) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        payload = json.dumps(schedule.to_record(), indent=2, sort_keys=True) + "\n"
+        payload = json.dumps(schedule.to_record(), indent=2, sort_keys=True, allow_nan=False) + "\n"
         with temporary.open("w", encoding="utf-8", newline="\n") as stream:
             stream.write(payload)
             stream.flush()

@@ -28,6 +28,7 @@ from modelsurgeon.datasets.huggingface import (
     stream_huggingface_calibration,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 CALIBRATION_COMMAND_SCHEMA_VERSION = 1
 
@@ -125,7 +126,7 @@ def load_calibration_plan(path: Path) -> CalibrationPlan:
     """Load a strict calibration plan with all mutable identities declared."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise CalibrationCommandError(f"cannot read calibration config: {error}") from error
     record = _object(raw, "calibration config")
@@ -379,7 +380,7 @@ def run_calibration(
         )
     if cache_path.exists() and not refresh:
         try:
-            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            cached = strict_json_loads(cache_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise CalibrationCommandError(f"cannot read calibration cache: {error}") from error
         return _validate_cache(cached, plan, cache_path)

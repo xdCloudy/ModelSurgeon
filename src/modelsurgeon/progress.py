@@ -13,6 +13,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 PROGRESS_SCHEMA_VERSION = 1
 _SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|credential)", re.IGNORECASE)
@@ -223,7 +224,7 @@ class ProgressStore:
 
     def _load(self, campaign_id: str) -> tuple[ProgressSnapshot, tuple[ProgressEvent, ...]]:
         try:
-            raw = json.loads(self._path(campaign_id).read_text(encoding="utf-8"))
+            raw = strict_json_loads(self._path(campaign_id).read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ProgressError("progress state is missing or corrupt") from error
         if not isinstance(raw, Mapping) or raw.get("schema_version") != PROGRESS_SCHEMA_VERSION:

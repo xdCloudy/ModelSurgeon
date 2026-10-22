@@ -36,6 +36,7 @@ from modelsurgeon.experiments.optimization_package import (
     diff_plans,
     plan_digest,
 )
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.optimization import OptimizeOutcome, OptimizePlan
 from modelsurgeon.surgery.contracts import TransactionState
 
@@ -487,7 +488,7 @@ class OptimizeStateStore:
 
     def load(self) -> OptimizeRun:
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(self.path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise OptimizeOrchestratorError("orchestrator state is missing or corrupt") from error
         return _run_from_record(raw)

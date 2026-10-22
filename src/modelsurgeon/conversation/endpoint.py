@@ -10,6 +10,7 @@ and never enter a canonical record.
 from __future__ import annotations
 
 import json
+import math
 import re
 import threading
 import time
@@ -46,6 +47,7 @@ from modelsurgeon.conversation.provider import (
     result_from_raw_output,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 ENDPOINT_ADAPTER_SCHEMA_VERSION = 1
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
@@ -127,8 +129,8 @@ class RetryPolicy:
             ("maximum retry delay", self.max_delay_seconds),
             ("maximum Retry-After", self.max_retry_after_seconds),
         ):
-            if isinstance(value, bool) or value < 0:
-                raise EndpointAdapterError(f"{name} must be non-negative")
+            if isinstance(value, bool) or not math.isfinite(value) or value < 0:
+                raise EndpointAdapterError(f"{name} must be finite and non-negative")
         if self.base_delay_seconds > self.max_delay_seconds:
             raise EndpointAdapterError("base retry delay cannot exceed the maximum")
         if self.retry_statuses != tuple(sorted(set(self.retry_statuses))):
@@ -225,6 +227,16 @@ class EndpointHttpRequest:
     timeout_seconds: float
     max_response_bytes: int
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise EndpointAdapterError("endpoint request timeout must be finite and positive")
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes <= 0:
+            raise EndpointAdapterError("endpoint response limit must be positive")
+
 
 @dataclass(frozen=True, slots=True)
 class EndpointHttpResponse:
@@ -314,7 +326,7 @@ class CapabilityProbeResult:
 
 def _json_object(body: bytes, *, label: str) -> Mapping[str, object]:
     try:
-        value = json.loads(body.decode("utf-8"))
+        value = strict_json_loads(body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise EndpointAdapterError(f"{label} was not valid UTF-8 JSON") from error
     if not isinstance(value, Mapping):
@@ -324,7 +336,9 @@ def _json_object(body: bytes, *, label: str) -> Mapping[str, object]:
 
 def _json_bytes(value: object) -> bytes:
     try:
-        return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
     except (TypeError, ValueError) as error:
         raise EndpointAdapterError("endpoint request was not JSON serializable") from error
 
@@ -438,7 +452,7 @@ def _retry_after(headers: Mapping[str, str], *, now: float) -> float | None:
             seconds = date.timestamp() - now
         except (TypeError, ValueError, OverflowError):
             return None
-    return max(0.0, seconds)
+    return max(0.0, seconds) if math.isfinite(seconds) else None
 
 
 def _schema_for(operation: ProviderOperation) -> dict[str, object]:
@@ -510,7 +524,7 @@ def _response_payload(response: Mapping[str, object], model_id: str) -> object:
     if message["role"] != "assistant" or not isinstance(message["content"], str):
         raise EndpointAdapterError("endpoint message is not an assistant text response")
     try:
-        payload = json.loads(message["content"])
+        payload = strict_json_loads(message["content"])
     except json.JSONDecodeError as error:
         raise EndpointAdapterError("endpoint message content was not JSON") from error
     return payload

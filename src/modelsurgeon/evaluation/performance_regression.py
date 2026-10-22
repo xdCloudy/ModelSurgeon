@@ -12,6 +12,7 @@ from typing import cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.runtime_telemetry import HardwareNormalizationContext
+from modelsurgeon.json_utils import strict_json_loads
 
 PERFORMANCE_BUDGET_SCHEMA_VERSION = 1
 PERFORMANCE_REPORT_SCHEMA_VERSION = 1
@@ -117,7 +118,7 @@ class PerformanceBudgetManifest:
     def reference_hardware_record(self) -> dict[str, object]:
         """Return the immutable canonical hardware snapshot bound to this manifest."""
 
-        return cast(dict[str, object], json.loads(self._reference_hardware_json))
+        return cast(dict[str, object], strict_json_loads(self._reference_hardware_json))
 
     @property
     def manifest_id(self) -> str:
@@ -314,7 +315,7 @@ def load_performance_budget_manifest(
     """Load one strict profile from the versioned multi-profile budget file."""
 
     try:
-        raw = json.loads(payload)
+        raw = strict_json_loads(payload)
     except json.JSONDecodeError as error:
         raise PerformanceRegressionError("performance budget file is invalid JSON") from error
     root = _mapping(raw, "budget file")

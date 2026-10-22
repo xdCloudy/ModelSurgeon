@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ from pathlib import Path
 from typing import cast
 
 from modelsurgeon.adapters.base import ModelFormat, ModelSource
+from modelsurgeon.json_utils import strict_json_loads
 
 COMPETITOR_ADAPTER_SCHEMA_VERSION = 1
 
@@ -90,7 +92,11 @@ class CompetitorBudget:
     max_disk_bytes: int
 
     def __post_init__(self) -> None:
-        if self.max_wall_seconds <= 0:
+        if (
+            isinstance(self.max_wall_seconds, bool)
+            or not math.isfinite(self.max_wall_seconds)
+            or self.max_wall_seconds <= 0
+        ):
             raise CompetitorAdapterError("max_wall_seconds must be positive")
         for label, value in (
             ("max_stdout_bytes", self.max_stdout_bytes),
@@ -243,7 +249,7 @@ def _source_digest(path: Path) -> str:
 
 def _json_object(value: str) -> Mapping[str, object] | None:
     try:
-        parsed = json.loads(value)
+        parsed = strict_json_loads(value)
     except json.JSONDecodeError:
         return None
     if not isinstance(parsed, dict):

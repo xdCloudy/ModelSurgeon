@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import shutil
@@ -57,8 +58,12 @@ class LlamaCppValidationConfig:
             raise LlamaCppValidationError("context size and thread count must be positive")
         if self.gpu_layers < 0 or self.seed < 0:
             raise LlamaCppValidationError("GPU layers and seed must be non-negative")
-        if self.timeout_seconds <= 0:
-            raise LlamaCppValidationError("validation timeout must be positive")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise LlamaCppValidationError("validation timeout must be finite and positive")
         if self.max_log_bytes <= 0:
             raise LlamaCppValidationError("maximum captured log bytes must be positive")
 

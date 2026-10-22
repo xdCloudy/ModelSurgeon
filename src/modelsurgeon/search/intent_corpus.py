@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import cast
 
 from modelsurgeon.conversation import IntentOutcome, IntentProvenance, IntentRecord
+from modelsurgeon.json_utils import strict_json_loads
 
 from .intent_compiler import IntentCompilation, compile_intent_record
 from .intent_policy import IntentPolicyDecision, evaluate_intent_policy
@@ -264,7 +265,7 @@ def load_intent_corpus(path: Path) -> IntentCorpus:
     try:
         if path.stat().st_size > MAX_INTENT_CORPUS_BYTES:
             raise IntentCorpusError("intent corpus exceeds the byte budget")
-        root = json.loads(path.read_text(encoding="utf-8"))
+        root = strict_json_loads(path.read_text(encoding="utf-8"))
     except IntentCorpusError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as error:

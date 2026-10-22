@@ -8,12 +8,13 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.migration import MigrationKind, MigrationRefusal, migrate_record
 
 
 def _read_json(path: Path) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise MigrationRefusal(f"migration input is missing or invalid JSON: {path}") from error
 
@@ -25,7 +26,8 @@ def _write_json(path: Path, payload: object) -> None:
     temporary = path.with_name(f".{path.name}.partial")
     try:
         temporary.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
+            + "\n",
             encoding="utf-8",
             newline="\n",
         )
@@ -61,7 +63,7 @@ def migrate_command(
         typer.echo(f"migration refused: {error}", err=True)
         raise typer.Exit(2) from error
     if output_json:
-        typer.echo(json.dumps(result.report(), sort_keys=True))
+        typer.echo(json.dumps(result.report(), sort_keys=True, allow_nan=False))
     else:
         target = "stdout" if output is None else str(output)
         typer.echo(

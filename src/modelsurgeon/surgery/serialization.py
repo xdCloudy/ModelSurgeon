@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Literal, cast
 
 from modelsurgeon.graph import ComponentId, ComponentIdentityMapping, IdentityRemapError
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.surgery.contracts import (
     MUTATION_SCHEMA_VERSION,
     MutationContractError,
@@ -118,12 +119,13 @@ class MutationRunRecord:
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
+            allow_nan=False,
         )
 
     @classmethod
     def from_json(cls, payload: str) -> MutationRunRecord:
         try:
-            value = json.loads(payload)
+            value = strict_json_loads(payload)
         except (TypeError, json.JSONDecodeError) as error:
             raise MutationRecordError("mutation record is not valid JSON") from error
         root = _object(value, "mutation record")

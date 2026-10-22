@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.policies import SearchPolicyState
 
 SEARCH_RESUME_SCHEMA_VERSION = 1
@@ -358,7 +359,7 @@ class SearchResumeStore:
         if hashlib.sha256(payload.encode()).hexdigest() != str(row["payload_sha256"]):
             raise SearchResumeError("search resume snapshot checksum mismatch")
         try:
-            record = json.loads(payload)
+            record = strict_json_loads(payload)
         except json.JSONDecodeError as error:
             raise SearchResumeError("search resume snapshot JSON is corrupt") from error
         return _snapshot_from_record(record)

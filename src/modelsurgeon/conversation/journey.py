@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, cast
 
 from modelsurgeon.config import ProviderConfig, Settings
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 from .campaign_state import CampaignState, CampaignStateError, CampaignStateStore
 from .evidence_query import (
@@ -67,7 +68,7 @@ class JourneyOutcome(StrEnum):
 
 def _json_record(value: Mapping[str, object], label: str) -> dict[str, object]:
     try:
-        decoded = json.loads(canonical_identity_json(dict(value)))
+        decoded = strict_json_loads(canonical_identity_json(dict(value)))
     except (TypeError, ValueError, json.JSONDecodeError) as error:
         raise JourneyError("record_invalid", f"{label} is not canonical JSON") from error
     if not isinstance(decoded, dict):  # pragma: no cover - guarded by the input type

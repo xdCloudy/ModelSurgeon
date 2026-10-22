@@ -98,7 +98,11 @@ class MutationRequest:
     @property
     def mutation_id(self) -> str:
         encoded = json.dumps(
-            self.to_record(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            self.to_record(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
         ).encode()
         return hashlib.sha256(encoded).hexdigest()
 

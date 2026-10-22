@@ -12,6 +12,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -60,6 +61,18 @@ class HardwareProfile:
     def __post_init__(self) -> None:
         if not self.profile_id.strip() or not self.device.strip():
             raise OptimizePlanError("hardware profile identifiers must be non-empty")
+        resources = (self.ram_gb, self.disk_gb) + (
+            () if self.vram_gb is None else (self.vram_gb,)
+        )
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in resources
+        ):
+            raise OptimizePlanError("hardware profile resources must be finite numbers")
+        if isinstance(self.cpu_threads, bool) or not isinstance(self.cpu_threads, int):
+            raise OptimizePlanError("hardware profile CPU thread count must be an integer")
         if self.cpu_threads <= 0 or self.ram_gb <= 0 or self.disk_gb <= 0:
             raise OptimizePlanError("hardware profile resources must be positive")
         if self.vram_gb is not None and self.vram_gb <= 0:
@@ -89,10 +102,24 @@ class QualityProfile:
     def __post_init__(self) -> None:
         if not self.profile_id.strip():
             raise OptimizePlanError("quality profile identifier must be non-empty")
+        quality_values = (self.min_quality_retention, self.confidence_level) + (
+            () if self.max_perplexity_delta is None else (self.max_perplexity_delta,)
+        )
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in quality_values
+        ):
+            raise OptimizePlanError("quality profile values must be finite numbers")
         if not 0.0 <= self.min_quality_retention <= 1.0:
             raise OptimizePlanError("quality retention must be between zero and one")
         if self.max_perplexity_delta is not None and self.max_perplexity_delta < 0:
             raise OptimizePlanError("perplexity delta cannot be negative")
+        if isinstance(self.evaluation_repetitions, bool) or not isinstance(
+            self.evaluation_repetitions, int
+        ):
+            raise OptimizePlanError("evaluation repetitions must be an integer")
         if self.evaluation_repetitions <= 0:
             raise OptimizePlanError("evaluation repetitions must be positive")
         if not 0.0 < self.confidence_level < 1.0:
@@ -127,8 +154,14 @@ class OptimizeBudget:
             self.max_ram_bytes,
             self.max_disk_bytes,
         )
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
+            raise OptimizePlanError("optimization budgets must be integers")
         if any(value <= 0 for value in values):
             raise OptimizePlanError("all optimization budgets must be positive")
+        if self.max_vram_bytes is not None and (
+            isinstance(self.max_vram_bytes, bool) or not isinstance(self.max_vram_bytes, int)
+        ):
+            raise OptimizePlanError("maximum VRAM budget must be an integer")
         if self.max_vram_bytes is not None and self.max_vram_bytes <= 0:
             raise OptimizePlanError("maximum VRAM budget must be positive")
 
@@ -156,16 +189,33 @@ class OptimizeCostEstimate:
     peak_vram_gb: float | None
 
     def __post_init__(self) -> None:
-        for value in (
+        integer_values = (
             self.evaluation_count,
             self.repair_steps,
             self.artifact_bytes,
             self.cpu_seconds,
-        ):
+        )
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in integer_values):
+            raise OptimizePlanError("integer cost estimates must be integers")
+        for value in integer_values:
             if value < 0:
                 raise OptimizePlanError("cost estimates cannot be negative")
+        if self.download_bytes is not None and (
+            isinstance(self.download_bytes, bool) or not isinstance(self.download_bytes, int)
+        ):
+            raise OptimizePlanError("download estimate must be an integer")
         if self.download_bytes is not None and self.download_bytes < 0:
             raise OptimizePlanError("download estimate cannot be negative")
+        peak_resources = (self.peak_ram_gb,) + (
+            () if self.peak_vram_gb is None else (self.peak_vram_gb,)
+        )
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in peak_resources
+        ):
+            raise OptimizePlanError("peak resource estimates must be finite numbers")
         if self.peak_ram_gb <= 0 or (self.peak_vram_gb is not None and self.peak_vram_gb <= 0):
             raise OptimizePlanError("peak resource estimates must be positive")
 
@@ -319,7 +369,11 @@ class OptimizePlan:
 
     def canonical_json(self) -> str:
         return json.dumps(
-            self.to_record(), ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            self.to_record(),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+            allow_nan=False,
         )
 
 

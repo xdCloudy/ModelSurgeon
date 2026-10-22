@@ -368,6 +368,7 @@ def optimize_command(
                 json.dumps(
                     {"record_type": "error", "category": "optimize", "message": str(error)},
                     sort_keys=True,
+                    allow_nan=False,
                 ),
                 err=True,
             )

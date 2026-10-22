@@ -28,6 +28,7 @@ from modelsurgeon.conversation.campaign_state import (
     CampaignStateStore,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 EVIDENCE_QUERY_SCHEMA_VERSION: Final[int] = 1
 EVIDENCE_SNAPSHOT_SCHEMA_VERSION: Final[int] = 1
@@ -184,7 +185,7 @@ def _mapping(value: object, label: str) -> dict[str, JSONValue]:
     if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
         raise EvidenceQueryError(f"{label} must be a JSON object")
     try:
-        decoded = json.loads(_canonical(value, label))
+        decoded = strict_json_loads(_canonical(value, label))
     except json.JSONDecodeError as error:
         raise EvidenceQueryError(f"{label} must be canonical JSON") from error
     if not isinstance(decoded, dict):

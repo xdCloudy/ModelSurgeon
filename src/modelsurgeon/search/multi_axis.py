@@ -186,7 +186,7 @@ class CompiledArchitectureSequence:
             "steps": [item.to_record() for item in self.steps],
             "cumulative_delta": self._delta_record(),
         }
-        return json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+        return json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 
     def _delta_record(self) -> dict[str, int]:
         return {

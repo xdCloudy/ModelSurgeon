@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from modelsurgeon.json_utils import strict_json_loads
+
 TEACHER_CACHE_SCHEMA_VERSION = 1
 TEACHER_CACHE_PROTOCOL_REVISION = "teacher-cache-v1"
 REPAIR_SELECTION_ALGORITHM = "repair-selection-v1"
@@ -299,7 +301,7 @@ class TeacherCacheStore:
 
     def _load_chunk(self, path: Path) -> TeacherCacheChunk:
         try:
-            return _chunk_from_record(json.loads(path.read_text(encoding="utf-8")))
+            return _chunk_from_record(strict_json_loads(path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as error:
             raise TeacherCacheError(f"teacher cache chunk is unreadable: {path.name}") from error
 
@@ -318,7 +320,7 @@ class TeacherCacheStore:
         if not path.exists():
             return None
         try:
-            manifest = _manifest_from_record(json.loads(path.read_text(encoding="utf-8")))
+            manifest = _manifest_from_record(strict_json_loads(path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as error:
             raise TeacherCacheError("teacher cache manifest is unreadable") from error
         if manifest.key != key:

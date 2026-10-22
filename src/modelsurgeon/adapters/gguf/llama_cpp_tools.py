@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import re
 import uuid
@@ -65,9 +66,14 @@ class LlamaCppQuantizationConfig:
             )
         if self.threads <= 0:
             raise LlamaCppQuantizationToolError("quantization thread count must be positive")
-        if self.timeout_seconds <= 0 or self.max_log_bytes <= 0:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or self.max_log_bytes <= 0
+        ):
             raise LlamaCppQuantizationToolError(
-                "quantization timeout and maximum log bytes must be positive"
+                "quantization timeout must be finite and timeout/log limits must be positive"
             )
 
     def to_record(self) -> dict[str, object]:

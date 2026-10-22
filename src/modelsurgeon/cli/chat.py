@@ -31,7 +31,15 @@ def _error_outcome(error: ChatSessionError) -> str:
 
 def _emit(value: Mapping[str, object], *, output_json: bool, message: str | None = None) -> None:
     if output_json:
-        typer.echo(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        typer.echo(
+            json.dumps(
+                value,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        )
     elif message is not None:
         typer.echo(message)
 

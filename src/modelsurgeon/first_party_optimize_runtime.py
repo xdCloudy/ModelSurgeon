@@ -14,6 +14,7 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
@@ -76,6 +77,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     TorchCudaMemoryProvider,
     collect_memory_telemetry,
 )
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.optimization import OptimizePlan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeRuntime,
@@ -137,7 +139,7 @@ def _digest_tree(path: Path) -> str:
     if not entries:
         raise FirstPartyOptimizeRuntimeError(f"model source does not exist: {path}")
     return hashlib.sha256(
-        json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(entries, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     ).hexdigest()
 
 
@@ -208,7 +210,13 @@ def _optional_text(value: object, label: str) -> str | None:
 def _number(value: object, label: str) -> float:
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise FirstPartyOptimizeRuntimeError(f"{label} must be numeric")
-    return float(value)
+    try:
+        result = float(value)
+    except OverflowError as error:
+        raise FirstPartyOptimizeRuntimeError(f"{label} must be finite") from error
+    if not math.isfinite(result):
+        raise FirstPartyOptimizeRuntimeError(f"{label} must be finite")
+    return result
 
 
 def _perplexity_quality_gate(
@@ -397,7 +405,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         self.selected_channel = None
                         self.selected_channels = ()
             try:
-                detail = json.loads(stage.detail)
+                detail = strict_json_loads(stage.detail)
             except (TypeError, json.JSONDecodeError):
                 continue
             if not isinstance(detail, Mapping):
@@ -739,7 +747,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "failure": failure,
             }
             observation_id = "obs_" + hashlib.sha256(
-                json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+                json.dumps(
+                    identity, sort_keys=True, separators=(",", ":"), allow_nan=False
+                ).encode()
             ).hexdigest()
             record = OptimizationEvidenceRecord(
                 observation_id=observation_id,
@@ -817,7 +827,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "failure": None if failure is None else dict(failure),
         }
         observation_id = "obs_" + hashlib.sha256(
-            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         ).hexdigest()
         resolved_lineage = dict(lineage or {})
         if feature_cache is not None:
@@ -1327,7 +1337,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         "artifact": str(self.artifact),
                         "artifact_digest": self.artifact_digest,
                     },
-                    sort_keys=True,
+                    sort_keys=True, allow_nan=False,
                 ),
                 artifact_digest=self.artifact_digest,
                 candidate=self.selected,
@@ -1482,7 +1492,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
             return self._result(
                 OptimizeStage.REPAIR,
-                json.dumps(detail, sort_keys=True),
+                json.dumps(detail, sort_keys=True, allow_nan=False),
                 measured=True,
                 constraints_passed=True,
                 artifact_digest=self.artifact_digest,
@@ -1550,7 +1560,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
             return self._result(
                 OptimizeStage.REPAIR,
-                json.dumps(detail, sort_keys=True),
+                json.dumps(detail, sort_keys=True, allow_nan=False),
                 measured=True,
                 constraints_passed=True,
                 artifact_digest=self.artifact_digest,
@@ -1599,7 +1609,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         return self._result(
             OptimizeStage.REPAIR,
-            json.dumps(detail, sort_keys=True),
+            json.dumps(detail, sort_keys=True, allow_nan=False),
             measured=True,
             constraints_passed=True,
             artifact_digest=self.artifact_digest,
@@ -1635,7 +1645,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         "reason": reason,
                         "evidence": reference,
                     },
-                    sort_keys=True,
+                    sort_keys=True, allow_nan=False,
                 ),
             )
         if method != "dynamic_int8":
@@ -1720,7 +1730,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             detail["rejection_reason"] = reason
             return self._result(
                 OptimizeStage.QUANTIZATION,
-                json.dumps(detail, sort_keys=True),
+                json.dumps(detail, sort_keys=True, allow_nan=False),
                 measured=True,
                 constraints_passed=True,
                 artifact_digest=self.artifact_digest,
@@ -1795,7 +1805,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
             return self._result(
                 OptimizeStage.QUANTIZATION,
-                json.dumps(detail, sort_keys=True),
+                json.dumps(detail, sort_keys=True, allow_nan=False),
                 measured=True,
                 constraints_passed=True,
                 artifact_digest=self.artifact_digest,
@@ -1845,7 +1855,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         return self._result(
             OptimizeStage.QUANTIZATION,
-            json.dumps(detail, sort_keys=True),
+            json.dumps(detail, sort_keys=True, allow_nan=False),
             measured=True,
             constraints_passed=True,
             artifact_digest=self.artifact_digest,
@@ -1925,7 +1935,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             + hashlib.sha256(run_key.encode()).hexdigest(),
             json.dumps(
                 {"status": workflow_outcome.value, "reason": detail, "evidence": reference},
-                sort_keys=True,
+                sort_keys=True, allow_nan=False,
             ),
             complete=True,
         )
@@ -2150,7 +2160,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 [item.to_record() for item in records],
                 sort_keys=True,
                 separators=(",", ":"),
-                ensure_ascii=False,
+                ensure_ascii=False, allow_nan=False,
             ).encode("utf-8")
         ).hexdigest()
         return FeaturePartition(key, records, checksum)
@@ -2884,7 +2894,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "artifact": str(artifact),
                     "artifact_manifest": _tree_entries(artifact.parent),
                 },
-                sort_keys=True,
+                sort_keys=True, allow_nan=False,
             ),
             measured=True,
             constraints_passed=True,
@@ -3211,7 +3221,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "hardware_inventory": dict(self._runtime_hardware_record()),
                             "source_digest": self.source_digest,
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                     measured=True,
                     constraints_passed=True,
@@ -3227,7 +3237,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             ),
                             "physical_measurements_authoritative": True,
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                 )
             if stage is OptimizeStage.BASELINE:
@@ -3239,7 +3249,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "baseline": dict(self.baseline),
                             "hardware_inventory": dict(self._runtime_hardware_record()),
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                     measured=True,
                     constraints_passed=True,
@@ -3254,7 +3264,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "scopes": sorted({item.scope.value for item in candidates}),
                             "source": "component_graph",
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                     measured=True,
                     constraints_passed=bool(candidates),
@@ -3266,7 +3276,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 evaluation_id = (
                     "evaluation_"
                     + hashlib.sha256(
-                        json.dumps(dict(self.selected_measurement), sort_keys=True).encode()
+                        json.dumps(
+                            dict(self.selected_measurement), sort_keys=True, allow_nan=False
+                        ).encode()
                     ).hexdigest()
                 )
                 return self._result(
@@ -3302,7 +3314,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                                 )
                             ],
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                     measured=True,
                     constraints_passed=True,
@@ -3421,14 +3433,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 }
                 return self._result(
                     stage,
-                    json.dumps(deployment_evidence, sort_keys=True),
+                    json.dumps(deployment_evidence, sort_keys=True, allow_nan=False),
                     measured=True,
                     constraints_passed=passed,
                     artifact_digest=self.artifact_digest,
                     candidate=self.selected,
                     evaluation_id="evaluation_"
                     + hashlib.sha256(
-                        json.dumps(dict(self.deployment), sort_keys=True).encode()
+                        json.dumps(dict(self.deployment), sort_keys=True, allow_nan=False).encode()
                     ).hexdigest(),
                     transaction_state=TransactionState.COMMITTED,
                 )
@@ -3479,7 +3491,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                             "candidate_deployment": dict(self.deployment),
                             "measured_frontier": self.measured_frontier,
                         },
-                        sort_keys=True,
+                        sort_keys=True, allow_nan=False,
                     ),
                     measured=True,
                     constraints_passed=True,
@@ -3487,7 +3499,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     candidate=self.selected,
                     evaluation_id="evaluation_"
                     + hashlib.sha256(
-                        json.dumps(dict(self.selected_measurement), sort_keys=True).encode()
+                        json.dumps(
+                            dict(self.selected_measurement), sort_keys=True, allow_nan=False
+                        ).encode()
                     ).hexdigest(),
                     transaction_state=TransactionState.COMMITTED,
                     alternatives=tuple(
@@ -3520,7 +3534,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         "reason": f"first-party runtime failed during {stage.value}: {error}",
                         "evidence": reference,
                     },
-                    sort_keys=True,
+                    sort_keys=True, allow_nan=False,
                 ),
                 complete=True,
             )

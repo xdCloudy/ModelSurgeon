@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 _MAX_HEADER_BYTES = 100 * 1024 * 1024
 _DTYPE_BYTES = {
     "BOOL": 1,
@@ -74,7 +76,7 @@ def _read_header(path: Path) -> tuple[dict[str, object], int, int]:
             raise SafetensorsIndexError(f"{path} header extends beyond end of file")
         header_bytes = stream.read(header_size)
     try:
-        header = json.loads(header_bytes.decode("utf-8"))
+        header = strict_json_loads(header_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"{path} contains an invalid JSON header") from exc
     if not isinstance(header, dict):
@@ -150,7 +152,7 @@ def inspect_safetensors_file(path: Path) -> tuple[SafetensorEntry, ...]:
 
 def _load_shard_index(path: Path) -> dict[str, str]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
     if not isinstance(value, Mapping) or not isinstance(value.get("weight_map"), Mapping):

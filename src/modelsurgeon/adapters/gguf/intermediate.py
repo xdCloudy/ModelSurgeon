@@ -14,6 +14,8 @@ from operator import mul
 from pathlib import Path
 from typing import Literal
 
+from modelsurgeon.json_utils import strict_json_loads
+
 DISK_TENSOR_SCHEMA_VERSION: Literal[1] = 1
 _CHUNK_NAME = re.compile(r"^chunk-([0-9]{8})\.bin$")
 
@@ -235,7 +237,7 @@ class DiskBackedTensor:
                 raise StaleDiskTensorError("interrupted manifest commit detected")
             temporary.unlink()
         try:
-            record = json.loads(manifest_path.read_text(encoding="utf-8"))
+            record = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise DiskTensorError("disk tensor manifest cannot be read") from error
         manifest = _manifest_from_record(record)
@@ -265,7 +267,7 @@ class DiskBackedTensor:
     def _commit_manifest(self) -> None:
         temporary = self.path / ".manifest.json.tmp"
         payload = json.dumps(
-            self.manifest.to_record(), sort_keys=True, separators=(",", ":")
+            self.manifest.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
         with temporary.open("xb") as stream:
             stream.write(payload)

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
 
 
@@ -18,7 +20,9 @@ class TaskQualityEvaluationError(ValueError):
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
 
 
 def _sha256(payload: bytes) -> str:
@@ -90,7 +94,7 @@ class CodeExactMatchDataset:
             if not line.strip():
                 continue
             try:
-                raw = json.loads(line)
+                raw = strict_json_loads(line)
             except json.JSONDecodeError as error:
                 raise TaskQualityEvaluationError(
                     f"task-quality dataset line {line_number} is not valid JSON"

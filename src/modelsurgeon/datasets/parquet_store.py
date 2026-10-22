@@ -17,6 +17,7 @@ from typing import Any, Protocol, cast
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.schema import MutationExampleRecord
 from modelsurgeon.features.schema import FeatureRecord
+from modelsurgeon.json_utils import strict_json_loads
 
 PARQUET_MANIFEST_SCHEMA_VERSION = 1
 
@@ -286,7 +287,7 @@ class PartitionedParquetStore:
         if self.manifest_path.is_symlink() or not self.manifest_path.is_file():
             raise ParquetStoreError("Parquet manifest must be a regular file")
         try:
-            value = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+            value = strict_json_loads(self.manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ParquetStoreError("Parquet manifest is unreadable or corrupt") from error
         return _manifest_from_record(value)

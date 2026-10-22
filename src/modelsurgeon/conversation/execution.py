@@ -168,7 +168,20 @@ class _PreparedPlan:
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ChatExecutionError(
+            "invalid_evidence",
+            "execution records must contain only finite JSON values",
+            ToolOutcome.FAILED,
+        ) from error
 
 
 def _digest(value: object) -> str:

@@ -16,11 +16,12 @@ from modelsurgeon.explain.explorer import (
     generate_explorer,
     write_explorer,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 
 def _load_cells(path: Path) -> tuple[str, str, str, str, tuple[ExplorerCell, ...]]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ExplorerError("explorer input is unreadable or invalid JSON") from error
     if not isinstance(raw, Mapping) or not isinstance(raw.get("cells"), list):
@@ -87,7 +88,11 @@ def explorer_command(
         typer.echo(f"explorer error: {error}", err=True)
         raise typer.Exit(2) from error
     if output_json:
-        typer.echo(json.dumps(artifact.to_record(), sort_keys=True, separators=(",", ":")))
+        typer.echo(
+            json.dumps(
+                artifact.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False
+            )
+        )
     else:
         typer.echo(f"{artifact.artifact_id} cells={artifact.cell_count} output={output}")
 

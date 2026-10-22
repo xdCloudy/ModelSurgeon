@@ -15,7 +15,9 @@ RUNTIME_EXPORT_SCHEMA_VERSION = 1
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
 
 
 class RuntimeExportError(ValueError):

@@ -83,7 +83,7 @@ class PropertyCase:
         return (
             "property_"
             + hashlib.sha256(
-                json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+                json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
             ).hexdigest()
         )
 

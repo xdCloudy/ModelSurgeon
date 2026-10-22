@@ -15,6 +15,7 @@ from modelsurgeon.experiments.artifacts import (
     ContentAddressedArtifactStore,
     StoredArtifact,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 from .registry import SurgeonBundle, SurgeonModelRegistry, TrainingModelIdentity
 
@@ -319,7 +320,7 @@ class PretrainedSurgeonRegistry:
     def verify(self, card_digest: ArtifactDigest | str, *, secret: bytes) -> PretrainedSurgeonCard:
         artifact = self.cards.get(card_digest)
         try:
-            raw = json.loads(artifact.data_path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(artifact.data_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise PretrainedRegistryError("pretrained card is unreadable or corrupt") from error
         if not isinstance(raw, Mapping):
