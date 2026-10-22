@@ -39,7 +39,8 @@ before a result can be promoted; unsupported cells terminate explicitly.
 through a staged atomic publish. Missing parent directories are created, and an
 existing destination is preserved unless `safety.allow_overwrite` is enabled.
 The Python `write_optimize_plan` helper uses the same atomic no-overwrite
-behavior by default.
+behavior by default. Resume state is atomically replaced after each transition
+from a unique staged file whose contents are flushed before publication.
 
 ## State and resume
 
