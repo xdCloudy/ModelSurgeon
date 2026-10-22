@@ -2,6 +2,7 @@
 
 import copy
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,7 @@ from tools.prepare_real_surgeon_transfer import (
     _iter_observations,
     _publish_dataset,
     _select_examples,
+    main,
 )
 
 
@@ -135,3 +137,29 @@ def test_transfer_dataset_write_failure_cleans_staging(
 
     assert not output.exists()
     assert not tuple(tmp_path.glob(".transfer.partial-*"))
+
+
+def test_transfer_preparation_cli_publishes_manifest_and_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "evidence"
+    observations = root / "campaign" / "optimization-evidence" / "observations"
+    observations.mkdir(parents=True)
+    (observations / "observation.json").write_text(
+        json.dumps(_observation()),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["prepare_real_surgeon_transfer", "--root", str(root), "--output", "transfer"],
+    )
+
+    assert main() == 0
+
+    manifest = json.loads(Path("transfer/manifest.json").read_text(encoding="utf-8"))
+    split = json.loads(Path("transfer/split.json").read_text(encoding="utf-8"))
+    assert manifest["example_count"] == 1
+    assert manifest["dataset"] == str(Path("transfer") / "examples.jsonl")
+    assert split["assignments"] == {"observation-1": "train"}
