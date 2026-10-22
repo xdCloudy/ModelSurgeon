@@ -114,6 +114,31 @@ def _iter_observations(roots: list[Path]) -> list[dict[str, Any]]:
     return observations
 
 
+def _select_examples(observations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    selected: dict[str, dict[str, Any]] = {}
+    source_by_id: dict[str, dict[str, Any]] = {}
+    for observation in observations:
+        observation_id = observation.get("observation_id")
+        if not isinstance(observation_id, str) or not observation_id:
+            continue
+        previous = source_by_id.get(observation_id)
+        if previous is not None:
+            if previous != observation:
+                raise ValueError(
+                    f"conflicting duplicate transfer observation id: {observation_id}"
+                )
+            continue
+        source_by_id[observation_id] = observation
+        example = _observation_to_example(observation)
+        if example is None:
+            continue
+        example_id = example["example_id"]
+        if not isinstance(example_id, str) or not example_id:
+            continue
+        selected[example_id] = example
+    return selected
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", action="append", type=Path, required=True)
@@ -122,12 +147,10 @@ def main() -> int:
     parser.add_argument("--validation-model", action="append", default=[])
     args = parser.parse_args()
 
-    selected: dict[str, dict[str, Any]] = {}
-    for observation in _iter_observations(args.root):
-        example = _observation_to_example(observation)
-        if example is None or not isinstance(example.get("example_id"), str):
-            continue
-        selected[example["example_id"]] = example
+    try:
+        selected = _select_examples(_iter_observations(args.root))
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     if not selected:
         raise SystemExit("no measured active-search observations found")
 
