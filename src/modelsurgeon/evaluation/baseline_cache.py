@@ -110,7 +110,7 @@ def _artifact_from_record(raw: object) -> BaselineArtifact:
             int(raw["token_count"]),
             metrics,
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise BaselineCacheError("baseline artifact fields are invalid") from error
 
 
