@@ -34,6 +34,9 @@ and remains owned by `modelsurgeon.search.objective_contract`.
 | Intent corpus | 1 | Exact expected compiler/policy results for equivalence, refusal and retained-negative cases. |
 | `ObjectiveContract` | 1 | The sole stable optimization schema consumed by search/execution. |
 
+The intent corpus loader reads at most 2,000,000 bytes before UTF-8 decoding and
+JSON parsing, matching its declared corpus-size budget.
+
 Unknown versions are rejected. A change to field meaning, identity rules,
 outcome precedence, or the optimization boundary requires a new version and a
 migration/regression test; it must not be silently interpreted as v1.
