@@ -13,3 +13,5 @@ batch, so partial execution resumes without reselection or duplicate completed w
 
 Schedules are limited to 100,000 entries and 64 MiB. Both publication and resume enforce
 these limits so persisted state remains bounded and every published schedule can be loaded.
+Loading also rejects duplicate candidates, non-contiguous ranks, malformed numeric fields,
+and experiment/example links that do not match each entry's state.

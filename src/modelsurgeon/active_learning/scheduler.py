@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -13,7 +14,7 @@ from typing import Final
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 
-from .acquisition import AcquisitionReport
+from .acquisition import AcquisitionReason, AcquisitionReport
 
 ACTIVE_SCHEDULE_SCHEMA_VERSION: Final[int] = 1
 MAX_ACTIVE_SCHEDULE_ENTRIES: Final[int] = 100_000
@@ -41,6 +42,48 @@ class ScheduledEvaluation:
     experiment_id: str | None = None
     example_id: str | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.candidate_id, str) or not self.candidate_id.startswith("cand_"):
+            raise ActiveScheduleError("scheduled evaluations require canonical candidate IDs")
+        if isinstance(self.rank, bool) or not isinstance(self.rank, int) or self.rank <= 0:
+            raise ActiveScheduleError("active schedule ranks must be positive integers")
+        if not isinstance(self.reason, str) or self.reason not in {
+            reason.value for reason in AcquisitionReason
+        }:
+            raise ActiveScheduleError("active schedule selection reason is unsupported")
+        if not isinstance(self.state, ScheduledEvaluationState):
+            raise ActiveScheduleError("active schedule state is unsupported")
+        if (
+            isinstance(self.propensity, bool)
+            or not isinstance(self.propensity, (int, float))
+            or not math.isfinite(self.propensity)
+            or not 0.0 < self.propensity <= 1.0
+        ):
+            raise ActiveScheduleError("active schedule propensity must be finite and in (0, 1]")
+        if (
+            isinstance(self.policy_score, bool)
+            or not isinstance(self.policy_score, (int, float))
+            or not math.isfinite(self.policy_score)
+        ):
+            raise ActiveScheduleError("active schedule policy score must be finite")
+        if self.state is ScheduledEvaluationState.SELECTED:
+            if self.experiment_id is not None or self.example_id is not None:
+                raise ActiveScheduleError("selected evaluations cannot have experiment links")
+        elif self.state is ScheduledEvaluationState.SCHEDULED:
+            if (
+                not isinstance(self.experiment_id, str)
+                or not self.experiment_id.startswith("exp_")
+                or self.example_id is not None
+            ):
+                raise ActiveScheduleError("scheduled evaluations require one experiment link")
+        elif self.state is ScheduledEvaluationState.COMPLETED and (
+            not isinstance(self.experiment_id, str)
+            or not self.experiment_id.startswith("exp_")
+            or not isinstance(self.example_id, str)
+            or not self.example_id
+        ):
+            raise ActiveScheduleError("completed evaluations require experiment and example links")
+
     def to_record(self) -> dict[str, object]:
         return {
             "candidate_id": self.candidate_id,
@@ -60,6 +103,33 @@ class ActiveEvaluationSchedule:
     tool_revision: str
     entries: tuple[ScheduledEvaluation, ...]
     schema_version: int = ACTIVE_SCHEDULE_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.schema_version, bool)
+            or not isinstance(self.schema_version, int)
+            or self.schema_version != ACTIVE_SCHEDULE_SCHEMA_VERSION
+        ):
+            raise ActiveScheduleError("active schedule schema is incompatible")
+        if (
+            not isinstance(self.selection_digest, str)
+            or len(self.selection_digest) != 71
+            or not self.selection_digest.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in self.selection_digest[7:])
+        ):
+            raise ActiveScheduleError("active schedule selection digest is malformed")
+        if not isinstance(self.tool_revision, str) or not self.tool_revision.strip():
+            raise ActiveScheduleError("active schedule tool revision is required")
+        if not isinstance(self.entries, tuple) or not all(
+            isinstance(item, ScheduledEvaluation) for item in self.entries
+        ):
+            raise ActiveScheduleError("active schedule entries are malformed")
+        candidate_ids = tuple(item.candidate_id for item in self.entries)
+        ranks = tuple(item.rank for item in self.entries)
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ActiveScheduleError("active schedule candidate IDs must be unique")
+        if ranks != tuple(range(1, len(self.entries) + 1)):
+            raise ActiveScheduleError("active schedule ranks must be contiguous and ordered")
 
     @property
     def pending(self) -> tuple[ScheduledEvaluation, ...]:
@@ -186,16 +256,38 @@ class ActiveScheduleStore:
             for item in entries_raw:
                 if not isinstance(item, Mapping):
                     raise ActiveScheduleError("active schedule entry is malformed")
+                candidate_id = item.get("candidate_id")
+                rank = item.get("rank")
+                reason = item.get("reason")
+                propensity = item.get("propensity")
+                policy_score = item.get("policy_score")
+                state = item.get("state")
+                experiment_id = item.get("experiment_id")
+                example_id = item.get("example_id")
+                if (
+                    not isinstance(candidate_id, str)
+                    or isinstance(rank, bool)
+                    or not isinstance(rank, int)
+                    or not isinstance(reason, str)
+                    or isinstance(propensity, bool)
+                    or not isinstance(propensity, (int, float))
+                    or isinstance(policy_score, bool)
+                    or not isinstance(policy_score, (int, float))
+                    or not isinstance(state, str)
+                    or (experiment_id is not None and not isinstance(experiment_id, str))
+                    or (example_id is not None and not isinstance(example_id, str))
+                ):
+                    raise ActiveScheduleError("active schedule entry fields are malformed")
                 entries.append(
                     ScheduledEvaluation(
-                        str(item["candidate_id"]),
-                        int(item["rank"]),
-                        str(item["reason"]),
-                        float(item["propensity"]),
-                        float(item["policy_score"]),
-                        ScheduledEvaluationState(str(item["state"])),
-                        None if item.get("experiment_id") is None else str(item["experiment_id"]),
-                        None if item.get("example_id") is None else str(item["example_id"]),
+                        candidate_id,
+                        rank,
+                        reason,
+                        float(propensity),
+                        float(policy_score),
+                        ScheduledEvaluationState(state),
+                        experiment_id,
+                        example_id,
                     )
                 )
         except (KeyError, TypeError, ValueError) as error:
@@ -218,8 +310,6 @@ class ActiveScheduleStore:
             raise ActiveScheduleError(
                 f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_ENTRIES}-entry limit"
             )
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         payload = (json.dumps(schedule.to_record(), indent=2, sort_keys=True) + "\n").encode(
             "utf-8"
         )
@@ -227,6 +317,8 @@ class ActiveScheduleStore:
             raise ActiveScheduleError(
                 f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_BYTES}-byte limit"
             )
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         with temporary.open("wb") as stream:
             stream.write(payload)
             stream.flush()
