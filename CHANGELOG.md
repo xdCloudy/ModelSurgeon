@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Make first-run setup retryable after filesystem errors by atomically writing
+    its README and publishing the configuration manifest only after the README
+    is ready.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
