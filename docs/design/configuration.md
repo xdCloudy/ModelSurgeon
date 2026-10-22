@@ -36,7 +36,9 @@ MODELSURGEON_HARDWARE__MEMORY_MODE=streaming
 MODELSURGEON_SAFETY__TRUST_REMOTE_CODE=false
 ```
 
-`load_settings()` reads UTF-8 YAML or TOML and applies sources in this order:
+`load_settings()` reads UTF-8 YAML or TOML configuration files up to 4 MiB and
+applies sources in this order. Larger files fail with `ConfigurationFileError`
+before parsing:
 
 ```text
 schema defaults < configuration file < environment < CLI overrides
