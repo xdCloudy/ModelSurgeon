@@ -91,3 +91,49 @@ def test_resource_limit_retains_audit_limitation() -> None:
     )
     assert limited.status is ContaminationStatus.UNKNOWN
     assert limited.findings[0].kind is FindingKind.RESOURCE_LIMIT
+
+
+def test_pair_budget_bounds_exact_and_ancestry_findings() -> None:
+    items = tuple(
+        CorpusItem(
+            f"item-{index}",
+            "train" if index < 3 else "test",
+            "duplicate content",
+            ancestry_ids=("shared-model",),
+        )
+        for index in range(6)
+    )
+
+    report = audit_corpora(
+        _sources(),
+        items,
+        ContaminationPolicy(max_pair_comparisons=2),
+    )
+
+    assert report.compared_pair_count == 2
+    assert report.status is ContaminationStatus.BLOCKED
+    assert sum(item.kind is FindingKind.EXACT_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.ANCESTRY_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.RESOURCE_LIMIT for item in report.findings) == 1
+
+
+def test_pair_budget_bounds_ancestry_only_comparisons() -> None:
+    items = tuple(
+        CorpusItem(
+            f"item-{index}",
+            "train" if index < 3 else "test",
+            f"unique content {index}",
+            ancestry_ids=("shared-model",),
+        )
+        for index in range(6)
+    )
+
+    report = audit_corpora(
+        _sources(),
+        items,
+        ContaminationPolicy(max_pair_comparisons=2),
+    )
+
+    assert report.compared_pair_count == 2
+    assert sum(item.kind is FindingKind.ANCESTRY_OVERLAP for item in report.findings) == 2
+    assert sum(item.kind is FindingKind.RESOURCE_LIMIT for item in report.findings) == 1

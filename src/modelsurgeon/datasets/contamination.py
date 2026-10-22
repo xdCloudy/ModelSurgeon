@@ -331,76 +331,78 @@ def audit_corpora(
                         "source license was not auditable under the safe-only policy",
                 )
             )
-    exact: dict[str, list[CorpusItem]] = defaultdict(list)
-    for item in items:
-        exact[item.text_digest].append(item)
-    for same in exact.values():
-        for index, left in enumerate(same):
-            for right in same[index + 1 :]:
-                if left.corpus_id == right.corpus_id:
-                    continue
-                ids = tuple(sorted((left.corpus_id, right.corpus_id)))
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.EXACT_OVERLAP,
-                        FindingAction.BLOCK,
-                        left.item_id,
-                        right.item_id,
-                        ids,
-                        1.0,
-                        "identical normalized text digest across corpus boundaries",
-                    )
-                )
     pair_count = 0
     shingles = {item.item_id: item.shingles(selected.ngram_size) for item in items}
-    for index, left in enumerate(items):
-        for right in items[index + 1 :]:
-            if left.corpus_id == right.corpus_id:
-                continue
-            pair_count += 1
-            if pair_count > selected.max_pair_comparisons:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.RESOURCE_LIMIT,
-                        FindingAction.LIMITATION,
-                        None,
-                        None,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        None,
-                        "near-duplicate comparison budget exhausted",
-                    )
-                )
+    items_by_corpus: dict[str, list[CorpusItem]] = defaultdict(list)
+    for item in items:
+        items_by_corpus[item.corpus_id].append(item)
+    corpus_ids = sorted(items_by_corpus)
+    resource_limited = False
+    for index, left_corpus_id in enumerate(corpus_ids):
+        for right_corpus_id in corpus_ids[index + 1 :]:
+            corpus_pair = (left_corpus_id, right_corpus_id)
+            for left in items_by_corpus[left_corpus_id]:
+                for right in items_by_corpus[right_corpus_id]:
+                    if pair_count >= selected.max_pair_comparisons:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.RESOURCE_LIMIT,
+                                FindingAction.LIMITATION,
+                                None,
+                                None,
+                                corpus_pair,
+                                None,
+                                "cross-corpus comparison budget exhausted",
+                            )
+                        )
+                        resource_limited = True
+                        break
+                    pair_count += 1
+                    if left.text_digest == right.text_digest:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.EXACT_OVERLAP,
+                                FindingAction.BLOCK,
+                                left.item_id,
+                                right.item_id,
+                                corpus_pair,
+                                1.0,
+                                "identical normalized text digest across corpus boundaries",
+                            )
+                        )
+                    else:
+                        score = _near_score(shingles[left.item_id], shingles[right.item_id])
+                        if score >= selected.near_jaccard_threshold:
+                            findings.append(
+                                ContaminationFinding(
+                                    FindingKind.NEAR_OVERLAP,
+                                    FindingAction.MOVE,
+                                    left.item_id,
+                                    right.item_id,
+                                    corpus_pair,
+                                    score,
+                                    "bounded token-shingle Jaccard overlap exceeds threshold",
+                                )
+                            )
+                    shared_ancestry = set(left.ancestry_ids) & set(right.ancestry_ids)
+                    if shared_ancestry:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.ANCESTRY_OVERLAP,
+                                FindingAction.BLOCK,
+                                left.item_id,
+                                right.item_id,
+                                corpus_pair,
+                                None,
+                                f"shared model ancestry: {','.join(sorted(shared_ancestry))}",
+                            )
+                        )
+                if resource_limited:
+                    break
+            if resource_limited:
                 break
-            score = _near_score(shingles[left.item_id], shingles[right.item_id])
-            if score >= selected.near_jaccard_threshold and left.text_digest != right.text_digest:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.NEAR_OVERLAP,
-                        FindingAction.MOVE,
-                        left.item_id,
-                        right.item_id,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        score,
-                        "bounded token-shingle Jaccard overlap exceeds threshold",
-                    )
-                )
-        if pair_count > selected.max_pair_comparisons:
+        if resource_limited:
             break
-    for index, left in enumerate(items):
-        for right in items[index + 1 :]:
-            shared = set(left.ancestry_ids) & set(right.ancestry_ids)
-            if left.corpus_id != right.corpus_id and shared:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.ANCESTRY_OVERLAP,
-                        FindingAction.BLOCK,
-                        left.item_id,
-                        right.item_id,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        None,
-                        f"shared model ancestry: {','.join(sorted(shared))}",
-                    )
-                )
     findings.sort(key=lambda item: item.finding_id)
     blocking = any(item.action in {FindingAction.BLOCK, FindingAction.MOVE} for item in findings)
     limited = any(

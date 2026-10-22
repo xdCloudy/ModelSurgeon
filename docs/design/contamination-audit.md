@@ -13,8 +13,9 @@ IDs. Raw text is used only during the bounded audit and is not serialized.
 
 The audit hashes text after collapsing whitespace for exact SHA-256 matching
 and deterministic token-shingle Jaccard matching under explicit item and pair
-budgets. Exact and ancestry overlaps block affected claims. Near overlaps
-produce a move-and-new-protocol action.
+budgets. The pair budget covers exact, near-duplicate, and ancestry comparisons
+across corpus boundaries. Exact and ancestry overlaps block affected claims.
+Near overlaps produce a move-and-new-protocol action.
 Unavailable or unauditable licenses produce an unknown limitation, never a
 clean result. Resource exhaustion is retained as an unknown finding.
 
