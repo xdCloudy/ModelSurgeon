@@ -911,7 +911,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     numeric_prediction = math.nan
             except (IndexError, KeyError, TypeError, ValueError, OverflowError):
                 numeric_prediction = math.nan
-            if not math.isfinite(numeric_prediction):
+            if not math.isfinite(numeric_prediction) or (
+                bundle.card.target_name == "safe_mutation"
+                and not 0.0 <= numeric_prediction <= 1.0
+            ):
                 self.meta_predictions = {}
                 self.meta_order = ()
                 self.meta_guidance = {
@@ -920,7 +923,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "bundle_digest": card.bundle_digest,
                     "candidate_id": candidate.candidate_id,
                     "measurement_authority": "physical_evaluation",
-                    "reason": "the model returned a non-finite or non-numeric score",
+                    "reason": (
+                        "the model returned a non-finite or non-numeric score, or a safety score "
+                        "outside the valid [0, 1] probability range"
+                    ),
                 }
                 return ()
             predictions[candidate.candidate_id] = numeric_prediction
