@@ -17,7 +17,7 @@ Keep downloaded models, generated checkpoints, logs, and reports below an ignore
 
 ## 2. Pin and inspect a model
 
-Use an immutable Hub commit rather than a moving branch or tag. The revision below is a placeholder; replace it with the commit you actually selected and record it with the result.
+Use an immutable Hub commit rather than a moving branch or tag when you need repeatable results. The loader resolves a supplied branch or tag to an immutable snapshot before loading, but a later run may select a newer snapshot. The revision below is a placeholder; replace it with the commit you actually selected and record it with the result.
 
 ~~~bash
 MODEL_ID=HuggingFaceTB/SmolLM2-135M
@@ -31,7 +31,7 @@ uv run modelsurgeon inspect "$MODEL_ID" \
   --json > work/hf-smoke/inspection.jsonl
 ~~~
 
-inspect loads the model without changing it and records the resolved revision, loader controls, architecture family, parameter count, and canonical component IDs. Review the JSON before choosing a mutation. Remote model code is disabled by default; only add --trust-remote-code after reviewing and recording the source and license.
+inspect preflights sharded checkpoint indexes, loads the selected immutable Hub snapshot without changing it, and records both the requested and resolved revisions, loader controls, architecture family, parameter count, and canonical component IDs. Review the JSON before choosing a mutation. Remote model code is disabled by default; only add --trust-remote-code after reviewing and recording the source and license.
 
 For a cached local snapshot, pass the snapshot path and add --local-files-only to the proof command below. Do not treat a local path as a substitute for recording the original Hub revision.
 
