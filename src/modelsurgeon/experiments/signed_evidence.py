@@ -483,7 +483,7 @@ def build_evidence_bundle(
     role_map = {} if roles is None else dict(roles)
     members: list[EvidenceBundleMember] = []
     total = 0
-    for candidate in sorted(resolved.rglob("*")):
+    for candidate in resolved.rglob("*"):
         if _is_symlink_or_junction(candidate):
             raise SignedEvidenceError("bundle trees cannot contain symbolic links or junctions")
         if candidate.is_dir():
@@ -506,7 +506,7 @@ def build_evidence_bundle(
         if total > active_limits.max_total_bytes:
             raise SignedEvidenceError("bundle exceeds its byte limit")
         members.append(EvidenceBundleMember(path, digest, size, role_map.get(path, "artifact")))
-    ordered = tuple(members)
+    ordered = tuple(sorted(members, key=lambda item: item.path))
     if not ordered:
         raise SignedEvidenceError("bundle root contains no regular files")
     index = EvidenceBundleIndex(
@@ -589,6 +589,16 @@ def verify_evidence_bundle(
         )
     checked_bytes = 0
     checked_members = 0
+    if len(index.members) > active_limits.max_members:
+        issues.append("verification member limit exceeded")
+        return EvidenceVerification(
+            EvidenceVerificationStatus.FAILED,
+            index.bundle_id,
+            tuple(issues),
+            0,
+            0,
+            index.claim_strength,
+        )
     expected_paths = {item.path for item in index.members}
     actual_paths: set[str] = set()
     try:
@@ -596,12 +606,17 @@ def verify_evidence_bundle(
             relative = candidate.relative_to(resolved).as_posix()
             if _is_symlink_or_junction(candidate):
                 issues.append(f"bundle contains a symbolic link or junction: {relative}")
+                break
             elif candidate.is_dir():
                 continue
             elif candidate.is_file():
+                if len(actual_paths) >= active_limits.max_members:
+                    issues.append("bundle inventory member limit exceeded")
+                    break
                 actual_paths.add(relative)
             else:
                 issues.append(f"bundle contains a non-regular entry: {relative}")
+                break
     except OSError as error:
         issues.append(f"cannot enumerate bundle: {error}")
         actual_paths = set()
