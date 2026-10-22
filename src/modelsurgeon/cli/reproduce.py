@@ -24,6 +24,7 @@ from modelsurgeon.experiments.reproducibility import (
     load_reproducibility_manifest,
 )
 from modelsurgeon.experiments.store import ExperimentMetadataStore
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 REPRODUCTION_RESULT_SCHEMA_VERSION = 1
 
@@ -497,10 +498,12 @@ def run_reproduction(
 
 
 def _write_result(path: Path, value: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(canonical_identity_json(value) + "\n")
+        atomic_write_text(
+            path,
+            canonical_identity_json(value) + "\n",
+            replace_existing=False,
+        )
     except FileExistsError as error:
         raise ReproductionCommandError(f"output already exists: {path}") from error
 
