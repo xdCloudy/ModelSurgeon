@@ -7,7 +7,8 @@ import json
 import os
 import threading
 import uuid
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -92,10 +93,14 @@ class OptimizationEvidenceRecord:
         _optional_mapping(self.measurement, "measurement")
         _optional_mapping(self.artifact, "artifact")
         _optional_mapping(self.failure, "failure")
-        if self.outcome in {
-            OptimizationEvidenceOutcome.ACCEPTED,
-            OptimizationEvidenceOutcome.REJECTED,
-        } and self.measurement is None:
+        if (
+            self.outcome
+            in {
+                OptimizationEvidenceOutcome.ACCEPTED,
+                OptimizationEvidenceOutcome.REJECTED,
+            }
+            and self.measurement is None
+        ):
             raise OptimizationEvidenceError(
                 "accepted or rejected evidence requires a real measurement"
             )
@@ -150,9 +155,7 @@ class OptimizationEvidenceStore:
 
     @staticmethod
     def _encoded(record: OptimizationEvidenceRecord) -> bytes:
-        return (
-            canonical_identity_json(record.to_record()) + "\n"
-        ).encode("utf-8")
+        return (canonical_identity_json(record.to_record()) + "\n").encode("utf-8")
 
     @staticmethod
     def _digest(encoded: bytes) -> str:
@@ -175,6 +178,33 @@ class OptimizationEvidenceStore:
         ):
             raise OptimizationEvidenceError("optimization evidence manifest entries are invalid")
         return cast(dict[str, str], entries)
+
+    @contextmanager
+    def _manifest_process_lock(self) -> Iterator[None]:
+        lock_path = self.root / ".manifest.lock"
+        with lock_path.open("a+b") as stream:
+            if os.name == "nt":
+                import msvcrt
+
+                stream.seek(0, os.SEEK_END)
+                if stream.tell() == 0:
+                    stream.write(b"\0")
+                    stream.flush()
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    stream.seek(0)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
     def _write_manifest(self, entries: Mapping[str, str]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -219,14 +249,15 @@ class OptimizationEvidenceStore:
                             ) from None
                 finally:
                     temporary.unlink(missing_ok=True)
-            entries = self._manifest()
-            previous = entries.get(record.observation_id)
-            if previous is not None and previous != digest:
-                raise OptimizationEvidenceError(
-                    "optimization evidence manifest identity conflicts with content"
-                )
-            entries[record.observation_id] = digest
-            self._write_manifest(entries)
+            with self._manifest_process_lock():
+                entries = self._manifest()
+                previous = entries.get(record.observation_id)
+                if previous is not None and previous != digest:
+                    raise OptimizationEvidenceError(
+                        "optimization evidence manifest identity conflicts with content"
+                    )
+                entries[record.observation_id] = digest
+                self._write_manifest(entries)
         return PublishedOptimizationEvidence(record.observation_id, path, digest)
 
 
