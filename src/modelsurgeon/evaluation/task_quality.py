@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -161,8 +161,7 @@ class CodeExactMatchMeasurement:
             "total": self.total,
             "exact_match_accuracy": self.score,
             "output_digests": [
-                {"id": example_id, "digest": digest}
-                for example_id, digest in self.output_digests
+                {"id": example_id, "digest": digest} for example_id, digest in self.output_digests
             ],
         }
 
@@ -242,6 +241,26 @@ def evaluate_code_exact_match(
     return CodeExactMatchMeasurement(dataset, matches, len(dataset.examples), tuple(output_digests))
 
 
+def evaluate_code_exact_match_with_generator(
+    dataset: CodeExactMatchDataset,
+    generate: Callable[[str], str],
+) -> CodeExactMatchMeasurement:
+    """Measure exact-match quality through a runtime-specific text generator."""
+
+    matches = 0
+    output_digests: list[tuple[str, str]] = []
+    for example in dataset.examples:
+        completion = generate(example.prompt)
+        if not isinstance(completion, str):
+            raise TaskQualityEvaluationError(
+                f"task-quality generator returned non-text output for {example.example_id}"
+            )
+        normalized = _normalise_code(completion)
+        matches += int(normalized == _normalise_code(example.reference))
+        output_digests.append((example.example_id, f"sha256:{_sha256(normalized.encode('utf-8'))}"))
+    return CodeExactMatchMeasurement(dataset, matches, len(dataset.examples), tuple(output_digests))
+
+
 def evaluate_code_quality_gate(
     baseline_score: float,
     candidate_score: float,
@@ -256,9 +275,7 @@ def evaluate_code_quality_gate(
     if not 0.0 <= baseline_score <= 1.0 or not 0.0 <= candidate_score <= 1.0:
         raise TaskQualityEvaluationError("task-quality scores must be between zero and one")
     if not 0.0 <= min_quality_retention_ratio <= 1.0:
-        raise TaskQualityEvaluationError(
-            "min_quality_retention_ratio must be between zero and one"
-        )
+        raise TaskQualityEvaluationError("min_quality_retention_ratio must be between zero and one")
     if baseline_score <= 0.0:
         return {
             "metric": "code_exact_match",
