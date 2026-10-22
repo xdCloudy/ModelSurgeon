@@ -495,9 +495,12 @@ output, extracts only the single-turn assistant response, disables reasoning,
 and applies both gates at candidate, cumulative-child, and deployment
 boundaries. Exact-match evaluator v2 normalizes line endings and surrounding
 whitespace and removes one complete enclosing Markdown code fence; it does not
-parse or execute the generated code. Conversational coding requests without a declared
-benchmark remain clarification-required. When the request explicitly names an existing
-local JSONL benchmark, for example `coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
+parse or execute the generated code. Each measurement caps generation at 4,096 new
+tokens per example and one million total new tokens across the dataset; larger
+workloads are rejected before generation starts. Conversational coding requests
+without a declared benchmark remain clarification-required. When the request
+explicitly names an existing local JSONL benchmark, for example
+`coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
 the typed `code_exact_match` configuration is carried through the exact preview
 into the first-party engine; the text model cannot invent the path or threshold.
 
