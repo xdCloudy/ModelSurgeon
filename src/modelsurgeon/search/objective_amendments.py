@@ -791,14 +791,6 @@ def replay_objective_amendment(
     )
 
 
-_TERMINAL = {
-    ObjectiveAmendmentStatus.REJECTED,
-    ObjectiveAmendmentStatus.EXPIRED,
-    ObjectiveAmendmentStatus.CANCELLED,
-    ObjectiveAmendmentStatus.APPLIED,
-}
-
-
 def _valid_transition(
     before: ObjectiveAmendmentStatus, after: ObjectiveAmendmentStatus
 ) -> bool:
@@ -820,9 +812,16 @@ class ObjectiveAmendmentHistory:
     entries: tuple[ObjectiveAmendment, ...] = ()
 
     def __post_init__(self) -> None:
+        seen_amendment_ids: set[str] = set()
         for index, item in enumerate(self.entries):
-            same_amendment = index and item.amendment_id == self.entries[index - 1].amendment_id
-            if same_amendment and not _valid_transition(
+            follows_same_amendment = (
+                index > 0 and item.amendment_id == self.entries[index - 1].amendment_id
+            )
+            if item.amendment_id in seen_amendment_ids and not follows_same_amendment:
+                raise ObjectiveAmendmentError(
+                    "amendment history transitions must be contiguous"
+                )
+            if follows_same_amendment and not _valid_transition(
                 self.entries[index - 1].status, item.status
             ):
                 raise ObjectiveAmendmentError(
@@ -834,6 +833,7 @@ class ObjectiveAmendmentHistory:
                 for earlier in self.entries[:index]
             ):
                 raise ObjectiveAmendmentError("amendment history contains conflicting replay")
+            seen_amendment_ids.add(item.amendment_id)
 
     def append(self, amendment: ObjectiveAmendment) -> ObjectiveAmendmentHistory:
         if self.entries and self.entries[-1].amendment_id == amendment.amendment_id:
@@ -843,8 +843,6 @@ class ObjectiveAmendmentHistory:
                 raise ObjectiveAmendmentError("amendment replay or transition is stale")
         elif amendment.amendment_id in {item.amendment_id for item in self.entries}:
             raise ObjectiveAmendmentError("amendment history transitions must be contiguous")
-        if self.entries and self.entries[-1].status in _TERMINAL:
-            pass
         return replace(self, entries=(*self.entries, amendment))
 
     def inspect(self, amendment_id: str) -> ObjectiveAmendment:

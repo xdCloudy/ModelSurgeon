@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Reject directly constructed objective-amendment histories that resume an
+    amendment after another ID has intervened, matching the append API's
+    contiguous-transition rule.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
