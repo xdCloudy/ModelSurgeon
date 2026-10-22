@@ -369,6 +369,22 @@ def _stream_digest(stream: BinaryIO, chunk_bytes: int) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _resolved_real_directory(root: Path) -> Path | None:
+    """Resolve a directory only after rejecting symlinks in its path."""
+
+    try:
+        absolute = root.absolute()
+        current = Path(absolute.anchor)
+        for part in absolute.parts[1:]:
+            current = current / part
+            if current.is_symlink():
+                return None
+        resolved = absolute.resolve(strict=True)
+        return resolved if resolved.is_dir() else None
+    except (OSError, RuntimeError):
+        return None
+
+
 def _open_bundle_member(root: Path, member_path: str) -> BinaryIO | None:
     """Open a member without following path-component symlinks where supported."""
 
@@ -451,8 +467,8 @@ def build_evidence_bundle(
 ) -> EvidenceBundleIndex:
     """Hash a directory without loading member contents into memory."""
 
-    resolved = Path(root).absolute().resolve(strict=False)
-    if not resolved.is_dir() or resolved.is_symlink():
+    resolved = _resolved_real_directory(Path(root))
+    if resolved is None:
         raise SignedEvidenceError("bundle root must be a real directory")
     active_limits = limits or EvidenceBundleLimits()
     role_map = {} if roles is None else dict(roles)
@@ -541,8 +557,9 @@ def verify_evidence_bundle(
 
     active_limits = limits or EvidenceBundleLimits()
     issues: list[str] = []
-    resolved = Path(root).absolute().resolve(strict=False)
-    if not resolved.is_dir() or resolved.is_symlink():
+    bundle_root = Path(root).absolute()
+    resolved = _resolved_real_directory(bundle_root)
+    if resolved is None:
         issues.append("bundle root is missing or not a real directory")
         return EvidenceVerification(
             EvidenceVerificationStatus.FAILED,
@@ -576,7 +593,7 @@ def verify_evidence_bundle(
             issues.append("verification member limit exceeded")
             break
         try:
-            stream = _open_bundle_member(resolved, member.path)
+            stream = _open_bundle_member(bundle_root, member.path)
             if stream is None:
                 continue
             with stream:
