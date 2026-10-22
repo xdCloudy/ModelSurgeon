@@ -479,12 +479,38 @@ def run_reproduction(
         value = reproduced.get(name)
         absolute, relative = tolerances.get(name, (0.0, 0.0))
         allowed = max(absolute, abs(original) * relative)
+        if not math.isfinite(allowed):
+            comparisons.append(
+                MetricComparison(
+                    name,
+                    original,
+                    value,
+                    None,
+                    None,
+                    False,
+                    "allowed metric delta exceeds the finite float range",
+                )
+            )
+            continue
         if value is None:
             comparisons.append(
                 MetricComparison(name, original, None, None, allowed, False, "metric missing")
             )
             continue
         delta = abs(value - original)
+        if not math.isfinite(delta):
+            comparisons.append(
+                MetricComparison(
+                    name,
+                    original,
+                    value,
+                    None,
+                    allowed,
+                    False,
+                    "absolute metric delta exceeds the finite float range",
+                )
+            )
+            continue
         comparisons.append(
             MetricComparison(name, original, value, delta, allowed, delta <= allowed)
         )

@@ -4,6 +4,8 @@
 
   - Convert malformed stored manifests, overflowing replay metrics, and
     unrepresentable metric tolerances into documented reproduction errors.
+    Extreme finite metric comparisons now fail closed without emitting invalid
+    non-finite result values.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
