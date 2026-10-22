@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 
@@ -200,11 +200,12 @@ class OptimizationEvidenceStore:
             else:
                 import fcntl
 
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+                fcntl_api = cast(Any, fcntl)
+                fcntl_api.flock(stream.fileno(), fcntl_api.LOCK_EX)
                 try:
                     yield
                 finally:
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+                    fcntl_api.flock(stream.fileno(), fcntl_api.LOCK_UN)
 
     def _write_manifest(self, entries: Mapping[str, str]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
