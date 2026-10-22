@@ -666,6 +666,35 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             }
             return ()
 
+        target_hardware = proof._hardware.cuda
+        hardware_labels: set[str] = set()
+        if target_hardware.available:
+            hardware_labels.update(("cuda", "gpu"))
+            hardware_labels.update(
+                device.name.strip().casefold()
+                for device in target_hardware.devices
+                if device.name.strip()
+            )
+        elif not any(
+            "cuda" in warning.casefold() and "failed" in warning.casefold()
+            for warning in proof._hardware.warnings
+        ):
+            hardware_labels.add("cpu")
+        supported_hardware = {item.strip().casefold() for item in card.supported_hardware}
+        if not hardware_labels or not supported_hardware.intersection(hardware_labels):
+            self.meta_guidance = {
+                "status": "unsupported_hardware",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_hardware": sorted(hardware_labels),
+                "supported_hardware": list(card.supported_hardware),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for the measured target hardware"
+                ),
+            }
+            return ()
+
         inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
         unknown_categories: set[str] = set()
         for candidate in candidates:
