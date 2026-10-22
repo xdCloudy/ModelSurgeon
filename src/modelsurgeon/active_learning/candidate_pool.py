@@ -18,6 +18,9 @@ from modelsurgeon.experiments.identity import canonical_identity_json
 
 CANDIDATE_POOL_SCHEMA_VERSION: Final[int] = 1
 MAX_CANDIDATE_POOL_SIZE: Final[int] = 100_000
+MAX_CANDIDATE_POOL_BYTES: Final[int] = 256 * 1024 * 1024
+MAX_CANDIDATE_POOL_ROW_BYTES: Final[int] = 8 * 1024 * 1024
+MAX_CANDIDATE_POOL_MANIFEST_BYTES: Final[int] = 1024 * 1024
 
 
 class CandidatePoolError(ValueError):
@@ -125,30 +128,65 @@ def write_candidate_pool(
 ) -> CandidatePoolManifest:
     """Append one deterministic bounded segment and return a resumable manifest."""
 
-    if not 1 <= max_candidates <= MAX_CANDIDATE_POOL_SIZE:
+    if (
+        not isinstance(max_candidates, int)
+        or isinstance(max_candidates, bool)
+        or not 1 <= max_candidates <= MAX_CANDIDATE_POOL_SIZE
+    ):
         raise CandidatePoolError("candidate pool maximum must be within 1..100000")
     requested = min(len(candidates), max_candidates)
-    if max_new_candidates is not None and max_new_candidates <= 0:
-        raise CandidatePoolError("candidate pool invocation limit must be positive")
+    if max_new_candidates is not None and (
+        not isinstance(max_new_candidates, int)
+        or isinstance(max_new_candidates, bool)
+        or max_new_candidates <= 0
+    ):
+        raise CandidatePoolError(
+            "candidate pool invocation limit must be a positive integer"
+        )
     selected = candidates[:requested]
     ids = tuple(item.candidate_id for item in selected)
     if len(ids) != len(set(ids)):
         raise CandidatePoolError("candidate pool input IDs must be unique")
     output.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = output.with_suffix(output.suffix + ".manifest.json")
-    existing_count, digest = _validate_resume(output, checkpoint, selected, provenance)
+    existing_count, digest, existing_bytes = _validate_resume(
+        output, checkpoint, selected, provenance
+    )
     remaining = requested - existing_count
     to_write = remaining if max_new_candidates is None else min(remaining, max_new_candidates)
+    encoded_records: list[bytes] = []
+    total_bytes = existing_bytes
+    for candidate in selected[existing_count : existing_count + to_write]:
+        payload = _candidate_record(candidate, provenance)
+        encoded = (canonical_identity_json(payload) + "\n").encode("utf-8")
+        if len(encoded) > MAX_CANDIDATE_POOL_ROW_BYTES:
+            raise CandidatePoolError(
+                f"candidate pool row exceeds {MAX_CANDIDATE_POOL_ROW_BYTES} bytes"
+            )
+        total_bytes += len(encoded)
+        if total_bytes > MAX_CANDIDATE_POOL_BYTES:
+            raise CandidatePoolError(
+                f"candidate pool exceeds {MAX_CANDIDATE_POOL_BYTES} bytes"
+            )
+        encoded_records.append(encoded)
+    count = existing_count + to_write
+    _encode_manifest(
+        CandidatePoolManifest(
+            str(output),
+            count,
+            requested,
+            count == requested,
+            "0" * 64,
+            provenance,
+        )
+    )
     mode = "ab" if existing_count else "wb"
     with output.open(mode) as stream:
-        for candidate in selected[existing_count : existing_count + to_write]:
-            payload = _candidate_record(candidate, provenance)
-            encoded = (canonical_identity_json(payload) + "\n").encode("utf-8")
+        for encoded in encoded_records:
             stream.write(encoded)
             digest.update(encoded)
         stream.flush()
         os.fsync(stream.fileno())
-    count = existing_count + to_write
     manifest = CandidatePoolManifest(
         str(output), count, requested, count == requested, digest.hexdigest(), provenance
     )
@@ -172,14 +210,20 @@ def _validate_resume(
     checkpoint: Path,
     candidates: Sequence[MutationCandidate],
     provenance: CandidatePoolProvenance,
-) -> tuple[int, Any]:
+) -> tuple[int, Any, int]:
     digest = hashlib.sha256()
     if not output.exists() and not checkpoint.exists():
-        return 0, digest
+        return 0, digest, 0
     if output.exists() != checkpoint.exists():
         raise CandidatePoolError("candidate pool data and resume manifest must both exist")
     try:
-        raw = json.loads(checkpoint.read_text(encoding="utf-8"))
+        with checkpoint.open("rb") as stream:
+            manifest_bytes = stream.read(MAX_CANDIDATE_POOL_MANIFEST_BYTES + 1)
+        if len(manifest_bytes) > MAX_CANDIDATE_POOL_MANIFEST_BYTES:
+            raise CandidatePoolError(
+                "candidate pool resume manifest exceeds its size limit"
+            )
+        raw = json.loads(manifest_bytes.decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CandidatePoolError("candidate pool resume manifest is unreadable") from error
     if not isinstance(raw, Mapping):
@@ -192,12 +236,27 @@ def _validate_resume(
     expected_digest = raw.get("content_sha256")
     if not isinstance(expected_count, int) or isinstance(expected_count, bool):
         raise CandidatePoolError("candidate pool resume count is invalid")
-    if not isinstance(expected_digest, str) or expected_count > len(candidates):
+    if (
+        not isinstance(expected_digest, str)
+        or not 0 <= expected_count <= min(len(candidates), MAX_CANDIDATE_POOL_SIZE)
+    ):
         raise CandidatePoolError("candidate pool resume bounds are invalid")
     count = 0
+    total_bytes = 0
     try:
         with output.open("rb") as stream:
-            for line in stream:
+            while line := stream.readline(MAX_CANDIDATE_POOL_ROW_BYTES + 1):
+                if len(line) > MAX_CANDIDATE_POOL_ROW_BYTES:
+                    raise CandidatePoolError(
+                        f"candidate pool row exceeds {MAX_CANDIDATE_POOL_ROW_BYTES} bytes"
+                    )
+                if not line.endswith(b"\n"):
+                    raise CandidatePoolError("candidate pool contains a truncated row")
+                total_bytes += len(line)
+                if total_bytes > MAX_CANDIDATE_POOL_BYTES:
+                    raise CandidatePoolError(
+                        f"candidate pool exceeds {MAX_CANDIDATE_POOL_BYTES} bytes"
+                    )
                 digest.update(line)
                 if count >= expected_count:
                     raise CandidatePoolError("candidate pool contains uncheckpointed records")
@@ -212,14 +271,25 @@ def _validate_resume(
         raise CandidatePoolError("candidate pool data is unreadable") from error
     if count != expected_count or digest.hexdigest() != expected_digest:
         raise CandidatePoolError("candidate pool resume digest/count mismatch")
-    return count, digest
+    return count, digest, total_bytes
 
 
 def _publish_manifest(path: Path, manifest: CandidatePoolManifest) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
-    payload = json.dumps(manifest.to_record(), indent=2, sort_keys=True) + "\n"
-    with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+    payload = _encode_manifest(manifest)
+    with temporary.open("wb") as stream:
         stream.write(payload)
         stream.flush()
         os.fsync(stream.fileno())
     temporary.replace(path)
+
+
+def _encode_manifest(manifest: CandidatePoolManifest) -> bytes:
+    payload = (
+        json.dumps(manifest.to_record(), indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    if len(payload) > MAX_CANDIDATE_POOL_MANIFEST_BYTES:
+        raise CandidatePoolError(
+            f"candidate pool resume manifest exceeds {MAX_CANDIDATE_POOL_MANIFEST_BYTES} bytes"
+        )
+    return payload
