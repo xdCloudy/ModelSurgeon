@@ -7,8 +7,15 @@ import stat
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Any
+
+from modelsurgeon.adapters.checkpoint_paths import (
+    MAX_CHECKPOINT_INDEX_BYTES,
+    CheckpointPathError,
+    resolve_checkpoint_shard_path,
+    validate_checkpoint_index_path,
+)
 
 
 class HuggingFaceDType(StrEnum):
@@ -38,7 +45,6 @@ class HuggingFaceRevisionError(HuggingFaceLoadError):
 
 _DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "cpu", "sequential"})
 _SHARDED_INDEX_NAMES = ("model.safetensors.index.json", "pytorch_model.bin.index.json")
-_MAX_SHARDED_INDEX_BYTES = 100 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,14 +138,6 @@ def _resolved_revision(model: object, request: HuggingFaceLoadRequest) -> str:
     )
 
 
-def _inside(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
-
-
 def _validate_shard_index(
     index_path: Path,
     checkpoint_root: Path,
@@ -147,30 +145,22 @@ def _validate_shard_index(
     hub_snapshot: bool,
 ) -> None:
     """Reject shard paths that escape the checkpoint or target special files."""
-    resolved_root = checkpoint_root.resolve()
-    if hub_snapshot:
-        # Hub snapshots symlink files into the repository's blobs directory.
-        # Allow files in this snapshot or its blobs, not sibling snapshots.
-        cache_root = checkpoint_root.parent.parent.resolve()
-        blobs_root = (cache_root / "blobs").resolve()
-        resolved_index = index_path.resolve()
-        if not (
-            _inside(resolved_index, resolved_root) or _inside(resolved_index, blobs_root)
-        ):
-            raise HuggingFaceModelError(
-                "Hub checkpoint index escapes its snapshot or model blob cache"
-            )
-    else:
-        if not _inside(index_path.resolve(), resolved_root):
-            raise HuggingFaceModelError("checkpoint index escapes its model directory")
+    try:
+        validate_checkpoint_index_path(
+            index_path,
+            checkpoint_root,
+            hub_snapshot=hub_snapshot,
+        )
+    except CheckpointPathError as exc:
+        raise HuggingFaceModelError(str(exc)) from exc
     try:
         if not stat.S_ISREG(index_path.stat().st_mode):
             raise HuggingFaceModelError("checkpoint index is not a regular file")
         with index_path.open("rb") as stream:
-            raw_index = stream.read(_MAX_SHARDED_INDEX_BYTES + 1)
-        if len(raw_index) > _MAX_SHARDED_INDEX_BYTES:
+            raw_index = stream.read(MAX_CHECKPOINT_INDEX_BYTES + 1)
+        if len(raw_index) > MAX_CHECKPOINT_INDEX_BYTES:
             raise HuggingFaceModelError(
-                f"checkpoint index exceeds {_MAX_SHARDED_INDEX_BYTES} bytes"
+                f"checkpoint index exceeds {MAX_CHECKPOINT_INDEX_BYTES} bytes"
             )
         payload = json.loads(raw_index.decode("utf-8"))
     except HuggingFaceModelError:
@@ -181,60 +171,21 @@ def _validate_shard_index(
         raise HuggingFaceModelError("checkpoint index must contain a weight_map object")
 
     shard_names = tuple(payload["weight_map"].values())
-    if not shard_names or any(
-        not isinstance(shard_name, str)
-        or not shard_name
-        or "\x00" in shard_name
-        or "\\" in shard_name
-        or ":" in shard_name
-        for shard_name in shard_names
-    ):
+    string_shard_names = tuple(
+        shard_name for shard_name in shard_names if isinstance(shard_name, str)
+    )
+    if not string_shard_names or len(string_shard_names) != len(shard_names):
         raise HuggingFaceModelError("checkpoint index contains an invalid shard filename")
 
-    for shard_name in set(shard_names):
-        if not isinstance(shard_name, str):
-            raise HuggingFaceModelError("checkpoint index contains an invalid shard filename")
-        posix_name = PurePosixPath(shard_name)
-        windows_name = PureWindowsPath(shard_name)
-        if (
-            posix_name.is_absolute()
-            or windows_name.drive
-            or windows_name.root
-            or ".." in posix_name.parts
-            or ".." in windows_name.parts
-        ):
-            raise HuggingFaceModelError(
-                f"checkpoint shard path escapes its model directory: {shard_name!r}"
+    for shard_name in set(string_shard_names):
+        try:
+            shard_path = resolve_checkpoint_shard_path(
+                checkpoint_root,
+                shard_name,
+                hub_snapshot=hub_snapshot,
             )
-        shard_path = checkpoint_root.joinpath(*posix_name.parts)
-        if hub_snapshot:
-            # Hub snapshots intentionally symlink shard files into the blob cache;
-            # parent directories must still stay inside the snapshot.
-            parent = shard_path.parent
-            while parent != checkpoint_root:
-                if parent.is_symlink():
-                    raise HuggingFaceModelError(
-                        f"checkpoint shard path crosses a symlinked directory: {shard_name!r}"
-                    )
-                if not _inside(parent, checkpoint_root):
-                    raise HuggingFaceModelError(
-                        f"checkpoint shard path escapes its snapshot: {shard_name!r}"
-                    )
-                parent = parent.parent
-            resolved_shard = shard_path.resolve()
-            if not (
-                _inside(resolved_shard, resolved_root) or _inside(resolved_shard, blobs_root)
-            ):
-                raise HuggingFaceModelError(
-                    "checkpoint shard target escapes its snapshot or model blob cache: "
-                    f"{shard_name!r}"
-                )
-        else:
-            resolved_shard = shard_path.resolve()
-            if not _inside(resolved_shard, checkpoint_root.resolve()):
-                raise HuggingFaceModelError(
-                    f"checkpoint shard path escapes its model directory: {shard_name!r}"
-                )
+        except CheckpointPathError as exc:
+            raise HuggingFaceModelError(str(exc)) from exc
         try:
             shard_stat = shard_path.stat()
         except FileNotFoundError:

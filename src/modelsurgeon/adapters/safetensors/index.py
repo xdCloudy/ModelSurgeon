@@ -5,11 +5,18 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import cast
 
+from modelsurgeon.adapters.checkpoint_paths import (
+    MAX_CHECKPOINT_INDEX_BYTES,
+    CheckpointPathError,
+    hub_snapshot_blob_root,
+    resolve_checkpoint_shard_path,
+    validate_checkpoint_index_path,
+)
+
 _MAX_HEADER_BYTES = 100 * 1024 * 1024
-_MAX_INDEX_BYTES = 100 * 1024 * 1024
 _DTYPE_BYTES = {
     "BOOL": 1,
     "U8": 1,
@@ -31,70 +38,6 @@ _DTYPE_BYTES = {
 
 class SafetensorsIndexError(ValueError):
     """Raised when a safetensors container or shard index is malformed."""
-
-
-def _inside(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
-
-
-def _hub_cache_root(checkpoint_root: Path) -> Path | None:
-    snapshots = checkpoint_root.parent
-    cache_root = snapshots.parent
-    if snapshots.name != "snapshots" or not cache_root.name.startswith("models--"):
-        return None
-    return cache_root.resolve()
-
-
-def _validated_shard_path(checkpoint_root: Path, shard_name: str) -> Path:
-    if not shard_name or "\x00" in shard_name or "\\" in shard_name or ":" in shard_name:
-        raise SafetensorsIndexError("safetensors shard index contains an invalid shard path")
-    posix_name = PurePosixPath(shard_name)
-    windows_name = PureWindowsPath(shard_name)
-    if (
-        posix_name.is_absolute()
-        or windows_name.drive
-        or windows_name.root
-        or ".." in posix_name.parts
-        or ".." in windows_name.parts
-    ):
-        raise SafetensorsIndexError(
-            f"safetensors shard path escapes its model directory: {shard_name!r}"
-        )
-
-    root = checkpoint_root.absolute()
-    shard_path = root.joinpath(*posix_name.parts)
-    resolved_root = root.resolve()
-    try:
-        resolved_shard = shard_path.resolve()
-    except (OSError, RuntimeError) as exc:
-        raise SafetensorsIndexError(
-            f"safetensors shard path cannot be resolved: {shard_name!r}"
-        ) from exc
-
-    cache_root = _hub_cache_root(root)
-    if cache_root is None:
-        if not _inside(resolved_shard, resolved_root):
-            raise SafetensorsIndexError(
-                f"safetensors shard path escapes its model directory: {shard_name!r}"
-            )
-    else:
-        parent = shard_path.parent
-        while parent != root:
-            if parent.is_symlink() or not _inside(parent, root):
-                raise SafetensorsIndexError(
-                    f"safetensors shard path crosses an unsafe directory: {shard_name!r}"
-                )
-            parent = parent.parent
-        blobs_root = (cache_root / "blobs").resolve()
-        if not (_inside(resolved_shard, resolved_root) or _inside(resolved_shard, blobs_root)):
-            raise SafetensorsIndexError(
-                f"safetensors shard target escapes its Hub cache: {shard_name!r}"
-            )
-    return shard_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,25 +160,17 @@ def _load_shard_index(path: Path) -> dict[str, str]:
     if not path.is_file():
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}")
     root = path.parent.absolute()
-    cache_root = _hub_cache_root(root)
+    hub_snapshot = hub_snapshot_blob_root(root) is not None
     try:
-        resolved_index = path.resolve()
-    except (OSError, RuntimeError) as exc:
-        raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
-    if cache_root is None:
-        allowed_index = _inside(resolved_index, root.resolve())
-    else:
-        allowed_index = _inside(resolved_index, root.resolve()) or _inside(
-            resolved_index, (cache_root / "blobs").resolve()
-        )
-    if not allowed_index:
-        raise SafetensorsIndexError(f"safetensors shard index escapes its model directory: {path}")
+        validate_checkpoint_index_path(path, root, hub_snapshot=hub_snapshot)
+    except CheckpointPathError as exc:
+        raise SafetensorsIndexError(str(exc)) from exc
     try:
         with path.open("rb") as stream:
-            raw_index = stream.read(_MAX_INDEX_BYTES + 1)
-        if len(raw_index) > _MAX_INDEX_BYTES:
+            raw_index = stream.read(MAX_CHECKPOINT_INDEX_BYTES + 1)
+        if len(raw_index) > MAX_CHECKPOINT_INDEX_BYTES:
             raise SafetensorsIndexError(
-                f"safetensors shard index exceeds {_MAX_INDEX_BYTES} bytes: {path}"
+                f"safetensors shard index exceeds {MAX_CHECKPOINT_INDEX_BYTES} bytes: {path}"
             )
         value = json.loads(raw_index.decode("utf-8"))
     except SafetensorsIndexError:
@@ -252,7 +187,10 @@ def _load_shard_index(path: Path) -> dict[str, str]:
     ):
         raise SafetensorsIndexError(f"{path} weight_map contains invalid entries")
     for shard in {str(value) for value in weight_map.values()}:
-        _validated_shard_path(root, shard)
+        try:
+            resolve_checkpoint_shard_path(root, shard, hub_snapshot=hub_snapshot)
+        except CheckpointPathError as exc:
+            raise SafetensorsIndexError(str(exc)) from exc
     return {str(name): str(shard) for name, shard in weight_map.items()}
 
 
