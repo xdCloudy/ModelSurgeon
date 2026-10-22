@@ -52,6 +52,18 @@ def test_whitespace_normalized_exact_overlap_is_classified_as_exact() -> None:
     assert items[0].text_digest == items[1].text_digest
 
 
+def test_reused_item_ids_across_corpora_do_not_alias_shingle_sets() -> None:
+    items = (
+        CorpusItem("row-1", "train", "alpha beta gamma delta epsilon"),
+        CorpusItem("row-1", "test", "zeta eta theta iota kappa"),
+    )
+
+    report = audit_corpora(_sources(), items)
+
+    assert report.status is ContaminationStatus.CLEAN
+    assert report.findings == ()
+
+
 def test_near_overlap_moves_sample_and_changes_protocol_identity() -> None:
     items = (
         CorpusItem("a", "train", "alpha beta gamma delta epsilon"),

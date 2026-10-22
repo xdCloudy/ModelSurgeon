@@ -376,7 +376,7 @@ def audit_corpora(
                 )
             )
     pair_count = 0
-    shingles = {item.item_id: item.shingles(selected.ngram_size) for item in items}
+    shingles = {id(item): item.shingles(selected.ngram_size) for item in items}
     items_by_corpus: dict[str, list[CorpusItem]] = defaultdict(list)
     for item in items:
         items_by_corpus[item.corpus_id].append(item)
@@ -415,7 +415,7 @@ def audit_corpora(
                             )
                         )
                     else:
-                        score = _near_score(shingles[left.item_id], shingles[right.item_id])
+                        score = _near_score(shingles[id(left)], shingles[id(right)])
                         if score >= selected.near_jaccard_threshold:
                             findings.append(
                                 ContaminationFinding(
