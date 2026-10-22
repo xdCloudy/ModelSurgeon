@@ -69,7 +69,7 @@ jobs:
           name: release-${{ github.event.release.tag_name }}
           path: release
       - name: Attest release archives
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release/dist/*
 
