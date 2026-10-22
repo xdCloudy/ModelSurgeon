@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-  - Make optional Meta-Surgeon guidance respect signed mutation and compatibility
-    and hardware declarations, verify declared feature names against the loaded
-    bundle, and include live target hardware context during inference. The
-    runtime abstains when a target categorical value is absent from source
+  - Make optional Meta-Surgeon guidance respect signed mutation, compatibility,
+    hardware, and codec declarations; verify declared feature names against the
+    loaded bundle; and include live target hardware context during inference.
+    The runtime abstains when a target categorical value is absent from source
     training, records unsupported categories or declarations, and falls back to
     unguided physical search.
 
