@@ -18,6 +18,10 @@ The strict JSON config contains:
 - an initial predicted pool whose canonical candidate/state/parent IDs carry every
   objective and constraint observation.
 
+The input file is limited to 64 MiB. Candidate pools and checkpoint ID lists are
+limited to 100,000 entries, and each candidate may contain no more observations
+than the corresponding supported metric set.
+
 `--dry-run` requires no state path and performs no write. Its canonical JSON output
 shows the resolved constraints, objectives, policy budget, complete initial pool,
 planned selection reasons, accepted checkpoint lineage, and frontier. A normal or
