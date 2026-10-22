@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import struct
+import tempfile
 import uuid
 import zlib
 from collections.abc import Iterable, Mapping, Sequence
@@ -580,13 +581,42 @@ class LocalArtifactRegistry:
             ).hexdigest()
         destination_path = Path(destination)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
-        with ZipFile(destination_path, "w") as archive:
-            manifest_info = ZipInfo("manifest.json")
-            manifest_info.compress_type = ZIP_STORED
-            archive.writestr(manifest_info, canonical_identity_json(manifest))
-            payload_info = ZipInfo("payload")
-            payload_info.compress_type = ZIP_STORED
-            archive.writestr(payload_info, stored.data_path.read_bytes())
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=f".{destination_path.name}.",
+                suffix=".partial",
+                dir=destination_path.parent,
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+            with ZipFile(temporary_path, "w") as archive:
+                manifest_info = ZipInfo("manifest.json")
+                manifest_info.compress_type = ZIP_STORED
+                archive.writestr(manifest_info, canonical_identity_json(manifest))
+                payload_info = ZipInfo("payload")
+                payload_info.compress_type = ZIP_STORED
+                payload_digest = hashlib.sha256()
+                payload_size = 0
+                with (
+                    stored.data_path.open("rb") as source_stream,
+                    archive.open(payload_info, "w", force_zip64=True) as payload_stream,
+                ):
+                    while chunk := source_stream.read(self.objects.chunk_bytes):
+                        payload_stream.write(chunk)
+                        payload_digest.update(chunk)
+                        payload_size += len(chunk)
+                if (
+                    payload_size != artifact.size_bytes
+                    or payload_digest.hexdigest() != artifact.digest.removeprefix("sha256:")
+                ):
+                    raise RegistryError("artifact content changed while exporting registry bundle")
+            os.replace(temporary_path, destination_path)
+            temporary_path = None
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
         return destination_path
 
     def import_bundle(

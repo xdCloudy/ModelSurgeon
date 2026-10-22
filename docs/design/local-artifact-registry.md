@@ -36,7 +36,9 @@ Import publishes only after all checks pass; failed imports do not create a
 visible catalog record. Imports stream the payload into the content-addressed
 store and default to a 100 GiB expanded-payload limit plus a 1 MiB manifest
 limit. The ZIP directory is checked before parsing and limited to two entries
-and 1 MiB. Python callers can raise `max_payload_bytes`; the CLI provides
+and 1 MiB. Exports stream payloads to a temporary bundle and publish the
+completed ZIP atomically, so model size does not determine export memory use.
+Python callers can raise `max_payload_bytes`; the CLI provides
 `--max-payload-bytes` for larger artifacts.
 
 ```text

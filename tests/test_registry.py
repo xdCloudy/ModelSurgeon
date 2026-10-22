@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import struct
 from pathlib import Path
 from zipfile import ZipFile
@@ -79,6 +80,44 @@ def test_export_import_round_trip_and_tamper_rejection(tmp_path: Path) -> None:
         archive.writestr("payload", payload)
     with pytest.raises(RegistryError, match="digest"):
         target.import_bundle(tampered, signing_key=b"test-key")
+
+
+def test_export_streams_payload_without_reading_it_all_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = LocalArtifactRegistry(tmp_path / "source")
+    artifact = source.publish_bytes(b"streamed payload", kind="model")
+    bundle = tmp_path / "streamed.zip"
+
+    def reject_read_bytes(path: Path) -> bytes:
+        raise AssertionError(f"export tried to read the complete file into memory: {path}")
+
+    monkeypatch.setattr(Path, "read_bytes", reject_read_bytes)
+    source.export_bundle(artifact.digest, bundle)
+
+    with ZipFile(bundle, "r") as archive:
+        assert archive.read("payload") == b"streamed payload"
+
+
+def test_export_failure_preserves_existing_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = LocalArtifactRegistry(tmp_path / "source")
+    artifact = source.publish_bytes(b"streamed payload", kind="model")
+    bundle = tmp_path / "bundle.zip"
+    previous = b"previous complete bundle"
+    bundle.write_bytes(previous)
+
+    def fail_replace(source_path: str | bytes | os.PathLike[str], target_path: str | bytes) -> None:
+        raise OSError("simulated atomic replace failure")
+
+    monkeypatch.setattr(registry_module.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated atomic replace failure"):
+        source.export_bundle(artifact.digest, bundle, allow_overwrite=True)
+
+    assert bundle.read_bytes() == previous
+    assert list(tmp_path.glob(".bundle.zip.*.partial")) == []
 
 
 def test_unsigned_evidence_requires_explicit_negative_path(tmp_path: Path) -> None:
