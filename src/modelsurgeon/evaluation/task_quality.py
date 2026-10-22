@@ -10,10 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from modelsurgeon.task_quality_limits import (
+    MAX_TASK_QUALITY_DATASET_BYTES,
+    MAX_TASK_QUALITY_ROW_BYTES,
+    MAX_TASK_QUALITY_ROWS,
+)
+
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
-MAX_TASK_QUALITY_DATASET_BYTES = 256 * 1024 * 1024
-MAX_TASK_QUALITY_ROW_BYTES = 8 * 1024 * 1024
-MAX_TASK_QUALITY_ROWS = 100_000
 
 
 class TaskQualityEvaluationError(ValueError):

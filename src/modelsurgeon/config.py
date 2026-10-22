@@ -13,6 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.provider_kind import ProviderKind
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_ROWS
 
 
 class TaskQualitySpecError(ValueError):
@@ -156,7 +157,9 @@ class TaskQualityConfig(StrictConfigModel):
     dataset_revision: str | None = None
     split: str = "test"
     max_new_tokens: int = Field(default=128, gt=0)
-    max_samples: int | None = Field(default=None, gt=0)
+    max_samples: int | None = Field(
+        default=None, gt=0, le=MAX_TASK_QUALITY_ROWS, strict=True
+    )
 
     @field_validator("dataset", "dataset_revision")
     @classmethod

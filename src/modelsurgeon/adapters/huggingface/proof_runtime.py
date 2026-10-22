@@ -99,6 +99,7 @@ from modelsurgeon.surgery.serialization import (
 )
 from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_ROWS
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
@@ -163,8 +164,24 @@ class HuggingFaceMLPProofConfig:
             raise HuggingFaceMLPProofError("task-quality split cannot be blank")
         if self.task_quality_max_new_tokens <= 0:
             raise HuggingFaceMLPProofError("task-quality max_new_tokens must be positive")
-        if self.task_quality_max_samples is not None and self.task_quality_max_samples <= 0:
-            raise HuggingFaceMLPProofError("task-quality max_samples must be positive")
+        if (
+            self.task_quality_max_samples is not None
+            and (
+                not isinstance(self.task_quality_max_samples, int)
+                or isinstance(self.task_quality_max_samples, bool)
+                or self.task_quality_max_samples <= 0
+            )
+        ):
+            raise HuggingFaceMLPProofError(
+                "task-quality max_samples must be a positive integer"
+            )
+        if (
+            self.task_quality_max_samples is not None
+            and self.task_quality_max_samples > MAX_TASK_QUALITY_ROWS
+        ):
+            raise HuggingFaceMLPProofError(
+                f"task-quality max_samples cannot exceed {MAX_TASK_QUALITY_ROWS}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
