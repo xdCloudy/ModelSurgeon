@@ -579,7 +579,7 @@ uv run modelsurgeon predict-surgeon ./candidate.json \
   --json
 ```
 
-Supported baselines are `linear`, `logistic`, `lightgbm-regressor`, `lightgbm-classifier`, `mlp-regressor`, and `mlp-classifier`. Inference rejects missing features and incompatible schema or preprocessing contracts.
+Supported baselines are `linear`, `logistic`, `lightgbm-regressor`, `lightgbm-classifier`, `mlp-regressor`, and `mlp-classifier`. Inference rejects missing features and incompatible schema or preprocessing contracts. JSON and JSONL inputs and split manifests are bounded to 256 MiB and 100,000 rows; JSONL rows are limited to 8 MiB. Use a Parquet store for larger training datasets.
 
 </details>
 
