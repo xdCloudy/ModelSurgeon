@@ -82,12 +82,14 @@ class EvidenceBundleLimits:
     max_members: int = 10_000
     max_total_bytes: int = 1 << 40
     chunk_bytes: int = _DEFAULT_CHUNK_BYTES
+    max_entries: int = 100_000
 
     def __post_init__(self) -> None:
         for label, value in (
             ("maximum members", self.max_members),
             ("maximum total bytes", self.max_total_bytes),
             ("chunk bytes", self.chunk_bytes),
+            ("maximum filesystem entries", self.max_entries),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise SignedEvidenceError(f"{label} must be a positive integer")
@@ -97,6 +99,7 @@ class EvidenceBundleLimits:
             "max_members": self.max_members,
             "max_total_bytes": self.max_total_bytes,
             "chunk_bytes": self.chunk_bytes,
+            "max_entries": self.max_entries,
         }
 
 
@@ -483,7 +486,11 @@ def build_evidence_bundle(
     role_map = {} if roles is None else dict(roles)
     members: list[EvidenceBundleMember] = []
     total = 0
+    scanned_entries = 0
     for candidate in resolved.rglob("*"):
+        scanned_entries += 1
+        if scanned_entries > active_limits.max_entries:
+            raise SignedEvidenceError("bundle exceeds its filesystem entry limit")
         if _is_symlink_or_junction(candidate):
             raise SignedEvidenceError("bundle trees cannot contain symbolic links or junctions")
         if candidate.is_dir():
@@ -601,8 +608,13 @@ def verify_evidence_bundle(
         )
     expected_paths = {item.path for item in index.members}
     actual_paths: set[str] = set()
+    scanned_entries = 0
     try:
         for candidate in resolved.rglob("*"):
+            scanned_entries += 1
+            if scanned_entries > active_limits.max_entries:
+                issues.append("verification filesystem entry limit exceeded")
+                break
             relative = candidate.relative_to(resolved).as_posix()
             if _is_symlink_or_junction(candidate):
                 issues.append(f"bundle contains a symbolic link or junction: {relative}")
