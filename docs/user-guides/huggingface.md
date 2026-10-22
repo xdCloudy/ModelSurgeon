@@ -126,6 +126,12 @@ Attention-head and transformer-layer edits use the corresponding remove_huggingf
 - Invalid or unsupported model: keep the error and resolved revision as evidence. Do not enable remote code or add an unreviewed adapter just to make the run pass.
 - Interrupted publication: remove only the failed destination staging area after inspecting the retained error. A valid published destination is never partially replaced.
 
+First-party low-rank and dynamic-int8 artifacts follow the same directory
+boundary: config, safetensors weights, and the method manifest are written to a
+private sibling staging directory, then the complete directory is published.
+A failed conversion therefore does not expose a reloadable-looking partial
+destination.
+
 ## 6. Inspect, report, and reproduce
 
 Persisted experiments can be inspected without execution and replayed only through an explicitly trusted local adapter:

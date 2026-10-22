@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Stage first-party Hugging Face low-rank and dynamic-int8 outputs in private
+    sibling directories, then publish config, weights, and method manifest as a
+    complete artifact directory.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
