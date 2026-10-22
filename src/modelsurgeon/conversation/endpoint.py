@@ -9,6 +9,7 @@ and never enter a canonical record.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 import threading
@@ -18,12 +19,13 @@ from dataclasses import dataclass, field
 from datetime import UTC
 from email.utils import parsedate_to_datetime
 from enum import StrEnum
+from http.client import HTTPMessage
 from time import monotonic
-from typing import Protocol
+from typing import IO, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
+from urllib.request import HTTPRedirectHandler, build_opener
 from urllib.request import Request as UrlRequest
-from urllib.request import urlopen
 
 from modelsurgeon.conversation.isolation import redact_secret_text
 from modelsurgeon.conversation.provider import (
@@ -245,6 +247,48 @@ class _ResponseTooLarge(_TransportFailure):
     pass
 
 
+class _SameOriginHTTPSRedirectHandler(HTTPRedirectHandler):
+    """Follow redirects only while the request remains on its HTTPS origin."""
+
+    def __init__(self, origin: tuple[str, str, int]) -> None:
+        super().__init__()
+        self._origin = origin
+
+    def redirect_request(
+        self,
+        request: UrlRequest,
+        file: IO[bytes],
+        code: int,
+        message: str,
+        headers: HTTPMessage,
+        new_url: str,
+    ) -> UrlRequest | None:
+        if _https_origin(new_url) != self._origin:
+            return None
+        return super().redirect_request(request, file, code, message, headers, new_url)
+
+
+def _https_origin(url: str) -> tuple[str, str, int] | None:
+    try:
+        parts = urlsplit(url)
+        if (
+            parts.scheme.lower() != "https"
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+        ):
+            return None
+        hostname = parts.hostname
+        if ":" in hostname:
+            normalized_host = ipaddress.ip_address(hostname).compressed.lower()
+        else:
+            normalized_host = hostname.encode("idna").decode("ascii").lower()
+        port = parts.port
+        return (parts.scheme.lower(), normalized_host, 443 if port is None else port)
+    except (UnicodeError, ValueError):
+        return None
+
+
 class UrllibEndpointTransport:
     """Small standard-library transport with a hard response-size ceiling."""
 
@@ -256,7 +300,11 @@ class UrllibEndpointTransport:
             method=request.method,
         )
         try:
-            with urlopen(url_request, timeout=request.timeout_seconds) as response:
+            origin = _https_origin(request.url)
+            if origin is None:
+                raise _TransportFailure("endpoint request must use HTTPS")
+            opener = build_opener(_SameOriginHTTPSRedirectHandler(origin))
+            with opener.open(url_request, timeout=request.timeout_seconds) as response:
                 body = response.read(request.max_response_bytes + 1)
                 if len(body) > request.max_response_bytes:
                     raise _ResponseTooLarge(
