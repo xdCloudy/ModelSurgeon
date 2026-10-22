@@ -150,7 +150,7 @@ def _publish_dataset(
     split_record: dict[str, Any],
     manifest_record: dict[str, Any],
 ) -> None:
-    output = output.expanduser().absolute()
+    output = output.absolute()
     if output == output.parent:
         raise ValueError("transfer dataset output must be a dedicated directory")
     if output.exists() or output.is_symlink():
@@ -222,7 +222,7 @@ def main() -> int:
             assignments[example_id] = partition
             split_counts[partition] += 1
 
-    output = args.output.expanduser().absolute()
+    output = args.output
     split_record = {
         "version": "model-identity-transfer-v1",
         "mode": "model_identity",
