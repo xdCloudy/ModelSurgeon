@@ -686,12 +686,25 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return "oom"
         if "timeout" in text or "timed out" in text:
             return "timeout"
+        if (
+            "no measured candidate met" in text
+            or "no measured feasible artifact is available" in text
+            or "deployment measurements did not satisfy every declared hard constraint" in text
+        ):
+            return "inconclusive"
+        if (
+            "not fully measured" in text
+            or "no measured candidate has complete declared pareto objectives" in text
+            or "no physical artifact is available" in text
+            or "requires a published reloaded physical artifact" in text
+        ):
+            return "unknown"
         if any(
             marker in text
             for marker in ("unknown", "unavailable", "unobservable", "not observable")
         ):
             return "unknown"
-        if "unsupported" in text:
+        if "unsupported" in text or "no trainable weight or bias parameters" in text:
             return "unsupported"
         return "runtime_failure"
 
@@ -1314,7 +1327,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError("repair.method must be text")
         if method == "none":
             if self.artifact is None or self.artifact_digest is None:
-                return self._unsupported(
+                return self._boundary_outcome(
                     OptimizeStage.REPAIR,
                     "repair was not requested and no physical artifact is available",
                 )
@@ -1335,12 +1348,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 transaction_state=TransactionState.COMMITTED,
             )
         if method not in {"lora", "distillation"}:
-            return self._unsupported(
+            return self._boundary_outcome(
                 OptimizeStage.REPAIR,
                 f"first-party Hugging Face repair method {method!r} is unsupported",
             )
         if self.artifact is None or self.artifact_digest is None or self.reloaded_model is None:
-            return self._unsupported(
+            return self._boundary_outcome(
                 OptimizeStage.REPAIR,
                 f"{method} repair requires a published reloaded physical artifact",
             )
@@ -1407,7 +1420,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 )
             )
             if not parameter_names:
-                return self._unsupported(
+                return self._boundary_outcome(
                     OptimizeStage.REPAIR,
                     "distillation targets expose no trainable weight or bias parameters",
                 )
@@ -1639,12 +1652,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 ),
             )
         if method != "dynamic_int8":
-            return self._unsupported(
+            return self._boundary_outcome(
                 OptimizeStage.QUANTIZATION,
                 f"first-party Hugging Face quantization method {method!r} is unsupported",
             )
         if self.artifact is None or self.artifact_digest is None or self.reloaded_model is None:
-            return self._unsupported(
+            return self._boundary_outcome(
                 OptimizeStage.QUANTIZATION,
                 "dynamic-int8 quantization requires a published reloaded physical artifact",
             )
@@ -1672,7 +1685,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 quantized_model
             )
         except HuggingFaceQuantizationError as error:
-            return self._unsupported(OptimizeStage.QUANTIZATION, str(error))
+            return self._boundary_outcome(OptimizeStage.QUANTIZATION, str(error))
         quantized_measurement = proof.measure_model(
             quantized_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
@@ -1903,28 +1916,34 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             lineage={} if lineage is None else dict(lineage),
         )
 
-    def _unsupported(self, stage: OptimizeStage, detail: str) -> StageResult:
+    def _boundary_outcome(self, stage: OptimizeStage, detail: str) -> StageResult:
         run_key = f"{self.plan.plan_id}:{stage.value}:{detail}"
         classification = self._failure_classification(detail)
-        outcome = (
-            OptimizationEvidenceOutcome.UNKNOWN
-            if classification == "unknown"
-            else OptimizationEvidenceOutcome.UNSUPPORTED
-        )
-        workflow_outcome = (
-            WorkflowOutcome.UNKNOWN
-            if classification == "unknown"
-            else WorkflowOutcome.UNSUPPORTED
-        )
+        if classification in {"oom", "timeout", "runtime_failure"}:
+            outcome = OptimizationEvidenceOutcome.FAILED
+            workflow_outcome = WorkflowOutcome.FAILED
+            status = "failed"
+        elif classification == "inconclusive":
+            outcome = OptimizationEvidenceOutcome.INCONCLUSIVE
+            workflow_outcome = WorkflowOutcome.UNKNOWN
+            status = "inconclusive"
+        elif classification == "unknown":
+            outcome = OptimizationEvidenceOutcome.UNKNOWN
+            workflow_outcome = WorkflowOutcome.UNKNOWN
+            status = "unknown"
+        else:
+            outcome = OptimizationEvidenceOutcome.UNSUPPORTED
+            workflow_outcome = WorkflowOutcome.UNSUPPORTED
+            status = "unsupported"
         reference = self._record_runtime_boundary(
             stage, outcome, detail
         )
         return StageResult(
             workflow_outcome,
-            ("unknown_" if classification == "unknown" else "unsupported_")
+            status + "_"
             + hashlib.sha256(run_key.encode()).hexdigest(),
             json.dumps(
-                {"status": workflow_outcome.value, "reason": detail, "evidence": reference},
+                {"status": status, "reason": detail, "evidence": reference},
                 sort_keys=True,
             ),
             complete=True,
@@ -3322,7 +3341,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 return self._quantization(context)
             if stage is OptimizeStage.DEPLOYMENT_BENCHMARK:
                 if self.reloaded_model is None or self.artifact_digest is None:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "deployment benchmark requires a published reloaded artifact"
                     )
                 proof = self._ensure_loaded()
@@ -3334,7 +3353,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 model_source = self._model_source()
                 revision = _config_value(self.plan, "model", "revision")
                 if not isinstance(revision, str) or not revision.strip():
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "deployment benchmark requires a pinned model revision"
                     )
                 source_path = Path(model_source).expanduser().absolute().resolve(strict=False)
@@ -3438,23 +3457,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     or self.selected is None
                     or self.selected_measurement is None
                 ):
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "no measured feasible artifact is available for Pareto publication"
                     )
                 if self.deployment_constraints_passed is not True:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage,
                         "deployment measurements did not satisfy every declared hard constraint",
                     )
                 if self.deployment is None or self.deployment_baseline is None:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "Pareto publication requires retained deployment evidence"
                     )
                 if (
                     self.measured_frontier is None
                     or self.measured_frontier.get("status") != "measured"
                 ):
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage,
                         "declared Pareto objectives were not fully measured for candidate "
                         "selection",
@@ -3502,7 +3521,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 )
             raise FirstPartyOptimizeRuntimeError(f"unsupported optimize stage: {stage.value}")
         except FirstPartyOptimizeRuntimeError as error:
-            return self._unsupported(stage, str(error))
+            return self._boundary_outcome(stage, str(error))
         except Exception as error:  # durable failure evidence is safer than an implicit claim
             reference = self._record_runtime_boundary(
                 stage,
