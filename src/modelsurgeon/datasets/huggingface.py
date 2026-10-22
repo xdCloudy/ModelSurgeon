@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from modelsurgeon.datasets.calibration import CalibrationContract, CalibrationSample
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 
 class HuggingFaceCalibrationError(RuntimeError):
@@ -53,12 +54,8 @@ class CalibrationManifest:
 
     def write(self, path: str | Path) -> None:
         """Atomically cache canonical JSON after creating only the target parent."""
-        target = Path(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_name(f".{target.name}.tmp")
         payload = json.dumps(self.to_record(), sort_keys=True, separators=(",", ":")) + "\n"
-        temporary.write_text(payload, encoding="utf-8")
-        temporary.replace(target)
+        atomic_write_text(path, payload, replace_existing=True)
 
 
 def _batches(
@@ -115,9 +112,7 @@ def stream_huggingface_calibration(
             identity,
             text,
         )
-        duplicate = next(
-            (item for item in retained if item[2].sample_id == sample_id), None
-        )
+        duplicate = next((item for item in retained if item[2].sample_id == sample_id), None)
         if duplicate is not None:
             if duplicate[2].content_sha256 != digest:
                 raise HuggingFaceCalibrationError(
