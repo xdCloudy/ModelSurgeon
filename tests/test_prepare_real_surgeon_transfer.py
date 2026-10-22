@@ -1,11 +1,16 @@
 """Tests for preserving identity when building transfer examples from evidence."""
 
 import copy
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
-from tools.prepare_real_surgeon_transfer import _iter_observations, _select_examples
+from tools.prepare_real_surgeon_transfer import (
+    _iter_observations,
+    _publish_dataset,
+    _select_examples,
+)
 
 
 def _observation() -> dict[str, Any]:
@@ -72,3 +77,61 @@ def test_transfer_preparation_reports_corrupt_observation_path(tmp_path: Path) -
 def test_transfer_preparation_rejects_missing_evidence_root(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="transfer evidence root does not exist"):
         _iter_observations([tmp_path / "missing"])
+
+
+def test_transfer_dataset_publishes_complete_directory(tmp_path: Path) -> None:
+    output = tmp_path / "nested" / "transfer"
+
+    _publish_dataset(
+        output,
+        {"observation-1": {"example_id": "observation-1"}},
+        {"mode": "model_identity"},
+        {"example_count": 1},
+    )
+
+    assert json.loads((output / "examples.jsonl").read_text(encoding="utf-8")) == {
+        "example_id": "observation-1"
+    }
+    assert json.loads((output / "split.json").read_text(encoding="utf-8")) == {
+        "mode": "model_identity"
+    }
+    assert json.loads((output / "manifest.json").read_text(encoding="utf-8")) == {
+        "example_count": 1
+    }
+    assert not tuple(output.parent.glob(".transfer.partial-*"))
+
+
+def test_transfer_dataset_preserves_existing_output(tmp_path: Path) -> None:
+    output = tmp_path / "transfer"
+    output.mkdir()
+    marker = output / "keep.txt"
+    marker.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="output already exists"):
+        _publish_dataset(output, {}, {}, {})
+
+    assert marker.read_text(encoding="utf-8") == "existing"
+
+
+def test_transfer_dataset_write_failure_cleans_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "transfer"
+    original_write_text = Path.write_text
+
+    def fail_manifest(path: Path, *args: Any, **kwargs: Any) -> int:
+        if path.name == "manifest.json":
+            raise OSError("simulated manifest write failure")
+        return original_write_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", fail_manifest)
+    with pytest.raises(OSError, match="simulated manifest write failure"):
+        _publish_dataset(
+            output,
+            {"observation-1": {"example_id": "observation-1"}},
+            {},
+            {},
+        )
+
+    assert not output.exists()
+    assert not tuple(tmp_path.glob(".transfer.partial-*"))

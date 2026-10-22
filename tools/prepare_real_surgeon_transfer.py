@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
+import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -141,6 +144,40 @@ def _select_examples(observations: list[dict[str, Any]]) -> dict[str, dict[str, 
     return selected
 
 
+def _publish_dataset(
+    output: Path,
+    selected: dict[str, dict[str, Any]],
+    split_record: dict[str, Any],
+    manifest_record: dict[str, Any],
+) -> None:
+    output = output.expanduser().absolute()
+    if output == output.parent:
+        raise ValueError("transfer dataset output must be a dedicated directory")
+    if output.exists() or output.is_symlink():
+        raise ValueError(f"transfer dataset output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = output.with_name(f".{output.name}.partial-{uuid.uuid4().hex}")
+    staging.mkdir()
+    try:
+        with (staging / "examples.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
+            for example_id in sorted(selected):
+                handle.write(json.dumps(selected[example_id], sort_keys=True) + "\n")
+        (staging / "split.json").write_text(
+            json.dumps(split_record, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (staging / "manifest.json").write_text(
+            json.dumps(manifest_record, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        if output.exists() or output.is_symlink():
+            raise ValueError(f"transfer dataset output already exists: {output}")
+        os.rename(staging, output)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", action="append", type=Path, required=True)
@@ -185,51 +222,33 @@ def main() -> int:
             assignments[example_id] = partition
             split_counts[partition] += 1
 
-    args.output.mkdir(parents=True, exist_ok=True)
-    dataset_path = args.output / "examples.jsonl"
-    split_path = args.output / "split.json"
-    manifest_path = args.output / "manifest.json"
-    with dataset_path.open("w", encoding="utf-8", newline="\n") as handle:
-        for example_id in sorted(selected):
-            handle.write(json.dumps(selected[example_id], sort_keys=True) + "\n")
-    split_path.write_text(
-        json.dumps(
-            {
-                "version": "model-identity-transfer-v1",
-                "mode": "model_identity",
-                "assignments": assignments,
-                "model_partitions": model_partitions,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    manifest_path.write_text(
-        json.dumps(
-            {
-                "record_type": "real_surgeon_transfer_dataset",
-                "schema_version": 1,
-                "source_roots": [str(root) for root in args.root],
-                "example_count": len(selected),
-                "split_counts": dict(sorted(split_counts.items())),
-                "model_counts": {
-                    model: len(grouped[model]) for model in sorted(grouped)
-                },
-                "model_partitions": model_partitions,
-                "test_models": sorted(test_models),
-                "validation_models": sorted(validation_models),
-                "dataset": str(dataset_path),
-                "split": str(split_path),
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    print(json.dumps(json.loads(manifest_path.read_text(encoding="utf-8")), sort_keys=True))
+    output = args.output.expanduser().absolute()
+    split_record = {
+        "version": "model-identity-transfer-v1",
+        "mode": "model_identity",
+        "assignments": assignments,
+        "model_partitions": model_partitions,
+    }
+    manifest_record = {
+        "record_type": "real_surgeon_transfer_dataset",
+        "schema_version": 1,
+        "source_roots": [str(root) for root in args.root],
+        "example_count": len(selected),
+        "split_counts": dict(sorted(split_counts.items())),
+        "model_counts": {
+            model: len(grouped[model]) for model in sorted(grouped)
+        },
+        "model_partitions": model_partitions,
+        "test_models": sorted(test_models),
+        "validation_models": sorted(validation_models),
+        "dataset": str(output / "examples.jsonl"),
+        "split": str(output / "split.json"),
+    }
+    try:
+        _publish_dataset(output, selected, split_record, manifest_record)
+    except (OSError, ValueError) as error:
+        raise SystemExit(f"cannot publish transfer dataset: {error}") from error
+    print(json.dumps(manifest_record, sort_keys=True))
     return 0
 
 
