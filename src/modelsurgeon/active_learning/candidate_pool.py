@@ -170,7 +170,8 @@ def write_candidate_pool(
     existing_count, digest = _validate_resume(output, checkpoint, selected, provenance)
     remaining = requested - existing_count
     to_write = remaining if max_new_candidates is None else min(remaining, max_new_candidates)
-    with _open_candidate_pool_output(output, append=bool(existing_count) or output.exists()) as stream:
+    append = bool(existing_count) or output.exists()
+    with _open_candidate_pool_output(output, append=append) as stream:
         for candidate in selected[existing_count : existing_count + to_write]:
             payload = _candidate_record(candidate, provenance)
             encoded = (canonical_identity_json(payload) + "\n").encode("utf-8")
