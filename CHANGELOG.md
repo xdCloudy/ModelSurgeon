@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - Make optional Meta-Surgeon guidance abstain when inference encounters a
+    categorical feature value absent from source training. The runtime now
+    records the unknown categories and falls back to unguided physical search
+    instead of scoring an out-of-support candidate representation.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

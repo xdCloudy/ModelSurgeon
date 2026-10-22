@@ -574,7 +574,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             ) from error
 
         proof = self._ensure_loaded()
-        predictions: dict[str, float] = {}
+        inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
+        unknown_categories: set[str] = set()
         for candidate in candidates:
             raw_features = self.candidate_features.get(candidate.candidate_id)
             if raw_features is None:
@@ -594,6 +595,39 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 row = transform_inference_record(
                     record, bundle.preprocessor, refuse_missing=False
                 )
+                row_unknown_categories = tuple(
+                    feature_name.removeprefix("cat:").removesuffix("=<unknown>")
+                    for feature_name, value in zip(
+                        bundle.preprocessor.output_feature_names, row, strict=True
+                    )
+                    if feature_name.startswith("cat:")
+                    and feature_name.endswith("=<unknown>")
+                    and value == 1.0
+                )
+            except Exception as error:
+                raise FirstPartyOptimizeRuntimeError(
+                    f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
+                ) from error
+            unknown_categories.update(row_unknown_categories)
+            inference_rows.append((candidate, row))
+
+        if unknown_categories:
+            self.meta_guidance = {
+                "status": "abstained_unknown_categories",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "unknown_categories": sorted(unknown_categories),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "target feature categories were absent from source training; "
+                    "the Meta-Surgeon prediction was withheld"
+                ),
+            }
+            return ()
+
+        predictions: dict[str, float] = {}
+        for candidate, row in inference_rows:
+            try:
                 predicted = bundle.model.predict((row,))
             except Exception as error:
                 raise FirstPartyOptimizeRuntimeError(
