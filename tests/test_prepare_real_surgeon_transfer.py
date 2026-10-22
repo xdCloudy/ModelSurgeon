@@ -1,10 +1,11 @@
 """Tests for preserving identity when building transfer examples from evidence."""
 
 import copy
+from pathlib import Path
 from typing import Any
 
 import pytest
-from tools.prepare_real_surgeon_transfer import _select_examples
+from tools.prepare_real_surgeon_transfer import _iter_observations, _select_examples
 
 
 def _observation() -> dict[str, Any]:
@@ -56,3 +57,18 @@ def test_transfer_preparation_rejects_conflicts_even_when_one_record_is_unusable
 
     with pytest.raises(ValueError, match="conflicting duplicate transfer observation id"):
         _select_examples([first, second])
+
+
+def test_transfer_preparation_reports_corrupt_observation_path(tmp_path: Path) -> None:
+    root = tmp_path / "evidence"
+    observation_path = root / "optimization-evidence" / "observations" / "broken.json"
+    observation_path.parent.mkdir(parents=True)
+    observation_path.write_text("not-json\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"broken\.json"):
+        _iter_observations([root])
+
+
+def test_transfer_preparation_rejects_missing_evidence_root(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="transfer evidence root does not exist"):
+        _iter_observations([tmp_path / "missing"])

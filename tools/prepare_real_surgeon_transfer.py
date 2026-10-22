@@ -103,12 +103,14 @@ def _iter_observations(roots: list[Path]) -> list[dict[str, Any]]:
     observations: list[dict[str, Any]] = []
     for root in roots:
         if not root.exists():
-            continue
+            raise ValueError(f"transfer evidence root does not exist: {root}")
         for path in sorted(root.rglob("optimization-evidence/observations/*.json")):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError(
+                    f"cannot read transfer evidence observation {path}: {error}"
+                ) from error
             if isinstance(payload, dict) and payload.get("stage") == "active_search":
                 observations.append(payload)
     return observations
