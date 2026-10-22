@@ -16,6 +16,7 @@ from modelsurgeon._file_lock import exclusive_file_lock
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 PROGRESS_SCHEMA_VERSION = 1
+DEFAULT_MAX_PROGRESS_BYTES = 64 * 1024 * 1024
 _SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|credential)", re.IGNORECASE)
 _WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
@@ -213,8 +214,20 @@ def _status(value: object) -> ProgressStatus:
 class ProgressStore:
     """Atomic JSON state store with idempotent event replay."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        max_serialized_bytes: int = DEFAULT_MAX_PROGRESS_BYTES,
+    ) -> None:
+        if (
+            isinstance(max_serialized_bytes, bool)
+            or not isinstance(max_serialized_bytes, int)
+            or max_serialized_bytes <= 0
+        ):
+            raise ProgressError("progress byte budget must be a positive integer")
         self.root = Path(root).expanduser().absolute().resolve(strict=False)
+        self.max_serialized_bytes = max_serialized_bytes
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, campaign_id: str) -> Path:
@@ -224,8 +237,15 @@ class ProgressStore:
 
     def _load(self, campaign_id: str) -> tuple[ProgressSnapshot, tuple[ProgressEvent, ...]]:
         try:
-            raw = json.loads(self._path(campaign_id).read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            with self._path(campaign_id).open("rb") as stream:
+                encoded = stream.read(self.max_serialized_bytes + 1)
+        except OSError as error:
+            raise ProgressError("progress state is missing or corrupt") from error
+        if len(encoded) > self.max_serialized_bytes:
+            raise ProgressError(f"progress state exceeds byte budget {self.max_serialized_bytes}")
+        try:
+            raw = json.loads(encoded.decode("utf-8"))
+        except (RecursionError, UnicodeDecodeError, ValueError) as error:
             raise ProgressError("progress state is missing or corrupt") from error
         if not isinstance(raw, Mapping) or raw.get("schema_version") != PROGRESS_SCHEMA_VERSION:
             raise ProgressError("progress state schema version is unsupported")
@@ -318,12 +338,19 @@ class ProgressStore:
             "snapshot": snapshot.to_record(),
             "events": [item.to_record() for item in events],
         }
-        temporary.write_text(canonical_identity_json(payload), encoding="utf-8")
+        encoded = canonical_identity_json(payload).encode("utf-8")
+        if len(encoded) > self.max_serialized_bytes:
+            raise ProgressError(
+                f"progress state needs {len(encoded)} bytes, budget is {self.max_serialized_bytes}"
+            )
         try:
+            with temporary.open("xb") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
             os.replace(temporary, destination)
         finally:
-            if temporary.exists():
-                temporary.unlink()
+            temporary.unlink(missing_ok=True)
 
     def start(
         self,
