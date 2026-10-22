@@ -73,7 +73,7 @@ durable paused run without loading or mutating the source.
 
 ```python
 from modelsurgeon.config import ModelConfig, Settings
-from modelsurgeon.optimization import build_optimize_plan, execute_first_party_optimize
+from modelsurgeon.optimization import build_optimize_plan
 
 settings = Settings(
     model=ModelConfig(
@@ -90,6 +90,14 @@ plan = build_optimize_plan(settings, **options, dry_run=False)
 if not plan.executable:
     raise RuntimeError(f"plan is not executable: {plan.outcome.value}: {plan.uncertainties}")
 print(plan.canonical_json())  # Review inputs, budgets, approvals, and uncertainties first.
+```
+
+Only after reviewing that output and explicitly accepting each approval, run
+the campaign in a separate notebook cell. If using a separate script, recreate
+the same `settings` and `options` values there:
+
+```python
+from modelsurgeon.optimization import execute_first_party_optimize
 
 run = execute_first_party_optimize(
     settings,
@@ -100,9 +108,9 @@ run = execute_first_party_optimize(
 print(run.outcome.value)
 ```
 
-Use the same settings, options, and state path when resuming an interrupted
-run, with `resume=True`. Keep the state file and its content-addressed
-artifacts together as the audit record. See the
+To resume an interrupted run, use the same settings, options, state path, and
+approved codes, and set `resume=True`. Keep the state file and its
+content-addressed artifacts together as the audit record. See the
 [`unified optimize plan` contract](../design/unified-optimize-plan.md) for
 the persisted fields, approval semantics, and native GGUF requirements.
 
