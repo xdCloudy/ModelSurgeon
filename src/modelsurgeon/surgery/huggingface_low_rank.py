@@ -13,6 +13,7 @@ from modelsurgeon.adapters.huggingface.low_rank import (
     LowRankReplacementReport,
     replace_huggingface_linears_low_rank,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 HF_LOW_RANK_SCHEMA_VERSION = 1
 HF_LOW_RANK_MANIFEST = "modelsurgeon-low-rank.json"
@@ -109,7 +110,8 @@ def publish_huggingface_low_rank(
             "ranks": ranks,
         }
         (destination / HF_LOW_RANK_MANIFEST).write_text(
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+            json.dumps(manifest, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            encoding="utf-8",
         )
     except (ImportError, OSError, RuntimeError, ValueError) as error:
         shutil.rmtree(destination, ignore_errors=True)
@@ -125,7 +127,7 @@ def load_huggingface_low_rank(destination: Path, *, trust_remote_code: bool = Fa
     if not manifest_path.is_file() or not weights_path.is_file():
         raise HuggingFaceLowRankError("low-rank artifact manifest or weights are missing")
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise HuggingFaceLowRankError("low-rank artifact manifest is invalid") from error
     if (

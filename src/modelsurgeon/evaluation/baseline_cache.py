@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from modelsurgeon.json_utils import strict_json_loads
+
 BASELINE_CACHE_VERSION = "1"
 
 
@@ -143,7 +145,7 @@ class BaselineCache:
         if not path.exists():
             return None
         try:
-            raw: Any = json.loads(path.read_text(encoding="utf-8"))
+            raw: Any = strict_json_loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise BaselineCacheError("published baseline cache entry is unreadable") from error
         if not isinstance(raw, dict) or raw.get("version") != BASELINE_CACHE_VERSION:

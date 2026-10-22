@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import subprocess
 import tempfile
@@ -62,8 +63,12 @@ class HostileFuzzLimits:
     def __post_init__(self) -> None:
         if self.max_input_bytes <= 0 or self.max_output_bytes <= 0:
             raise HostileFuzzError("input and output limits must be positive")
-        if self.timeout_seconds <= 0:
-            raise HostileFuzzError("timeout must be positive")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise HostileFuzzError("timeout must be finite and positive")
         if self.max_memory_bytes <= 0 or self.max_disk_bytes <= 0:
             raise HostileFuzzError("memory and disk limits must be positive")
 
@@ -144,7 +149,9 @@ class HostileFuzzCorpus:
 
     @property
     def corpus_id(self) -> str:
-        encoded = json.dumps(self.to_record(include_id=False), sort_keys=True).encode()
+        encoded = json.dumps(
+            self.to_record(include_id=False), sort_keys=True, allow_nan=False
+        ).encode()
         return hashlib.sha256(encoded).hexdigest()
 
     def to_record(self, *, include_id: bool = True) -> dict[str, object]:
@@ -163,7 +170,9 @@ class HostileFuzzCorpus:
     def write_manifest(self, path: str | Path) -> None:
         destination = Path(path)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(json.dumps(self.to_record(), indent=2) + "\n", encoding="utf-8")
+        destination.write_text(
+            json.dumps(self.to_record(), indent=2, allow_nan=False) + "\n", encoding="utf-8"
+        )
 
 
 @dataclass(frozen=True, slots=True)

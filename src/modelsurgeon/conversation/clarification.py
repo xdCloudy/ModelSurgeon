@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 from .intent import (
     IntentField,
     IntentOutcome,
@@ -268,7 +270,7 @@ class ClarificationState:
     @classmethod
     def from_json(cls, payload: str) -> ClarificationState:
         try:
-            root = _object(json.loads(payload), "clarification state")
+            root = _object(strict_json_loads(payload), "clarification state")
         except json.JSONDecodeError as error:
             raise ClarificationError("clarification state is not valid JSON") from error
         expected = {

@@ -9,6 +9,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from modelsurgeon.json_utils import strict_json_loads
+
 HF_DYNAMIC_INT8_SCHEMA_VERSION = 1
 HF_DYNAMIC_INT8_MANIFEST = "modelsurgeon-quantization.json"
 HF_DYNAMIC_INT8_WEIGHTS = "model.safetensors"
@@ -210,7 +212,8 @@ def publish_huggingface_dynamic_int8(
             "module_names": list(quantized_names),
         }
         (destination / HF_DYNAMIC_INT8_MANIFEST).write_text(
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+            json.dumps(manifest, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            encoding="utf-8",
         )
     except (ImportError, OSError, RuntimeError, ValueError) as error:
         shutil.rmtree(destination, ignore_errors=True)
@@ -235,7 +238,7 @@ def load_huggingface_dynamic_int8(
     if not manifest_path.is_file() or not weights_path.is_file():
         raise HuggingFaceQuantizationError("dynamic-int8 artifact manifest or weights are missing")
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise HuggingFaceQuantizationError("dynamic-int8 artifact manifest is invalid") from error
     if (

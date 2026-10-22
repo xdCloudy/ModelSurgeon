@@ -10,6 +10,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 ARCHITECTURE_LIFECYCLE_SCHEMA_VERSION = 1
 
@@ -473,7 +474,7 @@ class ArchitectureSearchResumeStore:
         if hashlib.sha256(payload.encode()).hexdigest() != digest:
             raise ArchitectureLifecycleError("lifecycle snapshot checksum mismatch")
         try:
-            raw = json.loads(payload)
+            raw = strict_json_loads(payload)
         except json.JSONDecodeError as error:
             raise ArchitectureLifecycleError("lifecycle snapshot JSON is corrupt") from error
         return _snapshot_from_record(raw)

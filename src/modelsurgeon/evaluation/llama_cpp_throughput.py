@@ -24,6 +24,7 @@ from modelsurgeon.evaluation.llama_cpp import (
     _revision_matches,
 )
 from modelsurgeon.evaluation.llama_cpp_perplexity import _sha256_file
+from modelsurgeon.json_utils import strict_json_loads
 
 LLAMA_CPP_THROUGHPUT_SCHEMA_VERSION = 1
 
@@ -77,8 +78,17 @@ class LlamaCppThroughputConfig:
             raise LlamaCppThroughputError("microbatch size cannot exceed batch size")
         if self.gpu_layers < 0:
             raise LlamaCppThroughputError("GPU layer count must be non-negative")
-        if self.timeout_seconds <= 0 or self.sample_interval_seconds <= 0:
-            raise LlamaCppThroughputError("timeout and sample interval must be positive")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or isinstance(self.sample_interval_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not math.isfinite(self.sample_interval_seconds)
+            or self.timeout_seconds <= 0
+            or self.sample_interval_seconds <= 0
+        ):
+            raise LlamaCppThroughputError(
+                "timeout and sample interval must be finite and positive"
+            )
         if self.max_log_bytes <= 0:
             raise LlamaCppThroughputError("maximum log bytes must be positive")
 
@@ -480,7 +490,7 @@ def _parse(
     LlamaCppThroughputPhase,
 ]:
     try:
-        value: object = json.loads(output)
+        value: object = strict_json_loads(output)
     except json.JSONDecodeError as error:
         raise LlamaCppThroughputError("llama-bench stdout is not valid JSON") from error
     if not isinstance(value, list) or len(value) != 2 or any(

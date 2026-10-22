@@ -29,6 +29,7 @@ from modelsurgeon.experiments.schema import (
     VersionContext,
 )
 from modelsurgeon.experiments.store import ExperimentMetadataStore, PersistedExperiment
+from modelsurgeon.json_utils import strict_json_loads
 
 REPRODUCIBILITY_MANIFEST_SCHEMA_VERSION: Literal[2] = 2
 REPRODUCIBILITY_ARTIFACT_ROLE = "reproducibility_manifest"
@@ -420,7 +421,7 @@ def load_reproducibility_manifest(payload: str) -> dict[str, object]:
     """Parse a stored manifest payload for integrity-oriented consumers."""
 
     try:
-        value = json.loads(payload)
+        value = strict_json_loads(payload)
     except json.JSONDecodeError as error:
         raise ReproducibilityError("reproducibility manifest is not valid JSON") from error
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):

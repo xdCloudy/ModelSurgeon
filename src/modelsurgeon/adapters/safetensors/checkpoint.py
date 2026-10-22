@@ -86,7 +86,9 @@ def write_safetensors_checkpoint_atomic(
     torch = __import__("torch")
     planned = _plan_tensors(torch, tensors, max_shard_bytes, max_tensor_bytes)
     try:
-        config_bytes = (json.dumps(configuration, indent=2, sort_keys=True) + "\n").encode()
+        config_bytes = (
+            json.dumps(configuration, indent=2, sort_keys=True, allow_nan=False) + "\n"
+        ).encode()
     except (TypeError, ValueError) as error:
         raise SafetensorsCheckpointError("configuration must be JSON serializable") from error
 
@@ -118,7 +120,7 @@ def write_safetensors_checkpoint_atomic(
                 }
                 _write_fsynced(
                     target.staging_path / "model.safetensors.index.json",
-                    (json.dumps(index, indent=2, sort_keys=True) + "\n").encode(),
+                    (json.dumps(index, indent=2, sort_keys=True, allow_nan=False) + "\n").encode(),
                 )
             _write_fsynced(target.staging_path / "config.json", config_bytes)
             for shard_name in shard_names:

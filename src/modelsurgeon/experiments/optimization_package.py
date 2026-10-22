@@ -39,6 +39,7 @@ from modelsurgeon.experiments.signed_evidence import (
     sign_evidence_bundle,
     verify_evidence_bundle,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 OPTIMIZATION_PACKAGE_SCHEMA_VERSION: Final[int] = 1
 APPROVAL_SCHEMA_VERSION: Final[int] = 1
@@ -930,15 +931,22 @@ def verify_reproducibility_package(
             PackageVerificationStatus.FAILED, None, ("package root is missing",), None
         )
     try:
-        index = _load_index(json.loads((target / "index.json").read_text(encoding="utf-8")))
-        manifest = json.loads((target / "contents" / "manifest.json").read_text(encoding="utf-8"))
+        index_record = strict_json_loads(
+            (target / "index.json").read_text(encoding="utf-8")
+        )
+        index = _load_index(index_record)
+        manifest = strict_json_loads(
+            (target / "contents" / "manifest.json").read_text(encoding="utf-8")
+        )
         if (
             not isinstance(manifest, Mapping)
             or manifest.get("record_type") != "reproducibility_package_manifest"
         ):
             issues.append("package manifest is malformed")
         elif manifest.get("decision_evidence_digest") != _sha256(
-            json.loads((target / "contents" / "decision-evidence.json").read_text(encoding="utf-8"))
+            strict_json_loads(
+                (target / "contents" / "decision-evidence.json").read_text(encoding="utf-8")
+            )
         ):
             issues.append("decision evidence digest does not reconcile")
         evidence = verify_evidence_bundle(target / "contents", index, key_material=key_material)

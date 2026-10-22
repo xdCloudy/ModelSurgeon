@@ -62,6 +62,7 @@ from modelsurgeon.experiments import (
     OptimizationEvidenceStore,
     collect_hardware_inventory,
 )
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.optimization import OptimizePlan
 from modelsurgeon.optimization_orchestrator import (
     OptimizeRuntime,
@@ -97,7 +98,9 @@ class NativeGGUFOptimizeRuntimeError(RuntimeError):
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
 
 
 def _digest_file(path: Path) -> str:
@@ -121,7 +124,10 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
 def _number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise NativeGGUFOptimizeRuntimeError(f"{label} must be numeric")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError as error:
+        raise NativeGGUFOptimizeRuntimeError(f"{label} must be finite") from error
     if not math.isfinite(result):
         raise NativeGGUFOptimizeRuntimeError(f"{label} must be finite")
     return result
@@ -148,7 +154,7 @@ def _path(value: object, label: str) -> Path:
 
 def _json_detail(result: StageResult) -> Mapping[str, object]:
     try:
-        value: object = json.loads(result.detail)
+        value: object = strict_json_loads(result.detail)
     except (TypeError, json.JSONDecodeError):
         return {}
     return value if isinstance(value, Mapping) else {}

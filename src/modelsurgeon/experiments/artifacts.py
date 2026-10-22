@@ -17,6 +17,7 @@ from modelsurgeon.experiments.store import (
     ExperimentMetadataStore,
     StoredArtifactReference,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 ARTIFACT_METADATA_SCHEMA_VERSION: Literal[1] = 1
 ARTIFACT_DIGEST_ALGORITHM = "sha256"
@@ -150,7 +151,7 @@ class ContentAddressedArtifactStore:
 
     def _load_metadata(self, path: Path) -> ArtifactMetadata:
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = strict_json_loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise ArtifactStoreError("artifact metadata is incomplete") from error
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:

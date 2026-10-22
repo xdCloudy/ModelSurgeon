@@ -33,6 +33,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryReport,
     collect_memory_telemetry,
 )
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.surgeon.matrix import (
     ExampleRecord,
     SurgeonMatrix,
@@ -301,7 +302,7 @@ def load_grouped_proof_split(path: Path) -> GroupedSplitManifest:
     """Load the full grouped manifest without flattening leakage-group identity."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise FirstSurgeonEvidenceError(
             "proof split is unreadable or invalid JSON"

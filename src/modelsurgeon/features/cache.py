@@ -20,6 +20,7 @@ from modelsurgeon.features.schema import (
     PrecisionSource,
 )
 from modelsurgeon.graph import ComponentId
+from modelsurgeon.json_utils import strict_json_loads
 
 FEATURE_CACHE_SCHEMA_VERSION: Final[int] = 1
 
@@ -262,7 +263,7 @@ class FeaturePartitionCache:
         if not path.exists():
             return None
         try:
-            raw: Any = json.loads(path.read_text(encoding="utf-8"))
+            raw: Any = strict_json_loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise FeatureCacheError("published feature partition is unreadable") from error
         if not isinstance(raw, dict):

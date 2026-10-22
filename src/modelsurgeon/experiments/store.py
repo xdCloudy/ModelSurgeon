@@ -20,6 +20,7 @@ from modelsurgeon.experiments.identity import (
 from modelsurgeon.experiments.migrations import open_experiment_database
 from modelsurgeon.experiments.runtime_telemetry import StageTelemetrySnapshot
 from modelsurgeon.experiments.schema import ExperimentRecord, MetricObservation
+from modelsurgeon.json_utils import strict_json_loads
 
 
 class ExperimentStoreError(RuntimeError):
@@ -179,14 +180,14 @@ def _json(value: object) -> str:
 
 
 def _json_object(payload: str) -> dict[str, object]:
-    value = json.loads(payload)
+    value = strict_json_loads(payload)
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise ExperimentStoreError("stored JSON object is malformed")
     return cast(dict[str, object], value)
 
 
 def _json_string_tuple(payload: str) -> tuple[str, ...]:
-    value = json.loads(payload)
+    value = strict_json_loads(payload)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ExperimentStoreError("stored component list is malformed")
     return tuple(value)

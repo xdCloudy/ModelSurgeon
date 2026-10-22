@@ -25,6 +25,7 @@ from modelsurgeon.datasets.parquet_store import (
     PartitionPredicate,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.surgeon.matrix import (
     ExampleRecord,
     TrainingMatrices,
@@ -79,7 +80,7 @@ def _payload_record(value: object) -> Mapping[str, object]:
     if not isinstance(payload_json, str):
         raise SurgeonCommandError("dataset payload_json must be a string")
     try:
-        payload = json.loads(payload_json)
+        payload = strict_json_loads(payload_json)
     except json.JSONDecodeError as error:
         raise SurgeonCommandError("dataset payload_json is invalid JSON") from error
     if not isinstance(payload, Mapping):
@@ -105,7 +106,7 @@ def load_surgeon_records(path: Path) -> tuple[Mapping[str, object], ...]:
             if not line.strip():
                 continue
             try:
-                value = json.loads(line)
+                value = strict_json_loads(line)
             except json.JSONDecodeError as error:
                 raise SurgeonCommandError(
                     f"invalid JSONL dataset line {line_number}"
@@ -114,7 +115,7 @@ def load_surgeon_records(path: Path) -> tuple[Mapping[str, object], ...]:
         return tuple(records)
     if path.suffix.lower() == ".json":
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = strict_json_loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as error:
             raise SurgeonCommandError("dataset JSON is invalid") from error
         if isinstance(value, list):
@@ -224,7 +225,7 @@ def load_split_assignments(
     """Load inline assignments or preserve a full serialized grouped split manifest."""
 
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise SurgeonCommandError(
             "split manifest is unreadable or invalid JSON"

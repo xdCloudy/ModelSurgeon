@@ -17,6 +17,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 from .clarification import (
     ClarificationMachine,
     ClarificationQuestion,
@@ -352,7 +354,7 @@ def load_clarification_study(
     try:
         if path.stat().st_size > MAX_CLARIFICATION_STUDY_BYTES:
             raise ClarificationStudyError("clarification study exceeds its byte budget")
-        root = json.loads(path.read_text(encoding="utf-8"))
+        root = strict_json_loads(path.read_text(encoding="utf-8"))
     except ClarificationStudyError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as error:

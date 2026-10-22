@@ -12,6 +12,7 @@ from typing import Protocol, runtime_checkable
 
 from modelsurgeon.evaluation.tiered import TieredEvaluationReport
 from modelsurgeon.graph import ComponentId
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.surgery.contracts import (
     MUTATION_SCHEMA_VERSION,
     MutationKind,
@@ -79,6 +80,7 @@ class SingleMutationExperimentResult:
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
+            allow_nan=False,
         )
 
 
@@ -122,7 +124,7 @@ def parse_mutation_request_json(payload: str) -> MutationRequest:
     """Parse the canonical `MutationRequest.to_record()` JSON representation."""
 
     try:
-        raw = json.loads(payload)
+        raw = strict_json_loads(payload)
     except json.JSONDecodeError as error:
         raise ExperimentCommandError("mutation request is not valid JSON") from error
     if not isinstance(raw, dict) or not all(isinstance(key, str) for key in raw):

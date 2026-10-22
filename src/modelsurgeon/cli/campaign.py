@@ -27,9 +27,9 @@ campaign_app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=F
 
 def _emit(record: dict[str, object], *, output_json: bool) -> None:
     if output_json:
-        typer.echo(json.dumps(record, sort_keys=True))
+        typer.echo(json.dumps(record, sort_keys=True, allow_nan=False))
     else:
-        typer.echo(json.dumps(record, sort_keys=True, indent=2))
+        typer.echo(json.dumps(record, sort_keys=True, indent=2, allow_nan=False))
 
 
 def _run[T](action: Callable[[], T], *, output_json: bool) -> T:

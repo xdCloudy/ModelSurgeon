@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import sqlite3
 from dataclasses import dataclass
 from enum import StrEnum
@@ -11,6 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.constraints import ConstraintEvaluation
 from modelsurgeon.surgery.contracts import MutationTransaction, TransactionState
 
@@ -166,7 +166,7 @@ class CheckpointLineageStore:
         self.close()
 
     def _checkpoint_from_row(self, row: sqlite3.Row) -> AcceptedCheckpoint:
-        evidence = json.loads(str(row["evidence_json"]))
+        evidence = strict_json_loads(str(row["evidence_json"]))
         if not isinstance(evidence, dict):
             raise CheckpointLineageError("stored checkpoint evidence is corrupt")
         return AcceptedCheckpoint(

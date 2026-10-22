@@ -207,7 +207,7 @@ def _display(value: JSONValue) -> str:
     if isinstance(value, float):
         return format(value, ".12g")
     if isinstance(value, (dict, list)):
-        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return str(value)
 
 
@@ -242,7 +242,9 @@ def _html(record: dict[str, JSONValue], source: ReportInput) -> str:
     config = record["resolved_config"]
     hardware = record["hardware"]
     assert isinstance(metrics, dict) and isinstance(config, dict) and isinstance(hardware, dict)
-    embedded = json.dumps(record, sort_keys=True, separators=(",", ":")).replace("<", "\\u003c")
+    embedded = json.dumps(
+        record, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).replace("<", "\\u003c")
     link_records = record["links"]
     assert isinstance(link_records, list)
     links = "".join(
@@ -310,7 +312,7 @@ def generate_report(source: ReportInput) -> GeneratedReport:
     redacted = _redact(raw, source.redaction)
     assert isinstance(redacted, dict)
     record = redacted
-    json_text = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+    json_text = json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
     html_text = _html(record, source)
     return GeneratedReport(
         record,

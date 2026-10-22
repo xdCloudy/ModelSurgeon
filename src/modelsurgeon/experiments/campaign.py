@@ -51,6 +51,7 @@ from modelsurgeon.experiments.state_machine import (
     ExperimentStateMachine,
 )
 from modelsurgeon.experiments.store import ExperimentMetadataStore, ExperimentStoreError
+from modelsurgeon.json_utils import strict_json_loads
 
 CAMPAIGN_RUNNER_VERSION = "1"
 _CAMPAIGN_MUTATION_ID = "__campaign__"
@@ -256,7 +257,7 @@ def _object(value: object, label: str) -> dict[str, object]:
 
 def _json_object(payload: str, label: str) -> dict[str, object]:
     try:
-        value = json.loads(payload)
+        value = strict_json_loads(payload)
     except json.JSONDecodeError as error:
         raise CampaignError(f"stored {label} JSON is malformed") from error
     return _object(value, label)

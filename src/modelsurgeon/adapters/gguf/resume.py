@@ -21,6 +21,7 @@ from modelsurgeon.adapters.gguf.writer import (
     GGUFWriteTensor,
     plan_gguf_output,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 GGUF_RESUME_SCHEMA_VERSION: Literal[1] = 1
 
@@ -136,7 +137,7 @@ def _hash_prefix(path: Path, byte_count: int) -> hashlib._Hash:
 
 def _commit(path: Path, temporary: Path, manifest: GGUFResumeManifest) -> None:
     payload = json.dumps(
-        manifest.to_record(), sort_keys=True, separators=(",", ":")
+        manifest.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
     with temporary.open("wb") as stream:
         stream.write(payload)
@@ -226,7 +227,7 @@ def write_gguf_resumably(
         _commit(manifest_path, temporary, manifest)
     else:
         try:
-            manifest = _manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
+            manifest = _manifest(strict_json_loads(manifest_path.read_text(encoding="utf-8")))
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise GGUFResumeError("resume manifest cannot be read") from error
         if manifest.input_sha256 != input_sha256 or manifest.plan_sha256 != plan_sha256:

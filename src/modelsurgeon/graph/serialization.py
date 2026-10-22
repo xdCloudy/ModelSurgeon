@@ -20,6 +20,7 @@ from modelsurgeon.graph.schema import (
     GraphPrimitive,
     MutationConstraint,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 GRAPH_ARTIFACT_SCHEMA_VERSION: Literal[1] = 1
 
@@ -75,6 +76,7 @@ class PersistedComponentGraph:
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
+            allow_nan=False,
         )
 
 
@@ -189,7 +191,7 @@ def dump_component_graph(graph: ComponentGraph, provenance: GraphProvenance) -> 
 def load_component_graph(serialized: str | bytes) -> PersistedComponentGraph:
     """Strictly reload one canonical graph artifact and reject unknown schemas."""
     try:
-        raw = json.loads(serialized)
+        raw = strict_json_loads(serialized)
     except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise GraphSerializationError("graph artifact is not valid UTF-8 JSON") from exc
     root = _mapping(raw, "artifact")

@@ -56,7 +56,10 @@ class CalibrationManifest:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.with_name(f".{target.name}.tmp")
-        payload = json.dumps(self.to_record(), sort_keys=True, separators=(",", ":")) + "\n"
+        payload = (
+            json.dumps(self.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+            + "\n"
+        )
         temporary.write_text(payload, encoding="utf-8")
         temporary.replace(target)
 

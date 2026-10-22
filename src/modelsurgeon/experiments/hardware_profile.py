@@ -139,7 +139,11 @@ class ProbeSpec:
     def __post_init__(self) -> None:
         _text(self.name, "probe name")
         _text(self.unit, "probe unit")
-        if self.max_seconds <= 0:
+        if (
+            isinstance(self.max_seconds, bool)
+            or not math.isfinite(self.max_seconds)
+            or self.max_seconds <= 0
+        ):
             raise HardwareProfileError("probe time budget must be positive")
 
     def to_record(self) -> dict[str, object]:

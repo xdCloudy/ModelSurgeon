@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,7 +72,9 @@ class ChatSessionError(ValueError):
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
 
 
 def _digest(value: object) -> str:
@@ -308,7 +311,11 @@ def bootstrap_chat_session(
         raise ChatSessionError("budget", "max input tokens must be positive")
     if isinstance(max_output_tokens, bool) or max_output_tokens <= 0:
         raise ChatSessionError("budget", "max output tokens must be positive")
-    if isinstance(max_wall_seconds, bool) or max_wall_seconds <= 0:
+    if (
+        isinstance(max_wall_seconds, bool)
+        or not math.isfinite(max_wall_seconds)
+        or max_wall_seconds <= 0
+    ):
         raise ChatSessionError("budget", "max wall seconds must be positive")
     inspection_factory = hardware_profile_factory or build_default_hardware_profile
     inspection: ChatInspectionContext

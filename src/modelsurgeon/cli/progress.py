@@ -44,6 +44,7 @@ def _run(operation: Callable[[], object], output_json: bool) -> None:
                 json.dumps(
                     {"record_type": "error", "category": "progress", "message": str(error)},
                     sort_keys=True,
+                    allow_nan=False,
                 ),
                 err=True,
             )
@@ -52,7 +53,7 @@ def _run(operation: Callable[[], object], output_json: bool) -> None:
         raise typer.Exit(2) from error
     record = value.to_record() if hasattr(value, "to_record") else value
     separators = (",", ":") if output_json else (", ", ": ")
-    typer.echo(json.dumps(record, sort_keys=True, separators=separators))
+    typer.echo(json.dumps(record, sort_keys=True, separators=separators, allow_nan=False))
 
 
 @progress_app.command("init")

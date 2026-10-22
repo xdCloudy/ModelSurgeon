@@ -62,7 +62,13 @@ class MeasurableTargetError(ValueError):
 
 def _canonical(value: object) -> str:
     try:
-        return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
     except (TypeError, ValueError) as error:
         raise MeasurableTargetError("target assessment is not canonical JSON") from error
 

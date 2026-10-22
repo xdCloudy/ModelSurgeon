@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import signal
 import subprocess
@@ -66,7 +67,13 @@ class FaultScenario:
     owned_staging_prefix: str = ".modelsurgeon."
 
     def __post_init__(self) -> None:
-        if self.seed < 0 or self.grace_seconds <= 0 or self.max_log_bytes <= 0:
+        if (
+            self.seed < 0
+            or isinstance(self.grace_seconds, bool)
+            or not math.isfinite(self.grace_seconds)
+            or self.grace_seconds <= 0
+            or self.max_log_bytes <= 0
+        ):
             raise ResilienceError("fault scenario limits must be positive")
         if (
             not self.owned_staging_prefix
@@ -82,7 +89,8 @@ class FaultScenario:
             "point": self.point.value,
             "action": FAULT_RECOVERY_ACTIONS[self.point],
         }
-        return "fault_" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        encoded = json.dumps(payload, sort_keys=True, allow_nan=False).encode()
+        return "fault_" + hashlib.sha256(encoded).hexdigest()
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -179,8 +187,16 @@ def bounded_subprocess(
     """Run an argument-array child and terminate its process tree on timeout."""
     if not command or any(not isinstance(value, str) or not value for value in command):
         raise ResilienceError("subprocess command must contain non-empty argument strings")
-    if timeout_seconds <= 0 or grace_seconds <= 0 or max_log_bytes <= 0:
-        raise ResilienceError("subprocess bounds must be positive")
+    if (
+        isinstance(timeout_seconds, bool)
+        or isinstance(grace_seconds, bool)
+        or not math.isfinite(timeout_seconds)
+        or not math.isfinite(grace_seconds)
+        or timeout_seconds <= 0
+        or grace_seconds <= 0
+        or max_log_bytes <= 0
+    ):
+        raise ResilienceError("subprocess time bounds must be finite and all bounds positive")
     started = time.perf_counter()
     process_group_flag = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     process = subprocess.Popen(

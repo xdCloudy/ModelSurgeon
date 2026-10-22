@@ -8,6 +8,7 @@ session, a filesystem handle, or a generic tool callback.
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import threading
 from collections.abc import Iterator, Mapping
@@ -166,7 +167,11 @@ class ProviderLimits:
         )
         if any(isinstance(value, bool) or value <= 0 for value in integer_values):
             raise ProviderContractError("provider limits must be positive integers")
-        if isinstance(self.max_wall_seconds, bool) or self.max_wall_seconds <= 0:
+        if (
+            isinstance(self.max_wall_seconds, bool)
+            or not math.isfinite(self.max_wall_seconds)
+            or self.max_wall_seconds <= 0
+        ):
             raise ProviderContractError("provider maximum wall time must be positive")
         if self.max_input_tokens + self.max_output_tokens > self.max_context_tokens:
             raise ProviderContractError(
@@ -254,7 +259,11 @@ class ProviderBudget:
     max_memory_bytes: int | None = None
 
     def __post_init__(self) -> None:
-        if isinstance(self.max_wall_seconds, bool) or self.max_wall_seconds <= 0:
+        if (
+            isinstance(self.max_wall_seconds, bool)
+            or not math.isfinite(self.max_wall_seconds)
+            or self.max_wall_seconds <= 0
+        ):
             raise ProviderContractError("request wall-time budget must be positive")
         for name, value in (
             ("max_input_tokens", self.max_input_tokens),

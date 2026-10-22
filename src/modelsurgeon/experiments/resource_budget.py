@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import shutil
 import time
 from collections.abc import Callable
@@ -49,7 +50,11 @@ class StageResourceBudget:
         ):
             if value is not None and (isinstance(value, bool) or value <= 0):
                 raise ResourceBudgetError(f"{name} must be positive when set")
-        if self.max_runtime_seconds is not None and self.max_runtime_seconds <= 0:
+        if self.max_runtime_seconds is not None and (
+            isinstance(self.max_runtime_seconds, bool)
+            or not math.isfinite(self.max_runtime_seconds)
+            or self.max_runtime_seconds <= 0
+        ):
             raise ResourceBudgetError("max_runtime_seconds must be positive when set")
 
 
@@ -68,7 +73,11 @@ class StageResourceEstimate:
         ):
             if isinstance(value, bool) or value < 0:
                 raise ResourceBudgetError(f"{name} must be non-negative")
-        if self.runtime_seconds is not None and self.runtime_seconds < 0:
+        if self.runtime_seconds is not None and (
+            isinstance(self.runtime_seconds, bool)
+            or not math.isfinite(self.runtime_seconds)
+            or self.runtime_seconds < 0
+        ):
             raise ResourceBudgetError("runtime_seconds must be non-negative when known")
 
 
@@ -83,7 +92,11 @@ class ResourceSnapshot:
         for value in (self.rss_bytes, self.vram_bytes):
             if value is not None and value < 0:
                 raise ResourceBudgetError("resource snapshot memory values cannot be negative")
-        if self.disk_free_bytes < 0 or self.monotonic_seconds < 0:
+        if (
+            self.disk_free_bytes < 0
+            or not math.isfinite(self.monotonic_seconds)
+            or self.monotonic_seconds < 0
+        ):
             raise ResourceBudgetError("resource snapshot disk/time values cannot be negative")
 
 
