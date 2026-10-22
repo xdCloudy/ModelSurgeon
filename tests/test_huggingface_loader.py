@@ -11,6 +11,7 @@ import pytest
 from modelsurgeon.adapters.huggingface import (
     HuggingFaceDType,
     HuggingFaceLoadRequest,
+    HuggingFaceModelError,
     load_causal_lm,
     loader,
 )
@@ -127,6 +128,33 @@ def test_unpinned_remote_revision_is_resolved_before_loading() -> None:
     result = load_causal_lm(HuggingFaceLoadRequest(model="org/model"))
 
     assert result.provenance.resolved_revision == "b" * 40
+
+
+def test_local_checkpoint_rejects_traversal_before_model_loading(tmp_path: Path) -> None:
+    model_root = tmp_path / "local-model"
+    model_root.mkdir()
+    (model_root / "model.safetensors.index.json").write_text(
+        '{"weight_map":{"weight":"../outside.safetensors"}}', encoding="utf-8"
+    )
+
+    with pytest.raises(HuggingFaceModelError, match="escapes"):
+        load_causal_lm(HuggingFaceLoadRequest(model=str(model_root)))
+
+    assert FakeAutoModel.calls == []
+
+
+def test_local_checkpoint_index_size_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_root = tmp_path / "local-model"
+    model_root.mkdir()
+    (model_root / "model.safetensors.index.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(loader, "MAX_CHECKPOINT_INDEX_BYTES", 1)
+
+    with pytest.raises(HuggingFaceModelError, match="exceeds"):
+        load_causal_lm(HuggingFaceLoadRequest(model=str(model_root)))
+
+    assert FakeAutoModel.calls == []
 
 
 @pytest.mark.parametrize(
