@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +117,33 @@ def cheap_candidate_features(candidate: MutationCandidate) -> CheapCandidateFeat
     )
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    return path.is_symlink() or path.is_junction()
+
+
+def _open_candidate_pool_output(path: Path, *, append: bool) -> Any:
+    if _is_symlink_or_junction(path):
+        raise CandidatePoolError("candidate pool files cannot be symbolic links or junctions")
+    flags = os.O_WRONLY | getattr(os, "O_BINARY", 0)
+    if append:
+        flags |= os.O_APPEND
+    else:
+        flags |= os.O_CREAT | os.O_EXCL
+    if os.name == "posix":
+        flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags, 0o666)
+    except OSError as error:
+        raise CandidatePoolError(f"cannot open candidate pool output: {error}") from error
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode) or _is_symlink_or_junction(path):
+            raise CandidatePoolError("candidate pool output is not a regular file")
+        return os.fdopen(descriptor, "ab" if append else "wb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def write_candidate_pool(
     candidates: Sequence[MutationCandidate],
     output: Path,
@@ -137,11 +165,12 @@ def write_candidate_pool(
         raise CandidatePoolError("candidate pool input IDs must be unique")
     output.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = output.with_suffix(output.suffix + ".manifest.json")
+    if _is_symlink_or_junction(output) or _is_symlink_or_junction(checkpoint):
+        raise CandidatePoolError("candidate pool files cannot be symbolic links or junctions")
     existing_count, digest = _validate_resume(output, checkpoint, selected, provenance)
     remaining = requested - existing_count
     to_write = remaining if max_new_candidates is None else min(remaining, max_new_candidates)
-    mode = "ab" if existing_count else "wb"
-    with output.open(mode) as stream:
+    with _open_candidate_pool_output(output, append=bool(existing_count) or output.exists()) as stream:
         for candidate in selected[existing_count : existing_count + to_write]:
             payload = _candidate_record(candidate, provenance)
             encoded = (canonical_identity_json(payload) + "\n").encode("utf-8")
