@@ -75,8 +75,14 @@ class CodeExactMatchDataset:
             raise TaskQualityEvaluationError(f"task-quality dataset does not exist: {resolved}")
         if not split.strip():
             raise TaskQualityEvaluationError("task-quality dataset split cannot be blank")
-        if max_samples is not None and max_samples <= 0:
-            raise TaskQualityEvaluationError("task-quality max_samples must be positive")
+        if max_samples is not None and (
+            not isinstance(max_samples, int)
+            or isinstance(max_samples, bool)
+            or max_samples <= 0
+        ):
+            raise TaskQualityEvaluationError(
+                "task-quality max_samples must be a positive integer"
+            )
         digest = hashlib.sha256()
         examples: list[CodeExactMatchExample] = []
         seen: set[str] = set()
