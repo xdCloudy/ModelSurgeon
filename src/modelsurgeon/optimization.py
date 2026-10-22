@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -20,6 +18,7 @@ from typing import TYPE_CHECKING
 from modelsurgeon.adapters import ModelFormat
 from modelsurgeon.config import Settings
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 if TYPE_CHECKING:
     from modelsurgeon.optimization_orchestrator import OptimizeRun
@@ -624,27 +623,12 @@ def write_optimize_artifact(
 ) -> None:
     """Atomically persist a JSON artifact, refusing concurrent clobbers by default."""
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.partial")
-    temporary_created = False
     try:
-        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
-            temporary_created = True
-            stream.write(contents)
-            stream.flush()
-            os.fsync(stream.fileno())
-        if allow_overwrite:
-            os.replace(temporary, path)
-        else:
-            try:
-                os.link(temporary, path)
-            except FileExistsError as error:
-                raise OptimizePlanError(
-                    f"refusing to overwrite existing {artifact_kind} artifact: {path}"
-                ) from error
-    finally:
-        if temporary_created:
-            temporary.unlink(missing_ok=True)
+        atomic_write_text(path, contents, replace_existing=allow_overwrite)
+    except FileExistsError as error:
+        raise OptimizePlanError(
+            f"refusing to overwrite existing {artifact_kind} artifact: {path}"
+        ) from error
 
 
 def write_optimize_plan(path: Path, plan: OptimizePlan, *, allow_overwrite: bool = False) -> None:

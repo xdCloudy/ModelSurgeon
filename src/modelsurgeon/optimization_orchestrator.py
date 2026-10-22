@@ -913,10 +913,7 @@ class OptimizeOrchestrator:
             and item.plan_digest == current_plan_digest
             and (item.active or item.code in fresh_codes)
         }
-        missing = sorted(
-            required
-            - active_codes
-        )
+        missing = sorted(required - active_codes)
         if missing:
             return replace(
                 run,

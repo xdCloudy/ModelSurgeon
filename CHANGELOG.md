@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-  - Made optimize plan, completed-run, and resume-state JSON writes atomic.
-    The shared writer stages and flushes output beside its destination, creates
-    missing parent directories, and preserves no-overwrite behavior even when
-    writers race.
+  - Added a shared atomic text-file publisher and used it for optimize plans,
+    completed runs, resume state, and signed-evidence indexes. It stages and
+    flushes output beside its destination, creates missing parent directories,
+    and preserves no-overwrite behavior even when writers race.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
