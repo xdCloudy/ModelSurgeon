@@ -110,7 +110,7 @@ def _artifact_from_record(raw: object) -> BaselineArtifact:
             int(raw["token_count"]),
             metrics,
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise BaselineCacheError("baseline artifact fields are invalid") from error
 
 
@@ -130,7 +130,11 @@ def _key_from_record(raw: object) -> BaselineCacheKey:
 
 class BaselineCache:
     def __init__(self, root: str | Path, *, max_serialized_bytes: int = 256 * 1024 * 1024) -> None:
-        if max_serialized_bytes <= 0:
+        if (
+            isinstance(max_serialized_bytes, bool)
+            or not isinstance(max_serialized_bytes, int)
+            or max_serialized_bytes <= 0
+        ):
             raise BaselineCacheError("baseline cache byte budget must be positive")
         self.root = Path(root)
         self.max_serialized_bytes = max_serialized_bytes
@@ -143,8 +147,17 @@ class BaselineCache:
         if not path.exists():
             return None
         try:
-            raw: Any = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
+            with path.open("rb") as stream:
+                encoded = stream.read(self.max_serialized_bytes + 1)
+        except OSError as error:
+            raise BaselineCacheError("published baseline cache entry is unreadable") from error
+        if len(encoded) > self.max_serialized_bytes:
+            raise BaselineCacheError(
+                f"published baseline cache entry exceeds byte budget {self.max_serialized_bytes}"
+            )
+        try:
+            raw: Any = json.loads(encoded.decode("utf-8"))
+        except (RecursionError, UnicodeDecodeError, ValueError) as error:
             raise BaselineCacheError("published baseline cache entry is unreadable") from error
         if not isinstance(raw, dict) or raw.get("version") != BASELINE_CACHE_VERSION:
             raise BaselineCacheError("published baseline cache schema is unsupported")
@@ -152,7 +165,10 @@ class BaselineCache:
         if embedded != key:
             raise BaselineCacheError("published baseline cache key does not match lookup key")
         artifact_raw = raw.get("artifact")
-        checksum = hashlib.sha256(_canonical_bytes(artifact_raw)).hexdigest()
+        try:
+            checksum = hashlib.sha256(_canonical_bytes(artifact_raw)).hexdigest()
+        except (RecursionError, TypeError, ValueError) as error:
+            raise BaselineCacheError("published baseline artifact is malformed") from error
         if raw.get("artifact_sha256") != checksum:
             raise BaselineCacheError("published baseline artifact checksum mismatch")
         return _artifact_from_record(artifact_raw)
