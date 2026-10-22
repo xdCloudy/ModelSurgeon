@@ -60,6 +60,8 @@ def _example(
     *,
     kind: MutationKind = MutationKind.MASK,
     parameters: tuple[tuple[str, str | int | float | bool | None], ...] = (),
+    model_identifier: str = "tiny/model",
+    model_revision: str = "model-rev",
 ) -> MutationExampleRecord:
     ids = tuple(sorted(ComponentId.parse(value) for value in components))
     request = MutationRequest(kind, ids, parameters)
@@ -67,13 +69,13 @@ def _example(
     plan = MutationPlan(request, ids, (), delta)
     mutation = MutationRunRecord(
         plan,
-        MutationProvenance("model-rev", "tool-rev"),
+        MutationProvenance(model_revision, "tool-rev"),
         MutationOutcome(MutationOutcomeStatus.ROLLED_BACK, delta),
     )
     return MutationExampleRecord(
         example_id,
         "experiment-1",
-        ModelTarget("tiny/model", "model-rev", "llama", "safetensors"),
+        ModelTarget(model_identifier, model_revision, "llama", "safetensors"),
         DatasetTarget(
             "tiny-data",
             "data-rev",
@@ -126,6 +128,32 @@ def test_component_overlap_forms_transitive_indivisible_group() -> None:
         "component:model.layers.2.d",
     )
     assert sum(manifest.group_counts.values()) == 2
+
+
+def test_model_identity_grouping_keeps_revisions_indivisible() -> None:
+    examples = (
+        _example("e1", ("model.layers.0.mlp.up_proj",), model_identifier="model/a"),
+        _example("e2", ("model.layers.1.mlp.up_proj",), model_identifier="model/a"),
+        _example(
+            "e3",
+            ("model.layers.0.mlp.up_proj",),
+            model_identifier="model/a",
+            model_revision="rev-2",
+        ),
+        _example("e4", ("model.layers.0.mlp.up_proj",), model_identifier="model/b"),
+    )
+
+    manifest = create_grouped_split(
+        examples,
+        GroupedSplitConfig(GroupedSplitMode.MODEL_IDENTITY, seed=17),
+    )
+
+    partitions = _partition_map(manifest)
+    assert partitions["e1"] is partitions["e2"]
+    assert partitions["e1"] is not partitions["e3"]
+    assert partitions["e1"] is not partitions["e4"]
+    assert len(manifest.groups) == 3
+    assert all(group.keys[0].startswith("model_identity:") for group in manifest.groups)
 
 
 def test_layer_grouping_keeps_shared_and_transitively_bridged_layers_together() -> None:

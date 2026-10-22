@@ -15,6 +15,10 @@ from tools.prepare_real_surgeon_transfer import (
     main,
 )
 
+from modelsurgeon.cli.proof_evidence import load_grouped_proof_split
+from modelsurgeon.cli.surgeon import load_surgeon_records
+from modelsurgeon.datasets.grouped_splits import GroupedSplitMode, SplitPartition
+
 
 def _observation() -> dict[str, Any]:
     return {
@@ -164,22 +168,43 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
     root = tmp_path / "evidence"
     observations = root / "campaign" / "optimization-evidence" / "observations"
     observations.mkdir(parents=True)
-    (observations / "observation.json").write_text(
-        json.dumps(_observation()),
-        encoding="utf-8",
+    models = (
+        ("observation-train", "model/train", "train-rev"),
+        ("observation-validation", "model/validation", "validation-rev"),
+        ("observation-test", "model/test", "test-rev"),
     )
+    for observation_id, model_identifier, model_revision in models:
+        observation = _observation()
+        observation["observation_id"] = observation_id
+        observation["model"]["identifier"] = model_identifier
+        observation["model"]["revision"] = model_revision
+        (observations / f"{observation_id}.json").write_text(
+            json.dumps(observation),
+            encoding="utf-8",
+        )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         sys,
         "argv",
-        ["prepare_real_surgeon_transfer", "--root", str(root), "--output", "transfer"],
+        [
+            "prepare_real_surgeon_transfer",
+            "--root",
+            str(root),
+            "--output",
+            "transfer",
+            "--validation-model",
+            "model/validation@validation-rev",
+            "--test-model",
+            "model/test@test-rev",
+        ],
     )
 
     assert main() == 0
 
     manifest = json.loads(Path("transfer/manifest.json").read_text(encoding="utf-8"))
-    split = json.loads(Path("transfer/split.json").read_text(encoding="utf-8"))
-    assert manifest["example_count"] == 1
+    records = load_surgeon_records(Path("transfer/examples.jsonl"))
+    split = load_grouped_proof_split(Path("transfer/split.json"))
+    assert manifest["example_count"] == 3
     assert manifest["schema_version"] == 2
     assert manifest["dataset"] == str(Path("transfer") / "examples.jsonl")
     for artifact_name in ("examples.jsonl", "split.json"):
@@ -187,4 +212,12 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
         integrity = manifest["artifacts"][artifact_name]
         assert integrity["sha256"] == f"sha256:{hashlib.sha256(artifact_bytes).hexdigest()}"
         assert integrity["size_bytes"] == len(artifact_bytes)
-    assert split["assignments"] == {"observation-1": "train"}
+    assert split.mode is GroupedSplitMode.MODEL_IDENTITY
+    assert split.partition_for("observation-train") is SplitPartition.TRAIN
+    assert split.partition_for("observation-validation") is SplitPartition.VALIDATION
+    assert split.partition_for("observation-test") is SplitPartition.TEST
+    assert {record["example_id"] for record in records} == {
+        "observation-train",
+        "observation-validation",
+        "observation-test",
+    }

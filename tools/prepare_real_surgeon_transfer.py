@@ -18,6 +18,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from modelsurgeon.datasets.grouped_splits import (
+    GroupedSplitManifest,
+    GroupedSplitMode,
+    SplitGroup,
+    SplitPartition,
+    SplitRatios,
+)
+
 
 def _number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -227,29 +235,55 @@ def main() -> int:
     if unknown:
         raise SystemExit(f"requested split model identities were not observed: {sorted(unknown)}")
 
-    assignments: dict[str, str] = {}
     split_counts: Counter[str] = Counter()
     model_partitions: dict[str, str] = {}
+    split_groups: list[SplitGroup] = []
     for model_key in sorted(grouped):
         if model_key in test_models:
-            partition = "test"
+            partition = SplitPartition.TEST
         elif model_key in validation_models:
-            partition = "validation"
+            partition = SplitPartition.VALIDATION
         else:
-            partition = "train"
-        model_partitions[model_key] = partition
-        for example in grouped[model_key]:
-            example_id = str(example["example_id"])
-            assignments[example_id] = partition
-            split_counts[partition] += 1
+            partition = SplitPartition.TRAIN
+        model_partitions[model_key] = partition.value
+        example_ids = tuple(sorted(str(example["example_id"]) for example in grouped[model_key]))
+        group_key = f"model_identity:{model_key}"
+        group_digest = hashlib.sha256(model_key.encode("utf-8")).hexdigest()
+        split_groups.append(
+            SplitGroup(
+                f"group_{group_digest}",
+                partition,
+                (group_key,),
+                example_ids,
+            )
+        )
+        split_counts[partition.value] += len(example_ids)
+
+    missing_partitions = [
+        partition.value
+        for partition in SplitPartition
+        if split_counts[partition.value] == 0
+    ]
+    if missing_partitions:
+        raise SystemExit(
+            "model-identity transfer split must populate train, validation, and test; "
+            f"missing {missing_partitions}"
+        )
+    total_examples = sum(split_counts.values())
+    split_ratios = SplitRatios(
+        split_counts[SplitPartition.TRAIN.value] / total_examples,
+        split_counts[SplitPartition.VALIDATION.value] / total_examples,
+        split_counts[SplitPartition.TEST.value] / total_examples,
+    )
+    split_manifest = GroupedSplitManifest(
+        GroupedSplitMode.MODEL_IDENTITY,
+        0,
+        split_ratios,
+        tuple(sorted(split_groups, key=lambda group: group.group_id)),
+    )
 
     output = args.output
-    split_record = {
-        "version": "model-identity-transfer-v1",
-        "mode": "model_identity",
-        "assignments": assignments,
-        "model_partitions": model_partitions,
-    }
+    split_record = split_manifest.to_record()
     manifest_record = {
         "record_type": "real_surgeon_transfer_dataset",
         "schema_version": 2,
