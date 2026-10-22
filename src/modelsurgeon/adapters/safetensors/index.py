@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 _MAX_HEADER_BYTES = 100 * 1024 * 1024
+_MAX_SHARD_INDEX_BYTES = 100 * 1024 * 1024
 _DTYPE_BYTES = {
     "BOOL": 1,
     "U8": 1,
@@ -150,8 +151,17 @@ def inspect_safetensors_file(path: Path) -> tuple[SafetensorEntry, ...]:
 
 def _load_shard_index(path: Path) -> dict[str, str]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        with path.open("rb") as stream:
+            encoded = stream.read(_MAX_SHARD_INDEX_BYTES + 1)
+    except OSError as exc:
+        raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
+    if len(encoded) > _MAX_SHARD_INDEX_BYTES:
+        raise SafetensorsIndexError(
+            f"safetensors shard index exceeds {_MAX_SHARD_INDEX_BYTES} bytes: {path}"
+        )
+    try:
+        value = json.loads(encoded.decode("utf-8"))
+    except (RecursionError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
     if not isinstance(value, Mapping) or not isinstance(value.get("weight_map"), Mapping):
         raise SafetensorsIndexError(f"{path} must contain a weight_map object")
