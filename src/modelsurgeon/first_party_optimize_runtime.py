@@ -3192,7 +3192,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     lineage={
                         "sequence_id": sequence.sequence_id,
                         "failed_index": failed_index,
+                        "parent_outcome_id": sequence.stages[-1].outcome.outcome_id,
                     },
+                    artifact=sequence.failed_artifact,
                 )
             )
         return tuple(references)
