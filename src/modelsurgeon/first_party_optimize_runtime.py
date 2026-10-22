@@ -869,10 +869,18 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             }
             return ()
 
+        prediction_proba: Callable[..., Any] | None = None
+        candidate_predict_proba = getattr(bundle.model, "predict_proba", None)
+        if bundle.card.target_name == "safe_mutation" and callable(candidate_predict_proba):
+            prediction_proba = candidate_predict_proba
         predictions: dict[str, float] = {}
         for candidate, row in inference_rows:
             try:
-                predicted = bundle.model.predict((row,))
+                predicted = (
+                    prediction_proba((row,))
+                    if prediction_proba is not None
+                    else bundle.model.predict((row,))
+                )
             except Exception as error:
                 raise FirstPartyOptimizeRuntimeError(
                     f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
@@ -923,6 +931,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "card_digest": card_digest,
             "bundle_digest": card.bundle_digest,
             "target": bundle.card.target_name,
+            "prediction_method": "predict_proba" if prediction_proba is not None else "predict",
             "direction": "higher_is_better" if higher_is_better else "lower_is_better",
             "predictions": dict(sorted(predictions.items())),
             "ordered_candidates": list(ordered),

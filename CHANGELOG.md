@@ -9,7 +9,9 @@
     outside source support or fail a signed coverage threshold, records the
     reason, and falls back to unguided physical search. It also abstains on
     malformed, target-incompatible, or non-finite model scores; boolean scores
-    remain valid for the binary `safe_mutation` target.
+    remain a fallback for the binary `safe_mutation` target, which now uses
+    probabilities when the model exposes them so candidate ranking retains
+    confidence information.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
