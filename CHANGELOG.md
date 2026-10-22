@@ -4,7 +4,8 @@
 
   - Preflight Hugging Face sharded checkpoint indexes before model loading.
     Reject absolute, escaping, symlinked-directory, malformed, and non-regular
-    shard paths, and pin Hub model loads to the snapshot inspected by preflight.
+    shard paths, restrict Hub symlinks to the selected snapshot's blob store,
+    and pin model loads to the snapshot inspected by preflight.
     The standalone Safetensors metadata inspector now validates index and shard
     containment before opening headers, bounds index reads to 100 MiB, and
     allows Hub blob symlinks.

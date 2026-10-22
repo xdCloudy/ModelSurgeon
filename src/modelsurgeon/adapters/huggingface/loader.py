@@ -149,10 +149,16 @@ def _validate_shard_index(
     resolved_root = checkpoint_root.resolve()
     if hub_snapshot:
         # Hub snapshots symlink files into the repository's blobs directory.
-        # Keep those targets within this model's cache directory.
+        # Allow files in this snapshot or its blobs, not sibling snapshots.
         cache_root = checkpoint_root.parent.parent.resolve()
-        if not _inside(index_path.resolve(), cache_root):
-            raise HuggingFaceModelError("Hub checkpoint index escapes its model cache")
+        blobs_root = (cache_root / "blobs").resolve()
+        resolved_index = index_path.resolve()
+        if not (
+            _inside(resolved_index, resolved_root) or _inside(resolved_index, blobs_root)
+        ):
+            raise HuggingFaceModelError(
+                "Hub checkpoint index escapes its snapshot or model blob cache"
+            )
     else:
         if not _inside(index_path.resolve(), resolved_root):
             raise HuggingFaceModelError("checkpoint index escapes its model directory")
@@ -208,9 +214,13 @@ def _validate_shard_index(
                         f"checkpoint shard path escapes its snapshot: {shard_name!r}"
                     )
                 parent = parent.parent
-            if not _inside(shard_path.resolve(), cache_root):
+            resolved_shard = shard_path.resolve()
+            if not (
+                _inside(resolved_shard, resolved_root) or _inside(resolved_shard, blobs_root)
+            ):
                 raise HuggingFaceModelError(
-                    f"checkpoint shard target escapes its model cache: {shard_name!r}"
+                    "checkpoint shard target escapes its snapshot or model blob cache: "
+                    f"{shard_name!r}"
                 )
         else:
             resolved_shard = shard_path.resolve()
