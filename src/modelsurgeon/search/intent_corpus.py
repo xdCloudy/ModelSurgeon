@@ -262,12 +262,14 @@ def load_intent_corpus(path: Path) -> IntentCorpus:
     """Load and strictly validate a bounded JSON corpus."""
 
     try:
-        if path.stat().st_size > MAX_INTENT_CORPUS_BYTES:
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_INTENT_CORPUS_BYTES + 1)
+        if len(payload) > MAX_INTENT_CORPUS_BYTES:
             raise IntentCorpusError("intent corpus exceeds the byte budget")
-        root = json.loads(path.read_text(encoding="utf-8"))
+        root = json.loads(payload.decode("utf-8"))
     except IntentCorpusError:
         raise
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as error:
         raise IntentCorpusError("intent corpus is not valid UTF-8 JSON") from error
     return _corpus(root)
 
@@ -295,9 +297,7 @@ def run_intent_corpus(
             raise IntentCorpusError(f"compiler implementation {name!r} is not callable")
 
     results = tuple(
-        _run_case(name, selected[name], case)
-        for name in names
-        for case in corpus.cases
+        _run_case(name, selected[name], case) for name in names for case in corpus.cases
     )
     return IntentCorpusRun(corpus.corpus_id, corpus.corpus_revision, names, results)
 
