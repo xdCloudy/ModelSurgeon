@@ -609,8 +609,18 @@ class LocalArtifactRegistry:
                     or payload_digest.hexdigest() != artifact.digest.removeprefix("sha256:")
                 ):
                     raise RegistryError("artifact content changed while exporting registry bundle")
-            os.replace(temporary_path, destination_path)
-            temporary_path = None
+            if allow_overwrite:
+                os.replace(temporary_path, destination_path)
+                temporary_path = None
+            else:
+                try:
+                    os.link(temporary_path, destination_path)
+                except FileExistsError as error:
+                    raise RegistryError(
+                        f"refusing to overwrite export bundle: {destination}"
+                    ) from error
+                temporary_path.unlink()
+                temporary_path = None
         finally:
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
