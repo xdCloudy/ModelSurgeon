@@ -30,6 +30,7 @@ from modelsurgeon.cli.experiment import ResolvedExperiment, SingleMutationExperi
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
     evaluate_code_exact_match,
+    validate_task_quality_generation_budget,
 )
 from modelsurgeon.evaluation.tiered import (
     EscalationAction,
@@ -161,8 +162,13 @@ class HuggingFaceMLPProofConfig:
             )
         if not self.task_quality_split.strip():
             raise HuggingFaceMLPProofError("task-quality split cannot be blank")
-        if self.task_quality_max_new_tokens <= 0:
-            raise HuggingFaceMLPProofError("task-quality max_new_tokens must be positive")
+        try:
+            validate_task_quality_generation_budget(
+                self.task_quality_max_new_tokens,
+                sample_count=self.task_quality_max_samples,
+            )
+        except ValueError as error:
+            raise HuggingFaceMLPProofError(str(error)) from error
         if self.task_quality_max_samples is not None and self.task_quality_max_samples <= 0:
             raise HuggingFaceMLPProofError("task-quality max_samples must be positive")
 
