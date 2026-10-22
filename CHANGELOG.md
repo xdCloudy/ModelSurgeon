@@ -7,7 +7,9 @@
     feature names against the loaded bundle; and include live target hardware
     context during inference. The runtime abstains when target features are
     outside source support or fail a signed coverage threshold, records the
-    reason, and falls back to unguided physical search.
+    reason, and falls back to unguided physical search. It also abstains on
+    malformed, boolean, or non-finite model scores instead of using them to
+    order candidates.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

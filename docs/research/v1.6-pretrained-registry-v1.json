@@ -21,6 +21,7 @@
   "codec_policy": "Quantized targets must match the normalized quantization codec in supported_codecs. Unquantized targets may be covered by the none marker or by an allowlist containing every measured target tensor storage dtype.",
   "hardware_policy": "Targets require an explicit cpu/cuda/gpu class or detected GPU device name in supported_hardware; unresolved hardware fails closed.",
   "calibration_policy": "When minimum_support_coverage is declared, inference measures the fraction of non-missing numeric and known categorical feature groups per candidate and abstains below the signed threshold.",
+  "prediction_policy": "Inference abstains when a candidate prediction is malformed, boolean, or non-finite; physical evaluation remains authoritative.",
   "resolution": "offline_card_verification_before_model_deserialization",
   "lineage": "adapted children retain immutable parent bundle and request identity",
   "negative_cases": ["incomplete_card", "incompatible_schema", "tampered_signature", "missing_bundle"],

@@ -877,12 +877,29 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 raise FirstPartyOptimizeRuntimeError(
                     f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
                 ) from error
-            prediction_value = predicted[0] if len(predicted) == 1 else None
-            if not isinstance(prediction_value, (int, float)):
-                raise FirstPartyOptimizeRuntimeError(
-                    f"Meta-Surgeon returned an invalid prediction for {candidate.candidate_id}"
+            try:
+                prediction_value = predicted[0] if len(predicted) == 1 else None
+                numeric_prediction = (
+                    float(prediction_value)
+                    if isinstance(prediction_value, (int, float))
+                    and not isinstance(prediction_value, bool)
+                    else math.nan
                 )
-            predictions[candidate.candidate_id] = float(cast(int | float, prediction_value))
+            except (IndexError, KeyError, TypeError, ValueError, OverflowError):
+                numeric_prediction = math.nan
+            if not math.isfinite(numeric_prediction):
+                self.meta_predictions = {}
+                self.meta_order = ()
+                self.meta_guidance = {
+                    "status": "abstained_invalid_prediction",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "candidate_id": candidate.candidate_id,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": "the model returned a non-finite or non-numeric score",
+                }
+                return ()
+            predictions[candidate.candidate_id] = numeric_prediction
 
         higher_is_better = bundle.card.target_name in {"behavior", "safe_mutation"}
         ordered = tuple(
