@@ -19,6 +19,7 @@ from modelsurgeon.experiments.reproducibility import (
     REPRODUCIBILITY_ARTIFACT_ROLE,
     GitRevision,
     LockDigest,
+    ReproducibilityError,
     collect_git_revision,
     digest_lock_file,
     load_reproducibility_manifest,
@@ -252,7 +253,10 @@ def prepare_reproduction(
             )
 
     artifact = artifacts.get(reference.digest)
-    raw = load_reproducibility_manifest(artifact.data_path.read_text(encoding="utf-8"))
+    try:
+        raw = load_reproducibility_manifest(artifact.data_path.read_text(encoding="utf-8"))
+    except (ReproducibilityError, OverflowError, TypeError, ValueError) as error:
+        raise ReproductionCommandError("stored reproducibility manifest is malformed") from error
     manifest_id = _string(raw.get("manifest_id"), "manifest_id")
     resolved_config = _object(raw.get("resolved_config"), "resolved_config")
     command_raw = raw.get("command")
@@ -279,8 +283,11 @@ def prepare_reproduction(
             raise ReproductionCommandError("manifest absolute metric tolerance is malformed")
         if not isinstance(relative_value, (int, float)) or isinstance(relative_value, bool):
             raise ReproductionCommandError("manifest relative metric tolerance is malformed")
-        absolute = float(absolute_value)
-        relative = float(relative_value)
+        try:
+            absolute = float(absolute_value)
+            relative = float(relative_value)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ReproductionCommandError("manifest metric tolerance is invalid") from error
         if any(not math.isfinite(number) or number < 0 for number in (absolute, relative)):
             raise ReproductionCommandError("manifest metric tolerance is invalid")
         tolerances.append((name, absolute, relative))

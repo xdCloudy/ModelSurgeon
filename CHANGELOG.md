@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-  - Convert overflowing or invalid replay metric values into the documented
-    reproduction error instead of leaking numeric-conversion exceptions.
+  - Convert malformed stored manifests, overflowing replay metrics, and
+    unrepresentable metric tolerances into documented reproduction errors.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
