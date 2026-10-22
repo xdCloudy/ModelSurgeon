@@ -64,6 +64,6 @@ storage implementation imports are intentionally not stable public API.
   `unknown` or `unsupported` into success. Direct CLI/Python callers and the
   diagnostic CLI consume the same resolved settings and record shape.
 
-The package is currently pre-1.0. These rules prevent silent contract drift while the public
-surface is stabilized for the v1.0 release; they do not promise broad semver compatibility
-for implementation-only imports.
+The package is currently v1.0.0 and remains experimental research software. These rules
+define compatibility for the documented public namespaces; they do not promise broad
+semver compatibility for implementation-only imports.
