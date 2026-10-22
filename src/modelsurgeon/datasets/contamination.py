@@ -65,6 +65,7 @@ class ContaminationPolicy:
     max_pair_comparisons: int = 1_000_000
     license_safe_only: bool = True
     max_item_bytes: int = 1_000_000
+    max_total_text_bytes: int = 64 * 1024 * 1024
 
     def __post_init__(self) -> None:
         if (
@@ -77,7 +78,12 @@ class ContaminationPolicy:
             or not math.isfinite(self.near_jaccard_threshold)
         ):
             raise ContaminationAuditError("invalid contamination matching threshold")
-        limits = (self.max_items, self.max_item_bytes, self.max_pair_comparisons)
+        limits = (
+            self.max_items,
+            self.max_item_bytes,
+            self.max_total_text_bytes,
+            self.max_pair_comparisons,
+        )
         if any(
             isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
             for limit in limits
@@ -92,6 +98,7 @@ class ContaminationPolicy:
             "near_jaccard_threshold": self.near_jaccard_threshold,
             "max_items": self.max_items,
             "max_item_bytes": self.max_item_bytes,
+            "max_total_text_bytes": self.max_total_text_bytes,
             "max_pair_comparisons": self.max_pair_comparisons,
             "license_safe_only": self.license_safe_only,
         }
@@ -310,24 +317,33 @@ def audit_corpora(
             0,
             ContaminationStatus.UNKNOWN,
         )
-    oversized = next(
-        (
-            item
-            for item in sorted(items, key=lambda value: (value.corpus_id, value.item_id))
-            if len(item.text) > selected.max_item_bytes
-            or len(item.text.encode("utf-8")) > selected.max_item_bytes
-        ),
-        None,
-    )
-    if oversized is not None:
+    total_text_bytes = 0
+    limited_item: CorpusItem | None = None
+    limit_reason = ""
+    for item in sorted(items, key=lambda value: (value.corpus_id, value.item_id)):
+        if len(item.text) > selected.max_item_bytes:
+            limited_item = item
+            limit_reason = "item text exceeds audit byte limit"
+            break
+        item_bytes = len(item.text.encode("utf-8"))
+        if item_bytes > selected.max_item_bytes:
+            limited_item = item
+            limit_reason = "item text exceeds audit byte limit"
+            break
+        total_text_bytes += item_bytes
+        if total_text_bytes > selected.max_total_text_bytes:
+            limited_item = item
+            limit_reason = "total item text exceeds audit byte limit"
+            break
+    if limited_item is not None:
         finding = ContaminationFinding(
             FindingKind.RESOURCE_LIMIT,
             FindingAction.LIMITATION,
-            oversized.item_id,
+            limited_item.item_id,
             None,
-            (oversized.corpus_id,),
+            (limited_item.corpus_id,),
             None,
-            "item text exceeds audit byte limit",
+            limit_reason,
         )
         return ContaminationAuditReport(
             sources,

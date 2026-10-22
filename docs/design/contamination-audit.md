@@ -20,9 +20,10 @@ and deterministic token-shingle Jaccard matching under explicit item and pair
 budgets. The pair budget covers exact, near-duplicate, and ancestry comparisons
 across corpus boundaries. Exact and ancestry overlaps block affected claims.
 Near overlaps produce a move-and-new-protocol action.
-The default maximum item size is 1,000,000 UTF-8 bytes. An oversized item
-returns an unknown resource-limit finding before token shingles are built;
-whitespace-only items are invalid.
+The default maximum item size is 1,000,000 UTF-8 bytes and the default total
+text budget is 64 MiB. An item or aggregate budget overrun returns an unknown
+resource-limit finding before token shingles are built; whitespace-only items
+are invalid.
 Unavailable or unauditable licenses produce an unknown limitation, never a
 clean result. Resource exhaustion is retained as an unknown finding.
 
