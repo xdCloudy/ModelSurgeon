@@ -579,6 +579,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             for candidate in candidates
             if candidate.request.kind.value not in supported_mutations
             and candidate.scope.value not in supported_mutations
+            and candidate.scope.name.lower() not in supported_mutations
         )
         if not supported_mutations or unsupported_candidates:
             self.meta_guidance = {
