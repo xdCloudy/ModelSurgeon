@@ -42,6 +42,7 @@ from modelsurgeon.experiments.signed_evidence import (
 
 OPTIMIZATION_PACKAGE_SCHEMA_VERSION: Final[int] = 1
 APPROVAL_SCHEMA_VERSION: Final[int] = 1
+MAX_PACKAGE_JSON_BYTES: Final[int] = 64 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SECRET_KEY = re.compile(
     r"(?:secret|token|password|passwd|credential|api[_-]?key|private[_-]?key)", re.I
@@ -342,9 +343,7 @@ class ApprovalDecision:
             "reason": self.reason,
         }
         if self.operator_context:
-            record["operator_context"] = {
-                key: value for key, value in self.operator_context
-            }
+            record["operator_context"] = {key: value for key, value in self.operator_context}
         if include_id:
             record["decision_id"] = self.decision_id
         return record
@@ -737,7 +736,30 @@ def _external_record(value: object) -> EvidenceBundleExternalReference:
 
 
 def _write_json(path: Path, value: object) -> None:
-    path.write_text(_canonical(value) + "\n", encoding="utf-8", newline="\n")
+    payload = (_canonical(value) + "\n").encode("utf-8")
+    if len(payload) > MAX_PACKAGE_JSON_BYTES:
+        raise OptimizationPackageError(
+            f"package JSON file exceeds the {MAX_PACKAGE_JSON_BYTES}-byte limit: {path.name}"
+        )
+    path.write_bytes(payload)
+
+
+def _read_json(path: Path) -> object:
+    if path.parent.is_symlink() or path.is_symlink() or not path.is_file():
+        raise OptimizationPackageError(f"package JSON file must be a regular file: {path.name}")
+    try:
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_PACKAGE_JSON_BYTES + 1)
+    except OSError as error:
+        raise OptimizationPackageError(f"package JSON file is unreadable: {path.name}") from error
+    if len(payload) > MAX_PACKAGE_JSON_BYTES:
+        raise OptimizationPackageError(
+            f"package JSON file exceeds the {MAX_PACKAGE_JSON_BYTES}-byte limit: {path.name}"
+        )
+    try:
+        return json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
+        raise OptimizationPackageError(f"package JSON file is malformed: {path.name}") from error
 
 
 def write_reproducibility_package(
@@ -837,9 +859,12 @@ def write_reproducibility_package(
             index = sign_evidence_bundle(index, key=signing_key, key_material=signing_key_material)
         elif signing_key_material is not None:
             raise OptimizationPackageError("signing key metadata is required with key material")
-        (staging / "index.json").write_text(
-            render_evidence_bundle_index(index), encoding="utf-8", newline="\n"
-        )
+        index_payload = render_evidence_bundle_index(index).encode("utf-8")
+        if len(index_payload) > MAX_PACKAGE_JSON_BYTES:
+            raise OptimizationPackageError(
+                f"package JSON file exceeds the {MAX_PACKAGE_JSON_BYTES}-byte limit: index.json"
+            )
+        (staging / "index.json").write_bytes(index_payload)
         os.replace(staging, target)
         staging = target
         return ReproducibilityPackage(index.bundle_id, target, manifest, index)
@@ -930,15 +955,15 @@ def verify_reproducibility_package(
             PackageVerificationStatus.FAILED, None, ("package root is missing",), None
         )
     try:
-        index = _load_index(json.loads((target / "index.json").read_text(encoding="utf-8")))
-        manifest = json.loads((target / "contents" / "manifest.json").read_text(encoding="utf-8"))
+        index = _load_index(_read_json(target / "index.json"))
+        manifest = _read_json(target / "contents" / "manifest.json")
         if (
             not isinstance(manifest, Mapping)
             or manifest.get("record_type") != "reproducibility_package_manifest"
         ):
             issues.append("package manifest is malformed")
         elif manifest.get("decision_evidence_digest") != _sha256(
-            json.loads((target / "contents" / "decision-evidence.json").read_text(encoding="utf-8"))
+            _read_json(target / "contents" / "decision-evidence.json")
         ):
             issues.append("decision evidence digest does not reconcile")
         evidence = verify_evidence_bundle(target / "contents", index, key_material=key_material)
