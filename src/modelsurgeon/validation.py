@@ -350,7 +350,7 @@ def _monitor_temporary_tree(
     stop: threading.Event,
 ) -> None:
     while not stop.wait(0.05):
-        observed_bytes[0] = _temporary_tree_bytes(root)
+        observed_bytes[0] = max(observed_bytes[0], _temporary_tree_bytes(root))
         if observed_bytes[0] > limit:
             exceeded.set()
             return
@@ -476,7 +476,10 @@ def run_subprocess_case(
             detail=(
                 "output exceeded byte budget; child process terminated"
                 if output_exceeded.is_set()
-                else "temporary-directory bytes exceeded budget"
+                else (
+                    f"temporary-directory bytes exceeded budget: observed {disk_bytes[0]} bytes; "
+                    f"limit {case.limits.max_disk_bytes} bytes"
+                )
                 if disk_exceeded.is_set() or disk_bytes[0] > case.limits.max_disk_bytes
                 else f"returncode={process.returncode}"
             ),
