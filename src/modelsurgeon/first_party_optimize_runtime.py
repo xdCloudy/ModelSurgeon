@@ -602,6 +602,70 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return ()
 
         proof = self._ensure_loaded()
+        declared_compatibility: dict[str, tuple[str, ...]] = {}
+        malformed_compatibility: list[str] = []
+        for field_name in ("model_families", "model_formats", "candidate_scope"):
+            declared = card.compatibility.get(field_name)
+            if declared is None:
+                continue
+            if isinstance(declared, str):
+                values = (declared,)
+            elif isinstance(declared, (list, tuple)) and all(
+                isinstance(value, str) and value for value in declared
+            ):
+                values = tuple(declared)
+            else:
+                malformed_compatibility.append(field_name)
+                continue
+            if not values:
+                malformed_compatibility.append(field_name)
+                continue
+            declared_compatibility[field_name] = values
+
+        target_compatibility = {
+            "model_families": (proof._model_target.family,),
+            "model_formats": (proof._model_target.format,),
+            "candidate_scope": tuple(
+                sorted(
+                    {
+                        label
+                        for candidate in candidates
+                        for label in (
+                            candidate.scope.value,
+                            candidate.scope.name.lower(),
+                        )
+                    }
+                )
+            ),
+        }
+        incompatible_compatibility = sorted(
+            field_name
+            for field_name, values in declared_compatibility.items()
+            if not set(values).intersection(target_compatibility[field_name])
+        )
+        declared_feature_names = card.compatibility.get("feature_names")
+        if declared_feature_names is not None and (
+            not isinstance(declared_feature_names, (list, tuple))
+            or not all(isinstance(value, str) for value in declared_feature_names)
+            or tuple(declared_feature_names) != bundle.preprocessor.output_feature_names
+        ):
+            incompatible_compatibility.append("feature_names")
+        incompatible_compatibility.extend(malformed_compatibility)
+        incompatible_compatibility = sorted(set(incompatible_compatibility))
+        if incompatible_compatibility:
+            self.meta_guidance = {
+                "status": "unsupported_compatibility",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "incompatible_fields": incompatible_compatibility,
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card compatibility declarations do not match the target "
+                    "model, candidate scope, or bundle feature schema"
+                ),
+            }
+            return ()
+
         inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
         unknown_categories: set[str] = set()
         for candidate in candidates:
