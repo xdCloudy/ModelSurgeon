@@ -23,8 +23,8 @@ budget. They record non-zero exits as rejected evidence. The runner polls disk
 usage under its temporary directory while the child runs and terminates the
 child after an observed overage; it checks the directory again after the run.
 Polling can overshoot the threshold and miss brief spikes between scans. A
-caller-supplied working directory is outside that scan, so this is not a disk
-quota.
+resource-limited result records the largest sampled byte count. A caller-supplied
+working directory is outside that scan, so this is not a disk quota.
 `max_memory_bytes` is retained in corpus metadata but is not enforced by the
 runner. The runner does not isolate a child from filesystem access available to
 the current user. A timeout or excessive output is a retained result, never a
