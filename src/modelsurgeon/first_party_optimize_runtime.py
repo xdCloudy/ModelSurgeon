@@ -879,12 +879,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 ) from error
             try:
                 prediction_value = predicted[0] if len(predicted) == 1 else None
-                numeric_prediction = (
-                    float(prediction_value)
-                    if isinstance(prediction_value, (int, float))
-                    and not isinstance(prediction_value, bool)
-                    else math.nan
-                )
+                if isinstance(prediction_value, bool):
+                    numeric_prediction = (
+                        float(prediction_value)
+                        if bundle.card.target_name == "safe_mutation"
+                        else math.nan
+                    )
+                elif isinstance(prediction_value, (int, float)):
+                    numeric_prediction = float(prediction_value)
+                else:
+                    numeric_prediction = math.nan
             except (IndexError, KeyError, TypeError, ValueError, OverflowError):
                 numeric_prediction = math.nan
             if not math.isfinite(numeric_prediction):

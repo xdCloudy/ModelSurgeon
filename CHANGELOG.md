@@ -8,8 +8,8 @@
     context during inference. The runtime abstains when target features are
     outside source support or fail a signed coverage threshold, records the
     reason, and falls back to unguided physical search. It also abstains on
-    malformed, boolean, or non-finite model scores instead of using them to
-    order candidates.
+    malformed, target-incompatible, or non-finite model scores; boolean scores
+    remain valid for the binary `safe_mutation` target.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
