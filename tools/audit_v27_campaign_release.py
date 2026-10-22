@@ -193,11 +193,11 @@ def audit_release(root: Path = Path("."), *, manifest: Path | None = None) -> No
     )
     _files(root, [recovery.get("matrix_manifest")], "recovery_evidence.matrix_manifest")
     audit_recovery_release(root, manifest=matrix_manifest)
+    _files(root, [recovery.get("matrix_fixture")], "recovery_evidence.matrix_fixture")
     fixture = _read_json(
         root / _text(recovery["matrix_fixture"], "recovery_evidence.matrix_fixture"),
         "recovery matrix fixture",
     )
-    _files(root, [recovery.get("matrix_fixture")], "recovery_evidence.matrix_fixture")
     cells = _array(fixture.get("cells"), "recovery matrix cells")
     cell_ids = {
         _text(_object(item, "recovery matrix cell").get("cell_id"), "recovery cell ID")
