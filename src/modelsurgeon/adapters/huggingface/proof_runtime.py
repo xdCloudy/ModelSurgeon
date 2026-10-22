@@ -105,6 +105,7 @@ HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
 HF_MLP_FEATURE_EXTRACTOR_VERSION = "1"
 HF_MLP_EVALUATOR_VERSION = "hf_mlp_perplexity_v1"
+_MAX_CALIBRATION_TEXT_BYTES = 64 * 1024 * 1024
 
 
 class HuggingFaceMLPProofError(ValueError):
@@ -482,11 +483,16 @@ def _tool_revision(explicit: str | None) -> str:
 
 def _read_calibration_text(path: Path) -> tuple[str, str]:
     try:
-        payload = path.read_bytes()
+        with path.open("rb") as stream:
+            payload = stream.read(_MAX_CALIBRATION_TEXT_BYTES + 1)
     except OSError as error:
         raise HuggingFaceMLPProofError(f"cannot read calibration text: {error}") from error
     if not payload:
         raise HuggingFaceMLPProofError("calibration text cannot be empty")
+    if len(payload) > _MAX_CALIBRATION_TEXT_BYTES:
+        raise HuggingFaceMLPProofError(
+            f"calibration text exceeds the {_MAX_CALIBRATION_TEXT_BYTES}-byte limit"
+        )
     try:
         text = payload.decode("utf-8")
     except UnicodeDecodeError as error:
@@ -671,6 +677,8 @@ class HuggingFaceMLPProofRuntime:
             text,
             add_special_tokens=False,
             return_attention_mask=False,
+            truncation=True,
+            max_length=config.max_tokens,
         )
         if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
             raise HuggingFaceMLPProofError("tokenizer did not return an input_ids mapping")
