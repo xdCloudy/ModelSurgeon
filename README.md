@@ -487,6 +487,8 @@ experimental and are not implied by enabling this option.
 For an explicit task-quality hard guard, configure
 `task_quality.method: code_exact_match` and point `task_quality.dataset` at a
 pinned UTF-8 JSONL file whose records contain `id`, `prompt`, and `reference`.
+The loader accepts files up to 256 MiB, with at most 100,000 rows and 8 MiB per
+row; `max_samples` is subject to the same row-count ceiling.
 The first-party HF runtime performs greedy generation for every example,
 records the dataset and output digests, and applies the measured task-quality
 retention gate alongside perplexity at candidate, reload, repair, quantization,

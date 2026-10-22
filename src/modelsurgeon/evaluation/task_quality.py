@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Any, cast
 
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
+MAX_TASK_QUALITY_DATASET_BYTES = 256 * 1024 * 1024
+MAX_TASK_QUALITY_ROW_BYTES = 8 * 1024 * 1024
+MAX_TASK_QUALITY_ROWS = 100_000
 
 
 class TaskQualityEvaluationError(ValueError):
@@ -83,12 +86,33 @@ class CodeExactMatchDataset:
             raise TaskQualityEvaluationError(
                 "task-quality max_samples must be a positive integer"
             )
+        if max_samples is not None and max_samples > MAX_TASK_QUALITY_ROWS:
+            raise TaskQualityEvaluationError(
+                f"task-quality max_samples cannot exceed {MAX_TASK_QUALITY_ROWS}"
+            )
         digest = hashlib.sha256()
         examples: list[CodeExactMatchExample] = []
         seen: set[str] = set()
         try:
             with resolved.open("rb") as dataset_file:
-                for line_number, payload_line in enumerate(dataset_file, start=1):
+                total_bytes = 0
+                line_number = 0
+                while payload_line := dataset_file.readline(MAX_TASK_QUALITY_ROW_BYTES + 1):
+                    line_number += 1
+                    if line_number > MAX_TASK_QUALITY_ROWS:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset exceeds {MAX_TASK_QUALITY_ROWS} rows"
+                        )
+                    if len(payload_line) > MAX_TASK_QUALITY_ROW_BYTES:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset line {line_number} exceeds "
+                            f"{MAX_TASK_QUALITY_ROW_BYTES} bytes"
+                        )
+                    total_bytes += len(payload_line)
+                    if total_bytes > MAX_TASK_QUALITY_DATASET_BYTES:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset exceeds {MAX_TASK_QUALITY_DATASET_BYTES} bytes"
+                        )
                     digest.update(payload_line)
                     try:
                         line = payload_line.decode("utf-8")
