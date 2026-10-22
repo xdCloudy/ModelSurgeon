@@ -62,6 +62,11 @@ class SurgeonCommandError(ValueError):
     """Raised for actionable train/predict CLI contract failures."""
 
 
+MAX_SURGEON_DATASET_BYTES = 256 * 1024 * 1024
+MAX_SURGEON_JSONL_ROW_BYTES = 8 * 1024 * 1024
+MAX_SURGEON_DATASET_ROWS = 100_000
+
+
 def _predict_values(
     model: SerializableModel, rows: Sequence[Sequence[float]]
 ) -> tuple[float, ...]:
@@ -87,6 +92,22 @@ def _payload_record(value: object) -> Mapping[str, object]:
     return cast(Mapping[str, object], payload)
 
 
+def _read_bounded_text(path: Path, label: str) -> str:
+    try:
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_SURGEON_DATASET_BYTES + 1)
+    except OSError as error:
+        raise SurgeonCommandError(f"cannot read {label}: {error}") from error
+    if len(payload) > MAX_SURGEON_DATASET_BYTES:
+        raise SurgeonCommandError(
+            f"{label} exceeds {MAX_SURGEON_DATASET_BYTES} bytes"
+        )
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise SurgeonCommandError(f"{label} must be UTF-8") from error
+
+
 def load_surgeon_records(path: Path) -> tuple[Mapping[str, object], ...]:
     """Load canonical example payloads from Parquet store, JSON, or JSONL."""
 
@@ -99,30 +120,66 @@ def load_surgeon_records(path: Path) -> tuple[Mapping[str, object], ...]:
         raise SurgeonCommandError(f"dataset path does not exist: {path}")
     if path.suffix.lower() == ".jsonl":
         records: list[Mapping[str, object]] = []
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(), start=1
-        ):
-            if not line.strip():
-                continue
-            try:
-                value = json.loads(line)
-            except json.JSONDecodeError as error:
-                raise SurgeonCommandError(
-                    f"invalid JSONL dataset line {line_number}"
-                ) from error
-            records.append(_payload_record(value))
+        try:
+            with path.open("rb") as stream:
+                total_bytes = 0
+                line_number = 0
+                while payload_line := stream.readline(MAX_SURGEON_JSONL_ROW_BYTES + 1):
+                    line_number += 1
+                    if line_number > MAX_SURGEON_DATASET_ROWS:
+                        raise SurgeonCommandError(
+                            f"JSONL dataset exceeds {MAX_SURGEON_DATASET_ROWS} rows"
+                        )
+                    if len(payload_line) > MAX_SURGEON_JSONL_ROW_BYTES:
+                        raise SurgeonCommandError(
+                            f"JSONL dataset line {line_number} exceeds "
+                            f"{MAX_SURGEON_JSONL_ROW_BYTES} bytes"
+                        )
+                    total_bytes += len(payload_line)
+                    if total_bytes > MAX_SURGEON_DATASET_BYTES:
+                        raise SurgeonCommandError(
+                            f"JSONL dataset exceeds {MAX_SURGEON_DATASET_BYTES} bytes"
+                        )
+                    try:
+                        line = payload_line.decode("utf-8")
+                    except UnicodeDecodeError as error:
+                        raise SurgeonCommandError(
+                            f"JSONL dataset line {line_number} must be UTF-8"
+                        ) from error
+                    if not line.strip():
+                        continue
+                    try:
+                        value = json.loads(line)
+                    except json.JSONDecodeError as error:
+                        raise SurgeonCommandError(
+                            f"invalid JSONL dataset line {line_number}"
+                        ) from error
+                    records.append(_payload_record(value))
+        except OSError as error:
+            raise SurgeonCommandError(f"cannot read JSONL dataset: {error}") from error
         return tuple(records)
     if path.suffix.lower() == ".json":
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = json.loads(_read_bounded_text(path, "dataset JSON"))
+        except SurgeonCommandError:
+            raise
         except json.JSONDecodeError as error:
             raise SurgeonCommandError("dataset JSON is invalid") from error
         if isinstance(value, list):
+            if len(value) > MAX_SURGEON_DATASET_ROWS:
+                raise SurgeonCommandError(
+                    f"dataset JSON exceeds {MAX_SURGEON_DATASET_ROWS} rows"
+                )
             return tuple(_payload_record(item) for item in value)
         if isinstance(value, Mapping) and isinstance(value.get("examples"), list):
+            examples = cast(list[object], value["examples"])
+            if len(examples) > MAX_SURGEON_DATASET_ROWS:
+                raise SurgeonCommandError(
+                    f"dataset JSON exceeds {MAX_SURGEON_DATASET_ROWS} rows"
+                )
             return tuple(
                 _payload_record(item)
-                for item in cast(list[object], value["examples"])
+                for item in examples
             )
         return (_payload_record(value),)
     raise SurgeonCommandError(
@@ -224,8 +281,8 @@ def load_split_assignments(
     """Load inline assignments or preserve a full serialized grouped split manifest."""
 
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        value = json.loads(_read_bounded_text(path, "split manifest"))
+    except json.JSONDecodeError as error:
         raise SurgeonCommandError(
             "split manifest is unreadable or invalid JSON"
         ) from error
@@ -234,6 +291,10 @@ def load_split_assignments(
     assignments_raw = value.get("assignments")
     assignments: dict[str, SplitPartition] = {}
     if isinstance(assignments_raw, Mapping):
+        if len(assignments_raw) > MAX_SURGEON_DATASET_ROWS:
+            raise SurgeonCommandError(
+                f"split manifest exceeds {MAX_SURGEON_DATASET_ROWS} assignments"
+            )
         for example_id, partition in assignments_raw.items():
             if not isinstance(example_id, str) or not isinstance(partition, str):
                 raise SurgeonCommandError(
@@ -248,6 +309,11 @@ def load_split_assignments(
                     f"unknown split partition {partition!r}"
                 ) from error
         return assignments
+    groups = value.get("groups")
+    if isinstance(groups, list) and len(groups) > MAX_SURGEON_DATASET_ROWS:
+        raise SurgeonCommandError(
+            f"split manifest exceeds {MAX_SURGEON_DATASET_ROWS} groups"
+        )
     if "groups" in value:
         return _grouped_split(cast(Mapping[str, object], value))
     raise SurgeonCommandError(
