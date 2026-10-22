@@ -94,6 +94,25 @@ def test_resource_limit_retains_audit_limitation() -> None:
     assert limited.findings[0].kind is FindingKind.RESOURCE_LIMIT
 
 
+def test_item_byte_limit_returns_unknown_before_shingling() -> None:
+    report = audit_corpora(
+        _sources(),
+        (CorpusItem("large", "train", "é" * 3),),
+        ContaminationPolicy(max_item_bytes=4),
+    )
+
+    assert report.status is ContaminationStatus.UNKNOWN
+    assert report.audited_item_count == 0
+    assert report.compared_pair_count == 0
+    assert report.findings[0].kind is FindingKind.RESOURCE_LIMIT
+    assert report.findings[0].left_item_id == "large"
+
+
+def test_whitespace_only_corpus_item_is_rejected() -> None:
+    with pytest.raises(ContaminationAuditError, match="text cannot be empty"):
+        CorpusItem("blank", "train", " \t\n")
+
+
 def test_pair_budget_bounds_exact_and_ancestry_findings() -> None:
     items = tuple(
         CorpusItem(

@@ -56,18 +56,19 @@ def _sha256(value: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ContaminationPolicy:
-    """Deterministic matching thresholds and pairwise resource ceilings."""
+    """Deterministic matching thresholds and item/pair resource ceilings."""
 
     ngram_size: int = 5
     near_jaccard_threshold: float = 0.8
     max_items: int = 100_000
     max_pair_comparisons: int = 1_000_000
     license_safe_only: bool = True
+    max_item_bytes: int = 1_000_000
 
     def __post_init__(self) -> None:
         if self.ngram_size < 1 or not 0.0 < self.near_jaccard_threshold <= 1.0:
             raise ContaminationAuditError("invalid contamination matching threshold")
-        if self.max_items <= 0 or self.max_pair_comparisons <= 0:
+        if self.max_items <= 0 or self.max_item_bytes <= 0 or self.max_pair_comparisons <= 0:
             raise ContaminationAuditError("contamination resource limits must be positive")
 
     def to_record(self) -> dict[str, object]:
@@ -75,6 +76,7 @@ class ContaminationPolicy:
             "ngram_size": self.ngram_size,
             "near_jaccard_threshold": self.near_jaccard_threshold,
             "max_items": self.max_items,
+            "max_item_bytes": self.max_item_bytes,
             "max_pair_comparisons": self.max_pair_comparisons,
             "license_safe_only": self.license_safe_only,
         }
@@ -130,7 +132,7 @@ class CorpusItem:
     def __post_init__(self) -> None:
         _require_text(self.item_id, "item_id")
         _require_text(self.corpus_id, "item corpus_id")
-        if not self.text:
+        if not self.text.strip():
             raise ContaminationAuditError("corpus item text cannot be empty")
         if len(set(self.ancestry_ids)) != len(self.ancestry_ids):
             raise ContaminationAuditError("item ancestry IDs must be unique")
@@ -284,6 +286,33 @@ def audit_corpora(
             ("__audit__",),
             None,
             "item count exceeds audit limit",
+        )
+        return ContaminationAuditReport(
+            sources,
+            selected,
+            (finding,),
+            0,
+            0,
+            ContaminationStatus.UNKNOWN,
+        )
+    oversized = next(
+        (
+            item
+            for item in sorted(items, key=lambda value: (value.corpus_id, value.item_id))
+            if len(item.text) > selected.max_item_bytes
+            or len(item.text.encode("utf-8")) > selected.max_item_bytes
+        ),
+        None,
+    )
+    if oversized is not None:
+        finding = ContaminationFinding(
+            FindingKind.RESOURCE_LIMIT,
+            FindingAction.LIMITATION,
+            oversized.item_id,
+            None,
+            (oversized.corpus_id,),
+            None,
+            "item text exceeds audit byte limit",
         )
         return ContaminationAuditReport(
             sources,
