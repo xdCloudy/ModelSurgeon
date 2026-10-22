@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.evaluation.tiered import TieredEvaluationReport
 from modelsurgeon.graph import ComponentId
 from modelsurgeon.surgery.contracts import (
@@ -164,8 +165,8 @@ def parse_mutation_request_json(payload: str) -> MutationRequest:
 
 def read_mutation_request(path: str | Path) -> MutationRequest:
     try:
-        payload = Path(path).read_text(encoding="utf-8")
-    except OSError as error:
+        payload = read_cli_json_text(Path(path))
+    except (OSError, CliJsonInputError) as error:
         raise ExperimentCommandError(f"cannot read mutation request: {error}") from error
     return parse_mutation_request_json(payload)
 

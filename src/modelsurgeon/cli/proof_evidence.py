@@ -14,6 +14,7 @@ from typing import Annotated, cast
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.cli.surgeon import _predict_values, _training_models, load_surgeon_records
 from modelsurgeon.datasets.grouped_splits import (
     GROUPED_SPLIT_ALGORITHM,
@@ -301,8 +302,8 @@ def load_grouped_proof_split(path: Path) -> GroupedSplitManifest:
     """Load the full grouped manifest without flattening leakage-group identity."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise FirstSurgeonEvidenceError(
             "proof split is unreadable or invalid JSON"
         ) from error

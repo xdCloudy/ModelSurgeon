@@ -16,6 +16,7 @@ from typing import Annotated, Protocol, cast, runtime_checkable
 import typer
 
 from modelsurgeon.cli.deployment import deployment_app
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.evaluation import (
     DEFAULT_BENCHMARK_PROTOCOL,
     BenchmarkProtocolManifest,
@@ -67,8 +68,8 @@ def _canonical_digest(value: object) -> str:
 
 def _read_json(path: Path) -> dict[str, object]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise BenchmarkProtocolInvalid(f"cannot read JSON manifest: {path}") from error
     return _object(raw, "manifest")
 

@@ -12,6 +12,7 @@ from typing import Annotated, Protocol, cast, runtime_checkable
 
 import typer
 
+from modelsurgeon.cli.json_input import read_cli_json_text
 from modelsurgeon.experiments.artifacts import ContentAddressedArtifactStore
 from modelsurgeon.experiments.hardware import HardwareInventory, collect_hardware_inventory
 from modelsurgeon.experiments.identity import canonical_identity_json
@@ -252,7 +253,12 @@ def prepare_reproduction(
             )
 
     artifact = artifacts.get(reference.digest)
-    raw = load_reproducibility_manifest(artifact.data_path.read_text(encoding="utf-8"))
+    try:
+        raw = load_reproducibility_manifest(read_cli_json_text(artifact.data_path))
+    except (OSError, ValueError) as error:
+        raise ReproductionCommandError(
+            "reproducibility manifest is unreadable or invalid"
+        ) from error
     manifest_id = _string(raw.get("manifest_id"), "manifest_id")
     resolved_config = _object(raw.get("resolved_config"), "resolved_config")
     command_raw = raw.get("command")

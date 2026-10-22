@@ -8,13 +8,14 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.migration import MigrationKind, MigrationRefusal, migrate_record
 
 
 def _read_json(path: Path) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        return json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise MigrationRefusal(f"migration input is missing or invalid JSON: {path}") from error
 
 

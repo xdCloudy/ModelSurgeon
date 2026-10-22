@@ -11,6 +11,7 @@ from typing import Annotated, Protocol, runtime_checkable
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.features.cache import FeaturePartitionCache, FeaturePartitionKey
 from modelsurgeon.features.schema import FeatureRecord
@@ -107,8 +108,8 @@ def load_feature_plan(path: Path) -> FeaturePlan:
     """Load a strict, deterministic feature-extraction manifest."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise FeatureCommandError(f"cannot read feature config: {error}") from error
     record = _object(raw, "feature config")
     expected = {
