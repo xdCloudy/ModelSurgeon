@@ -73,8 +73,8 @@ class ContaminationPolicy:
             or self.ngram_size < 1
             or isinstance(self.near_jaccard_threshold, bool)
             or not isinstance(self.near_jaccard_threshold, (int, float))
-            or not math.isfinite(self.near_jaccard_threshold)
             or not 0.0 < self.near_jaccard_threshold <= 1.0
+            or not math.isfinite(self.near_jaccard_threshold)
         ):
             raise ContaminationAuditError("invalid contamination matching threshold")
         limits = (self.max_items, self.max_item_bytes, self.max_pair_comparisons)

@@ -120,6 +120,7 @@ def test_whitespace_only_corpus_item_is_rejected() -> None:
         ({"ngram_size": 1.5}, "matching threshold"),
         ({"near_jaccard_threshold": True}, "matching threshold"),
         ({"near_jaccard_threshold": float("nan")}, "matching threshold"),
+        ({"near_jaccard_threshold": 10**10000}, "matching threshold"),
         ({"max_items": True}, "resource limits"),
         ({"max_item_bytes": 1.5}, "resource limits"),
         ({"max_pair_comparisons": "10"}, "resource limits"),
