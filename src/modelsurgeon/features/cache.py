@@ -22,6 +22,7 @@ from modelsurgeon.features.schema import (
 from modelsurgeon.graph import ComponentId
 
 FEATURE_CACHE_SCHEMA_VERSION: Final[int] = 1
+DEFAULT_MAX_SERIALIZED_BYTES: Final[int] = 1024 * 1024 * 1024
 
 
 class FeatureCacheError(RuntimeError):
@@ -120,7 +121,7 @@ def _error_provenance(raw: object) -> ErrorProvenance | None:
             reference_dtype=str(raw["reference_dtype"]),
             method=str(raw["method"]),
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise FeatureCacheError("invalid precision error provenance") from error
 
 
@@ -181,8 +182,7 @@ def _feature_record(raw: object) -> FeatureRecord:
             if not isinstance(value_raw, list) or not value_raw:
                 raise FeatureCacheError("cached vector feature value is invalid")
             invalid_value = any(
-                isinstance(item, bool) or not isinstance(item, (int, float))
-                for item in value_raw
+                isinstance(item, bool) or not isinstance(item, (int, float)) for item in value_raw
             )
             if invalid_value:
                 raise FeatureCacheError("cached vector feature values are invalid")
@@ -199,7 +199,7 @@ def _feature_record(raw: object) -> FeatureRecord:
             sample_context=_sample_context(raw.get("sample_context")),
             metadata=_metadata(raw.get("metadata", {})),
         )
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, OverflowError, TypeError, ValueError) as error:
         raise FeatureCacheError("invalid cached feature record") from error
 
 
@@ -221,8 +221,20 @@ def _key_from_record(raw: object) -> FeaturePartitionKey:
 class FeaturePartitionCache:
     """Store and load complete feature partitions through atomic file publication."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        max_serialized_bytes: int = DEFAULT_MAX_SERIALIZED_BYTES,
+    ) -> None:
+        if (
+            isinstance(max_serialized_bytes, bool)
+            or not isinstance(max_serialized_bytes, int)
+            or max_serialized_bytes <= 0
+        ):
+            raise FeatureCacheError("feature cache byte budget must be a positive integer")
         self.root = Path(root)
+        self.max_serialized_bytes = max_serialized_bytes
 
     def path_for(self, key: FeaturePartitionKey) -> Path:
         return self.root / f"{key.digest}.json"
@@ -244,6 +256,11 @@ class FeaturePartitionCache:
             "records": [record.to_record() for record in records],
         }
         encoded = _canonical_json_bytes(payload)
+        if len(encoded) > self.max_serialized_bytes:
+            raise FeatureCacheError(
+                f"feature partition needs {len(encoded)} bytes, "
+                f"budget is {self.max_serialized_bytes}"
+            )
         self.root.mkdir(parents=True, exist_ok=True)
         final_path = self.path_for(key)
         temporary = self.root / f".{key.digest}.{uuid.uuid4().hex}.partial"
@@ -262,8 +279,17 @@ class FeaturePartitionCache:
         if not path.exists():
             return None
         try:
-            raw: Any = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
+            with path.open("rb") as stream:
+                encoded = stream.read(self.max_serialized_bytes + 1)
+        except OSError as error:
+            raise FeatureCacheError("published feature partition is unreadable") from error
+        if len(encoded) > self.max_serialized_bytes:
+            raise FeatureCacheError(
+                f"published feature partition exceeds byte budget {self.max_serialized_bytes}"
+            )
+        try:
+            raw: Any = json.loads(encoded.decode("utf-8"))
+        except (RecursionError, UnicodeDecodeError, ValueError) as error:
             raise FeatureCacheError("published feature partition is unreadable") from error
         if not isinstance(raw, dict):
             raise FeatureCacheError("published feature partition must be an object")
@@ -279,7 +305,10 @@ class FeaturePartitionCache:
             raise FeatureCacheError("published feature partition records must be a list")
         if raw.get("record_count") != len(records_raw):
             raise FeatureCacheError("published feature partition record count is inconsistent")
-        checksum = hashlib.sha256(_canonical_json_bytes(records_raw)).hexdigest()
+        try:
+            checksum = hashlib.sha256(_canonical_json_bytes(records_raw)).hexdigest()
+        except (RecursionError, TypeError, ValueError) as error:
+            raise FeatureCacheError("published feature partition records are malformed") from error
         if raw.get("records_sha256") != checksum:
             raise FeatureCacheError("published feature partition checksum mismatch")
         records = tuple(_feature_record(item) for item in records_raw)
