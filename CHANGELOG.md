@@ -7,8 +7,9 @@
     progress and registry snapshots, calibration and hostile-input manifests,
     migration outputs, reports, and explorers. It stages and flushes beside its
     destination and preserves no-overwrite behavior even when writers race.
-    Search, reproduction, and First Surgeon proof outputs now use the same
-    publisher instead of leaving a partial final file after interruption.
+    Search, reproduction, benchmark, feature, experiment, and First Surgeon
+    proof outputs now use the same publisher instead of leaving a partial final
+    file after interruption.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

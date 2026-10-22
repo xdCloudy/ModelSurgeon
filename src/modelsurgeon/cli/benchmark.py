@@ -23,6 +23,7 @@ from modelsurgeon.evaluation import (
     render_benchmark_protocol,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 BENCHMARK_CLI_SCHEMA_VERSION = 1
 
@@ -74,10 +75,12 @@ def _read_json(path: Path) -> dict[str, object]:
 
 
 def _write_new(path: Path, payload: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(canonical_identity_json(payload) + "\n")
+        atomic_write_text(
+            path,
+            canonical_identity_json(payload) + "\n",
+            replace_existing=False,
+        )
     except FileExistsError as error:
         raise BenchmarkCommandError(f"refusing to overwrite immutable file: {path}") from error
     except OSError as error:
