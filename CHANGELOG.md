@@ -11,7 +11,8 @@
     malformed, target-incompatible, or non-finite model scores; boolean scores
     remain a fallback for the binary `safe_mutation` target, which now uses
     probabilities when the model exposes them so candidate ranking retains
-    confidence information.
+    confidence information. Model inference exceptions are also recorded as an
+    abstention so optional guidance cannot stop physical optimization.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
