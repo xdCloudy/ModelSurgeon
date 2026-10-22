@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Made optimize plan and completed-run JSON output atomic. The shared writer
+    stages and flushes output beside its destination, creates missing parent
+    directories, and preserves no-overwrite behavior even when writers race.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

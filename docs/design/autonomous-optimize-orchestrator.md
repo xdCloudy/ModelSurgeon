@@ -35,6 +35,12 @@ separately reviewed `module:factory` adapter implementing
 complete, constraint-passing evidence and a distinct immutable child artifact
 before a result can be promoted; unsupported cells terminate explicitly.
 
+`--output` writes the canonical plan or completed-run JSON beside its target
+through a staged atomic publish. Missing parent directories are created, and an
+existing destination is preserved unless `safety.allow_overwrite` is enabled.
+The Python `write_optimize_plan` helper uses the same atomic no-overwrite
+behavior by default.
+
 ## State and resume
 
 The state file is a versioned, atomically replaced JSON record. It contains the
