@@ -16,7 +16,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Final
 
 SIGNED_EVIDENCE_SCHEMA_VERSION: Final[int] = 1
@@ -63,7 +63,12 @@ def _digest(value: object, label: str) -> str:
 
 def _path(value: object, label: str) -> str:
     result = _text(value, label)
-    if "\\" in result or result.startswith("/") or PurePosixPath(result).is_absolute():
+    if (
+        "\\" in result
+        or result.startswith("/")
+        or PurePosixPath(result).is_absolute()
+        or PureWindowsPath(result).drive
+    ):
         raise SignedEvidenceError(f"{label} must be a relative POSIX path")
     parts = PurePosixPath(result).parts
     if not parts or any(part in {"", ".", ".."} for part in parts):
@@ -512,7 +517,24 @@ def verify_evidence_bundle(
             issues.append("verification member limit exceeded")
             break
         path = resolved / Path(*member.path.split("/"))
-        if not path.is_file() or path.is_symlink():
+        try:
+            # Package indexes may come from untrusted archives. Reject a
+            # symlink in any component, then enforce containment after path
+            # resolution before opening the member.
+            current = resolved
+            has_symlink_component = False
+            for part in member.path.split("/"):
+                current = current / part
+                if current.is_symlink():
+                    has_symlink_component = True
+                    break
+            if has_symlink_component:
+                continue
+            path = path.resolve(strict=True)
+            path.relative_to(resolved)
+        except (OSError, ValueError):
+            continue
+        if not path.is_file():
             continue
         try:
             digest, size = _file_digest(path, active_limits.chunk_bytes)
