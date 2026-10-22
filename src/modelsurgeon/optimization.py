@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -613,12 +615,47 @@ def build_optimize_plan(
     )
 
 
+def write_optimize_artifact(
+    path: Path,
+    contents: str,
+    *,
+    artifact_kind: str,
+    allow_overwrite: bool = False,
+) -> None:
+    """Atomically persist a JSON artifact, refusing concurrent clobbers by default."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.partial")
+    temporary_created = False
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            temporary_created = True
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if allow_overwrite:
+            os.replace(temporary, path)
+        else:
+            try:
+                os.link(temporary, path)
+            except FileExistsError as error:
+                raise OptimizePlanError(
+                    f"refusing to overwrite existing {artifact_kind} artifact: {path}"
+                ) from error
+    finally:
+        if temporary_created:
+            temporary.unlink(missing_ok=True)
+
+
 def write_optimize_plan(path: Path, plan: OptimizePlan, *, allow_overwrite: bool = False) -> None:
     """Persist a plan as a new JSON artifact without mutating model sources."""
 
-    if path.exists() and not allow_overwrite:
-        raise OptimizePlanError(f"refusing to overwrite existing plan artifact: {path}")
-    path.write_text(plan.canonical_json() + "\n", encoding="utf-8", newline="\n")
+    write_optimize_artifact(
+        path,
+        plan.canonical_json() + "\n",
+        artifact_kind="plan",
+        allow_overwrite=allow_overwrite,
+    )
 
 
 def execute_first_party_optimize(
