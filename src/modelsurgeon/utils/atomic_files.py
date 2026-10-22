@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import uuid
 from pathlib import Path
 
@@ -17,6 +18,15 @@ def atomic_write_text(path: str | Path, contents: str, *, replace_existing: bool
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode: int | None = None
+    if replace_existing:
+        try:
+            existing = destination.lstat()
+        except FileNotFoundError:
+            pass
+        else:
+            if stat.S_ISREG(existing.st_mode):
+                existing_mode = stat.S_IMODE(existing.st_mode)
     temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.partial")
     temporary_created = False
     try:
@@ -24,6 +34,8 @@ def atomic_write_text(path: str | Path, contents: str, *, replace_existing: bool
             temporary_created = True
             stream.write(contents)
             stream.flush()
+            if existing_mode is not None:
+                os.chmod(temporary, existing_mode)
             os.fsync(stream.fileno())
         if replace_existing:
             os.replace(temporary, destination)

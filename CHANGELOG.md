@@ -7,6 +7,7 @@
     progress and registry snapshots, calibration and hostile-input manifests,
     migration outputs, reports, and explorers. It stages and flushes beside its
     destination and preserves no-overwrite behavior even when writers race.
+    Replacements retain the existing regular file's permission bits.
     Search, reproduction, benchmark, feature, experiment, and First Surgeon
     proof outputs now use the same publisher instead of leaving a partial final
     file after interruption.
