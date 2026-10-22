@@ -4,9 +4,9 @@
 
   - Added a shared atomic text-file publisher and used it for optimize plans,
     completed runs, resume state, signed-evidence indexes, deployment state,
-    calibration manifests, hostile-input manifests, migration outputs, and
-    explorers. It stages and flushes beside its destination and preserves
-    no-overwrite behavior even when writers race.
+    progress and registry snapshots, calibration and hostile-input manifests,
+    migration outputs, reports, and explorers. It stages and flushes beside its
+    destination and preserves no-overwrite behavior even when writers race.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

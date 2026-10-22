@@ -17,6 +17,7 @@ from modelsurgeon.explain import (
     ReportRedaction,
     generate_report,
 )
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 _DEFAULT_REDACTION = ReportRedaction()
 
@@ -40,9 +41,7 @@ def _resolve_subject(store: ExperimentMetadataStore, subject_id: str) -> Resolve
             raise ReportCommandError(f"run not found: {subject_id}")
         candidates = store.list_run_candidates(subject_id)
         if not candidates:
-            raise ReportCommandError(
-                f"run is incomplete: {subject_id} has no persisted candidates"
-            )
+            raise ReportCommandError(f"run is incomplete: {subject_id} has no persisted candidates")
         return ResolvedReportSubject("run", subject_id, subject_id, candidates)
     if subject_id.startswith("candidate_"):
         candidate = store.get_candidate(subject_id)
@@ -167,10 +166,8 @@ def generate_persisted_report(
 
 
 def _write_text(path: Path, contents: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(contents)
+        atomic_write_text(path, contents, replace_existing=False)
     except FileExistsError as error:
         raise ReportCommandError(f"output already exists: {path}") from error
 
