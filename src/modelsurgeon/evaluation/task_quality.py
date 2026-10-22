@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
+MAX_TASK_QUALITY_EXAMPLES = 4096
 MAX_TASK_QUALITY_NEW_TOKENS = 4096
 MAX_TASK_QUALITY_TOTAL_NEW_TOKENS = 1_000_000
 
@@ -37,6 +38,10 @@ def validate_task_quality_generation_budget(
         return
     if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count <= 0:
         raise TaskQualityEvaluationError("task-quality sample count must be a positive integer")
+    if sample_count > MAX_TASK_QUALITY_EXAMPLES:
+        raise TaskQualityEvaluationError(
+            f"task-quality sample count must not exceed {MAX_TASK_QUALITY_EXAMPLES}"
+        )
     if sample_count * max_new_tokens > MAX_TASK_QUALITY_TOTAL_NEW_TOKENS:
         raise TaskQualityEvaluationError(
             "task-quality generation budget exceeds "

@@ -494,7 +494,9 @@ and deployment boundaries. Native GGUF uses the pinned `llama-cli` for the same
 exact-match benchmark and applies both gates at candidate, cumulative-child,
 and deployment boundaries. Each measurement caps generation at 4,096 new
 tokens per example and one million total new tokens across the dataset; larger
-workloads are rejected before generation starts. Conversational coding requests
+workloads are rejected before generation starts. A measurement can include at
+most 4,096 examples, which also bounds per-example native runtime launches.
+Conversational coding requests
 without a declared benchmark remain clarification-required. When the request
 explicitly names an existing local JSONL benchmark, for example
 `coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
