@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+  - Confine v1.0 release reference-manifest paths to repository files, rejecting
+    absolute paths, traversal, and symlink escapes.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

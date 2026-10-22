@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import tomllib
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from tools.generate_release_notes import ReleaseNotesError, release_body
 
@@ -61,10 +61,35 @@ def audit_release(root: Path = ROOT, *, version: str) -> None:
     entries = raw_manifest.get("manifests")
     if not isinstance(entries, list) or not entries:
         raise ReleaseAuditError("reference manifest has no entries")
+    root_path = root.resolve()
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
             raise ReleaseAuditError("reference manifest contains an invalid entry")
-        path = root / entry["path"]
+        manifest_path = entry["path"]
+        relative_path = PurePosixPath(manifest_path)
+        windows_path = PureWindowsPath(manifest_path)
+        if (
+            not manifest_path
+            or "\\" in manifest_path
+            or relative_path.is_absolute()
+            or windows_path.is_absolute()
+            or bool(windows_path.drive)
+            or ".." in relative_path.parts
+        ):
+            raise ReleaseAuditError(
+                "reference manifest path must be a safe repository-relative path: "
+                f"{manifest_path!r}"
+            )
+        try:
+            path = (root_path / Path(*relative_path.parts)).resolve()
+        except (OSError, RuntimeError, ValueError) as error:
+            raise ReleaseAuditError(
+                f"reference manifest path cannot be resolved: {manifest_path!r}"
+            ) from error
+        if not path.is_relative_to(root_path):
+            raise ReleaseAuditError(
+                f"reference manifest path escapes repository root: {manifest_path!r}"
+            )
         if not path.is_file():
             raise ReleaseAuditError(f"reference manifest path does not exist: {entry['path']}")
         expected_hash = entry.get("sha256")
