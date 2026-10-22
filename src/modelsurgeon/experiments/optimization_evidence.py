@@ -186,17 +186,18 @@ class OptimizationEvidenceStore:
             if os.name == "nt":
                 import msvcrt
 
+                msvcrt_api = cast(Any, msvcrt)
                 stream.seek(0, os.SEEK_END)
                 if stream.tell() == 0:
                     stream.write(b"\0")
                     stream.flush()
                 stream.seek(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+                msvcrt_api.locking(stream.fileno(), msvcrt_api.LK_LOCK, 1)
                 try:
                     yield
                 finally:
                     stream.seek(0)
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvcrt_api.locking(stream.fileno(), msvcrt_api.LK_UNLCK, 1)
             else:
                 import fcntl
 
