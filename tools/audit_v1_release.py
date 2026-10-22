@@ -10,6 +10,11 @@ from pathlib import Path
 
 from tools.generate_release_notes import ReleaseNotesError, release_body
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
+    from repository_paths import is_repository_file
+
 ROOT = Path(__file__).resolve().parents[1]
 AUDIT_DOC = ROOT / "docs" / "release" / "v1.0-release-audit.md"
 MANIFEST = ROOT / "docs" / "release" / "v1.0-reference-manifests.json"
@@ -61,12 +66,16 @@ def audit_release(root: Path = ROOT, *, version: str) -> None:
     entries = raw_manifest.get("manifests")
     if not isinstance(entries, list) or not entries:
         raise ReleaseAuditError("reference manifest has no entries")
+    root_path = root.resolve()
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
             raise ReleaseAuditError("reference manifest contains an invalid entry")
-        path = root / entry["path"]
-        if not path.is_file():
-            raise ReleaseAuditError(f"reference manifest path does not exist: {entry['path']}")
+        manifest_path = entry["path"]
+        if not is_repository_file(root_path, manifest_path):
+            raise ReleaseAuditError(
+                f"reference manifest path is missing or outside repository root: {manifest_path!r}"
+            )
+        path = (root_path / manifest_path).resolve()
         expected_hash = entry.get("sha256")
         if not isinstance(expected_hash, str) or len(expected_hash) != 64:
             raise ReleaseAuditError(f"reference manifest has no valid SHA-256: {entry['path']}")

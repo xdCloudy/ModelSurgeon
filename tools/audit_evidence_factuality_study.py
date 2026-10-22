@@ -7,6 +7,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 from modelsurgeon.evaluation.evidence_factuality_study import (
     EvidenceFactualityMethod,
     load_and_run_evidence_factuality_study,
@@ -48,8 +53,8 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _files(root: Path, value: object, label: str) -> None:
     for index, raw in enumerate(_array(value, label)):
-        relative = Path(_text(raw, f"{label}[{index}]"))
-        if relative.is_absolute() or ".." in relative.parts or not (root / relative).is_file():
+        relative = _text(raw, f"{label}[{index}]")
+        if not is_repository_file(root, relative):
             raise EvidenceFactualityAuditError(f"{label}[{index}] references a missing file")
 
 

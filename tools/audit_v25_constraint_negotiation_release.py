@@ -19,6 +19,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
     from audit_v25_negotiation_quality import audit_release as audit_quality_release
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
+    from repository_paths import is_repository_file
+
 
 class ConstraintNegotiationReleaseAuditError(ValueError):
     """Raised when the v2.5 release boundary or evidence drifts."""
@@ -64,8 +69,7 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _relative_file(root: Path, value: object, label: str) -> None:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise ConstraintNegotiationReleaseAuditError(f"{label} references a missing file")
 
 

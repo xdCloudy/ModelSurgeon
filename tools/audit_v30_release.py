@@ -8,6 +8,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class V30ReleaseAuditError(ValueError):
     """Raised when the v3.0 release manifest is incomplete or overclaims."""
@@ -40,10 +45,9 @@ def _text(value: object, label: str) -> str:
 
 def _path(root: Path, value: object, label: str) -> Path:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise V30ReleaseAuditError(f"{label} references a missing or unsafe file: {raw}")
-    return path
+    return Path(raw)
 
 
 def _files(root: Path, value: object, label: str) -> None:

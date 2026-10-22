@@ -13,6 +13,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class V30AcceptanceError(ValueError):
     """Raised when the v3.0 acceptance record is incomplete or overclaims."""
@@ -58,8 +63,7 @@ def _read_json(path: Path, label: str) -> dict[str, Any]:
 
 def _relative_file(root: Path, value: object, label: str) -> str:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise V30AcceptanceError(f"{label} references a missing repository file")
     return raw
 

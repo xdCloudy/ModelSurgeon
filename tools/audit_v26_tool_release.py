@@ -8,6 +8,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 from modelsurgeon.conversation import (
     DEFAULT_TOOL_CATALOG,
     TOOL_RESULT_SCHEMA_VERSION,
@@ -86,10 +91,7 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _relative_file(root: Path, value: object, label: str) -> None:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts:
-        raise ToolReleaseAuditError(f"{label} must be a repository-relative path")
-    if not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise ToolReleaseAuditError(f"{label} references missing file {raw!r}")
 
 

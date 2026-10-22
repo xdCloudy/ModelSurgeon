@@ -7,6 +7,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class ParetoSelectionAuditError(ValueError):
     """Raised when the v2.8 selection-explanation evidence drifts."""
@@ -37,8 +42,8 @@ def _files(root: Path, value: object, label: str) -> None:
     if not isinstance(value, list) or not value:
         raise ParetoSelectionAuditError(f"{label} must be a non-empty array")
     for index, raw in enumerate(value):
-        path = Path(_text(raw, f"{label}[{index}]"))
-        if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+        path = _text(raw, f"{label}[{index}]")
+        if not is_repository_file(root, path):
             raise ParetoSelectionAuditError(f"{label}[{index}] references a missing file")
 
 

@@ -7,6 +7,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 from modelsurgeon.conversation import (
     CLARIFICATION_SCHEMA_VERSION,
     ClarificationStatus,
@@ -65,10 +70,7 @@ def _text(value: object, label: str) -> str:
 
 def _relative_file(root: Path, value: object, label: str) -> None:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts:
-        raise ClarificationReleaseAuditError(f"{label} must be repository-relative")
-    if not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise ClarificationReleaseAuditError(f"{label} references missing file {raw!r}")
 
 

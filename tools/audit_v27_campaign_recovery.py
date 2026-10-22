@@ -7,6 +7,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 
 class CampaignRecoveryAuditError(ValueError):
     """Raised when the v2.7 recovery evidence drifts or overclaims."""
@@ -63,8 +68,8 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _files(root: Path, value: object, label: str) -> None:
     for index, raw in enumerate(_array(value, label)):
-        path = Path(_text(raw, f"{label}[{index}]"))
-        if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+        path = _text(raw, f"{label}[{index}]")
+        if not is_repository_file(root, path):
             raise CampaignRecoveryAuditError(f"{label}[{index}] references a missing file")
 
 

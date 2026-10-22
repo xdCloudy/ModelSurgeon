@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
+try:
     from tools.audit_evidence_factuality_study import audit_release as audit_factuality_release
 except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
     from audit_evidence_factuality_study import audit_release as audit_factuality_release
@@ -100,8 +105,8 @@ def _files(root: Path, value: object, label: str) -> None:
     if not values:
         raise EvidenceGroundingReleaseAuditError(f"{label} must not be empty")
     for index, raw in enumerate(values):
-        relative = Path(_text(raw, f"{label}[{index}]"))
-        if relative.is_absolute() or ".." in relative.parts or not (root / relative).is_file():
+        relative = _text(raw, f"{label}[{index}]")
+        if not is_repository_file(root, relative):
             raise EvidenceGroundingReleaseAuditError(f"{label}[{index}] references a missing file")
 
 
