@@ -749,7 +749,7 @@ hf = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'hf'", specifier = ">=1.0,<2" },
+    { name = "accelerate", marker = "extra == 'hf'", specifier = ">=1.15,<2" },
     { name = "gguf", marker = "extra == 'dev'", specifier = ">=0.17,<1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11,<2" },
     { name = "numpy", specifier = ">=2,<3" },
