@@ -10,3 +10,6 @@ canonical experiment ID, and completion links the resulting dataset example ID w
 retaining all selection metadata. Atomic fsynced replacement protects every transition.
 After interruption, `pending` returns only selected or scheduled entries from the persisted
 batch, so partial execution resumes without reselection or duplicate completed work.
+
+Schedules are limited to 100,000 entries and 64 MiB. Both publication and resume enforce
+these limits so persisted state remains bounded and every published schedule can be loaded.

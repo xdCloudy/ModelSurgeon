@@ -16,6 +16,8 @@ from modelsurgeon.experiments.identity import canonical_identity_json
 from .acquisition import AcquisitionReport
 
 ACTIVE_SCHEDULE_SCHEMA_VERSION: Final[int] = 1
+MAX_ACTIVE_SCHEDULE_ENTRIES: Final[int] = 100_000
+MAX_ACTIVE_SCHEDULE_BYTES: Final[int] = 64 * 1024 * 1024
 
 
 class ActiveScheduleError(ValueError):
@@ -85,6 +87,10 @@ class ActiveScheduleStore:
     ) -> ActiveEvaluationSchedule:
         if not tool_revision:
             raise ActiveScheduleError("active schedule tool revision is required")
+        if len(acquisition.selections) > MAX_ACTIVE_SCHEDULE_ENTRIES:
+            raise ActiveScheduleError(
+                f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_ENTRIES}-entry limit"
+            )
         selection_record = acquisition.to_record()
         digest = (
             "sha256:"
@@ -145,8 +151,17 @@ class ActiveScheduleStore:
 
     def load(self) -> ActiveEvaluationSchedule:
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            with self.path.open("rb") as stream:
+                payload = stream.read(MAX_ACTIVE_SCHEDULE_BYTES + 1)
+        except OSError as error:
+            raise ActiveScheduleError("active schedule is unreadable") from error
+        if len(payload) > MAX_ACTIVE_SCHEDULE_BYTES:
+            raise ActiveScheduleError(
+                f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_BYTES}-byte limit"
+            )
+        try:
+            raw = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ActiveScheduleError("active schedule is unreadable") from error
         if (
             not isinstance(raw, Mapping)
@@ -162,6 +177,10 @@ class ActiveScheduleStore:
             or not isinstance(entries_raw, list)
         ):
             raise ActiveScheduleError("active schedule fields are malformed")
+        if len(entries_raw) > MAX_ACTIVE_SCHEDULE_ENTRIES:
+            raise ActiveScheduleError(
+                f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_ENTRIES}-entry limit"
+            )
         entries: list[ScheduledEvaluation] = []
         try:
             for item in entries_raw:
@@ -195,10 +214,20 @@ class ActiveScheduleStore:
         return result
 
     def _publish(self, schedule: ActiveEvaluationSchedule) -> None:
+        if len(schedule.entries) > MAX_ACTIVE_SCHEDULE_ENTRIES:
+            raise ActiveScheduleError(
+                f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_ENTRIES}-entry limit"
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        payload = json.dumps(schedule.to_record(), indent=2, sort_keys=True) + "\n"
-        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+        payload = (json.dumps(schedule.to_record(), indent=2, sort_keys=True) + "\n").encode(
+            "utf-8"
+        )
+        if len(payload) > MAX_ACTIVE_SCHEDULE_BYTES:
+            raise ActiveScheduleError(
+                f"active schedule exceeds the {MAX_ACTIVE_SCHEDULE_BYTES}-byte limit"
+            )
+        with temporary.open("wb") as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
