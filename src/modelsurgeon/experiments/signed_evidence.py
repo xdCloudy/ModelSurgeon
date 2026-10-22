@@ -480,9 +480,11 @@ def build_evidence_bundle(
     total = 0
     for candidate in sorted(resolved.rglob("*")):
         if _is_symlink_or_junction(candidate):
-            raise SignedEvidenceError("bundle trees cannot contain symbolic links")
-        if not candidate.is_file():
+            raise SignedEvidenceError("bundle trees cannot contain symbolic links or junctions")
+        if candidate.is_dir():
             continue
+        if not candidate.is_file():
+            raise SignedEvidenceError("bundle trees may contain only regular files and directories")
         relative = candidate.relative_to(resolved).as_posix()
         path = _path(relative, "bundle member path")
         if len(members) >= active_limits.max_members:
@@ -576,12 +578,18 @@ def verify_evidence_bundle(
     checked_bytes = 0
     checked_members = 0
     expected_paths = {item.path for item in index.members}
+    actual_paths: set[str] = set()
     try:
-        actual_paths = {
-            candidate.relative_to(resolved).as_posix()
-            for candidate in resolved.rglob("*")
-            if candidate.is_file() and not _is_symlink_or_junction(candidate)
-        }
+        for candidate in resolved.rglob("*"):
+            relative = candidate.relative_to(resolved).as_posix()
+            if _is_symlink_or_junction(candidate):
+                issues.append(f"bundle contains a symbolic link or junction: {relative}")
+            elif candidate.is_dir():
+                continue
+            elif candidate.is_file():
+                actual_paths.add(relative)
+            else:
+                issues.append(f"bundle contains a non-regular entry: {relative}")
     except OSError as error:
         issues.append(f"cannot enumerate bundle: {error}")
         actual_paths = set()
