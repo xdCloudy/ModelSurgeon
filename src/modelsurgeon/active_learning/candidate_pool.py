@@ -15,6 +15,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 CANDIDATE_POOL_SCHEMA_VERSION: Final[int] = 1
 MAX_CANDIDATE_POOL_SIZE: Final[int] = 100_000
@@ -216,10 +217,5 @@ def _validate_resume(
 
 
 def _publish_manifest(path: Path, manifest: CandidatePoolManifest) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
     payload = json.dumps(manifest.to_record(), indent=2, sort_keys=True) + "\n"
-    with temporary.open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write(payload)
-        stream.flush()
-        os.fsync(stream.fileno())
-    temporary.replace(path)
+    atomic_write_text(path, payload, replace_existing=True)
