@@ -882,9 +882,21 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     else bundle.model.predict((row,))
                 )
             except Exception as error:
-                raise FirstPartyOptimizeRuntimeError(
-                    f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
-                ) from error
+                self.meta_predictions = {}
+                self.meta_order = ()
+                self.meta_guidance = {
+                    "status": "abstained_inference_error",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "candidate_id": candidate.candidate_id,
+                    "prediction_method": (
+                        "predict_proba" if prediction_proba is not None else "predict"
+                    ),
+                    "error_type": type(error).__name__,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": "the verified Meta-Surgeon model raised during inference",
+                }
+                return ()
             try:
                 prediction_value = predicted[0] if len(predicted) == 1 else None
                 if isinstance(prediction_value, bool):
