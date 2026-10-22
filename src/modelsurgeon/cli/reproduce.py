@@ -19,6 +19,7 @@ from modelsurgeon.experiments.reproducibility import (
     REPRODUCIBILITY_ARTIFACT_ROLE,
     GitRevision,
     LockDigest,
+    ReproducibilityError,
     collect_git_revision,
     digest_lock_file,
     load_reproducibility_manifest,
@@ -252,7 +253,10 @@ def prepare_reproduction(
             )
 
     artifact = artifacts.get(reference.digest)
-    raw = load_reproducibility_manifest(artifact.data_path.read_text(encoding="utf-8"))
+    try:
+        raw = load_reproducibility_manifest(artifact.data_path.read_text(encoding="utf-8"))
+    except (ReproducibilityError, OverflowError, TypeError, ValueError) as error:
+        raise ReproductionCommandError("stored reproducibility manifest is malformed") from error
     manifest_id = _string(raw.get("manifest_id"), "manifest_id")
     resolved_config = _object(raw.get("resolved_config"), "resolved_config")
     command_raw = raw.get("command")
@@ -279,8 +283,11 @@ def prepare_reproduction(
             raise ReproductionCommandError("manifest absolute metric tolerance is malformed")
         if not isinstance(relative_value, (int, float)) or isinstance(relative_value, bool):
             raise ReproductionCommandError("manifest relative metric tolerance is malformed")
-        absolute = float(absolute_value)
-        relative = float(relative_value)
+        try:
+            absolute = float(absolute_value)
+            relative = float(relative_value)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ReproductionCommandError("manifest metric tolerance is invalid") from error
         if any(not math.isfinite(number) or number < 0 for number in (absolute, relative)):
             raise ReproductionCommandError("manifest metric tolerance is invalid")
         tolerances.append((name, absolute, relative))
@@ -446,16 +453,22 @@ def run_reproduction(
         measured = dict(executor.execute(plan))
     except Exception as error:
         raise ReproductionCommandError("reproduction executor failed") from error
-    if not all(
-        isinstance(name, str)
-        and name
-        and isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(float(value))
-        for name, value in measured.items()
-    ):
-        raise ReproductionCommandError("executor returned malformed metrics")
-    reproduced = {name: float(value) for name, value in measured.items()}
+    reproduced: dict[str, float] = {}
+    for name, metric_value in measured.items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(metric_value, (int, float))
+            or isinstance(metric_value, bool)
+        ):
+            raise ReproductionCommandError("executor returned malformed metrics")
+        try:
+            normalized = float(metric_value)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ReproductionCommandError("executor returned malformed metrics") from error
+        if not math.isfinite(normalized):
+            raise ReproductionCommandError("executor returned malformed metrics")
+        reproduced[name] = normalized
     originals = dict(plan.original_metrics)
     tolerances = {
         name: (absolute, relative) for name, absolute, relative in plan.tolerances
@@ -466,12 +479,38 @@ def run_reproduction(
         value = reproduced.get(name)
         absolute, relative = tolerances.get(name, (0.0, 0.0))
         allowed = max(absolute, abs(original) * relative)
+        if not math.isfinite(allowed):
+            comparisons.append(
+                MetricComparison(
+                    name,
+                    original,
+                    value,
+                    None,
+                    None,
+                    False,
+                    "allowed metric delta exceeds the finite float range",
+                )
+            )
+            continue
         if value is None:
             comparisons.append(
                 MetricComparison(name, original, None, None, allowed, False, "metric missing")
             )
             continue
         delta = abs(value - original)
+        if not math.isfinite(delta):
+            comparisons.append(
+                MetricComparison(
+                    name,
+                    original,
+                    value,
+                    None,
+                    allowed,
+                    False,
+                    "absolute metric delta exceeds the finite float range",
+                )
+            )
+            continue
         comparisons.append(
             MetricComparison(name, original, value, delta, allowed, delta <= allowed)
         )
