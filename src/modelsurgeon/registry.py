@@ -405,23 +405,20 @@ class LocalArtifactRegistry:
         schema_version = metadata.get("schema_version", 1)
         if not isinstance(schema_version, int) or isinstance(schema_version, bool):
             raise RegistryError("artifact schema version must be an integer")
-        return self.publish_bytes(
-            stored.data_path.read_bytes(),
-            kind=str(metadata["kind"]),
-            schema_version=schema_version,
-            license_id=(
-                None if metadata.get("license_id") is None else str(metadata["license_id"])
-            ),
-            tags=cast(Iterable[str], metadata.get("tags", ())),
-            source=bool(metadata.get("source", False)),
-            accepted=bool(metadata.get("accepted", False)),
-            externally_unresolved=bool(metadata.get("externally_unresolved", False)),
-            lineage=cast(Iterable[str], metadata.get("lineage", ())),
-            signature=(
-                None if metadata.get("signature") is None else str(metadata["signature"])
-            ),
-            expected_digest=str(stored.metadata.digest),
+        artifact = RegistryArtifact(
+            str(stored.metadata.digest),
+            str(metadata["kind"]),
+            stored.metadata.size_bytes,
+            schema_version,
+            None if metadata.get("license_id") is None else str(metadata["license_id"]),
+            tuple(sorted(set(cast(Iterable[str], metadata.get("tags", ()))))),
+            bool(metadata.get("source", False)),
+            bool(metadata.get("accepted", False)),
+            bool(metadata.get("externally_unresolved", False)),
+            tuple(sorted(set(cast(Iterable[str], metadata.get("lineage", ()))))),
+            None if metadata.get("signature") is None else str(metadata["signature"]),
         )
+        return self._publish_artifact(artifact)
 
     def list(
         self,

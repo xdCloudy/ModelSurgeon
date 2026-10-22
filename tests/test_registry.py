@@ -120,6 +120,25 @@ def test_export_failure_preserves_existing_bundle(
     assert list(tmp_path.glob(".bundle.zip.*.partial")) == []
 
 
+def test_publish_file_streams_without_loading_the_complete_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_path = tmp_path / "model.bin"
+    source_path.write_bytes(b"model payload" * 1024)
+    registry = LocalArtifactRegistry(tmp_path / "registry")
+
+    def reject_read_bytes(path: Path) -> bytes:
+        raise AssertionError(f"file publication tried to read the complete file: {path}")
+
+    monkeypatch.setattr(Path, "read_bytes", reject_read_bytes)
+    artifact = registry.publish_file(source_path, kind="model", tags=("baseline",))
+
+    assert artifact.size_bytes == len(b"model payload" * 1024)
+    assert artifact.tags == ("baseline",)
+    assert registry.verify(artifact.digest).outcome is RegistryOutcome.VERIFIED
+
+
 def test_unsigned_evidence_requires_explicit_negative_path(tmp_path: Path) -> None:
     source = LocalArtifactRegistry(tmp_path / "source")
     artifact = source.publish_bytes(b"evidence", kind="evidence")
