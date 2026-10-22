@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import IO, Protocol
@@ -486,22 +487,27 @@ def _terminate_plugin_process(process: subprocess.Popen[bytes]) -> None:
         except (OSError, subprocess.TimeoutExpired):
             process.kill()
     else:
+        killpg = getattr(os, "killpg", None)
+        terminate_signal = getattr(signal, "SIGTERM", None)
+        kill_signal = getattr(signal, "SIGKILL", terminate_signal)
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            if killpg is None or terminate_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, terminate_signal)
         except OSError:
             process.terminate()
-        try:
+        with suppress(subprocess.TimeoutExpired):
             process.wait(timeout=0.25)
-        except subprocess.TimeoutExpired:
-            pass
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            if killpg is None or kill_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, kill_signal)
         except OSError:
             if process.poll() is None:
                 process.kill()
-    try:
+    with suppress(subprocess.TimeoutExpired):
         process.wait(timeout=0.25)
-    except subprocess.TimeoutExpired:
+    if process.poll() is None:
         process.kill()
         process.wait()
 
@@ -605,27 +611,30 @@ def invoke_subprocess(
             card.plugin_id, PluginOutcome.CRASH, f"plugin process could not start: {error}"
         )
 
-    assert process.stdin is not None
-    assert process.stdout is not None
-    assert process.stderr is not None
+    stdin = process.stdin
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    assert stdin is not None
+    assert stdout_stream is not None
+    assert stderr_stream is not None
     stdout = bytearray()
     stderr = bytearray()
     output_exceeded = threading.Event()
     stdout_reader = threading.Thread(
         target=_drain_plugin_stream,
-        args=(process.stdout, stdout, stdout_limit, output_exceeded),
+        args=(stdout_stream, stdout, stdout_limit, output_exceeded),
         daemon=True,
     )
     stderr_reader = threading.Thread(
         target=_drain_plugin_stream,
-        args=(process.stderr, stderr, stderr_limit, output_exceeded),
+        args=(stderr_stream, stderr, stderr_limit, output_exceeded),
         daemon=True,
     )
 
     def write_request() -> None:
         try:
-            process.stdin.write(request_bytes)
-            process.stdin.close()
+            stdin.write(request_bytes)
+            stdin.close()
         except (BrokenPipeError, OSError, ValueError):
             pass
 
@@ -650,11 +659,9 @@ def invoke_subprocess(
 
     for worker in workers:
         worker.join(timeout=0.5)
-    for stream in (process.stdin, process.stdout, process.stderr):
-        try:
+    for stream in (stdin, stdout_stream, stderr_stream):
+        with suppress(OSError, ValueError):
             stream.close()
-        except (OSError, ValueError):
-            pass
 
     elapsed = time.monotonic() - started
     if timed_out:
