@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-  - Make optional Meta-Surgeon guidance abstain when inference encounters a
-    categorical feature value absent from source training. The runtime now
-    records the unknown categories and falls back to unguided physical search
-    instead of scoring an out-of-support candidate representation.
+  - Make optional Meta-Surgeon guidance respect the signed card's declared
+    mutation support and include live target hardware context during inference.
+    The runtime abstains when a target categorical value is absent from source
+    training, records the unsupported categories or mutations, and falls back
+    to unguided physical search.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

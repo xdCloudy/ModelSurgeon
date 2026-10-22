@@ -573,6 +573,33 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 f"Meta-Surgeon bundle could not be verified or loaded: {error}"
             ) from error
 
+        supported_mutations = set(card.supported_mutations)
+        unsupported_candidates = tuple(
+            candidate
+            for candidate in candidates
+            if candidate.request.kind.value not in supported_mutations
+            and candidate.scope.value not in supported_mutations
+        )
+        if not supported_mutations or unsupported_candidates:
+            self.meta_guidance = {
+                "status": "unsupported_mutation",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "requested_mutation_kinds": sorted(
+                    {candidate.request.kind.value for candidate in candidates}
+                ),
+                "requested_candidate_scopes": sorted(
+                    {candidate.scope.value for candidate in candidates}
+                ),
+                "supported_mutations": list(card.supported_mutations),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for every requested mutation "
+                    "kind or candidate scope"
+                ),
+            }
+            return ()
+
         proof = self._ensure_loaded()
         inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
         unknown_categories: set[str] = set()
@@ -585,6 +612,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             record = {
                 "example_id": candidate.candidate_id,
                 "model": proof._model_target.to_record(),
+                "hardware": proof._hardware.to_record(),
                 "mutation": {"plan": {"request": candidate.request.to_record()}},
                 "pre_mutation_features": list(raw_features),
                 "versions": {
