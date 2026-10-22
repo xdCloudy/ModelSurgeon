@@ -903,9 +903,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     numeric_prediction = (
                         float(prediction_value)
                         if bundle.card.target_name == "safe_mutation"
+                        and prediction_proba is None
                         else math.nan
                     )
-                elif isinstance(prediction_value, (int, float)):
+                elif isinstance(prediction_value, (int, float)) and not isinstance(
+                    prediction_value, bool
+                ):
                     numeric_prediction = float(prediction_value)
                 else:
                     numeric_prediction = math.nan
