@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Literal, Self
+from typing import IO, Literal, Self
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.store import (
@@ -213,10 +213,22 @@ class ContentAddressedArtifactStore:
 
     def put_stream(
         self,
-        stream: BinaryIO,
+        stream: IO[bytes],
         *,
         expected_digest: ArtifactDigest | str | None = None,
+        expected_size: int | None = None,
+        max_bytes: int | None = None,
     ) -> StoredArtifact:
+        if expected_size is not None and (
+            not isinstance(expected_size, int)
+            or isinstance(expected_size, bool)
+            or expected_size < 0
+        ):
+            raise ArtifactStoreError("expected artifact size must be a non-negative integer")
+        if max_bytes is not None and (
+            not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0
+        ):
+            raise ArtifactStoreError("maximum artifact size must be a positive integer")
         expected = (
             ArtifactDigest.parse(expected_digest)
             if isinstance(expected_digest, str)
@@ -233,11 +245,15 @@ class ContentAddressedArtifactStore:
                 while chunk := stream.read(self.chunk_bytes):
                     if not isinstance(chunk, bytes):
                         raise ArtifactStoreError("artifact stream must return bytes")
+                    if max_bytes is not None and size + len(chunk) > max_bytes:
+                        raise ArtifactStoreError("artifact stream exceeds maximum byte limit")
                     output.write(chunk)
                     hasher.update(chunk)
                     size += len(chunk)
                 output.flush()
                 os.fsync(output.fileno())
+            if expected_size is not None and size != expected_size:
+                raise ArtifactStoreError("artifact stream size does not match expected size")
             digest = ArtifactDigest(ARTIFACT_DIGEST_ALGORITHM, hasher.hexdigest())
             if expected is not None and expected != digest:
                 raise ArtifactStoreError(
