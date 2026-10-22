@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from modelsurgeon._file_lock import exclusive_file_lock
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 PROGRESS_SCHEMA_VERSION = 1
@@ -334,37 +335,39 @@ class ProgressStore:
     ) -> ProgressSnapshot:
         if not stages or len(stages) != len(set(stages)):
             raise ProgressError("campaign requires unique ordered stages")
-        if self._path(campaign_id).exists():
-            raise ProgressError("campaign already exists; use resume or inspect")
-        snapshot = ProgressSnapshot(
-            campaign_id,
-            ProgressStatus.RUNNING,
-            ProgressOutcome.UNKNOWN,
-            tuple(stages),
-            (),
-            (stages[0].value,),
-            0,
-            total,
-            0.0,
-            None,
-            "no completed work has been observed",
-            None,
-            source_artifact_digest,
-            0,
-        )
-        event = ProgressEvent(
-            campaign_id,
-            0,
-            "campaign_started",
-            stages[0],
-            ProgressStatus.RUNNING,
-            0,
-            total,
-            0.0,
-            (stages[0].value,),
-            emitted_at=time.time(),
-        )
-        self._save(snapshot, (event,))
+        self._path(campaign_id)
+        with exclusive_file_lock(self.root / ".progress.lock"):
+            if self._path(campaign_id).exists():
+                raise ProgressError("campaign already exists; use resume or inspect")
+            snapshot = ProgressSnapshot(
+                campaign_id,
+                ProgressStatus.RUNNING,
+                ProgressOutcome.UNKNOWN,
+                tuple(stages),
+                (),
+                (stages[0].value,),
+                0,
+                total,
+                0.0,
+                None,
+                "no completed work has been observed",
+                None,
+                source_artifact_digest,
+                0,
+            )
+            event = ProgressEvent(
+                campaign_id,
+                0,
+                "campaign_started",
+                stages[0],
+                ProgressStatus.RUNNING,
+                0,
+                total,
+                0.0,
+                (stages[0].value,),
+                emitted_at=time.time(),
+            )
+            self._save(snapshot, (event,))
         return snapshot
 
     def snapshot(self, campaign_id: str) -> ProgressSnapshot:
@@ -374,6 +377,37 @@ class ProgressStore:
         return self._load(campaign_id)[1]
 
     def record(
+        self,
+        campaign_id: str,
+        *,
+        event_type: str,
+        stage: ProgressStage | None,
+        status: ProgressStatus,
+        completed: int,
+        total: int | None,
+        elapsed_seconds: float,
+        next_work: Sequence[str] = (),
+        detail: str | None = None,
+        outcome: ProgressOutcome | None = None,
+        accepted_artifact_digest: str | None = None,
+    ) -> ProgressSnapshot:
+        self._path(campaign_id)
+        with exclusive_file_lock(self.root / ".progress.lock"):
+            return self._record_locked(
+                campaign_id,
+                event_type=event_type,
+                stage=stage,
+                status=status,
+                completed=completed,
+                total=total,
+                elapsed_seconds=elapsed_seconds,
+                next_work=next_work,
+                detail=detail,
+                outcome=outcome,
+                accepted_artifact_digest=accepted_artifact_digest,
+            )
+
+    def _record_locked(
         self,
         campaign_id: str,
         *,
@@ -451,49 +485,56 @@ class ProgressStore:
         return snapshot
 
     def pause(self, campaign_id: str, *, detail: str = "paused by operator") -> ProgressSnapshot:
-        return self.record(
-            campaign_id,
-            event_type="campaign_paused",
-            stage=None,
-            status=ProgressStatus.PAUSED,
-            completed=self.snapshot(campaign_id).completed,
-            total=self.snapshot(campaign_id).total,
-            elapsed_seconds=self.snapshot(campaign_id).elapsed_seconds,
-            next_work=self.snapshot(campaign_id).next_work,
-            detail=detail,
-        )
+        self._path(campaign_id)
+        with exclusive_file_lock(self.root / ".progress.lock"):
+            current = self._load(campaign_id)[0]
+            return self._record_locked(
+                campaign_id,
+                event_type="campaign_paused",
+                stage=None,
+                status=ProgressStatus.PAUSED,
+                completed=current.completed,
+                total=current.total,
+                elapsed_seconds=current.elapsed_seconds,
+                next_work=current.next_work,
+                detail=detail,
+            )
 
     def cancel(
         self, campaign_id: str, *, detail: str = "cancelled by operator"
     ) -> ProgressSnapshot:
-        current = self.snapshot(campaign_id)
-        return self.record(
-            campaign_id,
-            event_type="campaign_cancelled",
-            stage=None,
-            status=ProgressStatus.CANCELLED,
-            completed=current.completed,
-            total=current.total,
-            elapsed_seconds=current.elapsed_seconds,
-            next_work=current.next_work,
-            detail=detail,
-        )
+        self._path(campaign_id)
+        with exclusive_file_lock(self.root / ".progress.lock"):
+            current = self._load(campaign_id)[0]
+            return self._record_locked(
+                campaign_id,
+                event_type="campaign_cancelled",
+                stage=None,
+                status=ProgressStatus.CANCELLED,
+                completed=current.completed,
+                total=current.total,
+                elapsed_seconds=current.elapsed_seconds,
+                next_work=current.next_work,
+                detail=detail,
+            )
 
     def resume(self, campaign_id: str) -> ProgressSnapshot:
-        current = self.snapshot(campaign_id)
-        if current.status is ProgressStatus.COMPLETED:
-            return current
-        return self.record(
-            campaign_id,
-            event_type="campaign_resumed",
-            stage=None,
-            status=ProgressStatus.RUNNING,
-            completed=current.completed,
-            total=current.total,
-            elapsed_seconds=current.elapsed_seconds,
-            next_work=current.next_work,
-            detail="resumed from last atomically accepted state",
-        )
+        self._path(campaign_id)
+        with exclusive_file_lock(self.root / ".progress.lock"):
+            current = self._load(campaign_id)[0]
+            if current.status is ProgressStatus.COMPLETED:
+                return current
+            return self._record_locked(
+                campaign_id,
+                event_type="campaign_resumed",
+                stage=None,
+                status=ProgressStatus.RUNNING,
+                completed=current.completed,
+                total=current.total,
+                elapsed_seconds=current.elapsed_seconds,
+                next_work=current.next_work,
+                detail="resumed from last atomically accepted state",
+            )
 
     def diagnostics(
         self,

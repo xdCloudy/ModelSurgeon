@@ -7,13 +7,13 @@ import json
 import os
 import threading
 import uuid
-from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
+from modelsurgeon._file_lock import exclusive_file_lock
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 OPTIMIZATION_EVIDENCE_SCHEMA_VERSION = 1
@@ -179,35 +179,6 @@ class OptimizationEvidenceStore:
             raise OptimizationEvidenceError("optimization evidence manifest entries are invalid")
         return cast(dict[str, str], entries)
 
-    @contextmanager
-    def _manifest_process_lock(self) -> Iterator[None]:
-        lock_path = self.root / ".manifest.lock"
-        with lock_path.open("a+b") as stream:
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt_api = cast(Any, msvcrt)
-                stream.seek(0, os.SEEK_END)
-                if stream.tell() == 0:
-                    stream.write(b"\0")
-                    stream.flush()
-                stream.seek(0)
-                msvcrt_api.locking(stream.fileno(), msvcrt_api.LK_LOCK, 1)
-                try:
-                    yield
-                finally:
-                    stream.seek(0)
-                    msvcrt_api.locking(stream.fileno(), msvcrt_api.LK_UNLCK, 1)
-            else:
-                import fcntl
-
-                fcntl_api = cast(Any, fcntl)
-                fcntl_api.flock(stream.fileno(), fcntl_api.LOCK_EX)
-                try:
-                    yield
-                finally:
-                    fcntl_api.flock(stream.fileno(), fcntl_api.LOCK_UN)
-
     def _write_manifest(self, entries: Mapping[str, str]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         temporary = self.root / f".manifest-{uuid.uuid4().hex}.partial"
@@ -251,7 +222,7 @@ class OptimizationEvidenceStore:
                             ) from None
                 finally:
                     temporary.unlink(missing_ok=True)
-            with self._manifest_process_lock():
+            with exclusive_file_lock(self.root / ".manifest.lock"):
                 entries = self._manifest()
                 previous = entries.get(record.observation_id)
                 if previous is not None and previous != digest:
