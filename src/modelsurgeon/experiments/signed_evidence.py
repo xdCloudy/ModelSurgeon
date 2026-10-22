@@ -356,8 +356,6 @@ class EvidenceVerification:
 
 
 def _file_digest(path: Path, chunk_bytes: int) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    size = 0
     with path.open("rb") as stream:
         return _stream_digest(stream, chunk_bytes)
 
