@@ -101,4 +101,6 @@ Initialization creates these directories and a short root README:
 replacement for the existing optimization settings file accepted by
 `--config`; the two contracts are intentionally separate. Provider credentials
 are referenced only by environment-variable name in the existing provider
-configuration and are never written by setup.
+configuration and are never written by setup. Initialization publishes the
+README first and atomically writes the manifest last, so a failed first run can
+be retried without `--force` unless the manifest was completed.

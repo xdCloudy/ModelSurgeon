@@ -71,13 +71,15 @@ class SetupCheck:
     details: Mapping[str, object]
 
     def to_record(self) -> dict[str, object]:
-        return redact_untrusted_value({
-            "category": self.category,
-            "code": self.code,
-            "outcome": self.outcome.value,
-            "message": redact_secret_text(self.message),
-            "details": dict(self.details),
-        })  # type: ignore[return-value]
+        return redact_untrusted_value(
+            {
+                "category": self.category,
+                "code": self.code,
+                "outcome": self.outcome.value,
+                "message": redact_secret_text(self.message),
+                "details": dict(self.details),
+            }
+        )  # type: ignore[return-value]
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,9 +155,7 @@ def default_data_root(*, environ: Mapping[str, str] | None = None) -> Path:
         )
     base = values.get("XDG_DATA_HOME")
     return (
-        Path(base) / "ModelSurgeon"
-        if base
-        else Path.home() / ".local" / "share" / "ModelSurgeon"
+        Path(base) / "ModelSurgeon" if base else Path.home() / ".local" / "share" / "ModelSurgeon"
     )
 
 
@@ -182,6 +182,30 @@ def _probe_writable(path: Path) -> str | None:
     except OSError as error:
         return f"data root is not writable: {error.strerror or error.__class__.__name__}"
     return None
+
+
+def _write_setup_text(path: Path, contents: str) -> None:
+    """Atomically replace one first-run text file beside its destination."""
+
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            prefix=f".{path.name}.",
+            suffix=".partial",
+            dir=path.parent,
+            delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
 
 
 def _runtime_check() -> SetupCheck:
@@ -302,8 +326,8 @@ def _data_root_checks(request: SetupRequest) -> tuple[SetupCheck, SetupCheck]:
                 "layout",
                 "layout_create_failed",
                 SetupOutcome.FAILED,
-                    "one or more data directories could not be created: "
-                    f"{error.strerror or error.__class__.__name__}",
+                "one or more data directories could not be created: "
+                f"{error.strerror or error.__class__.__name__}",
                 path=str(root),
             )
     if missing:
@@ -410,11 +434,7 @@ def _fixture_check(request: SetupRequest) -> SetupCheck:
             path=str(fixture),
         )
     families = sorted(
-        {
-            str(item["family"])
-            for item in models
-            if isinstance(item, Mapping) and "family" in item
-        }
+        {str(item["family"]) for item in models if isinstance(item, Mapping) and "family" in item}
     )
     return _check(
         "supported_fixture",
@@ -576,18 +596,18 @@ def initialize_setup(request: SetupRequest, *, force: bool = False) -> SetupRepo
             )
             checks = (*initialized.checks, config_check)
             return SetupReport(SetupStatus.NEEDS_ATTENTION, request, checks, config_path)
-        config_path.write_text(
-            _setup_config_text(request, fixture=request.fixture), encoding="utf-8", newline="\n"
-        )
         if not readme_path.exists() or force:
-            readme_path.write_text(_user_readme(), encoding="utf-8", newline="\n")
+            _write_setup_text(readme_path, _user_readme())
+        _write_setup_text(
+            config_path,
+            _setup_config_text(request, fixture=request.fixture),
+        )
     except OSError as error:
         config_check = _check(
             "configuration",
             "configuration_write_failed",
             SetupOutcome.FAILED,
-            "first-run files could not be written: "
-            f"{error.strerror or error.__class__.__name__}",
+            f"first-run files could not be written: {error.strerror or error.__class__.__name__}",
             path=str(config_path),
         )
         return SetupReport(
