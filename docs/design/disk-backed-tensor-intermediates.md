@@ -10,6 +10,10 @@ Each chunk is written and fsynced under a private name, atomically promoted, and
 recorded in a canonical manifest. The manifest contains sequential byte counts and
 SHA-256 digests and is itself atomically replaced after every committed chunk. Resume
 requires the exact specification and verifies every committed file before exposing it.
+Resource limits cap each chunk at 64 MiB, each tensor at 2,048 chunks, and each
+serialized manifest at 4 MiB. Resume reads at most one byte beyond the manifest ceiling
+before rejecting the file, so persisted scratch state cannot trigger unbounded JSON
+loading.
 
 Interrupted manifest temporaries and uncommitted chunk files are reported as stale.
 Callers may explicitly recover those two cases by discarding only uncommitted files;

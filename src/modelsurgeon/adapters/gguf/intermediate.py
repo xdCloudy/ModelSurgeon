@@ -18,6 +18,9 @@ from modelsurgeon.json_utils import strict_json_loads
 
 DISK_TENSOR_SCHEMA_VERSION: Literal[1] = 1
 _CHUNK_NAME = re.compile(r"^chunk-([0-9]{8})\.bin$")
+_MAX_CHUNK_BYTES = 64 * 1024 * 1024
+_MAX_CHUNKS = 2048
+_MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 
 
 class DiskTensorError(ValueError):
@@ -42,12 +45,27 @@ class DiskTensorSpec:
     def __post_init__(self) -> None:
         if not self.tensor_id or not self.dtype:
             raise DiskTensorError("tensor identity and dtype cannot be empty")
-        if not self.shape or any(value <= 0 for value in self.shape):
+        if not self.shape or any(
+            not isinstance(value, int) or isinstance(value, bool) or value <= 0
+            for value in self.shape
+        ):
             raise DiskTensorError("tensor shape dimensions must be positive")
-        if self.item_size <= 0 or self.chunk_bytes <= 0:
+        if (
+            not isinstance(self.item_size, int)
+            or isinstance(self.item_size, bool)
+            or not isinstance(self.chunk_bytes, int)
+            or isinstance(self.chunk_bytes, bool)
+            or self.item_size <= 0
+            or self.chunk_bytes <= 0
+        ):
             raise DiskTensorError("item size and chunk bytes must be positive")
+        if self.chunk_bytes > _MAX_CHUNK_BYTES:
+            raise DiskTensorError(f"chunk bytes cannot exceed {_MAX_CHUNK_BYTES}")
         if self.chunk_bytes % self.item_size:
             raise DiskTensorError("chunk bytes must be divisible by item size")
+        chunk_count = (self.total_bytes + self.chunk_bytes - 1) // self.chunk_bytes
+        if chunk_count > _MAX_CHUNKS:
+            raise DiskTensorError(f"tensor cannot require more than {_MAX_CHUNKS} chunks")
         if not re.fullmatch(r"[0-9a-f]{64}", self.plan_sha256):
             raise DiskTensorError("plan checksum must be lowercase SHA-256")
 
@@ -69,6 +87,10 @@ class DiskTensorManifest:
     chunks: tuple[DiskTensorChunk, ...]
     complete: bool
     schema_version: Literal[1] = DISK_TENSOR_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if len(self.chunks) > _MAX_CHUNKS:
+            raise DiskTensorError(f"manifest cannot contain more than {_MAX_CHUNKS} chunks")
 
     @property
     def completed_bytes(self) -> int:
@@ -153,6 +175,8 @@ def _manifest_from_record(record: object) -> DiskTensorManifest:
     raw_chunks = record["chunks"]
     if not isinstance(raw_chunks, list):
         raise DiskTensorError("manifest chunks must be an array")
+    if len(raw_chunks) > _MAX_CHUNKS:
+        raise DiskTensorError(f"manifest cannot contain more than {_MAX_CHUNKS} chunks")
     chunks: list[DiskTensorChunk] = []
     for expected_index, raw in enumerate(raw_chunks):
         if not isinstance(raw, dict):
@@ -237,8 +261,14 @@ class DiskBackedTensor:
                 raise StaleDiskTensorError("interrupted manifest commit detected")
             temporary.unlink()
         try:
-            record = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            with manifest_path.open("rb") as stream:
+                payload = stream.read(_MAX_MANIFEST_BYTES + 1)
+            if len(payload) > _MAX_MANIFEST_BYTES:
+                raise DiskTensorError(
+                    f"disk tensor manifest exceeds the {_MAX_MANIFEST_BYTES}-byte limit"
+                )
+            record = strict_json_loads(payload.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as error:
             raise DiskTensorError("disk tensor manifest cannot be read") from error
         manifest = _manifest_from_record(record)
         if manifest.spec != expected_spec:
@@ -269,6 +299,10 @@ class DiskBackedTensor:
         payload = json.dumps(
             self.manifest.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
+        if len(payload) > _MAX_MANIFEST_BYTES:
+            raise DiskTensorError(
+                f"disk tensor manifest exceeds the {_MAX_MANIFEST_BYTES}-byte limit"
+            )
         with temporary.open("xb") as stream:
             stream.write(payload)
             stream.flush()
