@@ -120,3 +120,55 @@ class AtomicCheckpointDestination(AbstractContextManager["AtomicCheckpointDestin
     ) -> None:
         del exc_type, exc_value, traceback
         self.close()
+
+
+class AtomicDirectoryDestination(AbstractContextManager["AtomicDirectoryDestination"]):
+    """Build a new directory privately and publish it in one rename."""
+
+    def __init__(self, destination: str | Path) -> None:
+        self.destination = Path(destination).expanduser()
+        self.staging_path = self.destination.parent / (
+            f".{self.destination.name}.{uuid.uuid4().hex}.staging"
+        )
+        self._entered = False
+        self._published = False
+
+    @property
+    def published(self) -> bool:
+        return self._published
+
+    def __enter__(self) -> Self:
+        if self._entered:
+            raise CheckpointDestinationError("directory destination context cannot be reused")
+        if self.destination.exists() or self.destination.is_symlink():
+            raise CheckpointDestinationError("directory destination already exists")
+        self.destination.parent.mkdir(parents=True, exist_ok=True)
+        self.staging_path.mkdir(mode=0o700)
+        self._entered = True
+        return self
+
+    def publish(self) -> Path:
+        if not self._entered:
+            raise CheckpointDestinationError("directory staging context is not active")
+        if self._published:
+            raise CheckpointDestinationError("directory destination was already published")
+        if self.destination.exists() or self.destination.is_symlink():
+            raise CheckpointDestinationError("directory destination appeared during publication")
+        if not self.staging_path.is_dir() or self.staging_path.is_symlink():
+            raise CheckpointDestinationError("directory staging output is missing or invalid")
+        os.rename(self.staging_path, self.destination)
+        self._published = True
+        return self.destination
+
+    def close(self) -> None:
+        if not self._published:
+            _remove_staging(self.staging_path)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc_type, exc_value, traceback
+        self.close()
