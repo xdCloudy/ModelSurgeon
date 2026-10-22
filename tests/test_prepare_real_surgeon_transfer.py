@@ -1,6 +1,7 @@
 """Tests for preserving identity when building transfer examples from evidence."""
 
 import copy
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -115,9 +116,9 @@ def test_transfer_dataset_publishes_complete_directory(tmp_path: Path) -> None:
     assert json.loads((output / "split.json").read_text(encoding="utf-8")) == {
         "mode": "model_identity"
     }
-    assert json.loads((output / "manifest.json").read_text(encoding="utf-8")) == {
-        "example_count": 1
-    }
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["example_count"] == 1
+    assert set(manifest["artifacts"]) == {"examples.jsonl", "split.json"}
     assert not tuple(output.parent.glob(".transfer.partial-*"))
 
 
@@ -179,5 +180,11 @@ def test_transfer_preparation_cli_publishes_manifest_and_split(
     manifest = json.loads(Path("transfer/manifest.json").read_text(encoding="utf-8"))
     split = json.loads(Path("transfer/split.json").read_text(encoding="utf-8"))
     assert manifest["example_count"] == 1
+    assert manifest["schema_version"] == 2
     assert manifest["dataset"] == str(Path("transfer") / "examples.jsonl")
+    for artifact_name in ("examples.jsonl", "split.json"):
+        artifact_bytes = (Path("transfer") / artifact_name).read_bytes()
+        integrity = manifest["artifacts"][artifact_name]
+        assert integrity["sha256"] == f"sha256:{hashlib.sha256(artifact_bytes).hexdigest()}"
+        assert integrity["size_bytes"] == len(artifact_bytes)
     assert split["assignments"] == {"observation-1": "train"}

@@ -9,6 +9,7 @@ so a held-out model cannot contribute rows to training or validation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -148,12 +149,22 @@ def _select_examples(observations: list[dict[str, Any]]) -> dict[str, dict[str, 
     return selected
 
 
+def _file_integrity(path: Path) -> dict[str, int | str]:
+    hasher = hashlib.sha256()
+    size_bytes = 0
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            hasher.update(chunk)
+            size_bytes += len(chunk)
+    return {"sha256": f"sha256:{hasher.hexdigest()}", "size_bytes": size_bytes}
+
+
 def _publish_dataset(
     output: Path,
     selected: dict[str, dict[str, Any]],
     split_record: dict[str, Any],
     manifest_record: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     output = output.absolute()
     if output == output.parent:
         raise ValueError("transfer dataset output must be a dedicated directory")
@@ -170,13 +181,19 @@ def _publish_dataset(
             json.dumps(split_record, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        published_manifest = dict(manifest_record)
+        published_manifest["artifacts"] = {
+            "examples.jsonl": _file_integrity(staging / "examples.jsonl"),
+            "split.json": _file_integrity(staging / "split.json"),
+        }
         (staging / "manifest.json").write_text(
-            json.dumps(manifest_record, indent=2, sort_keys=True) + "\n",
+            json.dumps(published_manifest, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         if output.exists() or output.is_symlink():
             raise ValueError(f"transfer dataset output already exists: {output}")
         os.rename(staging, output)
+        return published_manifest
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
@@ -235,7 +252,7 @@ def main() -> int:
     }
     manifest_record = {
         "record_type": "real_surgeon_transfer_dataset",
-        "schema_version": 1,
+        "schema_version": 2,
         "source_roots": [str(root) for root in args.root],
         "example_count": len(selected),
         "split_counts": dict(sorted(split_counts.items())),
@@ -249,7 +266,7 @@ def main() -> int:
         "split": str(output / "split.json"),
     }
     try:
-        _publish_dataset(output, selected, split_record, manifest_record)
+        manifest_record = _publish_dataset(output, selected, split_record, manifest_record)
     except (OSError, ValueError) as error:
         raise SystemExit(f"cannot publish transfer dataset: {error}") from error
     print(json.dumps(manifest_record, sort_keys=True))
