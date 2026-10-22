@@ -9,7 +9,7 @@ from typing import Any, NoReturn
 
 def _reject_nonstandard_constant(token: str) -> NoReturn:
     raise JSONDecodeError(
-        f"non-standard numeric constant {token!r} is not permitted",
+        f"non-finite or non-standard numeric constant {token!r} is not permitted",
         token,
         0,
     )

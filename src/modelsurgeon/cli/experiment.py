@@ -126,7 +126,9 @@ def parse_mutation_request_json(payload: str) -> MutationRequest:
     try:
         raw = strict_json_loads(payload)
     except json.JSONDecodeError as error:
-        raise ExperimentCommandError("mutation request is not valid JSON") from error
+        raise ExperimentCommandError(
+            f"mutation request is not valid JSON: {error.msg}"
+        ) from error
     if not isinstance(raw, dict) or not all(isinstance(key, str) for key in raw):
         raise ExperimentCommandError("mutation request must be a JSON object")
     expected = {"schema_version", "kind", "targets", "parameters"}
