@@ -13,6 +13,8 @@
     probabilities when the model exposes them so candidate ranking retains
     confidence information. Model inference exceptions are also recorded as an
     abstention so optional guidance cannot stop physical optimization.
+    Each ranking pass clears its prior predictions first, so an abstention in a
+    later pass cannot leak stale scores into evidence or comparison baselines.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
