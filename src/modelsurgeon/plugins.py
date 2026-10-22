@@ -5,12 +5,15 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import os
+import signal
 import subprocess
+import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol
+from typing import IO, Protocol
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 
@@ -359,6 +362,53 @@ def _result_from_mapping(value: object, plugin_id: str) -> PluginResult:
     return PluginResult(plugin_id, outcome, reason, dict(payload), dict(evidence), wall_seconds)
 
 
+def _terminate_plugin_process(process: subprocess.Popen[bytes]) -> None:
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=1,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except OSError:
+            process.terminate()
+        try:
+            process.wait(timeout=0.25)
+        except subprocess.TimeoutExpired:
+            pass
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except OSError:
+            if process.poll() is None:
+                process.kill()
+    try:
+        process.wait(timeout=0.25)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _drain_plugin_stream(
+    stream: IO[bytes],
+    output: bytearray,
+    byte_limit: int,
+    exceeded: threading.Event,
+) -> None:
+    while chunk := stream.read(64 * 1024):
+        remaining = byte_limit + 1 - len(output)
+        if remaining > 0:
+            output.extend(chunk[:remaining])
+        if len(output) > byte_limit:
+            exceeded.set()
+
+
 def invoke_in_process(
     card: PluginCapabilityCard,
     implementation: PluginImplementation,
@@ -423,35 +473,94 @@ def invoke_subprocess(
     if not command or any(not value.strip() for value in command):
         raise PluginError("subprocess plugin command must be non-empty")
     started = time.monotonic()
+    stdout_limit = min(request.budget.max_stdout_bytes, card.resource_budget.max_stdout_bytes)
+    stderr_limit = min(request.budget.max_stderr_bytes, card.resource_budget.max_stderr_bytes)
+    timeout_seconds = min(request.budget.max_wall_seconds, card.resource_budget.max_wall_seconds)
+    request_bytes = (request.canonical_json() + "\n").encode("utf-8")
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             list(command),
-            input=request.canonical_json() + "\n",
-            text=True,
-            capture_output=True,
-            timeout=min(request.budget.max_wall_seconds, card.resource_budget.max_wall_seconds),
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return PluginResult(
-            card.plugin_id, PluginOutcome.TIMEOUT, "plugin exceeded wall-time budget"
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            start_new_session=os.name != "nt",
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
         )
     except OSError as error:
         return PluginResult(
             card.plugin_id, PluginOutcome.CRASH, f"plugin process could not start: {error}"
         )
+
+    assert process.stdin is not None
+    assert process.stdout is not None
+    assert process.stderr is not None
+    stdout = bytearray()
+    stderr = bytearray()
+    output_exceeded = threading.Event()
+    stdout_reader = threading.Thread(
+        target=_drain_plugin_stream,
+        args=(process.stdout, stdout, stdout_limit, output_exceeded),
+        daemon=True,
+    )
+    stderr_reader = threading.Thread(
+        target=_drain_plugin_stream,
+        args=(process.stderr, stderr, stderr_limit, output_exceeded),
+        daemon=True,
+    )
+
+    def write_request() -> None:
+        try:
+            process.stdin.write(request_bytes)
+            process.stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    stdin_writer = threading.Thread(target=write_request, daemon=True)
+    workers = (stdout_reader, stderr_reader, stdin_writer)
+    for worker in workers:
+        worker.start()
+
+    deadline = started + timeout_seconds
+    timed_out = False
+    while True:
+        if output_exceeded.is_set():
+            _terminate_plugin_process(process)
+            break
+        if time.monotonic() >= deadline:
+            timed_out = True
+            _terminate_plugin_process(process)
+            break
+        if process.poll() is not None and not any(worker.is_alive() for worker in workers):
+            break
+        time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
+
+    for worker in workers:
+        worker.join(timeout=0.5)
+    for stream in (process.stdin, process.stdout, process.stderr):
+        try:
+            stream.close()
+        except (OSError, ValueError):
+            pass
+
     elapsed = time.monotonic() - started
-    if len(completed.stdout.encode()) > min(
-        request.budget.max_stdout_bytes, card.resource_budget.max_stdout_bytes
-    ) or len(completed.stderr.encode()) > min(
-        request.budget.max_stderr_bytes, card.resource_budget.max_stderr_bytes
-    ):
+    if timed_out:
+        return PluginResult(
+            card.plugin_id,
+            PluginOutcome.TIMEOUT,
+            "plugin exceeded wall-time budget",
+            wall_seconds=elapsed,
+        )
+    if output_exceeded.is_set():
         return PluginResult(
             card.plugin_id,
             PluginOutcome.MALFORMED_OUTPUT,
             "plugin output exceeded byte budget",
+            wall_seconds=elapsed,
         )
-    if completed.returncode != 0:
+    if process.returncode != 0:
         return PluginResult(
             card.plugin_id,
             PluginOutcome.CRASH,
@@ -459,8 +568,8 @@ def invoke_subprocess(
             wall_seconds=elapsed,
         )
     try:
-        parsed = _result_from_mapping(json.loads(completed.stdout), card.plugin_id)
-    except (json.JSONDecodeError, PluginError):
+        parsed = _result_from_mapping(json.loads(stdout), card.plugin_id)
+    except (json.JSONDecodeError, UnicodeDecodeError, PluginError):
         return PluginResult(
             card.plugin_id,
             PluginOutcome.MALFORMED_OUTPUT,
