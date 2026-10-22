@@ -12,8 +12,8 @@ item ID, corpus ID, exact text digest, byte count, generated flag, and ancestry
 IDs. Raw text is used only during the bounded audit and is not serialized.
 
 The current matching and resource-bound behavior is recorded as protocol
-revision `contamination-audit-v2`; v1 evidence remains attributable to its
-original matching rules.
+revision `contamination-audit-v2` and report schema version 2; v1 evidence
+remains attributable to its original schema and matching rules.
 
 The audit hashes text after collapsing whitespace for exact SHA-256 matching
 and deterministic token-shingle Jaccard matching under explicit item and pair

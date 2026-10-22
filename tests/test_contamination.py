@@ -28,6 +28,7 @@ def test_exact_overlap_blocks_publishability_and_is_deterministic() -> None:
     first = audit_corpora(_sources(), items)
     second = audit_corpora(_sources(), items)
     assert first.status is ContaminationStatus.BLOCKED
+    assert first.to_record()["schema_version"] == 2
     assert first.protocol_revision == "contamination-audit-v2"
     assert first.report_id == second.report_id
     assert first.findings[0].kind is FindingKind.EXACT_OVERLAP
