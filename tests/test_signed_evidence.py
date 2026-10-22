@@ -107,6 +107,31 @@ def test_revoked_key_and_unsafe_paths_are_rejected() -> None:
         )
 
 
+@pytest.mark.parametrize("path", ("C:outside.bin", "C:/outside.bin"))
+def test_windows_drive_paths_are_rejected(path: str) -> None:
+    with pytest.raises(SignedEvidenceError, match="relative POSIX path"):
+        EvidenceBundleMember(path, "a" * 64, 1, "artifact")
+
+
+def test_verifier_does_not_follow_symlinked_member_parent(tmp_path) -> None:
+    index = _signed(tmp_path)
+    outside = tmp_path.parent / "outside-evidence"
+    outside.mkdir()
+    (outside / "summary.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "reports" / "summary.json").unlink()
+    (tmp_path / "reports").rmdir()
+    try:
+        (tmp_path / "reports").symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"directory symlinks are unavailable: {error}")
+
+    result = verify_evidence_bundle(tmp_path, index, key_material={"key-2026": KEY})
+
+    assert result.status is EvidenceVerificationStatus.FAILED
+    assert result.checked_members == 1
+    assert any("missing members" in issue for issue in result.issues)
+
+
 def test_revocation_metadata_invalidates_an_existing_attestation(tmp_path) -> None:
     index = _signed(tmp_path)
     revoked = EvidenceKeyRecord(
