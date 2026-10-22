@@ -102,5 +102,8 @@ replacement for the existing optimization settings file accepted by
 `--config`; the two contracts are intentionally separate. Provider credentials
 are referenced only by environment-variable name in the existing provider
 configuration and are never written by setup. Initialization publishes the
-README first and atomically writes the manifest last, so a failed first run can
-be retried without `--force` unless the manifest was completed.
+README first and atomically creates the manifest last. Without `--force`, both
+files publish only when their destination is still absent, even if another
+setup process creates it during initialization. A failed first run can be
+retried without `--force` unless the manifest was completed; `--force` replaces
+the files atomically.

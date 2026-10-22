@@ -184,8 +184,8 @@ def _probe_writable(path: Path) -> str | None:
     return None
 
 
-def _write_setup_text(path: Path, contents: str) -> None:
-    """Atomically replace one first-run text file beside its destination."""
+def _write_setup_text(path: Path, contents: str, *, overwrite: bool = False) -> None:
+    """Atomically publish one first-run text file beside its destination."""
 
     temporary: Path | None = None
     try:
@@ -202,7 +202,12 @@ def _write_setup_text(path: Path, contents: str) -> None:
             stream.write(contents)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        if overwrite:
+            os.replace(temporary, path)
+        else:
+            os.link(temporary, path)
+            temporary.unlink()
+        temporary = None
     finally:
         if temporary is not None and temporary.exists():
             temporary.unlink()
@@ -597,10 +602,11 @@ def initialize_setup(request: SetupRequest, *, force: bool = False) -> SetupRepo
             checks = (*initialized.checks, config_check)
             return SetupReport(SetupStatus.NEEDS_ATTENTION, request, checks, config_path)
         if not readme_path.exists() or force:
-            _write_setup_text(readme_path, _user_readme())
+            _write_setup_text(readme_path, _user_readme(), overwrite=force)
         _write_setup_text(
             config_path,
             _setup_config_text(request, fixture=request.fixture),
+            overwrite=force,
         )
     except OSError as error:
         config_check = _check(
