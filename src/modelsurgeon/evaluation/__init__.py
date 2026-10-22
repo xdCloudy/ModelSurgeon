@@ -334,6 +334,7 @@ from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchMeasurement,
     TaskQualityEvaluationError,
     evaluate_code_exact_match,
+    evaluate_code_exact_match_with_generator,
     evaluate_code_quality_gate,
 )
 from modelsurgeon.evaluation.transfer_suite import (
@@ -723,6 +724,7 @@ __all__ = [
     "compute_physical_frontier",
     "conservatively_dominates",
     "evaluate_code_exact_match",
+    "evaluate_code_exact_match_with_generator",
     "evaluate_code_quality_gate",
     "evaluate_performance_regression",
     "evaluate_v2_publication",
