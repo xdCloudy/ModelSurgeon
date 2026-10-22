@@ -369,6 +369,10 @@ def _stream_digest(stream: BinaryIO, chunk_bytes: int) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    return path.is_symlink() or path.is_junction()
+
+
 def _resolved_real_directory(root: Path) -> Path | None:
     """Resolve a directory only after rejecting symlinks in its path."""
 
@@ -377,7 +381,7 @@ def _resolved_real_directory(root: Path) -> Path | None:
         current = Path(absolute.anchor)
         for part in absolute.parts[1:]:
             current = current / part
-            if current.is_symlink():
+            if _is_symlink_or_junction(current):
                 return None
         resolved = absolute.resolve(strict=True)
         return resolved if resolved.is_dir() else None
@@ -428,7 +432,7 @@ def _open_bundle_member(root: Path, member_path: str) -> BinaryIO | None:
         current = root
         for part in parts:
             current = current / part
-            if current.is_symlink():
+            if _is_symlink_or_junction(current):
                 return None
         resolved_path = path.resolve(strict=True)
         resolved_path.relative_to(root)
@@ -475,7 +479,7 @@ def build_evidence_bundle(
     members: list[EvidenceBundleMember] = []
     total = 0
     for candidate in sorted(resolved.rglob("*")):
-        if candidate.is_symlink():
+        if _is_symlink_or_junction(candidate):
             raise SignedEvidenceError("bundle trees cannot contain symbolic links")
         if not candidate.is_file():
             continue
@@ -576,7 +580,7 @@ def verify_evidence_bundle(
         actual_paths = {
             candidate.relative_to(resolved).as_posix()
             for candidate in resolved.rglob("*")
-            if candidate.is_file() and not candidate.is_symlink()
+            if candidate.is_file() and not _is_symlink_or_junction(candidate)
         }
     except OSError as error:
         issues.append(f"cannot enumerate bundle: {error}")
