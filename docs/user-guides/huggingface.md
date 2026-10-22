@@ -130,7 +130,9 @@ First-party low-rank and dynamic-int8 artifacts follow the same directory
 boundary: config, safetensors weights, and the method manifest are written to a
 private sibling staging directory, then the complete directory is published.
 A failed conversion therefore does not expose a reloadable-looking partial
-destination.
+destination. Optimizer candidate exports also stage tokenizer files inside the
+same private directory and publish only after the complete artifact passes its
+weight-file and size checks.
 
 ## 6. Inspect, report, and reproduce
 

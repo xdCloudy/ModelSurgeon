@@ -84,6 +84,7 @@ from modelsurgeon.optimization_orchestrator import (
     StageResult,
     WorkflowOutcome,
 )
+from modelsurgeon.surgery.checkpoint_destination import AtomicDirectoryDestination
 from modelsurgeon.surgery.contracts import MutationKind, MutationRequest, TransactionState
 from modelsurgeon.surgery.distillation_repair import (
     DistillationRepairConfig,
@@ -1737,20 +1738,29 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
         destination = quantization_root / "candidate"
         try:
-            quantized_artifact, published_report = publish_huggingface_dynamic_int8(
-                quantized_model,
-                destination,
-                source_weight_bytes=quantization_report.source_weight_bytes,
-            )
+            with AtomicDirectoryDestination(destination) as target:
+                staging = target.staging_path
+                payload = staging / ".quantization-payload"
+                payload_artifact, published_report = publish_huggingface_dynamic_int8(
+                    quantized_model,
+                    payload,
+                    source_weight_bytes=quantization_report.source_weight_bytes,
+                )
+                for entry in payload.iterdir():
+                    entry.replace(staging / entry.name)
+                payload.rmdir()
+
+                tokenizer = proof._tokenizer
+                save_tokenizer = getattr(tokenizer, "save_pretrained", None)
+                if not callable(save_tokenizer):
+                    raise FirstPartyOptimizeRuntimeError(
+                        "quantized Hugging Face publication requires a reloadable tokenizer"
+                    )
+                save_tokenizer(staging)
+                target.publish()
+                quantized_artifact = destination / payload_artifact.name
         except HuggingFaceQuantizationError as error:
             raise FirstPartyOptimizeRuntimeError(str(error)) from error
-        tokenizer = proof._tokenizer
-        save_tokenizer = getattr(tokenizer, "save_pretrained", None)
-        if not callable(save_tokenizer):
-            raise FirstPartyOptimizeRuntimeError(
-                "quantized Hugging Face publication requires a reloadable tokenizer"
-            )
-        save_tokenizer(destination)
         reloaded = self._reload(quantized_artifact)
         if not self._generation_smoke(reloaded):
             raise FirstPartyOptimizeRuntimeError(
@@ -2517,7 +2527,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         return candidate
 
     def _publish(self, model: Any, destination: Path) -> Path:
-        if destination.exists():
+        if destination.exists() or destination.is_symlink():
             raise FirstPartyOptimizeRuntimeError(
                 f"refusing to overwrite candidate artifact: {destination}"
             )
@@ -2529,39 +2539,46 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 if getattr(module, "_modelsurgeon_low_rank", False)
             )
         )
-        files: tuple[Path, ...]
-        if low_rank_modules:
-            try:
-                files = (publish_huggingface_low_rank(model, destination)[0],)
-            except HuggingFaceLowRankError as error:
-                raise FirstPartyOptimizeRuntimeError(str(error)) from error
-        else:
-            destination.mkdir(parents=True)
-            model.save_pretrained(destination, safe_serialization=True)
-            files = tuple(destination.glob("*.safetensors"))
-        tokenizer = self._ensure_loaded()._tokenizer
-        save_tokenizer = getattr(tokenizer, "save_pretrained", None)
-        if not callable(save_tokenizer):
-            raise FirstPartyOptimizeRuntimeError(
-                "Hugging Face publication requires a reloadable tokenizer"
-            )
-        save_tokenizer(destination)
-        files = tuple(sorted(files))
-        if len(files) != 1:
-            raise FirstPartyOptimizeRuntimeError(
-                "Hugging Face publication must produce exactly one safetensors weight file"
-            )
-        artifact_bytes = _directory_bytes(destination)
-        if artifact_bytes > self.plan.budget.max_artifact_bytes:
-            raise FirstPartyOptimizeRuntimeError(
-                "published candidate artifact exceeds max_artifact_bytes"
-            )
-        if self.resource_preflight is not None:
-            self.resource_preflight = {
-                **self.resource_preflight,
-                "published_artifact_bytes": artifact_bytes,
-            }
-        return files[0]
+        try:
+            with AtomicDirectoryDestination(destination) as target:
+                staging = target.staging_path
+                if low_rank_modules:
+                    # Keep the nested low-rank publication inside the outer
+                    # transaction until the tokenizer and budget checks pass.
+                    payload = staging / ".low-rank-payload"
+                    publish_huggingface_low_rank(model, payload)
+                    for entry in payload.iterdir():
+                        entry.replace(staging / entry.name)
+                    payload.rmdir()
+                else:
+                    model.save_pretrained(staging, safe_serialization=True)
+
+                tokenizer = self._ensure_loaded()._tokenizer
+                save_tokenizer = getattr(tokenizer, "save_pretrained", None)
+                if not callable(save_tokenizer):
+                    raise FirstPartyOptimizeRuntimeError(
+                        "Hugging Face publication requires a reloadable tokenizer"
+                    )
+                save_tokenizer(staging)
+                files = tuple(sorted(staging.glob("*.safetensors")))
+                if len(files) != 1:
+                    raise FirstPartyOptimizeRuntimeError(
+                        "Hugging Face publication must produce exactly one safetensors weight file"
+                    )
+                artifact_bytes = _directory_bytes(staging)
+                if artifact_bytes > self.plan.budget.max_artifact_bytes:
+                    raise FirstPartyOptimizeRuntimeError(
+                        "published candidate artifact exceeds max_artifact_bytes"
+                    )
+                if self.resource_preflight is not None:
+                    self.resource_preflight = {
+                        **self.resource_preflight,
+                        "published_artifact_bytes": artifact_bytes,
+                    }
+                target.publish()
+                return destination / files[0].name
+        except HuggingFaceLowRankError as error:
+            raise FirstPartyOptimizeRuntimeError(str(error)) from error
 
     def _reload(self, artifact: Path) -> Any:
         low_rank_manifest = artifact.parent / "modelsurgeon-low-rank.json"
