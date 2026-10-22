@@ -342,12 +342,14 @@ class LocalArtifactRegistry:
 
     def _save_catalog(self) -> None:
         temporary = self.catalog_path.with_name(f".catalog-{uuid.uuid4().hex}.partial")
-        temporary.write_text(canonical_identity_json(self._catalog_record()), encoding="utf-8")
         try:
+            with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+                stream.write(canonical_identity_json(self._catalog_record()))
+                stream.flush()
+                os.fsync(stream.fileno())
             os.replace(temporary, self.catalog_path)
         finally:
-            if temporary.exists():
-                temporary.unlink()
+            temporary.unlink(missing_ok=True)
 
     def resolve(self, reference: str) -> RegistryArtifact:
         digest = self._aliases.get(reference, reference)
