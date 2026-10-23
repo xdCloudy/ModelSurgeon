@@ -6,7 +6,6 @@ import hashlib
 import importlib
 import json
 import os
-import subprocess
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -23,8 +22,11 @@ from modelsurgeon.evaluation import (
     render_benchmark_protocol,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.subprocesses import run_bounded_process
 
 BENCHMARK_CLI_SCHEMA_VERSION = 1
+MAX_BENCHMARK_RUNNER_STDOUT_BYTES = 16 * 1024 * 1024
+MAX_BENCHMARK_RUNNER_STDERR_BYTES = 1 * 1024 * 1024
 
 
 class BenchmarkCommandError(ValueError):
@@ -191,26 +193,26 @@ class SubprocessBenchmarkExecutor:
     def execute(self, cell: Mapping[str, object]) -> Mapping[str, object]:
         payload = canonical_identity_json(dict(cell))
         try:
-            completed = subprocess.run(
+            completed = run_bounded_process(
                 self.command,
-                input=payload + "\n",
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=self.timeout_seconds,
-                shell=False,
+                (payload + "\n").encode("utf-8"),
+                timeout_seconds=self.timeout_seconds,
+                stdout_limit=MAX_BENCHMARK_RUNNER_STDOUT_BYTES,
+                stderr_limit=MAX_BENCHMARK_RUNNER_STDERR_BYTES,
             )
-        except subprocess.TimeoutExpired as error:
-            raise BenchmarkMethodFailure(
-                "external benchmark method exceeded its time budget"
-            ) from error
+        except OSError as error:
+            raise BenchmarkMethodFailure("external benchmark method could not start") from error
+        if completed.timed_out:
+            raise BenchmarkMethodFailure("external benchmark method exceeded its time budget")
+        if completed.output_exceeded:
+            raise BenchmarkMethodFailure("external benchmark method exceeded its output budget")
         if completed.returncode != 0:
             raise BenchmarkMethodFailure(
                 f"external benchmark method exited with status {completed.returncode}"
             )
         try:
-            result = json.loads(completed.stdout)
-        except json.JSONDecodeError as error:
+            result = json.loads(completed.stdout.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise BenchmarkMethodFailure("external method did not emit one JSON result") from error
         if not isinstance(result, dict):
             raise BenchmarkMethodFailure("external method result must be an object")
