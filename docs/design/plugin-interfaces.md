@@ -24,9 +24,11 @@ trust decision and the plugin's `trusted_in_process` declaration. Otherwise
 the subprocess boundary is the default.
 
 Subprocess invocation sends canonical JSON over stdin and enforces wall-time,
-stdout, stderr, and artifact budgets. Timeout, process crash, malformed output,
-unsupported capability, and ordinary failure remain distinct outcomes. A
-plugin cannot turn malformed output into a supported result.
+stdout, stderr, and artifact budgets. The serialized request is capped at 4 MiB,
+100,000 JSON items, and 64 levels of nesting before it is copied for transport.
+Timeout, process crash, malformed output, unsupported capability, and ordinary
+failure remain distinct outcomes. A plugin cannot turn malformed output into a
+supported result.
 
 ```python
 report = negotiate_plugin(card, request)

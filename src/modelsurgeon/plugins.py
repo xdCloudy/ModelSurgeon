@@ -5,16 +5,23 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import os
+import signal
 import subprocess
+import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol
+from typing import IO, Protocol
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 PLUGIN_SCHEMA_VERSION = 1
+_MAX_PLUGIN_REQUEST_BYTES = 4 * 1024 * 1024
+_MAX_PLUGIN_REQUEST_ITEMS = 100_000
+_MAX_PLUGIN_REQUEST_DEPTH = 64
 
 
 class PluginError(ValueError):
@@ -63,6 +70,114 @@ def _major(version: str) -> int:
     if not value.isdigit():
         raise PluginError("API versions must start with a numeric major")
     return int(value)
+
+
+def _json_string_bytes(value: str) -> int:
+    size = 2
+    for character in value:
+        codepoint = ord(character)
+        if character in {'"', "\\"} or character in {"\b", "\f", "\n", "\r", "\t"}:
+            size += 2
+        elif codepoint < 0x20:
+            size += 6
+        elif codepoint < 0x80:
+            size += 1
+        else:
+            try:
+                size += len(character.encode("utf-8"))
+            except UnicodeEncodeError as error:
+                raise PluginError("plugin request contains invalid Unicode") from error
+        if size > _MAX_PLUGIN_REQUEST_BYTES:
+            raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return size
+
+
+def _bounded_json_copy(value: object, budget: list[int], depth: int = 0) -> object:
+    """Validate and copy a JSON value while accounting its encoded size."""
+    budget[1] += 1
+    if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
+        raise PluginError("plugin request exceeds the JSON item limit")
+    if depth > _MAX_PLUGIN_REQUEST_DEPTH:
+        raise PluginError("plugin request exceeds the JSON nesting limit")
+
+    if value is None:
+        size = 4
+        result: object = None
+    elif isinstance(value, bool):
+        size = 4 if value else 5
+        result = value
+    elif isinstance(value, int):
+        if value.bit_length() > _MAX_PLUGIN_REQUEST_BYTES * 4:
+            raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+        try:
+            size = len(str(value))
+        except ValueError as error:
+            raise PluginError("plugin integer exceeds the serialized size limit") from error
+        result = value
+    elif isinstance(value, float):
+        try:
+            size = len(json.dumps(value, allow_nan=False))
+        except ValueError as error:
+            raise PluginError("plugin request contains a non-finite number") from error
+        result = value
+    elif isinstance(value, str):
+        size = _json_string_bytes(value)
+        result = value
+    elif isinstance(value, Mapping):
+        if len(value) > _MAX_PLUGIN_REQUEST_ITEMS // 2:
+            raise PluginError("plugin request exceeds the JSON item limit")
+        size = 2 + max(0, len(value) - 1)
+        copied: dict[str, object] = {}
+        try:
+            entries = tuple(value.items())
+        except (RuntimeError, ValueError) as error:
+            raise PluginError("plugin request changed while being validated") from error
+        for key, item in entries:
+            if not isinstance(key, str) or not key:
+                raise PluginError("plugin request objects require non-empty string keys")
+            budget[1] += 1
+            if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
+                raise PluginError("plugin request exceeds the JSON item limit")
+            size += _json_string_bytes(key) + 1
+            copied[key] = _bounded_json_copy(item, budget, depth + 1)
+        result = copied
+    elif isinstance(value, (list, tuple)):
+        if len(value) > _MAX_PLUGIN_REQUEST_ITEMS:
+            raise PluginError("plugin request exceeds the JSON item limit")
+        size = 2 + max(0, len(value) - 1)
+        try:
+            entries = tuple(value)
+        except (RuntimeError, ValueError) as error:
+            raise PluginError("plugin request changed while being validated") from error
+        result = [_bounded_json_copy(item, budget, depth + 1) for item in entries]
+    else:
+        raise PluginError(
+            f"plugin request value type {type(value).__name__} is not JSON-compatible"
+        )
+
+    budget[0] += size
+    if budget[0] > _MAX_PLUGIN_REQUEST_BYTES:
+        raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return result
+
+
+def _bounded_plugin_request_bytes(request: PluginRequest) -> bytes:
+    record = {
+        "schema_version": PLUGIN_SCHEMA_VERSION,
+        "request_id": request.request_id,
+        "kind": request.kind.value,
+        "required_capabilities": request.required_capabilities,
+        "payload": request.payload,
+        "source_artifact_digest": request.source_artifact_digest,
+        "config_digest": request.config_digest,
+        "seed": request.seed,
+        "budget": request.budget.to_record(),
+    }
+    safe_record = _bounded_json_copy(record, [0, 0])
+    encoded = canonical_identity_json(safe_record).encode("utf-8") + b"\n"
+    if len(encoded) > _MAX_PLUGIN_REQUEST_BYTES:
+        raise PluginError("plugin request exceeds the 4 MiB serialized size limit")
+    return encoded
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,6 +474,58 @@ def _result_from_mapping(value: object, plugin_id: str) -> PluginResult:
     return PluginResult(plugin_id, outcome, reason, dict(payload), dict(evidence), wall_seconds)
 
 
+def _terminate_plugin_process(process: subprocess.Popen[bytes]) -> None:
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=1,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
+    else:
+        killpg = getattr(os, "killpg", None)
+        terminate_signal = getattr(signal, "SIGTERM", None)
+        kill_signal = getattr(signal, "SIGKILL", terminate_signal)
+        try:
+            if killpg is None or terminate_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, terminate_signal)
+        except OSError:
+            process.terminate()
+        with suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=0.25)
+        try:
+            if killpg is None or kill_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, kill_signal)
+        except OSError:
+            if process.poll() is None:
+                process.kill()
+    with suppress(subprocess.TimeoutExpired):
+        process.wait(timeout=0.25)
+    if process.poll() is None:
+        process.kill()
+        process.wait()
+
+
+def _drain_plugin_stream(
+    stream: IO[bytes],
+    output: bytearray,
+    byte_limit: int,
+    exceeded: threading.Event,
+) -> None:
+    while chunk := stream.read(64 * 1024):
+        remaining = byte_limit + 1 - len(output)
+        if remaining > 0:
+            output.extend(chunk[:remaining])
+        if len(output) > byte_limit:
+            exceeded.set()
+
+
 def invoke_in_process(
     card: PluginCapabilityCard,
     implementation: PluginImplementation,
@@ -423,35 +590,95 @@ def invoke_subprocess(
     if not command or any(not value.strip() for value in command):
         raise PluginError("subprocess plugin command must be non-empty")
     started = time.monotonic()
+    stdout_limit = min(request.budget.max_stdout_bytes, card.resource_budget.max_stdout_bytes)
+    stderr_limit = min(request.budget.max_stderr_bytes, card.resource_budget.max_stderr_bytes)
+    timeout_seconds = min(request.budget.max_wall_seconds, card.resource_budget.max_wall_seconds)
+    request_bytes = _bounded_plugin_request_bytes(request)
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             list(command),
-            input=request.canonical_json() + "\n",
-            text=True,
-            capture_output=True,
-            timeout=min(request.budget.max_wall_seconds, card.resource_budget.max_wall_seconds),
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return PluginResult(
-            card.plugin_id, PluginOutcome.TIMEOUT, "plugin exceeded wall-time budget"
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            start_new_session=os.name != "nt",
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
         )
     except OSError as error:
         return PluginResult(
             card.plugin_id, PluginOutcome.CRASH, f"plugin process could not start: {error}"
         )
+
+    stdin = process.stdin
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    assert stdin is not None
+    assert stdout_stream is not None
+    assert stderr_stream is not None
+    stdout = bytearray()
+    stderr = bytearray()
+    output_exceeded = threading.Event()
+    stdout_reader = threading.Thread(
+        target=_drain_plugin_stream,
+        args=(stdout_stream, stdout, stdout_limit, output_exceeded),
+        daemon=True,
+    )
+    stderr_reader = threading.Thread(
+        target=_drain_plugin_stream,
+        args=(stderr_stream, stderr, stderr_limit, output_exceeded),
+        daemon=True,
+    )
+
+    def write_request() -> None:
+        try:
+            stdin.write(request_bytes)
+            stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    stdin_writer = threading.Thread(target=write_request, daemon=True)
+    workers = (stdout_reader, stderr_reader, stdin_writer)
+    for worker in workers:
+        worker.start()
+
+    deadline = started + timeout_seconds
+    timed_out = False
+    while True:
+        if output_exceeded.is_set():
+            _terminate_plugin_process(process)
+            break
+        if time.monotonic() >= deadline:
+            timed_out = True
+            _terminate_plugin_process(process)
+            break
+        if process.poll() is not None and not any(worker.is_alive() for worker in workers):
+            break
+        time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
+
+    for worker in workers:
+        worker.join(timeout=0.5)
+    for stream in (stdin, stdout_stream, stderr_stream):
+        with suppress(OSError, ValueError):
+            stream.close()
+
     elapsed = time.monotonic() - started
-    if len(completed.stdout.encode()) > min(
-        request.budget.max_stdout_bytes, card.resource_budget.max_stdout_bytes
-    ) or len(completed.stderr.encode()) > min(
-        request.budget.max_stderr_bytes, card.resource_budget.max_stderr_bytes
-    ):
+    if timed_out:
+        return PluginResult(
+            card.plugin_id,
+            PluginOutcome.TIMEOUT,
+            "plugin exceeded wall-time budget",
+            wall_seconds=elapsed,
+        )
+    if output_exceeded.is_set():
         return PluginResult(
             card.plugin_id,
             PluginOutcome.MALFORMED_OUTPUT,
             "plugin output exceeded byte budget",
+            wall_seconds=elapsed,
         )
-    if completed.returncode != 0:
+    if process.returncode != 0:
         return PluginResult(
             card.plugin_id,
             PluginOutcome.CRASH,
@@ -459,8 +686,8 @@ def invoke_subprocess(
             wall_seconds=elapsed,
         )
     try:
-        parsed = _result_from_mapping(json.loads(completed.stdout), card.plugin_id)
-    except (json.JSONDecodeError, PluginError):
+        parsed = _result_from_mapping(json.loads(stdout), card.plugin_id)
+    except (json.JSONDecodeError, UnicodeDecodeError, PluginError):
         return PluginResult(
             card.plugin_id,
             PluginOutcome.MALFORMED_OUTPUT,
