@@ -79,12 +79,20 @@ contracts; no upstream source or dependency is added here. GSQ's paper reports
 low-bit scalar and GGUF results, while RCO's paper reports exact-budget search;
 those are upstream results, not ModelSurgeon evidence ([GSQ](https://arxiv.org/abs/2604.18556), [RCO](https://arxiv.org/abs/2605.00649)).
 
+As an isolated verification, the pinned RCO `budget_constrained_argmax` function
+was AST-loaded read-only from its exact upstream revision and compared with an
+exhaustive assignment oracle on 200 seeded tiny cases (2–7 groups, three bit
+choices). It matched the best objective under the function's discretized
+average-bit ceiling in all cases. This checks the discrete solver on small
+inputs only; it does not verify RCO's gradient loop, realized GGUF byte size,
+model quality, or deployment performance.
+
 ## Next research tranche
 
-The next implementation tranche should verify the RCO discrete budget solver
-against exhaustive tiny assignments, then prototype whether a ModelSurgeon
-GGUF quantization-plan adapter can use actual encoded byte costs rather than
-average-bit proxies. GSQ's low-bit reconstruction should be evaluated only
-after a memory-bounded CPU/GPU feasibility cell is defined. In parallel, trace
+The next implementation tranche should prototype whether a ModelSurgeon GGUF
+quantization-plan adapter can use actual encoded byte costs rather than
+average-bit proxies, building on the verified small-input RCO discrete solver
+without importing its CUDA pipeline. GSQ's low-bit reconstruction should be
+evaluated only after a memory-bounded CPU/GPU feasibility cell is defined. In parallel, trace
 the actual LoRA recovery and llama.cpp conversion paths, record file-level
 licence coverage, and sequence MoE changes around the already-open Qwen3.5 PR.
