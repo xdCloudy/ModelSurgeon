@@ -94,6 +94,7 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
     )
 
     assert len(result.examples) == 12
+    assert all(candidate.layer_index == 0 for candidate in result.enumeration.candidates)
     assert result.leakage.clean
     assert all(result.split.example_counts[partition] > 0 for partition in SplitPartition)
     first = result.examples[0]
@@ -104,12 +105,28 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
         "weight_l2_norm",
         "weight_max_magnitude",
         "activation_rms",
+        "coupled_group_weight_l1_norm",
+        "coupled_group_weight_l2_norm",
     ):
         assert name in features
+    assert features["coupled_group_weight_l1_norm"].value == pytest.approx(
+        features["weight_l1_norm"].value
+    )
+    assert dict(features["coupled_group_weight_l1_norm"].metadata)["layer_count"] == 2
     assert features["activation_rms"].sample_context is not None
     assert first.baseline_metrics
     assert first.post_metrics
     assert first.delta_metrics
+
+    candidate = result.enumeration.candidates[0]
+    channel = int(dict(candidate.request.parameters)["channel_index"])
+    expected_post_perplexity = next(
+        metric.value for metric in first.post_metrics if metric.name == "perplexity"
+    )
+    coupled_mask = runtime.measure_channel_set(
+        ((0, channel), (1, channel)), warmup=0, repetitions=1
+    )
+    assert coupled_mask.masked_perplexity == pytest.approx(expected_post_perplexity)
 
     gradient_components = tuple(
         ComponentId.parse(f"model.layers.0.mlp.channel.{channel}") for channel in (0, 1)
