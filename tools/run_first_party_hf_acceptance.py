@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import subprocess
 from dataclasses import replace
@@ -17,16 +18,17 @@ from modelsurgeon.config import (
     ComputeDType,
     ConstraintConfig,
     ModelConfig,
+    RepairConfig,
     SearchConfig,
     Settings,
     SurgeonConfig,
     TaskQualityConfig,
 )
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
-from modelsurgeon.optimization import build_optimize_plan
+from modelsurgeon.optimization import available_hardware_profiles, build_optimize_plan
 from modelsurgeon.optimization_orchestrator import OptimizeOrchestrator
 
-TOOL_REVISION = "first-party-hf-acceptance-v3"
+TOOL_REVISION = "first-party-hf-acceptance-v4"
 
 
 def _model_reference(value: str) -> tuple[str, str]:
@@ -152,6 +154,13 @@ def _run_cell(
     task_quality_split: str,
     task_quality_max_new_tokens: int,
     task_quality_max_samples: int | None,
+    repair_method: str,
+    repair_max_steps: int | None,
+    repair_target_modules: tuple[str, ...],
+    calibration_samples: int,
+    max_sequence_length: int,
+    hardware_profile: str,
+    min_quality_retention_ratio: float,
 ) -> dict[str, object]:
     model_path = _resolve_model(identifier, revision)
     slug = _slug(identifier)
@@ -162,8 +171,8 @@ def _run_cell(
         model=ModelConfig(path=str(model_path), revision=revision, dtype=ComputeDType.FP32),
         calibration=CalibrationConfig(
             dataset=str(calibration_text),
-            samples=2,
-            max_sequence_length=32,
+            samples=calibration_samples,
+            max_sequence_length=max_sequence_length,
             seed=1729,
         ),
         task_quality=(
@@ -178,6 +187,11 @@ def _run_cell(
             if task_quality_dataset is not None
             else TaskQualityConfig()
         ),
+        repair=RepairConfig(
+            method=cast(Literal["none", "lora", "distillation"], repair_method),
+            max_steps=repair_max_steps,
+            target_modules=repair_target_modules,
+        ),
         search=SearchConfig(
             scopes=(
                 cast(
@@ -187,7 +201,9 @@ def _run_cell(
             ),
             low_rank_rank=low_rank_rank,
         ),
-        constraints=ConstraintConfig(min_quality_retention_ratio=0.99),
+        constraints=ConstraintConfig(
+            min_quality_retention_ratio=min_quality_retention_ratio
+        ),
         surgeon=(
             SurgeonConfig(
                 registry_root=surgeon_registry,
@@ -201,6 +217,7 @@ def _run_cell(
     plan = build_optimize_plan(
         settings,
         preset=preset,
+        hardware_profile=hardware_profile,
         quality_profile=quality_profile,
         dry_run=False,
     )
@@ -260,8 +277,22 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--artifact-root", required=True, type=Path)
     parser.add_argument("--preset", default="balanced")
+    parser.add_argument(
+        "--hardware-profile",
+        choices=available_hardware_profiles(),
+        default="cpu-small",
+        help="declared execution resource profile; defaults to the CPU profile",
+    )
     parser.add_argument("--quality-profile", default="quality")
     parser.add_argument("--evaluations", type=int)
+    parser.add_argument(
+        "--min-quality-retention-ratio",
+        type=float,
+        default=0.99,
+        help="explicit hard quality floor for this campaign; default 0.99",
+    )
+    parser.add_argument("--calibration-samples", type=int, default=2)
+    parser.add_argument("--max-sequence-length", type=int, default=32)
     parser.add_argument(
         "--search-scope",
         choices=("mlp_channel", "attention_head", "transformer_layer", "low_rank"),
@@ -293,11 +324,43 @@ def main() -> int:
     parser.add_argument("--task-quality-split", default="test")
     parser.add_argument("--task-quality-max-new-tokens", type=int, default=32)
     parser.add_argument("--task-quality-max-samples", type=int)
+    parser.add_argument(
+        "--repair-method",
+        choices=("none", "lora", "distillation"),
+        default="none",
+        help="optional first-party post-surgery repair arm",
+    )
+    parser.add_argument(
+        "--repair-max-steps",
+        type=int,
+        help="positive repair-step ceiling; omitted uses the optimizer repair budget",
+    )
+    parser.add_argument(
+        "--repair-target-module",
+        action="append",
+        default=[],
+        help="exact Linear module path to repair; repeat to select multiple modules",
+    )
     args = parser.parse_args()
-    if len(args.model) < 2:
-        parser.error("acceptance campaigns require at least two model cells")
+    if len(args.model) < 1:
+        parser.error("acceptance campaigns require at least one model cell")
     if args.evaluations is not None and args.evaluations <= 0:
         parser.error("--evaluations must be positive")
+    if (
+        not math.isfinite(args.min_quality_retention_ratio)
+        or not 0.0 <= args.min_quality_retention_ratio <= 1.0
+    ):
+        parser.error("--min-quality-retention-ratio must be finite and between 0 and 1")
+    if args.calibration_samples <= 0:
+        parser.error("--calibration-samples must be positive")
+    if args.max_sequence_length <= 0:
+        parser.error("--max-sequence-length must be positive")
+    if args.repair_max_steps is not None and args.repair_max_steps <= 0:
+        parser.error("--repair-max-steps must be positive")
+    if args.repair_method == "none" and (
+        args.repair_max_steps is not None or args.repair_target_module
+    ):
+        parser.error("repair step and target options require a non-none --repair-method")
     if args.low_rank_rank <= 0:
         parser.error("--low-rank-rank must be positive")
     surgeon_values = (args.surgeon_registry, args.surgeon_card, args.surgeon_signing_env)
@@ -357,6 +420,13 @@ def main() -> int:
                 task_quality_split=args.task_quality_split,
                 task_quality_max_new_tokens=args.task_quality_max_new_tokens,
                 task_quality_max_samples=args.task_quality_max_samples,
+                repair_method=args.repair_method,
+                repair_max_steps=args.repair_max_steps,
+                repair_target_modules=tuple(sorted(set(args.repair_target_module))),
+                calibration_samples=args.calibration_samples,
+                max_sequence_length=args.max_sequence_length,
+                hardware_profile=args.hardware_profile,
+                min_quality_retention_ratio=args.min_quality_retention_ratio,
             )
         except Exception as error:
             failures = True
@@ -377,9 +447,12 @@ def main() -> int:
         "git_revision": _git_revision(),
         "command_contract": {
             "preset": args.preset,
+            "hardware_profile": args.hardware_profile,
             "quality_profile": args.quality_profile,
             "evaluations": args.evaluations,
-            "min_quality_retention_ratio": 0.99,
+            "min_quality_retention_ratio": args.min_quality_retention_ratio,
+            "calibration_samples": args.calibration_samples,
+            "max_sequence_length": args.max_sequence_length,
             "search_scope": args.search_scope,
             "low_rank_rank": args.low_rank_rank,
             "surgeon_registry": (
@@ -399,6 +472,9 @@ def main() -> int:
             "task_quality_split": args.task_quality_split,
             "task_quality_max_new_tokens": args.task_quality_max_new_tokens,
             "task_quality_max_samples": args.task_quality_max_samples,
+            "repair_method": args.repair_method,
+            "repair_max_steps": args.repair_max_steps,
+            "repair_target_modules": sorted(set(args.repair_target_module)),
         },
         "models": cells,
     }
