@@ -180,6 +180,13 @@ from modelsurgeon.adapters.gguf.quantization import (
     plan_supported_axes,
     validate_tensor_alignment,
 )
+from modelsurgeon.adapters.gguf.quantization_budget import (
+    GGUFQuantizationAlternative,
+    GGUFQuantizationBudgetError,
+    GGUFQuantizationBudgetPlan,
+    GGUFQuantizationChoice,
+    plan_gguf_quantization_budget,
+)
 from modelsurgeon.adapters.gguf.qwen_surgery import (
     QWEN_GGUF_SURGERY_CONTRACT_VERSION,
     QWEN_GGUF_VARIANTS,
@@ -298,6 +305,10 @@ __all__ = [
     "GGUFParseError",
     "GGUFParserLimits",
     "GGUFPlannedTensor",
+    "GGUFQuantizationAlternative",
+    "GGUFQuantizationBudgetError",
+    "GGUFQuantizationBudgetPlan",
+    "GGUFQuantizationChoice",
     "GGUFResourceLimitError",
     "GGUFResumeError",
     "GGUFResumeManifest",
@@ -391,6 +402,7 @@ __all__ = [
     "open_gguf",
     "plan_axis_edit",
     "plan_gguf_output",
+    "plan_gguf_quantization_budget",
     "plan_storage_axis_edit",
     "plan_supported_axes",
     "preflight_gguf_disk",
