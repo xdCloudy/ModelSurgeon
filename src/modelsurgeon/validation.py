@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -292,16 +293,21 @@ def _terminate_fuzz_process(process: subprocess.Popen[bytes]) -> None:
         except (OSError, subprocess.TimeoutExpired):
             process.kill()
     else:
+        killpg = getattr(os, "killpg", None)
+        terminate_signal = getattr(signal, "SIGTERM", None)
+        kill_signal = getattr(signal, "SIGKILL", terminate_signal)
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            if not callable(killpg) or terminate_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, terminate_signal)
         except OSError:
             process.terminate()
-        try:
+        with suppress(subprocess.TimeoutExpired):
             process.wait(timeout=0.25)
-        except subprocess.TimeoutExpired:
-            pass
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            if not callable(killpg) or kill_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, kill_signal)
         except OSError:
             if process.poll() is None:
                 process.kill()
@@ -390,8 +396,10 @@ def run_subprocess_case(
                 detail=str(error),
             )
 
-        assert process.stdin is not None
-        assert process.stdout is not None
+        stdin = process.stdin
+        stdout_stream = process.stdout
+        assert stdin is not None
+        assert stdout_stream is not None
         output_bytes = [0]
         output_exceeded = threading.Event()
         disk_exceeded = threading.Event()
@@ -399,7 +407,7 @@ def run_subprocess_case(
         disk_bytes = [0]
         output_reader = threading.Thread(
             target=_count_fuzz_output,
-            args=(process.stdout, output_bytes, case.limits.max_output_bytes, output_exceeded),
+            args=(stdout_stream, output_bytes, case.limits.max_output_bytes, output_exceeded),
             daemon=True,
         )
         disk_monitor = threading.Thread(
@@ -416,8 +424,8 @@ def run_subprocess_case(
 
         def write_payload() -> None:
             try:
-                process.stdin.write(case.payload)
-                process.stdin.close()
+                stdin.write(case.payload)
+                stdin.close()
             except (BrokenPipeError, OSError, ValueError):
                 pass
 
@@ -445,11 +453,9 @@ def run_subprocess_case(
             worker.join(timeout=0.5)
         stop_disk_monitor.set()
         disk_monitor.join(timeout=0.5)
-        for stream in (process.stdin, process.stdout):
-            try:
+        for stream in (stdin, stdout_stream):
+            with suppress(OSError, ValueError):
                 stream.close()
-            except (OSError, ValueError):
-                pass
 
         if timed_out:
             return HostileFuzzResult(
