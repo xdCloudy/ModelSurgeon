@@ -17,7 +17,8 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-LORA_REPAIR_SCHEMA_VERSION = 4
+LORA_REPAIR_SCHEMA_VERSION = 5
+VALIDATION_LOSS_AGGREGATION = "token_weighted_causal_targets"
 
 
 class LoRARepairError(RuntimeError):
@@ -106,6 +107,7 @@ class LoRARepairResult:
     baseline_validation_loss: float | None
     selected_validation_loss: float | None
     validation_improved: bool | None
+    validation_loss_aggregation: str | None
     training_examples_sha256: str
     validation_examples_sha256: str | None
     validation_dataset_sha256: str | None
@@ -130,6 +132,7 @@ class LoRARepairResult:
             "baseline_validation_loss": self.baseline_validation_loss,
             "selected_validation_loss": self.selected_validation_loss,
             "validation_improved": self.validation_improved,
+            "validation_loss_aggregation": self.validation_loss_aggregation,
             "training_examples_sha256": self.training_examples_sha256,
             "validation_examples_sha256": self.validation_examples_sha256,
             "validation_dataset_sha256": self.validation_dataset_sha256,
@@ -325,7 +328,8 @@ def run_bounded_lora_repair(
             if validation_examples is None:
                 raise LoRARepairError("validation examples are required for evaluation")
             peft_model.eval()
-            validation_step_losses = []
+            weighted_loss = 0.0
+            valid_token_count = 0
             with torch.inference_mode():
                 for validation_example in validation_examples:
                     if "labels" not in validation_example:
@@ -340,8 +344,23 @@ def run_bounded_lora_repair(
                         raise LoRARepairError(
                             "validation forward did not return a finite loss"
                         )
-                    validation_step_losses.append(validation_loss.detach().float())
-            return float(torch.stack(validation_step_losses).mean().item())
+                    labels = validation_inputs["labels"]
+                    if labels.ndim == 0 or labels.shape[-1] < 2:
+                        raise LoRARepairError(
+                            "validation examples require at least two causal label positions"
+                        )
+                    example_token_count = int((labels[..., 1:] != -100).sum().item())
+                    if example_token_count <= 0:
+                        raise LoRARepairError(
+                            "validation examples require at least one valid prediction target"
+                        )
+                    weighted_loss += float(validation_loss.detach().float().item()) * (
+                        example_token_count
+                    )
+                    valid_token_count += example_token_count
+            if valid_token_count <= 0:
+                raise LoRARepairError("validation set has no valid prediction targets")
+            return weighted_loss / valid_token_count
 
         def train() -> object:
             nonlocal best_validation_loss, selected_step, selected_adapter_state
@@ -427,6 +446,9 @@ def run_bounded_lora_repair(
             baseline_validation_loss=baseline_validation_loss,
             selected_validation_loss=selected_validation_loss,
             validation_improved=validation_improved,
+            validation_loss_aggregation=(
+                VALIDATION_LOSS_AGGREGATION if validation_examples is not None else None
+            ),
             training_examples_sha256=training_examples_sha256,
             validation_examples_sha256=validation_examples_sha256,
             validation_dataset_sha256=validation_dataset_sha256,
