@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v1"
+TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v2"
 
 
 class TaskQualityEvaluationError(ValueError):
@@ -32,7 +32,11 @@ def _text(value: object, label: str) -> str:
 
 
 def _normalise_code(value: str) -> str:
-    return value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    lines = normalized.splitlines()
+    if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].strip() == "```":
+        normalized = "\n".join(lines[1:-1]).strip()
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)

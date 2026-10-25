@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import subprocess
+import tempfile
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -101,6 +102,26 @@ from modelsurgeon.surgery.native_mlp_plan import NativeGGUFMLPRemovalPlan
 
 class NativeGGUFOptimizeRuntimeError(RuntimeError):
     """Raised when the explicit GGUF optimizer contract cannot be executed."""
+
+
+_MAX_TASK_QUALITY_TRANSCRIPT_BYTES = 1_048_576
+
+
+def _extract_llama_cli_completion(prompt: str, transcript: str) -> str:
+    """Extract the single-turn assistant text from llama-cli's output transcript."""
+
+    normalized_prompt = prompt.replace("\r\n", "\n").replace("\r", "\n")
+    normalized_transcript = transcript.replace("\r\n", "\n").replace("\r", "\n")
+    marker = f"User:\n{normalized_prompt}\n\nAssistant:\n"
+    start = normalized_transcript.rfind(marker)
+    if start < 0:
+        raise NativeGGUFOptimizeRuntimeError(
+            "GGUF task-quality runtime returned an unrecognized transcript"
+        )
+    completion = normalized_transcript[start + len(marker) :].strip()
+    if not completion:
+        raise NativeGGUFOptimizeRuntimeError("GGUF task-quality runtime returned no text")
+    return completion
 
 
 def _canonical(value: object) -> str:
@@ -740,41 +761,72 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         gpu_layers = validation_config.gpu_layers
 
         def generate(prompt: str) -> str:
-            command = [
-                executable,
-                "-m",
-                str(path),
-                "-c",
-                str(context_size),
-                "-n",
-                str(max_new_tokens),
-                "--temp",
-                "0",
-                "--top-p",
-                "1",
-                "--no-display-prompt",
-                "--simple-io",
-                "--log-disable",
-                "--no-perf",
-                "--single-turn",
-                "-p",
-                prompt,
-                "-t",
-                str(threads),
-            ]
-            if gpu_layers:
-                command.extend(("-ngl", str(gpu_layers)))
             try:
-                completed = subprocess.run(
-                    command,
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=timeout,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
+                with tempfile.TemporaryDirectory(prefix="modelsurgeon-task-quality-") as directory:
+                    transcript_path = Path(directory) / "transcript.txt"
+                    command = [
+                        executable,
+                        "-m",
+                        str(path),
+                        "-c",
+                        str(context_size),
+                        "-n",
+                        str(max_new_tokens),
+                        "--temp",
+                        "0",
+                        "--top-p",
+                        "1",
+                        "--reasoning",
+                        "off",
+                        "--no-display-prompt",
+                        "--simple-io",
+                        "--log-disable",
+                        "--no-perf",
+                        "--single-turn",
+                        "--output",
+                        str(transcript_path),
+                        "-p",
+                        prompt,
+                        "-t",
+                        str(threads),
+                    ]
+                    if gpu_layers:
+                        command.extend(("-ngl", str(gpu_layers)))
+                    completed = subprocess.run(
+                        command,
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=timeout,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    )
+                    if completed.returncode != 0:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            f"GGUF task-quality runtime failed with status {completed.returncode}"
+                        )
+                    try:
+                        transcript_size = transcript_path.stat().st_size
+                    except OSError as error:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime returned no text"
+                        ) from error
+                    if transcript_size <= 0:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime returned no text"
+                        )
+                    if transcript_size > _MAX_TASK_QUALITY_TRANSCRIPT_BYTES:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime transcript exceeded the output limit"
+                        )
+                    try:
+                        transcript = transcript_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                    except OSError as error:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime transcript could not be read"
+                        ) from error
+                    return _extract_llama_cli_completion(prompt, transcript)
             except subprocess.TimeoutExpired as error:
                 raise NativeGGUFOptimizeRuntimeError(
                     "GGUF task-quality generation timed out"
@@ -783,13 +835,6 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 raise NativeGGUFOptimizeRuntimeError(
                     "GGUF task-quality runtime could not start"
                 ) from error
-            if completed.returncode != 0:
-                raise NativeGGUFOptimizeRuntimeError(
-                    f"GGUF task-quality runtime failed with status {completed.returncode}"
-                )
-            if not completed.stdout.strip():
-                raise NativeGGUFOptimizeRuntimeError("GGUF task-quality runtime returned no text")
-            return completed.stdout
 
         try:
             measurement = evaluate_code_exact_match_with_generator(dataset, generate)

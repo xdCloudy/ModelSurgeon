@@ -72,7 +72,12 @@ def test_native_task_quality_uses_pinned_cli_and_records_content_addressed_resul
 
     def run(command: list[str], **kwargs: object) -> SimpleNamespace:
         calls.append((command, kwargs))
-        return SimpleNamespace(returncode=0, stdout="return 1\n", stderr="")
+        transcript_path = Path(command[command.index("--output") + 1])
+        transcript_path.write_text(
+            "User:\nReturn one.\n\nAssistant:\n```python\nreturn 1\n```\n",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr("modelsurgeon.native_gguf_optimize_runtime.subprocess.run", run)
 
@@ -80,6 +85,7 @@ def test_native_task_quality_uses_pinned_cli_and_records_content_addressed_resul
 
     assert result is not None
     assert result["exact_match_accuracy"] == 1.0
+    assert result["evaluator"] == "code_exact_match_v2"
     assert result["total"] == 1
     assert result["dataset"]["revision"] == "dataset-r1"
     assert result["dataset"]["split"] == "test"
@@ -91,10 +97,13 @@ def test_native_task_quality_uses_pinned_cli_and_records_content_addressed_resul
     assert command[command.index("-p") + 1] == "Return one."
     assert command[command.index("-n") + 1] == "8"
     assert command[command.index("--temp") + 1] == "0"
+    assert command[command.index("--reasoning") + 1] == "off"
     assert command[command.index("-t") + 1] == "3"
+    assert command[command.index("--output") + 1].endswith("transcript.txt")
     assert "-ngl" not in command
     assert kwargs["timeout"] == 17
-    assert kwargs["capture_output"] is True
+    assert kwargs["stdout"] is subprocess.DEVNULL
+    assert kwargs["stderr"] is subprocess.DEVNULL
 
 
 @pytest.mark.parametrize(
@@ -103,6 +112,8 @@ def test_native_task_quality_uses_pinned_cli_and_records_content_addressed_resul
         ("timeout", "generation timed out"),
         ("nonzero", "failed with status 3"),
         ("empty", "returned no text"),
+        ("malformed", "unrecognized transcript"),
+        ("oversized", "exceeded the output limit"),
     ),
 )
 def test_native_task_quality_generation_failures_abort_evaluation(
@@ -121,8 +132,15 @@ def test_native_task_quality_generation_failures_abort_evaluation(
         if failure == "timeout":
             raise subprocess.TimeoutExpired(command, kwargs["timeout"])
         if failure == "nonzero":
-            return SimpleNamespace(returncode=3, stdout="", stderr="runtime error")
-        return SimpleNamespace(returncode=0, stdout=" \n", stderr="")
+            return SimpleNamespace(returncode=3)
+        transcript_path = Path(command[command.index("--output") + 1])
+        if failure == "malformed":
+            transcript_path.write_text("not a llama-cli transcript", encoding="utf-8")
+        elif failure == "oversized":
+            transcript_path.write_text("x" * 1_048_577, encoding="utf-8")
+        else:
+            transcript_path.write_text("", encoding="utf-8")
+        return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr("modelsurgeon.native_gguf_optimize_runtime.subprocess.run", run)
 

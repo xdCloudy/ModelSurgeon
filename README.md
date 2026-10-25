@@ -490,9 +490,12 @@ pinned UTF-8 JSONL file whose records contain `id`, `prompt`, and `reference`.
 The first-party HF runtime performs greedy generation for every example,
 records the dataset and output digests, and applies the measured task-quality
 retention gate alongside perplexity at candidate, reload, repair, quantization,
-and deployment boundaries. Native GGUF uses the pinned `llama-cli` for the same
-exact-match benchmark and applies both gates at candidate, cumulative-child,
-and deployment boundaries. Conversational coding requests without a declared
+and deployment boundaries. Native GGUF uses the pinned `llama-cli` transcript
+output, extracts only the single-turn assistant response, disables reasoning,
+and applies both gates at candidate, cumulative-child, and deployment
+boundaries. Exact-match evaluator v2 normalizes line endings and surrounding
+whitespace and removes one complete enclosing Markdown code fence; it does not
+parse or execute the generated code. Conversational coding requests without a declared
 benchmark remain clarification-required. When the request explicitly names an existing
 local JSONL benchmark, for example `coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
 the typed `code_exact_match` configuration is carried through the exact preview
