@@ -19,6 +19,7 @@ from modelsurgeon.adapters.gguf import (
     plan_gguf_output,
     preflight_gguf_disk,
     rank_qwen35moe_experts_by_router_norm,
+    select_qwen35moe_experts_by_scores,
     write_gguf_transactionally,
 )
 
@@ -147,6 +148,80 @@ def test_qwen35moe_layout_and_pruning_preserve_unrelated_tensors(tmp_path: Path)
         assert output.container.metadata_entry("qwen35moe.expert_used_count").value == 2
 
 
+def test_qwen35moe_saliency_selection_feeds_layerwise_gguf_slicing(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.gguf"
+    output_path = tmp_path / "candidate.gguf"
+    _write(source_path)
+    scores = ((0.1, 0.9, None, 0.2), (0.8, 0.1, 0.7, None))
+
+    with open_gguf(source_path) as source:
+        layout = build_qwen35moe_gguf_layout(source.container)
+        retained = select_qwen35moe_experts_by_scores(layout, scores, retained_count=3)
+        assert retained == {0: (1, 2, 3), 1: (0, 2, 3)}
+        tied = select_qwen35moe_experts_by_scores(
+            layout,
+            ((0.5, 0.5, 0.1, None), (0.1, 0.2, 0.3, 0.4)),
+            retained_count=3,
+        )
+        assert tied[0] == (0, 1, 3)
+        disk = preflight_gguf_disk(
+            output_path,
+            tmp_path,
+            GGUFDiskEstimate(source_path.stat().st_size, 0),
+        )
+        result = execute_qwen35moe_expert_pruning(source, retained, output_path, disk)
+
+    assert result.output_layout.expert_count == 3
+    with open_gguf(output_path) as output:
+        for layer, expected in ((0, (1, 2, 3)), (1, (0, 2, 3))):
+            router = output.container.tensor(f"blk.{layer}.ffn_gate_inp.weight")
+            assert router is not None
+            assert router.dimensions == (256, 3)
+            data = output.raw_bytes(router.data_offset, router.byte_size)
+            assert data == _floats(
+                tuple(
+                    float(layer * 100 + expert * 10 + index)
+                    for expert in expected
+                    for index in range(256)
+                )
+            )
+
+
+def test_qwen35moe_saliency_selection_refuses_unsupported_or_incomplete_scores(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "source.gguf"
+    _write(source_path)
+    with open_gguf(source_path) as source:
+        layout = build_qwen35moe_gguf_layout(source.container)
+        with pytest.raises(Qwen35MoeSurgeryError, match="every block"):
+            select_qwen35moe_experts_by_scores(layout, ((0.1, 0.2, 0.3, 0.4),), 3)
+        with pytest.raises(Qwen35MoeSurgeryError, match="more unseen"):
+            select_qwen35moe_experts_by_scores(
+                layout,
+                ((None, None, None, None), (0.1, 0.2, 0.3, 0.4)),
+                3,
+            )
+        with pytest.raises(Qwen35MoeSurgeryError, match="finite and nonnegative"):
+            select_qwen35moe_experts_by_scores(
+                layout,
+                ((0.1, float("nan"), 0.3, 0.4), (0.1, 0.2, 0.3, 0.4)),
+                3,
+            )
+        with pytest.raises(Qwen35MoeSurgeryError, match="must be finite"):
+            select_qwen35moe_experts_by_scores(
+                layout,
+                ((10**1000, 0.2, 0.3, 0.4), (0.1, 0.2, 0.3, 0.4)),
+                3,
+            )
+        with pytest.raises(Qwen35MoeSurgeryError, match="retained_count"):
+            select_qwen35moe_experts_by_scores(
+                layout,
+                ((0.1, 0.2, 0.3, 0.4), (0.1, 0.2, 0.3, 0.4)),
+                True,
+            )
+
+
 @pytest.mark.parametrize(
     "retained",
     (
@@ -205,7 +280,8 @@ def test_qwen35moe_layout_rejects_block_count_larger_than_tensor_inventory(
     metadata = _metadata(block_count=1_000_000_000)
     _write(path, metadata)
 
-    with open_gguf(path) as source, pytest.raises(
-        Qwen35MoeSurgeryError, match="block_count exceeds"
+    with (
+        open_gguf(path) as source,
+        pytest.raises(Qwen35MoeSurgeryError, match="block_count exceeds"),
     ):
         build_qwen35moe_gguf_layout(source.container)

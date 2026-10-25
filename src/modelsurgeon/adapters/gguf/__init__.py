@@ -188,6 +188,7 @@ from modelsurgeon.adapters.gguf.qwen35moe_surgery import (
     build_qwen35moe_gguf_layout,
     execute_qwen35moe_expert_pruning,
     rank_qwen35moe_experts_by_router_norm,
+    select_qwen35moe_experts_by_scores,
 )
 from modelsurgeon.adapters.gguf.qwen_surgery import (
     QWEN_GGUF_SURGERY_CONTRACT_VERSION,
@@ -415,6 +416,7 @@ __all__ = [
     "resolve_iq_native_write_codec",
     "resolve_q4_k_recipe",
     "resolve_q5_k_recipe",
+    "select_qwen35moe_experts_by_scores",
     "validate_codec_vector",
     "validate_iq_support_matrix",
     "validate_tensor_alignment",

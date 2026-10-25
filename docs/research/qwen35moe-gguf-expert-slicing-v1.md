@@ -262,3 +262,23 @@ outcome. This avoids implying that a router-norm-ranked artifact has passed
 ModelSurgeon's quality gate. The next integration step is a bounded MoE
 candidate-search scope that runs held-out quality and deployment evaluation
 for every candidate before selection or publication.
+
+## Calibration-score selection bridge
+
+`select_qwen35moe_experts_by_scores` accepts layer-major finite saliency values
+and produces the per-layer retained-ID mapping consumed by the GGUF slicer.
+Its input shape is compatible with the `scores_by_layer` field proposed by
+[open PR #738](https://github.com/xdCloudy/ModelSurgeon/pull/738), but this
+selector has no runtime dependency on that PR or on PyTorch/Hugging Face. It
+keeps the highest scores independently within each layer, uses expert ID as a
+deterministic tie-break, and retains `None` entries because they were not
+observed. If unseen entries exceed the retained count, it fails closed.
+
+This is candidate construction only. The GGUF contract still requires the
+same expert count in each layer; the retained IDs may differ by layer. The
+synthetic test proves that the score mapping reaches the transactional writer
+and produces valid router tensor dimensions. It does not establish that REAP
+scores improve held-out quality, that the experimental scorer has merged, or
+that a candidate can pass ModelSurgeon's quality gate. No Cerebras REAP or
+Transformers implementation was copied; this adapter consumes numeric results
+only. REAP's pinned Apache-2.0 provenance remains recorded above.
