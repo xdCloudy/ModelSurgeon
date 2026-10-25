@@ -52,6 +52,7 @@ from modelsurgeon.evaluation.task_quality import (
     evaluate_code_quality_gate,
 )
 from modelsurgeon.experiments.candidates import (
+    MAX_ENUMERATED_CANDIDATES,
     CandidateEnumeratorConfig,
     CandidateFilter,
     CandidateScope,
@@ -346,6 +347,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.meta_guidance: Mapping[str, object] | None = None
         self.meta_predictions: dict[str, float] = {}
         self.meta_order: tuple[str, ...] = ()
+        self.evaluation_selection: Mapping[str, object] | None = None
         self.search_comparison: Mapping[str, object] | None = None
         self.layer_selection_record: Mapping[str, object] | None = None
         self.measured_frontier: Mapping[str, object] | None = None
@@ -1052,6 +1054,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "baselines": baselines,
             "candidate_selection": self.layer_selection_record,
             "candidate_pool_size": len(candidate_ids),
+            "evaluation_selection": self.evaluation_selection,
             "no_guidance_policy": "first_candidate_by_canonical_id",
             "baseline_regret_scope": "measured_candidates_only",
         }
@@ -2089,6 +2092,24 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         if layer_ranking not in {"none", "shortgpt_block_influence"}:
             raise FirstPartyOptimizeRuntimeError("unsupported search.layer_ranking value")
         enumerate_limit = maximum
+        if (
+            scopes == (CandidateScope.MLP_CHANNEL,)
+            and _config_value(self.plan, "surgeon", "card_digest")
+            and layer_ranking == "none"
+        ):
+            multiplier = _integer(
+                search_settings.get("meta_candidate_pool_multiplier", 4),
+                4,
+                "search.meta_candidate_pool_multiplier",
+            )
+            if not 1 <= multiplier <= 32:
+                raise FirstPartyOptimizeRuntimeError(
+                    "search.meta_candidate_pool_multiplier must be between 1 and 32"
+                )
+            enumerate_limit = min(
+                MAX_ENUMERATED_CANDIDATES,
+                maximum * multiplier,
+            )
         if layer_ranking == "shortgpt_block_influence":
             if scopes != (CandidateScope.TRANSFORMER_LAYER,):
                 raise FirstPartyOptimizeRuntimeError(
@@ -2578,11 +2599,31 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             self._prepare_candidate_features(proof, candidate)
         meta_order = self._meta_rank(candidate_pool)
         by_id = {candidate.candidate_id: candidate for candidate in candidate_pool}
-        evaluation_order = (
-            tuple(by_id[candidate_id] for candidate_id in meta_order if candidate_id in by_id)
-            if meta_order
-            else candidate_pool
+        ranked_ids = tuple(
+            candidate_id
+            for candidate_id in meta_order
+            if candidate_id in by_id
         )
+        if ranked_ids:
+            ranked_id_set = set(ranked_ids)
+            ordered_ids = ranked_ids + tuple(
+                candidate.candidate_id
+                for candidate in candidate_pool
+                if candidate.candidate_id not in ranked_id_set
+            )
+            selection_policy = "meta_surgeon"
+        else:
+            ordered_ids = tuple(candidate.candidate_id for candidate in candidate_pool)
+            selection_policy = "canonical_id"
+        evaluation_budget = max(0, self.plan.budget.evaluations)
+        evaluated_ids = ordered_ids[:evaluation_budget]
+        evaluation_order = tuple(by_id[candidate_id] for candidate_id in evaluated_ids)
+        self.evaluation_selection = {
+            "policy": selection_policy,
+            "candidate_pool_size": len(candidate_pool),
+            "evaluation_budget": evaluation_budget,
+            "evaluated_candidate_ids": list(evaluated_ids),
+        }
         scored: list[tuple[float, float, str, MutationCandidate, Mapping[str, object]]] = []
         for candidate in evaluation_order:
             try:

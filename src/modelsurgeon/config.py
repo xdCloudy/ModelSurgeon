@@ -236,6 +236,7 @@ class SearchConfig(StrictConfigModel):
     max_surgery_steps: int | None = Field(default=None, gt=0)
     low_rank_rank: int = Field(default=4, ge=1, le=64)
     layer_ranking: Literal["none", "shortgpt_block_influence"] = "none"
+    meta_candidate_pool_multiplier: int = Field(default=4, ge=1, le=32)
 
     @field_validator("scopes")
     @classmethod
