@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import struct
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,8 @@ from modelsurgeon.conversation import (
     SourceSpan,
     invoke_provider,
 )
+from modelsurgeon.conversation.bounded_process import BoundedProcessResult, run_bounded_process
+from modelsurgeon.conversation.local_gguf import LocalGGUFProviderError
 from modelsurgeon.search import compile_intent_record
 from modelsurgeon.search.spec_preview import build_spec_preview
 
@@ -265,13 +268,13 @@ def test_llama_cli_runtime_uses_bounded_argument_list(tmp_path: Path, monkeypatc
     executable.write_bytes(b"runtime")
     model = tmp_path / "model.gguf"
     _gguf(model)
-    calls: list[list[str]] = []
+    calls: list[tuple[str, ...]] = []
 
-    def fake_run(command: list[str], **_: object) -> Any:
-        calls.append(command)
-        return type("Completed", (), {"returncode": 0, "stdout": "banner {\"ok\":true}"})()
+    def fake_run(command: list[str], **_: object) -> BoundedProcessResult:
+        calls.append(tuple(command))
+        return BoundedProcessResult(0, b'banner {"ok":true}', b"", False, False)
 
-    monkeypatch.setattr("modelsurgeon.conversation.local_gguf.subprocess.run", fake_run)
+    monkeypatch.setattr("modelsurgeon.conversation.local_gguf.run_bounded_process", fake_run)
     runtime = LlamaCliRuntime(
         executable=executable,
         model_path=str(model),
@@ -293,6 +296,65 @@ def test_llama_cli_runtime_uses_bounded_argument_list(tmp_path: Path, monkeypatc
     assert calls and calls[0][0] == str(executable.resolve())
     assert "--single-turn" in calls[0]
     assert "user: return JSON" in calls[0]
+
+
+def test_llama_cli_runtime_rejects_output_over_budget(tmp_path: Path, monkeypatch: Any) -> None:
+    executable = tmp_path / "llama-cli.exe"
+    executable.write_bytes(b"runtime")
+    model = tmp_path / "model.gguf"
+    _gguf(model)
+    monkeypatch.setattr(
+        "modelsurgeon.conversation.local_gguf.run_bounded_process",
+        lambda *_args, **_kwargs: BoundedProcessResult(0, b"x" * 1025, b"", False, True),
+    )
+    runtime = LlamaCliRuntime(
+        executable=executable,
+        model_path=str(model),
+        n_ctx=640,
+        n_batch=1,
+        n_gpu_layers=0,
+        verbose=False,
+        max_response_bytes=1024,
+    )
+
+    try:
+        runtime.create_chat_completion(
+            messages=[{"role": "user", "content": "return JSON"}],
+            max_tokens=8,
+            temperature=0.0,
+            top_p=1.0,
+        )
+    except LocalGGUFProviderError as error:
+        assert "output budget" in str(error)
+    else:
+        raise AssertionError("over-budget llama-cli output should be rejected")
+
+
+def test_bounded_process_stops_after_output_limit() -> None:
+    result = run_bounded_process(
+        (
+            sys.executable,
+            "-c",
+            "import os; os.write(1, b'x' * 1000000)",
+        ),
+        timeout_seconds=5,
+        max_stdout_bytes=1024,
+        max_stderr_bytes=128,
+    )
+
+    assert result.output_exceeded
+    assert len(result.stdout) == 1025
+
+
+def test_bounded_process_stops_after_wall_time_limit() -> None:
+    result = run_bounded_process(
+        (sys.executable, "-c", "import time; time.sleep(5)"),
+        timeout_seconds=0.2,
+        max_stdout_bytes=1024,
+        max_stderr_bytes=128,
+    )
+
+    assert result.timed_out
 
 
 def test_local_provider_rejects_missing_and_malformed_models(tmp_path: Path) -> None:

@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 import threading
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
@@ -64,10 +63,13 @@ from modelsurgeon.search.objective_contract import (
     SoftObjective,
 )
 
+from .bounded_process import run_bounded_process
+
 LOCAL_GGUF_PROVIDER_REVISION = "local-gguf-provider-v1"
 LOCAL_GGUF_STRUCTURED_SCHEMA = "modelsurgeon.provider-output:1"
 _DEFAULT_MEMORY_BYTES = 8 * 1024**3
 _CONTEXT_BYTES_PER_TOKEN = 4096
+_LLAMA_CLI_STDERR_BYTES = 64 * 1024
 
 
 class LocalGGUFProviderError(RuntimeError):
@@ -165,8 +167,15 @@ class LlamaCliRuntime:
         n_threads: int | None = None,
         chat_format: str | None = None,
         max_wall_seconds: float = 60.0,
+        max_response_bytes: int = 1 << 20,
     ) -> None:
         del n_batch, verbose
+        if (
+            isinstance(max_response_bytes, bool)
+            or not isinstance(max_response_bytes, int)
+            or max_response_bytes <= 0
+        ):
+            raise LocalGGUFProviderError("local GGUF response-byte limit must be positive")
         self.executable = executable.expanduser().resolve(strict=False)
         self.model_path = Path(model_path).expanduser().resolve(strict=False)
         self.n_ctx = n_ctx
@@ -174,6 +183,7 @@ class LlamaCliRuntime:
         self.n_threads = n_threads
         self.chat_format = chat_format
         self.max_wall_seconds = max_wall_seconds
+        self.max_response_bytes = max_response_bytes
 
     def tokenize(self, prompt: bytes, *, add_bos: bool = True) -> list[int]:
         del add_bos
@@ -235,25 +245,22 @@ class LlamaCliRuntime:
             command.extend(("-ngl", str(self.n_gpu_layers)))
         if self.chat_format is not None:
             command.extend(("--chat-template", self.chat_format))
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
-            completed = subprocess.run(
+            completed = run_bounded_process(
                 command,
-                check=False,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=self.max_wall_seconds,
-                creationflags=creationflags,
+                timeout_seconds=self.max_wall_seconds,
+                max_stdout_bytes=self.max_response_bytes,
+                max_stderr_bytes=_LLAMA_CLI_STDERR_BYTES,
             )
-        except subprocess.TimeoutExpired as error:
-            raise LocalGGUFProviderError("external llama-cli runtime timed out") from error
         except OSError as error:
             raise LocalGGUFProviderError("external llama-cli runtime could not start") from error
+        if completed.timed_out:
+            raise LocalGGUFProviderError("external llama-cli runtime timed out")
+        if completed.output_exceeded:
+            raise LocalGGUFProviderError("external llama-cli runtime exceeded its output budget")
         if completed.returncode != 0:
             raise LocalGGUFProviderError("external llama-cli runtime failed")
-        output = completed.stdout.strip()
+        output = completed.stdout.decode("utf-8", errors="replace").strip()
         if not output:
             raise LocalGGUFProviderError("external llama-cli runtime returned no text")
         return {"choices": [{"message": {"content": output}}]}
