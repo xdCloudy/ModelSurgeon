@@ -88,6 +88,36 @@ general-language corpus, not a cyber-security task benchmark. Do not expose
 these rankings for autonomous selection based on this evidence. No speedup is
 claimed.
 
+## Paired eight-chunk follow-up
+
+On 2026-10-25, the same source, router-norm selection, and seeded-random
+selection retaining 252 experts per block were re-evaluated on the same
+llama.cpp build and corpus, now using the first eight consecutive 512-token
+chunks (4,096 tokens total). The tokenizer produced the same eight token
+offsets (`0` through `3584`) for all three artifacts. Settings were CPU-only,
+12 threads, context/batch 512, microbatch 256, and no warmup.
+
+| Artifact | Experts retained (of 256, each block) | GGUF bytes | PPL ± reported uncertainty | Delta vs paired source | PPL retention (`source / candidate`) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Source | 256 | 21,713,462,496 | 6.2085 ± 0.33009 | — | 100% |
+| Router norm, 4 removed | 252 | 21,399,217,408 | 6.2792 ± 0.33493 | +0.0707 | 98.87% |
+| Seeded random (`20261025`), 4 removed | 252 | 21,399,217,408 | 6.4208 ± 0.34295 | +0.2123 | 96.69% |
+
+The router-norm point estimate clears the 98% retention threshold on this
+larger prefix, and its PPL is 0.1416 below the equal-size random candidate.
+That gap is smaller than either candidate's reported uncertainty; the
+uncertainties overlap, so this is not evidence of a reliable ranking
+advantage. The source estimate also shifts from 4.9739 on the first four
+chunks to 6.2085 on the first eight, demonstrating material variation as
+chunks are added. This paired screen is still only one checkpoint, one random
+seed, one contiguous 4,096-token prefix, and a general-language corpus. It
+does not validate cyber-security task retention or throughput, and it does
+not justify autonomous ranking or promotion.
+
+The detailed run manifest and per-run logs remain local rather than being
+redistributed. The manifest's SHA-256 is
+`1b2ac496b5a116ea0796afba0528bdd137cf72face56d57d7a270d27ca387875`.
+
 The repository's `task-quality-code-exact-match-v1.jsonl` is also not an
 adequate substitute for a cyber-security benchmark: inspection shows only four
 generic Python function prompts, and existing acceptance evidence documents
