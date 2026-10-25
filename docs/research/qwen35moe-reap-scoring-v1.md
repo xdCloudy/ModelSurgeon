@@ -52,6 +52,19 @@ library implementation's tensor and hook contract; it does not validate
 pretrained weights, other Transformers versions, or model-level quality and
 performance.
 
+As a local checkpoint-weight smoke test, the adapter also scored expert 23 in
+layer 0 using its real BF16 gate/up and down tensors from
+[`Endy-Qwen3.6-CyberSec-35B-A3B` revision `eed558458ca9ff6972063c486c7f1ab9e0b0c93e`](https://huggingface.co/endystrike/Endy-Qwen3.6-CyberSec-35B-A3B/tree/eed558458ca9ff6972063c486c7f1ab9e0b0c93e).
+That model card declares AGPL-3.0; no weights or tensor contents are
+redistributed. The two locally read shard files matched their pinned LFS
+sizes and SHA-256 values. Four valid, seeded synthetic BF16 hidden vectors
+were routed to the expert (seed `20261026`, six rows total, two masked; CPU
+PyTorch 2.13.0+cpu and Transformers 5.10.1); the observer's mean
+router-weighted output norm was `0.37381422`, versus `0.37381423` from a
+direct calculation (absolute error `7.45e-9`). This confirms BF16 operation
+against real expert weights with synthetic inputs only. It provides no
+calibration ranking, quality, deployment, or performance evidence.
+
 ## Next evidence required
 
 Use the same checkpoint, calibration and held-out splits, retained expert
