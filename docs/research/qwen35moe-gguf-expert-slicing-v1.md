@@ -282,3 +282,16 @@ scores improve held-out quality, that the experimental scorer has merged, or
 that a candidate can pass ModelSurgeon's quality gate. No Cerebras REAP or
 Transformers implementation was copied; this adapter consumes numeric results
 only. REAP's pinned Apache-2.0 provenance remains recorded above.
+
+An additional upstream review found CerebrasResearch/REAP's still-open
+[Qwen3.5-MoE support PR #25](https://github.com/CerebrasResearch/REAP/pull/25),
+head `ed8f8b776394d863bd0ff800e3498825d1d6d62a` (2026-07-19). Its proposed
+changes register the nested `Qwen3_5MoeForConditionalGeneration` architecture,
+handle the raw-parameter router and fused expert tensors, and extract
+`select_retained_experts` from the in-memory pruning path. The PR inherits the
+upstream repository's Apache-2.0 `LICENSE` (blob
+`f49a4e16e68b128803cc2dcea614603632b04eac`); no files from that PR are copied
+here. Because it is not merged into REAP's pinned main revision, ModelSurgeon's
+selector remains an independent numeric adapter and does not rely on the PR's
+model registry or implementation. This review reinforces the architecture
+boundary but adds no model-quality evidence.
