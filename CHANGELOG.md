@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+  - Align Meta-Surgeon MLP candidate features with physical surgery: one
+    intermediate channel index is removed across all transformer layers, so
+    ranking features now summarize that complete coupled group. Legacy or
+    precision-incompatible Meta bundles abstain from learned ordering while
+    physical evaluation continues. This adaptation follows the grouped
+    importance principle documented by Torch-Pruning; no upstream code was
+    copied.
+
   - Meta-Surgeon candidate ordering now follows the metric direction recorded in
     the verified bundle's target schema. Unknown or malformed target directions
     make optional guidance abstain instead of silently assuming minimization.

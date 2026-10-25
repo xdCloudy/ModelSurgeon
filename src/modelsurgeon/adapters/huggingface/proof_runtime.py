@@ -10,7 +10,7 @@ import statistics
 import time
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager, ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
@@ -103,6 +103,8 @@ from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
 HF_MLP_FEATURE_EXTRACTOR_VERSION = "1"
+HF_MLP_GROUP_FEATURE_EXTRACTOR = "hf_mlp_channel_group"
+HF_MLP_GROUP_FEATURE_EXTRACTOR_VERSION = "1"
 HF_MLP_EVALUATOR_VERSION = "hf_mlp_perplexity_v1"
 
 
@@ -1423,6 +1425,143 @@ class HuggingFaceMLPProofRuntime:
             extractor_version=HF_MLP_FEATURE_EXTRACTOR_VERSION,
         )
         return (FeaturePartition(key, records, checksum),)
+
+    def pre_mutation_group_feature_partition(
+        self,
+        candidate: MutationCandidate,
+    ) -> FeaturePartition:
+        """Summarize a shared MLP channel across every layer it will remove from."""
+
+        if candidate.scope is not CandidateScope.MLP_CHANNEL:
+            raise HuggingFaceMLPProofError(
+                "HF grouped feature extraction only accepts MLP-channel candidates"
+            )
+        _, channel = _channel_coordinates(candidate.request)
+        component = ComponentId.parse(f"model.layers.0.mlp.channel.{channel}")
+        per_layer = tuple(
+            self._feature_records(layer, channel)
+            for layer in range(self._discovery.shape.layers)
+        )
+        if not per_layer or any(not records for records in per_layer):
+            raise HuggingFaceMLPProofError("global MLP group features are incomplete")
+        by_layer = tuple({record.name: record for record in records} for records in per_layer)
+        names = set(by_layer[0])
+        if any(set(records) != names for records in by_layer[1:]):
+            raise HuggingFaceMLPProofError("MLP group feature schemas differ across layers")
+
+        def aggregate(name: str) -> float:
+            values = tuple(record[name].value for record in by_layer)
+            if any(isinstance(value, tuple) for value in values):
+                raise HuggingFaceMLPProofError("group MLP features must be scalar")
+            scalar_values = tuple(cast(float, value) for value in values)
+            if name in {"weight_l1_norm", "weight_count"}:
+                return math.fsum(scalar_values)
+            if name == "weight_l2_norm":
+                return math.sqrt(math.fsum(value * value for value in scalar_values))
+            if name == "weight_max_magnitude" or name.endswith(("_max_abs", "_max_magnitude")):
+                return max(scalar_values)
+            if name.endswith("_rms"):
+                return math.sqrt(math.fsum(value * value for value in scalar_values) / len(values))
+            return math.fsum(scalar_values) / len(values)
+
+        first_records = by_layer[0]
+        precisions = tuple(record.precision for records in by_layer for record in records.values())
+        precision_profiles = {
+            (item.source, item.quantization, item.codec_version, item.error, item.compute_dtype)
+            for item in precisions
+        }
+        storage_dtypes = {item.storage_dtype for item in precisions}
+        group_records: list[FeatureRecord] = []
+        precision_compatible = len(precision_profiles) == 1
+        if precision_compatible:
+            precision = replace(
+                next(iter(first_records.values())).precision,
+                storage_dtype=(
+                    next(iter(storage_dtypes)) if len(storage_dtypes) == 1 else "mixed"
+                ),
+            )
+            for name in sorted(names):
+                template = first_records[name]
+                group_records.append(
+                    replace(
+                        template,
+                        component_id=component,
+                        value=aggregate(name),
+                        dtype=(
+                            template.dtype
+                            if all(records[name].dtype == template.dtype for records in by_layer)
+                            else "mixed"
+                        ),
+                        extractor=HF_MLP_GROUP_FEATURE_EXTRACTOR,
+                        extractor_version=HF_MLP_GROUP_FEATURE_EXTRACTOR_VERSION,
+                        precision=precision,
+                        metadata=(
+                            ("grouping", "mlp_channel_index_all_layers"),
+                            ("layer_count", len(per_layer)),
+                        ),
+                    )
+                )
+            group_weight_l1 = math.fsum(
+                cast(float, records["weight_l1_norm"].value) for records in by_layer
+            )
+            group_weight_l2 = math.sqrt(
+                math.fsum(
+                    cast(float, records["weight_l2_norm"].value) ** 2 for records in by_layer
+                )
+            )
+            group_parameter_count = math.fsum(
+                cast(float, records["weight_count"].value) for records in by_layer
+            )
+            for name, value in (
+                ("coupled_group_weight_l1_norm", group_weight_l1),
+                ("coupled_group_weight_l2_norm", group_weight_l2),
+                ("coupled_group_parameter_count", group_parameter_count),
+            ):
+                template = first_records["weight_l1_norm"]
+                group_records.append(
+                    FeatureRecord(
+                        component,
+                        name,
+                        FeatureKind.SCALAR,
+                        float(value),
+                        template.dtype,
+                        HF_MLP_GROUP_FEATURE_EXTRACTOR,
+                        HF_MLP_GROUP_FEATURE_EXTRACTOR_VERSION,
+                        precision,
+                        template.sample_context,
+                        (
+                            ("grouping", "mlp_channel_index_all_layers"),
+                            ("layer_count", len(per_layer)),
+                        ),
+                    )
+                )
+        else:
+            for layer, records in enumerate(per_layer):
+                for record in records:
+                    group_records.append(
+                        replace(
+                            record,
+                            component_id=component,
+                            name=f"layer_{layer}_{record.name}",
+                            extractor=HF_MLP_GROUP_FEATURE_EXTRACTOR,
+                            extractor_version=HF_MLP_GROUP_FEATURE_EXTRACTOR_VERSION,
+                            metadata=(
+                                ("grouping", "mlp_channel_index_all_layers"),
+                                ("layer_count", len(per_layer)),
+                                ("source_layer", layer),
+                            ),
+                        )
+                    )
+        records = tuple(sorted(group_records, key=lambda item: item.name))
+        encoded = canonical_identity_json([item.to_record() for item in records]).encode("utf-8")
+        key = FeaturePartitionKey(
+            model_revision=self._model_target.revision,
+            input_revision=self._dataset.manifest_id,
+            component_id=component,
+            extractor=HF_MLP_GROUP_FEATURE_EXTRACTOR,
+            extractor_version=HF_MLP_GROUP_FEATURE_EXTRACTOR_VERSION,
+        )
+        return FeaturePartition(key, records, hashlib.sha256(encoded).hexdigest())
 
     def resolve(self, request: MutationRequest) -> ResolvedExperiment:
         _channel_coordinates(request)
