@@ -581,12 +581,19 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
 
     registry = PretrainedSurgeonRegistry(tmp_path / "surgeon-registry")
     preprocessor = SurgeonPreprocessor(
-        (NumericPreprocessor("weight_l1_norm", 0.0, 1.0),), (), 1, 1
+        (
+            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0),
+            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0),
+            NumericPreprocessor("weight_l1_norm", 0.0, 1.0),
+        ),
+        (),
+        1,
+        1,
     )
     model = LinearSurgeonModel(
         preprocessor.output_feature_names,
         "quality_gain",
-        (-1.0, 0.0),
+        (-1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         0.0,
         LinearConfig(max_epochs=1),
         1,
@@ -631,7 +638,10 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         ("fp32",),
         ("cpu",),
         {"minimum_support_coverage": 1.0},
-        {"model_families": ["llama"]},
+        {
+            "candidate_grouping": "mlp_channel_index_all_layers",
+            "model_families": ["llama"],
+        },
         "Apache-2.0",
         (("ranking", 0.5),),
         ("test bundle is not a production-quality transfer claim",),
@@ -657,8 +667,9 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         budget=replace(plan.budget, evaluations=2),
         quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
     )
+    runtime = build_first_party_optimize_runtime(plan)
     run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
-        build_first_party_optimize_runtime(plan),
+        runtime,
         approvals=tuple(item.code for item in plan.approvals if item.required),
     )
     assert run.outcome is WorkflowOutcome.SUPPORTED
@@ -672,6 +683,21 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     assert guidance_predictions[detail["meta_guidance"]["ordered_candidates"][0]] == max(
         guidance_predictions.values()
     )
+    assert runtime.candidates
+    assert all(candidate.layer_index == 0 for candidate in runtime.candidates)
+    candidate = runtime.candidates[0]
+    candidate_feature_records = {
+        item["name"]: item for item in runtime.candidate_features[candidate.candidate_id]
+    }
+    candidate_feature_values = {
+        name: item["value"] for name, item in candidate_feature_records.items()
+    }
+    assert candidate_feature_values["coupled_group_weight_l1_norm"] == pytest.approx(
+        candidate_feature_values["weight_l1_norm"]
+    )
+    assert candidate_feature_records["coupled_group_weight_l1_norm"]["metadata"][
+        "layer_count"
+    ] == 2
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
