@@ -20,8 +20,25 @@ router weights from GGUF. REAP's Qwen3.5 architecture support is currently in
 disk-streamed layerwise calibration work is in [open PR #26](https://github.com/CerebrasResearch/reap/pull/26),
 stacked on #25. These are unmerged changes, so their Qwen3.5 support and
 resource claims are not treated as released, independently verified capability.
-The upstream PR file lists contain no added tests for these changes. The model
-weights used for the current GGUF study are from
+The upstream PR file lists contain no added tests for these changes. A source
+trace of PR #26's pinned
+[`layerwise_observer.py`](https://github.com/CerebrasResearch/reap/blob/f0caca21435b2b8c85b48508394c8e4e38885be5/src/reap/layerwise_observer.py)
+also found a material resource issue in its Qwen3.5 fused-expert path: it builds
+a dense `[experts, tokens,
+hidden]` input, evaluates the fused expert weights for every expert/token pair,
+and stores an `[experts, tokens, hidden]` output buffer even though REAP updates
+scores only for selected experts. At 256 experts and top-8 routing, this is 32x
+the routed expert evaluation count. With hidden size 2,048 and 2,048 calibration
+tokens, the output buffer alone is 4 GiB because `torch.zeros` uses the default
+float32 dtype; the fused gate/up, intermediate, and down-projection tensors add
+further peak memory. These are allocation and operation-count estimates from
+the source, not measured peak-memory or runtime results. They make the PR's
+author-reported RSS claims insufficient evidence for GPU feasibility. Before
+adapting this observer, require routed-token-only expert evaluation, bounded
+temporary allocations, numerical agreement with a dense reference on toy
+weights, architecture tests for Qwen3.5's fused expert/router signatures, and
+measured CPU/RAM and GPU/VRAM profiles at the target calibration lengths. The
+model weights used for the current GGUF study are from
 [`endystrike/Endy-Qwen3.6-CyberSec-35B-A3B` at `eed558458ca9ff6972063c486c7f1ab9e0b0c93e`](https://huggingface.co/endystrike/Endy-Qwen3.6-CyberSec-35B-A3B/tree/eed558458ca9ff6972063c486c7f1ab9e0b0c93e),
 whose card declares AGPL-3.0. The 71.9 GB BF16 checkpoint is for local
 calibration only; model weights and per-expert score vectors are not included
