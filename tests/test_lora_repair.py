@@ -66,7 +66,7 @@ def test_separate_lora_is_bounded_deterministic_and_preserves_base_weights() -> 
     assert result.to_record()["max_trainable_parameters"] == 10_000_000
     assert result.seed == 7
     assert result.adapter_sha256 == repeated.adapter_sha256
-    assert torch.equal(first.proj.base.weight, base_weight)
+    assert torch.equal(first.proj.base_layer.weight, base_weight)
     state = lora_adapter_state_dict(first, ("proj",))
     assert set(state) == {"proj.lora_a", "proj.lora_b"}
     assert result.resource_use.wall_seconds >= 0
@@ -98,6 +98,30 @@ def test_invalid_target_restores_model_before_failure() -> None:
             candidate_checkpoint_id="checkpoint_candidate",
         )
     assert model.proj is original
+
+
+def test_training_failure_restores_original_module_and_grad_state() -> None:
+    model = _TinyLM()
+    original = model.proj
+    original_training = model.training
+    original_requires_grad = tuple(parameter.requires_grad for parameter in model.parameters())
+
+    with pytest.raises(LoRARepairError, match="requires labels"):
+        run_bounded_lora_repair(
+            model,
+            ({"input_ids": EXAMPLES[0]["input_ids"]},),
+            ("proj",),
+            LoRARepairConfig(max_steps=1),
+            source_checkpoint_id="checkpoint_source",
+            candidate_checkpoint_id="checkpoint_candidate",
+        )
+
+    assert model.proj is original
+    assert model.training is original_training
+    restored_requires_grad = tuple(
+        parameter.requires_grad for parameter in model.parameters()
+    )
+    assert restored_requires_grad == original_requires_grad
 
 
 def test_trainable_parameter_budget_rejects_before_wrapping_targets() -> None:

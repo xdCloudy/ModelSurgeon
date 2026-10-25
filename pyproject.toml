@@ -29,6 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 hf = [
   "accelerate>=1.0,<2",
+  "peft>=0.21.2,<0.22",
   "safetensors>=0.4,<1",
   "torch>=2.4,<3",
   "transformers>=4.45,<6",

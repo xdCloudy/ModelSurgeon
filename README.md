@@ -520,7 +520,9 @@ presented as successful operations. Set `quantization.method` to
 `dynamic_int8` for the bounded CPU-first HF quantization arm; its packed
 weights are stored in a safe-tensors artifact with a first-party manifest,
 then reloaded and physically evaluated before acceptance. Set `repair.method` to `lora` for the
-bounded first-party LoRA arm or `distillation` for teacher-logit repair. Distillation selects
+PEFT-backed LoRA arm or `distillation` for teacher-logit repair. LoRA is supplied by the
+`hf` extra (`pip install 'modelsurgeon[hf]'`) and uses Hugging Face PEFT's Apache-2.0
+implementation without vendoring its source. Distillation selects
 checkpoints on a disjoint calibration chunk by default; `repair.validation_dataset` can instead
 provide a separate local UTF-8 text corpus (limited to 16 MiB and eight token chunks) for
 checkpoint selection. Exact token-example overlap with training is rejected. Its content digest

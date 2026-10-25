@@ -135,49 +135,21 @@ def _resolve_parent(model: Any, name: str) -> tuple[Any, str, Any]:
     return parent, parts[-1], child
 
 
-def _make_wrapper(torch: Any, base: Any, config: LoRARepairConfig) -> Any:
-    if not isinstance(base, torch.nn.Linear):
-        raise LoRARepairError("LoRA repair currently supports exact torch Linear targets")
-
-    class _LoRALinear(torch.nn.Module):  # type: ignore[misc]
-        def __init__(self) -> None:
-            super().__init__()
-            self.base = base
-            self.lora_a = torch.nn.Parameter(
-                torch.empty(
-                    config.rank,
-                    base.in_features,
-                    device=base.weight.device,
-                    dtype=base.weight.dtype,
-                )
-            )
-            self.lora_b = torch.nn.Parameter(
-                torch.zeros(
-                    base.out_features,
-                    config.rank,
-                    device=base.weight.device,
-                    dtype=base.weight.dtype,
-                )
-            )
-            self.dropout = torch.nn.Dropout(config.dropout)
-            self.scaling = config.alpha / config.rank
-            torch.nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            self._modelsurgeon_lora = True
-
-        def forward(self, inputs: Any) -> Any:
-            return (
-                self.base(inputs)
-                + self.dropout(inputs) @ self.lora_a.T @ self.lora_b.T * self.scaling
-            )
-
-    return _LoRALinear()
+def _adapter_matrices(wrapper: Any) -> tuple[Any, Any]:
+    try:
+        adapter_a = wrapper.lora_A["default"].weight
+        adapter_b = wrapper.lora_B["default"].weight
+    except (AttributeError, KeyError) as error:
+        raise LoRARepairError("target does not retain the default PEFT LoRA adapter") from error
+    return adapter_a, adapter_b
 
 
 def _adapter_digest(wrappers: tuple[tuple[str, Any], ...]) -> str:
     digest = hashlib.sha256()
     for name, wrapper in wrappers:
         digest.update(name.encode())
-        for label, tensor in (("lora_a", wrapper.lora_a), ("lora_b", wrapper.lora_b)):
+        adapter_a, adapter_b = _adapter_matrices(wrapper)
+        for label, tensor in (("lora_a", adapter_a), ("lora_b", adapter_b)):
             host = tensor.detach().float().cpu().contiguous()
             digest.update(label.encode())
             digest.update(str(tuple(host.shape)).encode())
@@ -194,10 +166,14 @@ def lora_adapter_state_dict(
     state: dict[str, Any] = {}
     for name in target_modules:
         _, _, wrapper = _resolve_parent(model, name)
-        if not getattr(wrapper, "_modelsurgeon_lora", False):
-            raise LoRARepairError(f"target {name!r} does not retain a separate LoRA adapter")
-        state[f"{name}.lora_a"] = wrapper.lora_a.detach().cpu().contiguous()
-        state[f"{name}.lora_b"] = wrapper.lora_b.detach().cpu().contiguous()
+        try:
+            adapter_a, adapter_b = _adapter_matrices(wrapper)
+        except LoRARepairError as error:
+            raise LoRARepairError(
+                f"target {name!r} does not retain a separate LoRA adapter"
+            ) from error
+        state[f"{name}.lora_a"] = adapter_a.detach().cpu().contiguous()
+        state[f"{name}.lora_b"] = adapter_b.detach().cpu().contiguous()
     return state
 
 
@@ -223,6 +199,10 @@ def run_bounded_lora_repair(
     if target_modules != tuple(sorted(set(target_modules))) or not target_modules:
         raise LoRARepairError("LoRA targets must be non-empty, unique, and canonical")
     torch = import_module("torch")
+    try:
+        peft = import_module("peft")
+    except ImportError as error:
+        raise LoRARepairError("install the modelsurgeon HF extra with PEFT support") from error
     original_training = bool(model.training)
     original_requires_grad = {
         id(parameter): bool(parameter.requires_grad) for parameter in model.parameters()
@@ -245,20 +225,31 @@ def run_bounded_lora_repair(
     report_box: list[MemoryTelemetryReport] = []
     started = time.perf_counter()
     try:
-        for parameter in model.parameters():
-            parameter.requires_grad_(False)
         for name in target_modules:
             parent, child_name, base = _resolve_parent(model, name)
-            wrapper = _make_wrapper(torch, base, config)
-            setattr(parent, child_name, wrapper)
             replacements.append((parent, child_name, base))
-            wrappers.append((name, wrapper))
+        for parameter in model.parameters():
+            parameter.requires_grad_(False)
+        peft_config = peft.LoraConfig(
+            r=config.rank,
+            lora_alpha=config.alpha,
+            target_modules=list(target_modules),
+            lora_dropout=config.dropout,
+            bias="none",
+            task_type=None,
+        )
+        peft_model = peft.get_peft_model(model, peft_config)
+        wrappers = [
+            (name, _resolve_parent(model, name)[2]) for name in target_modules
+        ]
         adapter_parameters = tuple(
-            parameter for _, wrapper in wrappers for parameter in (wrapper.lora_a, wrapper.lora_b)
+            parameter for parameter in peft_model.parameters() if parameter.requires_grad
         )
         trainable_parameters = sum(parameter.numel() for parameter in adapter_parameters)
+        if trainable_parameters != expected_trainable_parameters:
+            raise LoRARepairError("PEFT adapter parameter count does not match selected targets")
         optimizer = torch.optim.AdamW(adapter_parameters, lr=config.learning_rate)
-        device = next(model.parameters()).device
+        device = next(peft_model.parameters()).device
         cuda = TorchCudaMemoryProvider(device) if str(device).startswith("cuda") else None
 
         def train() -> object:
@@ -272,7 +263,7 @@ def run_bounded_lora_repair(
                     for name, value in raw.items()
                 }
                 optimizer.zero_grad(set_to_none=True)
-                output = model(**inputs)
+                output = peft_model(**inputs)
                 loss = getattr(output, "loss", None)
                 if loss is None or not bool(torch.isfinite(loss).item()):
                     raise LoRARepairError("repair forward did not return a finite loss")
@@ -293,17 +284,12 @@ def run_bounded_lora_repair(
         report = report_box[0]
         adapter_sha256 = _adapter_digest(tuple(wrappers))
         if config.output_mode is LoRAOutputMode.MERGED:
-            with torch.no_grad():
-                for (parent, child_name, base), (_, wrapper) in zip(
-                    replacements, wrappers, strict=True
-                ):
-                    delta = wrapper.lora_b @ wrapper.lora_a * wrapper.scaling
-                    base.weight.add_(delta.to(dtype=base.weight.dtype))
-                    setattr(parent, child_name, base)
+            peft_model.merge_and_unload(safe_merge=True)
         else:
             for _, wrapper in wrappers:
-                wrapper.lora_a.requires_grad_(False)
-                wrapper.lora_b.requires_grad_(False)
+                adapter_a, adapter_b = _adapter_matrices(wrapper)
+                adapter_a.requires_grad_(False)
+                adapter_b.requires_grad_(False)
         completed = True
         return LoRARepairResult(
             source_checkpoint_id,
