@@ -78,11 +78,13 @@
     }
   ],
   "interpretation": {
-    "source_interval_overlaps_candidate_intervals": false,
-    "candidate_intervals_overlap_each_other": true,
+    "reported_uncertainty_bands_overlap_source": false,
+    "reported_candidate_uncertainty_bands_overlap_each_other": true,
+    "reported_uncertainty_is_formal_confidence_interval": false,
+    "reported_uncertainty_method": "llama.cpp Gaussian-logit error propagation; see https://github.com/ggml-org/llama.cpp/blob/c7fc50941/tools/perplexity/README.md",
     "independent_seed_repeats": 0,
     "quality_gate_passed": false,
     "throughput_measured": false,
-    "claim": "All three smaller artifacts have a higher reported perplexity than the source on this 64-window WikiText-2 sample. The activation-weighted candidate is numerically worst, but candidate intervals overlap, so method ranking is inconclusive. This is one model, one corpus, one runtime configuration, and no independent-seed repeat."
+    "claim": "All three smaller artifacts have a higher reported perplexity than the source on this 64-window WikiText-2 sample. The activation-weighted candidate is numerically worst, but candidate +/- uncertainty bands overlap, so the short-run method ranking is inconclusive. This is one model, one corpus, one runtime configuration, and no independent-seed repeat."
   }
 }

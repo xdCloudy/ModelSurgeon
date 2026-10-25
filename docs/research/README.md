@@ -6,6 +6,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
 - [Qwen2 activation-weighted GGUF transfer result](gguf-qwen2-activation-transfer-2026-10-25.md)
 - [Qwen2 64-window held-out perplexity result](gguf-qwen2-activation-transfer-64chunk-2026-10-25.json)
+- [Qwen2 full WikiText-2 test perplexity result](gguf-qwen2-activation-transfer-fulltest-2026-10-25.json)
 
 - [v0.5 First Surgeon empirical evidence](v0.5-first-surgeon-evidence.md)
 - [v0.6 tree-surgeon uncertainty evidence](v0.6-tree-uncertainty-evidence.md)
