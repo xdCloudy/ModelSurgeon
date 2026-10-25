@@ -15,6 +15,7 @@ uses the exact GGUF encoded size and alignment cost.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from math import prod
@@ -23,6 +24,7 @@ from modelsurgeon.adapters.gguf.container import (
     GGML_TYPE_IDS,
     GGUFContainer,
     GGUFTensorDescriptor,
+    GGUFValueType,
     gguf_tensor_byte_size,
 )
 from modelsurgeon.adapters.gguf.disk import GGUFDiskPlan
@@ -151,6 +153,74 @@ def _ggml_type_id(quant_type: GGMLQuantizationType) -> int:
         if candidate is quant_type:
             return type_id
     raise GGUFQuantizationBudgetError(f"no GGML type ID exists for {quant_type.value}")
+
+
+_LLAMA_FILE_TYPE_BY_QUANT_TYPE: Mapping[GGMLQuantizationType, int] = {
+    GGMLQuantizationType.F32: 0,
+    GGMLQuantizationType.F16: 1,
+    GGMLQuantizationType.Q4_0: 2,
+    GGMLQuantizationType.Q4_1: 3,
+    GGMLQuantizationType.Q8_0: 7,
+    GGMLQuantizationType.Q5_0: 8,
+    GGMLQuantizationType.Q5_1: 9,
+    GGMLQuantizationType.Q2_K: 10,
+    GGMLQuantizationType.Q3_K: 12,
+    GGMLQuantizationType.Q4_K: 15,
+    GGMLQuantizationType.Q5_K: 17,
+    GGMLQuantizationType.Q6_K: 18,
+    GGMLQuantizationType.IQ2_XXS: 19,
+    GGMLQuantizationType.IQ2_XS: 20,
+    GGMLQuantizationType.IQ3_XXS: 23,
+    GGMLQuantizationType.IQ1_S: 24,
+    GGMLQuantizationType.IQ4_NL: 25,
+    GGMLQuantizationType.IQ3_S: 26,
+    GGMLQuantizationType.IQ2_S: 28,
+    GGMLQuantizationType.IQ4_XS: 30,
+    GGMLQuantizationType.IQ1_M: 31,
+    GGMLQuantizationType.BF16: 32,
+}
+_LLAMA_FTYPE_GUESSED = 1 << 10
+
+
+def _output_metadata(
+    container: GGUFContainer,
+    output_quant_types: Sequence[GGMLQuantizationType],
+) -> tuple[GGUFWriteMetadata, ...]:
+    """Update GGUF's summary file type to match the output tensor inventory."""
+    if len(output_quant_types) != len(container.tensors) or not output_quant_types:
+        raise GGUFQuantizationBudgetError(
+            "output quantization types must cover the non-empty source tensor inventory"
+        )
+    counts = Counter(output_quant_types)
+    dominant_type = output_quant_types[0]
+    dominant_count = 0
+    for quant_type in output_quant_types:
+        if counts[quant_type] > dominant_count:
+            dominant_type = quant_type
+            dominant_count = counts[quant_type]
+    # This is a guessed dominant type, not a claim about a quantizer recipe
+    # such as Q4_K_M. 1024 is llama.cpp's LLAMA_FTYPE_GUESSED bit. Its loader
+    # also falls back to guessed F32 when a dominant storage type has no enum.
+    file_type = _LLAMA_FILE_TYPE_BY_QUANT_TYPE.get(dominant_type, 0) | _LLAMA_FTYPE_GUESSED
+
+    entries = [
+        GGUFWriteMetadata(entry.key, entry.value_type, entry.value, entry.element_type)
+        for entry in container.metadata
+    ]
+    matches = [index for index, entry in enumerate(entries) if entry.key == "general.file_type"]
+    if len(matches) > 1:
+        raise GGUFQuantizationBudgetError("source GGUF has duplicate general.file_type metadata")
+    file_type_entry = GGUFWriteMetadata(
+        "general.file_type", GGUFValueType.UINT32, file_type
+    )
+    if matches:
+        index = matches[0]
+        if entries[index].value_type is not GGUFValueType.UINT32:
+            raise GGUFQuantizationBudgetError("general.file_type must be a UINT32 metadata value")
+        entries[index] = file_type_entry
+    else:
+        entries.append(file_type_entry)
+    return tuple(entries)
 
 
 def estimate_tensor_quantization_losses(
@@ -431,14 +501,9 @@ def execute_gguf_quantization_plan(
     if len(plan.choices) != len(container.tensors):
         raise GGUFQuantizationBudgetError("quantization plan does not cover every source tensor")
 
-    metadata = tuple(
-        GGUFWriteMetadata(
-            entry.key,
-            entry.value_type,
-            entry.value,
-            entry.element_type,
-        )
-        for entry in container.metadata
+    metadata = _output_metadata(
+        container,
+        tuple(choice.output_quant_type for choice in plan.choices),
     )
     writer_tensors: list[GGUFWriteTensor] = []
     for tensor, choice in zip(container.tensors, plan.choices, strict=True):
@@ -677,9 +742,9 @@ def plan_gguf_quantization_budget(
         _tensor_alternatives(tensor, alternatives.get(tensor.name, ()), codecs)
         for tensor in container.tensors
     )
-    writer_metadata = tuple(
-        GGUFWriteMetadata(entry.key, entry.value_type, entry.value, entry.element_type)
-        for entry in container.metadata
+    writer_metadata = _output_metadata(
+        container,
+        tuple(tensor.quant_type for tensor in container.tensors),
     )
     source_writer_tensors = tuple(
         GGUFWriteTensor(

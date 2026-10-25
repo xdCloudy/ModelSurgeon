@@ -5,9 +5,11 @@
 `plan_gguf_quantization_budget` selects a quantization type for each tensor
 under a hard output-file byte ceiling. It uses supported codecs' actual block
 layouts, source tensor ordering, GGUF data offset, and alignment padding. The
-calculation assumes output preserves source metadata, tensor names, dimensions,
-ordering, and alignment. Planned sizes and offsets are checked against
-`plan_gguf_output` before an artifact is written.
+calculation preserves source metadata except for the summary
+`general.file_type`, which is regenerated to reflect the output tensor types;
+if absent, it is added. Tensor names, dimensions, order, and alignment remain
+fixed. Planned sizes and offsets include this metadata update and are checked
+against `plan_gguf_output` before an artifact is written.
 
 Each tensor option can use a supplied non-negative loss estimate or
 `estimate_tensor_quantization_losses` to measure a streaming codec round trip.
@@ -33,7 +35,12 @@ revision-pinned calibration data and choosing the correct GGUF input axis.
 transactional GGUF writer. Changed tensors are decoded and re-encoded in
 bounded chunks; unchanged tensor payloads are copied byte-for-byte. The writer
 stages the file, reparses it, and atomically publishes the candidate. The
-executor leaves the source unchanged and does not promote the candidate.
+executor leaves the source unchanged and does not promote the candidate. It
+also updates `general.file_type` to llama.cpp's guessed dominant output type
+(`LLAMA_FTYPE_GUESSED`); this reports the largest tensor codec family without
+pretending the artifact follows a named quantizer recipe such as Q4_K_M. If
+the source lacks the field, the writer adds it before planning the output
+layout.
 
 ## Research provenance
 
@@ -43,6 +50,12 @@ budget-constrained assignment search at
 The upstream repository declares Apache-2.0. No upstream source code is copied
 and no dependency is added. RCO optimizes discretized average-bit costs; this
 planner accounts for exact GGUF encoded bytes and alignment.
+
+The output file-type enum and guessed flag are aligned with
+[llama.cpp `465e49b9cea78a68b9c244ffb48d0ee24a82873d`](https://github.com/ggml-org/llama.cpp/tree/465e49b9cea78a68b9c244ffb48d0ee24a82873d/include/llama.h)
+and its dominant-tensor loader behavior in
+[`llama-model-loader.cpp`](https://github.com/ggml-org/llama.cpp/blob/465e49b9cea78a68b9c244ffb48d0ee24a82873d/src/llama-model-loader.cpp).
+The source project declares MIT; no implementation code is copied.
 
 The activation-weighted error option is independently implemented from the
 expected linear-layer output-error expression. Its research basis includes

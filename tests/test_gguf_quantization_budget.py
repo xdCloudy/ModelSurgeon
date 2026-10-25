@@ -4,6 +4,7 @@ import hashlib
 import itertools
 import math
 import random
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,7 @@ _METADATA = (
     GGUFWriteMetadata("general.architecture", GGUFValueType.STRING, "test"),
     GGUFWriteMetadata("general.quantization_version", GGUFValueType.UINT32, 2),
     GGUFWriteMetadata("general.alignment", GGUFValueType.UINT32, 32),
+    GGUFWriteMetadata("general.file_type", GGUFValueType.UINT32, 7),
 )
 
 
@@ -196,6 +198,31 @@ def test_planner_minimizes_loss_with_exact_aligned_file_costs() -> None:
     assert plan.planned_file_bytes == _file_size(container, assignment) == target
     assert tuple(choice.relative_offset for choice in plan.choices) == (0, 288, 576)
     assert tuple(choice.encoded_bytes for choice in plan.choices) == (288, 288, 352)
+
+
+def test_planner_accounts_for_file_type_metadata_when_source_omits_it() -> None:
+    container = _container()
+    without_file_type = replace(
+        container,
+        metadata=tuple(entry for entry in container.metadata if entry.key != "general.file_type"),
+    )
+    writer_tensors = tuple(
+        GGUFWriteTensor(
+            tensor.name,
+            tensor.dimensions,
+            _type_id(tensor.quant_type),
+            (),
+        )
+        for tensor in container.tensors
+    )
+    expected_layout = plan_gguf_output(_METADATA, writer_tensors, alignment=32)
+    plan = plan_gguf_quantization_budget(
+        without_file_type,
+        {},
+        _codecs(),
+        target_file_bytes=expected_layout.total_bytes,
+    )
+    assert plan.planned_file_bytes == expected_layout.total_bytes
 
 
 def test_planner_matches_exhaustive_oracle_for_seeded_small_assignments() -> None:
@@ -525,6 +552,12 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
                 candidate.container.tensor("untouched.weight").quant_type
                 is GGMLQuantizationType.Q8_0
             )
+            file_type = next(
+                entry.value
+                for entry in candidate.container.metadata
+                if entry.key == "general.file_type"
+            )
+            assert file_type == (17 | (1 << 10))
             assert mapped.raw_bytes(
                 mapped.container.tensor("untouched.weight").data_offset, 544
             ) == candidate.raw_bytes(
