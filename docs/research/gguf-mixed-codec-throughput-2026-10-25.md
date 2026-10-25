@@ -54,4 +54,4 @@ treated as evidence of faster inference.
 The full 192-run data set, commands, artifact hashes, output rows, and paired
 summaries are retained in
 [`gguf-mixed-codec-throughput-2026-10-25.json`](gguf-mixed-codec-throughput-2026-10-25.json)
-(SHA-256 `2b92a3dcda09d48980b62b3f469256023b3ef232e67dcfe0a4a77eb32d8e9f71`).
+(SHA-256 `97b36fe2db0ed6d30f8aec070457610fd268bb5c39214bd50feef026893c313d`).
