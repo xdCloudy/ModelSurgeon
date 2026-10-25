@@ -982,9 +982,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             self.candidate_features,
         )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
+        candidate_ids = tuple(sorted(item.candidate_id for item in candidates))
         random_order = tuple(
             item.candidate_id
-            for item in rank_random(candidates, seed=seed).entries
+            for item in rank_random(candidate_ids, seed=seed).entries
         )
         shortgpt_order = (
             ()
@@ -993,8 +994,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
 
         def baseline_record(name: str, candidate_id: str | None) -> dict[str, object]:
-            if candidate_id is None or candidate_id not in actual:
+            if candidate_id is None:
                 return {"method": name, "candidate_id": None, "measured": False}
+            if candidate_id not in actual:
+                return {
+                    "method": name,
+                    "candidate_id": candidate_id,
+                    "measured": False,
+                }
             measurement = actual[candidate_id]
             measured_delta = _number(measurement["perplexity_delta"], "perplexity_delta")
             quality_gate = self._quality_gate_for_candidate_record(measurement)
@@ -1031,7 +1038,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         baselines.extend(
             (
                 baseline_record("random", random_order[0] if random_order else None),
-                baseline_record("no_guidance", ranked[0][3].candidate_id),
+                baseline_record(
+                    "no_guidance", candidate_ids[0] if candidate_ids else None
+                ),
             )
         )
         self.search_comparison = {
@@ -1042,6 +1051,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             ),
             "baselines": baselines,
             "candidate_selection": self.layer_selection_record,
+            "candidate_pool_size": len(candidate_ids),
+            "no_guidance_policy": "first_candidate_by_canonical_id",
             "baseline_regret_scope": "measured_candidates_only",
         }
 

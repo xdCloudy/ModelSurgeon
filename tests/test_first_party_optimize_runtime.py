@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -549,6 +550,44 @@ def test_shortgpt_layer_ranking_spends_budget_on_lowest_influence_layer(
     assert detail["candidate_id"] == selection["evaluated_candidate_ids"][0]
     assert detail["candidate_scope"] == "layer"
     assert ranked_layers[0]["token_count"] > 0
+    comparison = detail["search_comparison"]
+    no_guidance = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["no_guidance_policy"] == "first_candidate_by_canonical_id"
+    assert comparison["candidate_pool_size"] >= 1
+    assert no_guidance["candidate_id"] is not None
+    assert no_guidance["measured"] is (
+        no_guidance["candidate_id"] == detail["candidate_id"]
+    )
+
+
+def test_no_guidance_baseline_keeps_unmeasured_candidate_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        model=ModelConfig(path=str(tmp_path / "model"), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(dataset=str(tmp_path / "calibration.txt"), seed=7),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    runtime = build_first_party_optimize_runtime(plan)
+    runtime.actual_measurements = {"cand_b": {"perplexity_delta": 0.1}}
+    monkeypatch.setattr(
+        runtime, "_quality_gate_for_candidate_record", lambda _measurement: {"accepted": True}
+    )
+
+    candidate_a = SimpleNamespace(candidate_id="cand_a")
+    candidate_b = SimpleNamespace(candidate_id="cand_b")
+    measured = {"perplexity_delta": 0.1}
+    runtime._build_search_comparison(
+        (candidate_b, candidate_a),
+        [(0.1, 0.0, "mutation_b", candidate_b, measured)],
+    )
+
+    comparison = runtime.search_comparison
+    assert comparison is not None
+    baseline = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["measured_best"] == "cand_b"
+    assert baseline["candidate_id"] == "cand_a"
+    assert baseline["measured"] is False
 
 
 def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) -> None:
