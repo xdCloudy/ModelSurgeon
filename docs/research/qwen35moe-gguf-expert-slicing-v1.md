@@ -184,8 +184,28 @@ measured. The exact hashes, settings, return codes, and log digests are in the
 [64-window evidence manifest](qwen35moe-gguf-expert-slicing-64chunk-2026-10-25.json).
 
 Together, the four- and 64-window screens do not justify exposing the scorer to
-autonomous selection. A full held-out corpus, independent random selections,
-and representative cybersecurity task-quality measurements remain necessary.
+autonomous selection. A paired full-test comparison, independent random
+selections, and representative cybersecurity task-quality measurements remain
+necessary.
+
+## Full-test baseline and resource-limited comparison
+
+On 2026-10-25, the pinned CPU runtime processed the complete WikiText-2 test
+file for the source artifact: 580 contexts (296,960 tokens), PPL 6.7090 ±
+0.04243, exit code 0. This source-only result is a corpus baseline, not evidence
+about expert pruning. Its PPL differs from the 64-context prefix estimate,
+confirming that the shorter prefix should not be used as a stand-in for the
+complete test split.
+
+The equal-size router-norm candidate used the same full-split command, but
+available system memory fell to 852 MiB while the inference process held about
+14.31 GiB. The run was interrupted after 107 output rows (last recorded offset
+54,272); it produced no final PPL estimate. The random candidate was not run.
+These incomplete outputs are retained as a resource-pressure record only. They
+are not quality results, and no quality gate or ranking conclusion follows.
+The [full-test run manifest](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json)
+records the completed source result, interrupted router run, exact inputs and
+runtime, and log digests.
 
 For the earlier eight-window run, the detailed manifest and per-run logs
 remain local rather than being redistributed. That manifest's SHA-256 is

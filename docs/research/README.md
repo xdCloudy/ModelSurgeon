@@ -3,6 +3,7 @@
 Store bounded spike outcomes, hypotheses, protocols, negative results and follow-up decisions here. Every record identifies immutable model/dataset revisions, seeds, hardware and software.
 
 - [Qwen MoE expert slicing 64-window quality follow-up](qwen35moe-gguf-expert-slicing-64chunk-2026-10-25.json)
+- [Qwen MoE full-test baseline and resource-limited comparison](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json)
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
