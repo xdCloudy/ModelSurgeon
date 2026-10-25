@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 import random
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from modelsurgeon.adapters.gguf.container import (
     GGML_TYPE_IDS,
     GGUFContainer,
+    GGUFMetadataEntry,
     GGUFTensorDescriptor,
     GGUFValueType,
     open_gguf,
@@ -27,6 +29,7 @@ from modelsurgeon.adapters.gguf.quantization_budget import (
     GGUFQuantizationAlternative,
     GGUFQuantizationBudgetError,
     estimate_tensor_quantization_losses,
+    execute_gguf_quantization_plan,
     plan_gguf_quantization_budget,
 )
 from modelsurgeon.adapters.gguf.tensor_reader import GGUFTensorReader
@@ -40,6 +43,7 @@ from modelsurgeon.adapters.gguf.writer import (
 _METADATA = (
     GGUFWriteMetadata("general.architecture", GGUFValueType.STRING, "test"),
     GGUFWriteMetadata("general.quantization_version", GGUFValueType.UINT32, 2),
+    GGUFWriteMetadata("general.alignment", GGUFValueType.UINT32, 32),
 )
 
 
@@ -74,7 +78,17 @@ def _container() -> GGUFContainer:
         ByteOrder.LITTLE,
         32,
         output_layout.data_offset,
-        (),
+        tuple(
+            GGUFMetadataEntry(
+                item.key,
+                item.value_type,
+                item.value,
+                0,
+                0,
+                item.element_type,
+            )
+            for item in _METADATA
+        ),
         tensors,
     )
 
@@ -300,14 +314,26 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
         _type_id(GGMLQuantizationType.Q8_0),
         (bytes(encoded_source),),
     )
-    output_layout = plan_gguf_output(_METADATA, (tensor,), alignment=32)
+    untouched_source = bytearray(Q8_0_CODEC.layout.encoded_size(len(values)))
+    Q8_0_CODEC.encode_blocks(
+        tuple(reversed(values)), memoryview(untouched_source), byte_order=ByteOrder.LITTLE
+    )
+    untouched_tensor = GGUFWriteTensor(
+        "untouched.weight",
+        (256, 2),
+        _type_id(GGMLQuantizationType.Q8_0),
+        (bytes(untouched_source),),
+    )
+    source_tensors = (tensor, untouched_tensor)
+    output_layout = plan_gguf_output(_METADATA, source_tensors, alignment=32)
     source_path = tmp_path / "source.gguf"
     disk = preflight_gguf_disk(
         source_path,
         tmp_path,
         GGUFDiskEstimate(output_layout.total_bytes, 0, alignment_bytes=output_layout.alignment),
     )
-    write_gguf_transactionally(source_path, _METADATA, (tensor,), disk)
+    write_gguf_transactionally(source_path, _METADATA, source_tensors, disk)
+    source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
 
     with open_gguf(source_path) as mapped:
         reader = GGUFTensorReader(mapped)
@@ -346,6 +372,7 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
             )
         }
         target_bytes = mapped.container.data_offset + 352
+        target_bytes += 544
         plan = plan_gguf_quantization_budget(
             mapped.container,
             alternatives,
@@ -354,3 +381,47 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
         )
         assert plan.choices[0].output_quant_type is GGMLQuantizationType.Q5_K
         assert plan.planned_file_bytes == target_bytes
+        assert plan.choices[1].output_quant_type is GGMLQuantizationType.Q8_0
+
+        candidate_path = tmp_path / "candidate.gguf"
+        candidate_layout = plan_gguf_output(
+            _METADATA,
+            (
+                GGUFWriteTensor("tensor.weight", (256, 2), _type_id(GGMLQuantizationType.Q5_K), ()),
+                GGUFWriteTensor(
+                    "untouched.weight", (256, 2), _type_id(GGMLQuantizationType.Q8_0), ()
+                ),
+            ),
+            alignment=32,
+        )
+        candidate_disk = preflight_gguf_disk(
+            candidate_path,
+            tmp_path,
+            GGUFDiskEstimate(
+                candidate_layout.total_bytes,
+                0,
+                alignment_bytes=candidate_layout.alignment,
+            ),
+        )
+        result = execute_gguf_quantization_plan(
+            reader,
+            plan,
+            _estimator_codecs(),
+            candidate_disk,
+            max_working_bytes=32 * 1024,
+        )
+        assert result.file_size == target_bytes
+        assert hashlib.sha256(source_path.read_bytes()).hexdigest() == source_hash
+        with open_gguf(candidate_path) as candidate:
+            assert (
+                candidate.container.tensor("tensor.weight").quant_type is GGMLQuantizationType.Q5_K
+            )
+            assert (
+                candidate.container.tensor("untouched.weight").quant_type
+                is GGMLQuantizationType.Q8_0
+            )
+            assert mapped.raw_bytes(
+                mapped.container.tensor("untouched.weight").data_offset, 544
+            ) == candidate.raw_bytes(
+                candidate.container.tensor("untouched.weight").data_offset, 544
+            )

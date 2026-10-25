@@ -15,7 +15,7 @@ uses the exact GGUF encoded size and alignment cost.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from math import prod
 
@@ -25,12 +25,21 @@ from modelsurgeon.adapters.gguf.container import (
     GGUFTensorDescriptor,
     gguf_tensor_byte_size,
 )
+from modelsurgeon.adapters.gguf.disk import GGUFDiskPlan
 from modelsurgeon.adapters.gguf.quantization import (
     ByteOrder,
     CodecRegistry,
     GGMLQuantizationType,
+    QuantizationCodec,
 )
 from modelsurgeon.adapters.gguf.tensor_reader import GGUFTensorHandle, GGUFTensorReader
+from modelsurgeon.adapters.gguf.writer import (
+    GGUFWriteMetadata,
+    GGUFWriteResult,
+    GGUFWriteTensor,
+    plan_gguf_output,
+    write_gguf_transactionally,
+)
 
 
 class GGUFQuantizationBudgetError(ValueError):
@@ -118,6 +127,13 @@ class _State:
 
 def _align(value: int, alignment: int) -> int:
     return (value + alignment - 1) & -alignment
+
+
+def _ggml_type_id(quant_type: GGMLQuantizationType) -> int:
+    for type_id, candidate in GGML_TYPE_IDS.items():
+        if candidate is quant_type:
+            return type_id
+    raise GGUFQuantizationBudgetError(f"no GGML type ID exists for {quant_type.value}")
 
 
 def estimate_tensor_quantization_losses(
@@ -270,6 +286,186 @@ def estimate_tensor_quantization_losses(
     )
 
 
+def execute_gguf_quantization_plan(
+    reader: GGUFTensorReader,
+    plan: GGUFQuantizationBudgetPlan,
+    codecs: CodecRegistry,
+    disk_plan: GGUFDiskPlan,
+    *,
+    max_working_bytes: int = 16 * 1024 * 1024,
+) -> GGUFWriteResult:
+    """Stream a validated per-tensor plan into an atomic GGUF artifact.
+
+    Unchanged tensors are copied byte-for-byte. Changed tensors are decoded and
+    re-encoded in common source/destination codec block chunks. The source stays
+    read-only, and the writer stages, reparses, then publishes the new file.
+    This function does not evaluate model quality or authorize promotion.
+    """
+    if (
+        isinstance(max_working_bytes, bool)
+        or not isinstance(max_working_bytes, int)
+        or max_working_bytes <= 0
+    ):
+        raise GGUFQuantizationBudgetError("working-memory limit must be a positive byte count")
+    container = reader.source.container
+    if len(plan.choices) != len(container.tensors):
+        raise GGUFQuantizationBudgetError("quantization plan does not cover every source tensor")
+
+    metadata = tuple(
+        GGUFWriteMetadata(
+            entry.key,
+            entry.value_type,
+            entry.value,
+            entry.element_type,
+        )
+        for entry in container.metadata
+    )
+    writer_tensors: list[GGUFWriteTensor] = []
+    for tensor, choice in zip(container.tensors, plan.choices, strict=True):
+        if choice.tensor_name != tensor.name or choice.source_quant_type is not tensor.quant_type:
+            raise GGUFQuantizationBudgetError(
+                "quantization plan tensor identity or source type does not match this GGUF"
+            )
+        handle = reader.index.tensor(tensor.name)
+        unchanged = choice.output_quant_type is tensor.quant_type
+        source_codec = None if unchanged else codecs.resolve(tensor.quant_type)
+        target_codec = None if unchanged else codecs.resolve(choice.output_quant_type)
+        try:
+            planned_bytes = gguf_tensor_byte_size(choice.output_quant_type, tensor.dimensions)
+        except ValueError as error:
+            raise GGUFQuantizationBudgetError(
+                f"tensor {tensor.name!r} cannot use {choice.output_quant_type.value}: {error}"
+            ) from error
+        if choice.encoded_bytes != planned_bytes:
+            raise GGUFQuantizationBudgetError(
+                f"plan byte count for {tensor.name!r} does not match its codec layout"
+            )
+        type_id = _ggml_type_id(choice.output_quant_type)
+        writer_tensors.append(
+            GGUFWriteTensor(
+                tensor.name,
+                tensor.dimensions,
+                type_id,
+                _encoded_tensor_chunks(
+                    reader,
+                    handle,
+                    source_codec,
+                    target_codec,
+                    unchanged=unchanged,
+                    byte_order=container.byte_order,
+                    max_working_bytes=max_working_bytes,
+                ),
+            )
+        )
+
+    output_layout = plan_gguf_output(
+        metadata,
+        tuple(writer_tensors),
+        version=container.version,
+        byte_order=container.byte_order,
+        alignment=container.alignment,
+    )
+    if output_layout.total_bytes != plan.planned_file_bytes:
+        raise GGUFQuantizationBudgetError(
+            "plan file size disagrees with the GGUF writer's exact output layout"
+        )
+    if output_layout.total_bytes > plan.target_file_bytes:
+        raise GGUFQuantizationBudgetError("planned GGUF exceeds its hard file-size ceiling")
+    for choice, output_tensor in zip(plan.choices, output_layout.tensors, strict=True):
+        if (
+            choice.relative_offset != output_tensor.relative_offset
+            or choice.encoded_bytes != output_tensor.byte_size
+        ):
+            raise GGUFQuantizationBudgetError(
+                f"planned offset or encoded size differs for tensor {choice.tensor_name!r}"
+            )
+
+    result = write_gguf_transactionally(
+        disk_plan.output_path,
+        metadata,
+        tuple(writer_tensors),
+        disk_plan,
+        version=container.version,
+        byte_order=container.byte_order,
+        alignment=container.alignment,
+    )
+    return result
+
+
+def _encoded_tensor_chunks(
+    reader: GGUFTensorReader,
+    handle: GGUFTensorHandle,
+    source_codec: QuantizationCodec | None,
+    target_codec: QuantizationCodec | None,
+    *,
+    unchanged: bool,
+    byte_order: ByteOrder,
+    max_working_bytes: int,
+) -> Iterator[bytes]:
+    """Create a lazy byte stream; changed chunks align to both codec block grids."""
+    if unchanged:
+        return (chunk.data for chunk in reader.iter_chunks(handle))
+
+    if source_codec is None or target_codec is None:
+        raise GGUFQuantizationBudgetError(
+            "changed tensors require exact source and destination codecs"
+        )
+
+    source_layout = source_codec.layout
+    target_layout = target_codec.layout
+    common_block_values = math.lcm(source_layout.block_size, target_layout.block_size)
+    packed_bytes_per_value = (
+        source_layout.type_size // source_layout.block_size
+        + target_layout.type_size // target_layout.block_size
+    )
+    estimated_bytes_per_value = 64 + packed_bytes_per_value
+    max_values = max_working_bytes // estimated_bytes_per_value
+    max_reader_values = (
+        reader.limits.max_chunk_bytes // source_layout.type_size
+    ) * source_layout.block_size
+    chunk_values = min(max_values, max_reader_values)
+    chunk_values = chunk_values // common_block_values * common_block_values
+    if chunk_values < common_block_values:
+        raise GGUFQuantizationBudgetError(
+            "working-memory limit cannot hold one common source/destination codec block"
+        )
+    source_blocks_per_chunk = chunk_values // source_layout.block_size
+
+    def chunks() -> Iterator[bytes]:
+        block_offset = 0
+        while block_offset < handle.block_count:
+            block_count = min(
+                source_blocks_per_chunk,
+                handle.block_count - block_offset,
+            )
+            value_count = block_count * source_layout.block_size
+            if value_count % common_block_values:
+                raise GGUFQuantizationBudgetError(
+                    "source tensor tail is not aligned to the destination codec block"
+                )
+            source_chunk = reader.read_blocks(handle, block_offset, block_count)
+            values: list[float] = []
+            decoded = source_codec.decode_blocks(
+                memoryview(source_chunk.data), values, byte_order=byte_order
+            )
+            if decoded.element_count != value_count:
+                raise GGUFQuantizationBudgetError(
+                    "source decoder returned an unexpected value count"
+                )
+            encoded = bytearray(target_layout.encoded_size(value_count))
+            operation = target_codec.encode_blocks(
+                values, memoryview(encoded), byte_order=byte_order
+            )
+            if operation.element_count != value_count:
+                raise GGUFQuantizationBudgetError(
+                    "destination encoder returned an unexpected value count"
+                )
+            yield bytes(encoded)
+            block_offset += block_count
+
+    return chunks()
+
+
 def _tensor_alternatives(
     tensor: GGUFTensorDescriptor,
     proposed: Sequence[GGUFQuantizationAlternative],
@@ -361,6 +557,26 @@ def plan_gguf_quantization_budget(
         _tensor_alternatives(tensor, alternatives.get(tensor.name, ()), codecs)
         for tensor in container.tensors
     )
+    writer_metadata = tuple(
+        GGUFWriteMetadata(entry.key, entry.value_type, entry.value, entry.element_type)
+        for entry in container.metadata
+    )
+    source_writer_tensors = tuple(
+        GGUFWriteTensor(
+            tensor.name,
+            tensor.dimensions,
+            _ggml_type_id(tensor.quant_type),
+            (),
+        )
+        for tensor in container.tensors
+    )
+    output_data_offset = plan_gguf_output(
+        writer_metadata,
+        source_writer_tensors,
+        version=container.version,
+        byte_order=container.byte_order,
+        alignment=container.alignment,
+    ).data_offset
 
     # Each layer keeps nondominated (encoded end offset, estimated loss) states.
     # Parent indexes allow exact reconstruction while retaining deterministic ties.
@@ -378,7 +594,7 @@ def plan_gguf_quantization_budget(
                         f"planner exceeded its {max_states} state budget"
                     )
                 relative_end = tensor_start + size
-                if container.data_offset + relative_end > target_file_bytes:
+                if output_data_offset + relative_end > target_file_bytes:
                     continue
                 combined_loss = state.loss + loss
                 if not math.isfinite(combined_loss):
@@ -445,7 +661,7 @@ def plan_gguf_quantization_budget(
     )
     return GGUFQuantizationBudgetPlan(
         target_file_bytes,
-        container.data_offset + final_state.relative_end,
+        output_data_offset + final_state.relative_end,
         final_state.loss,
         choices,
         explored,

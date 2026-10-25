@@ -187,6 +187,7 @@ from modelsurgeon.adapters.gguf.quantization_budget import (
     GGUFQuantizationChoice,
     GGUFQuantizationLossEstimate,
     estimate_tensor_quantization_losses,
+    execute_gguf_quantization_plan,
     plan_gguf_quantization_budget,
 )
 from modelsurgeon.adapters.gguf.qwen_surgery import (
@@ -397,6 +398,7 @@ __all__ = [
     "discard_resumable_gguf",
     "discover_gguf_components",
     "estimate_tensor_quantization_losses",
+    "execute_gguf_quantization_plan",
     "iq_type_support",
     "load_gemma_gguf_surgery_adapter",
     "load_llama_gguf_surgery_adapter",
