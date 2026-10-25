@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import shutil
 import statistics
 import tempfile
@@ -85,6 +86,16 @@ def _load_dataset_rows(split: str) -> tuple[tuple[tuple[int, str], ...], Path]:
             continue
         rows.append((index, text))
     return tuple(rows), path
+
+
+def _ordered_test_rows(
+    rows: tuple[tuple[int, str], ...], sample_seed: int | None
+) -> tuple[tuple[int, str], ...]:
+    if sample_seed is None:
+        return rows
+    shuffled = list(rows)
+    random.Random(sample_seed).shuffle(shuffled)
+    return tuple(shuffled)
 
 
 def _examples(
@@ -273,8 +284,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     validation_examples, validation_rows = _examples(
         dataset_rows["validation"], tokenizer, args.examples_per_split, args.max_length
     )
+    test_texts = _ordered_test_rows(dataset_rows["test"], args.test_sample_seed)
+    test_example_count = (
+        args.examples_per_split
+        if args.test_examples_per_split is None
+        else args.test_examples_per_split
+    )
+    extended_test_sampling = (
+        args.test_examples_per_split is not None or args.test_sample_seed is not None
+    )
     test_examples, test_rows = _examples(
-        dataset_rows["test"], tokenizer, args.examples_per_split, args.max_length
+        test_texts, tokenizer, test_example_count, args.max_length
     )
     input_hashes = {
         split: {
@@ -373,8 +393,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         torch.cuda.empty_cache()
 
     return {
-        "schema_version": 1,
-        "protocol": "lora-post-surgery-wikitext-smoke-v1",
+        "schema_version": 2 if extended_test_sampling else 1,
+        "protocol": (
+            "lora-post-surgery-wikitext-smoke-v2"
+            if extended_test_sampling
+            else "lora-post-surgery-wikitext-smoke-v1"
+        ),
         "model": {
             "identifier": MODEL,
             "revision": MODEL_REVISION,
@@ -387,12 +411,22 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "output_dtype": "float16",
             "remove_channels": args.remove_channels,
             "examples_per_split": args.examples_per_split,
+            "test_examples_per_split": test_example_count,
+            "test_sample_seed": args.test_sample_seed,
             "max_length": args.max_length,
             "rank": args.rank,
             "alpha": 2 * args.rank,
             "steps": args.steps,
             "learning_rate": args.learning_rate,
             "seed": args.seed,
+            **(
+                {
+                    "test_examples_per_split": test_example_count,
+                    "test_sample_seed": args.test_sample_seed,
+                }
+                if extended_test_sampling
+                else {}
+            ),
         },
         "dataset": {
             "identifier": DATASET,
@@ -470,14 +504,24 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--remove-channels", type=int, default=64)
     parser.add_argument("--examples-per-split", type=int, default=4)
+    parser.add_argument("--test-examples-per-split", type=int)
+    parser.add_argument("--test-sample-seed", type=int)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--rank", type=int, default=2)
     parser.add_argument("--steps", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    if args.examples_per_split <= 0 or args.max_length < 16:
-        parser.error("examples-per-split must be positive and max-length at least 16")
+    if (
+        args.examples_per_split <= 0
+        or args.max_length < 16
+        or (args.test_examples_per_split is not None and args.test_examples_per_split <= 0)
+        or (args.test_sample_seed is not None and args.test_sample_seed < 0)
+    ):
+        parser.error(
+            "example counts must be positive, test-sample-seed non-negative, "
+            "and max-length at least 16"
+        )
     result = run(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     serialized = canonical_identity_json(result) + "\n"
