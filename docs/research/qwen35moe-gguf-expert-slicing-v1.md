@@ -9,6 +9,24 @@ scope. Quality retention and deployment improvement remain unproven.
 | --- | --- | --- | --- | --- |
 | [llama.cpp `qwen35moe.cpp`, `74bca3950054eed1795f525cb9cf06bfe796492d`](https://github.com/ggml-org/llama.cpp/blob/74bca3950054eed1795f525cb9cf06bfe796492d/src/models/qwen35moe.cpp); [tensor mappings at the same revision](https://github.com/ggml-org/llama.cpp/blob/74bca3950054eed1795f525cb9cf06bfe796492d/gguf-py/gguf/tensor_mapping.py) | Qwen3.5 MoE GGUF tensor names, routed-expert axes, metadata, and runtime interpretation | MIT | Existing native GGUF writer and opaque-tensor copy path existed; no Qwen3.5 routed-expert surgery contract existed. The general dense Qwen path is not valid for this hybrid MoE architecture. | **REIMPLEMENT** the narrow layout checks and slicing using ModelSurgeon's transactional GGUF writer. Upstream code was inspected, not copied. |
 | [Crucible REAP, `dacdb43eef0630de6dafe5c54bdbd2961ea6295`](https://github.com/peonist-ai/crucible/blob/dacdb43eef0630de6dafe5c54bdbd2961ea6295/packages/crucible/crucible/methods/reap.py) | Router-weight and activation-informed expert importance | Apache-2.0 | No MoE expert ranker existed. Current router-column L2 is a static, activation-free baseline and does not reproduce REAP. | **REIMPLEMENT** only the explicitly labeled static baseline for a first physical format test. Study REAP-style router/activation scores before candidate ranking is wired into optimization. No source was copied. |
+| [Cerebras REAP, `1970473c51ca3caeb98c10392f15b3a08a672974`](https://github.com/CerebrasResearch/reap/tree/1970473c51ca3caeb98c10392f15b3a08a672974) | Calibration-based router-weighted expert-output saliency | Apache-2.0 | Router-column L2 omits expert outputs, observed routing frequency, and calibration data. The pinned implementation accumulates the per-expert mean of output L2 norm multiplied by the selected router probability; it can renormalize top-k probabilities. | **ADAPT** the scoring rule behind an architecture-specific calibration adapter if equal-budget held-out evaluation demonstrates an advantage. No source was copied. |
+
+The official REAP implementation is more appropriate than the earlier Crucible
+reference for this comparison. Its observer obtains routed expert outputs,
+selected expert IDs, and router logits, then updates the per-layer saliency
+state. This requires actual model forwards and is more expensive than reading
+router weights from GGUF. REAP's Qwen3.5 architecture support is currently in
+[open PR #25](https://github.com/CerebrasResearch/reap/pull/25); its
+disk-streamed layerwise calibration work is in [open PR #26](https://github.com/CerebrasResearch/reap/pull/26),
+stacked on #25. These are unmerged changes, so their Qwen3.5 support and
+resource claims are not treated as released, independently verified capability.
+The upstream PR file lists contain no added tests for these changes. The model
+weights used for the current GGUF study are from
+[`endystrike/Endy-Qwen3.6-CyberSec-35B-A3B` at `eed558458ca9ff6972063c486c7f1ab9e0b0c93e`](https://huggingface.co/endystrike/Endy-Qwen3.6-CyberSec-35B-A3B/tree/eed558458ca9ff6972063c486c7f1ab9e0b0c93e),
+whose card declares AGPL-3.0. The 71.9 GB BF16 checkpoint is for local
+calibration only; model weights and per-expert score vectors are not included
+in this repository. Evaluation results must identify the model revision and
+license and must not be generalized to other Qwen3.5/3.6 models.
 
 The pinned llama.cpp implementation declares `ffn_gate_inp.weight` with logical
 dimensions `(embedding_length, expert_count)`. Routed gate/up/down tensors put
