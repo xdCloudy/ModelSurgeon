@@ -630,6 +630,7 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         "meta_surgeon",
         "magnitude",
         "activation_magnitude",
+        "activation_weighted_magnitude",
         "random",
         "no_guidance",
     }
@@ -640,3 +641,10 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     )
     assert activation_baseline["measured"] is True
     assert activation_baseline["candidate_id"] is not None
+    activation_weighted_baseline = next(
+        item
+        for item in detail["search_comparison"]["baselines"]
+        if item["method"] == "activation_weighted_magnitude"
+    )
+    assert activation_weighted_baseline["measured"] is True
+    assert activation_weighted_baseline["candidate_id"] is not None

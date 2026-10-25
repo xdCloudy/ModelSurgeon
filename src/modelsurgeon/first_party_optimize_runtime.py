@@ -167,6 +167,43 @@ def _activation_magnitude_order(
     )
 
 
+def _activation_weighted_order(
+    candidate_ids: tuple[str, ...],
+    candidate_features: Mapping[str, tuple[Mapping[str, object], ...]],
+) -> tuple[str, ...]:
+    """Rank channels by a WANDA-inspired product of weight and activation norms."""
+
+    scores: dict[str, float] = {}
+    for candidate_id in candidate_ids:
+        values: dict[str, list[float]] = {
+            "weight_l2_norm": [],
+            "activation_rms": [],
+        }
+        for item in candidate_features.get(candidate_id, ()):
+            name = item.get("name")
+            value = item.get("value")
+            if (
+                isinstance(name, str)
+                and name in values
+                and isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(float(value))
+                and float(value) >= 0
+            ):
+                values[name].append(float(value))
+        if not values["weight_l2_norm"] or not values["activation_rms"]:
+            continue
+        score = statistics.fmean(values["weight_l2_norm"]) * statistics.fmean(
+            values["activation_rms"]
+        )
+        if math.isfinite(score):
+            scores[candidate_id] = score
+    return tuple(
+        candidate_id
+        for candidate_id, _ in sorted(scores.items(), key=lambda item: (item[1], item[0]))
+    )
+
+
 def _tree_entries(path: Path) -> list[dict[str, object]]:
     if path.is_file():
         return [{"path": path.name, "sha256": _digest_file(path), "size": path.stat().st_size}]
@@ -915,6 +952,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             tuple(candidate.candidate_id for candidate in candidates),
             self.candidate_features,
         )
+        activation_weighted_order = _activation_weighted_order(
+            tuple(candidate.candidate_id for candidate in candidates),
+            self.candidate_features,
+        )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
         random_order = tuple(
             item.candidate_id
@@ -946,6 +987,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 baseline_record(
                     "activation_magnitude",
                     activation_order[0] if activation_order else None,
+                ),
+                baseline_record(
+                    "activation_weighted_magnitude",
+                    activation_weighted_order[0] if activation_weighted_order else None,
                 ),
                 baseline_record("random", random_order[0] if random_order else None),
                 baseline_record("no_guidance", ranked[0][3].candidate_id),
