@@ -126,6 +126,15 @@ direct calculation (absolute error `7.45e-9`). This confirms BF16 operation
 against real expert weights with synthetic inputs only. It provides no
 calibration ranking, quality, deployment, or performance evidence.
 
+After installing Python 3.12.14 and PyTorch 2.14.1+cu130, a second CPU-only
+smoke loaded expert 23's real layer-0 BF16 tensors directly from the same two
+pinned shards (gate/up shape `[1, 1024, 2048]`, down shape `[1, 2048, 512]`).
+With four valid synthetic hidden vectors, the observer returned `0.710203558`
+versus `0.710203528` from direct evaluation (absolute error `2.98e-8`). This
+checks the updated environment against real tensor dtypes and dimensions; the
+CUDA build was not exercised on the busy GPU, and this remains synthetic-input
+parity rather than a calibration or quality result.
+
 ## Next evidence required
 
 Use the same checkpoint, calibration and held-out splits, retained expert
