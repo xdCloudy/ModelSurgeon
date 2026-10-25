@@ -38,6 +38,16 @@ def _directory_bytes(path: Path) -> int:
     return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
 
 
+def _limitations(random_seed_count: int) -> list[str]:
+    return [
+        "One pinned model and one removed layer; cross-model generalization is untested.",
+        f"{random_seed_count} predeclared random seeds give descriptive, not powered, "
+        "uncertainty estimates.",
+        "CPU latency is environment-sensitive and is not evidence of acceleration.",
+        "Scores use WikiText-2 train tokens; quality uses its held-out test split.",
+    ]
+
+
 def _token_chunks(
     tokenizer: Any,
     path: Path,
@@ -279,12 +289,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "weight_magnitude": method_results["weight_magnitude"],
             "random": random_results,
         },
-        "limitations": [
-            "One pinned model and one removed layer; cross-model generalization is untested.",
-            "Three predeclared random seeds give descriptive, not powered, uncertainty estimates.",
-            "CPU latency is environment-sensitive and is not evidence of acceleration.",
-            "Scores use WikiText-2 train tokens; quality uses its held-out test split.",
-        ],
+        "limitations": _limitations(len(args.random_seeds)),
     }
 
 

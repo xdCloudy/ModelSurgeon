@@ -3,6 +3,7 @@
 Store bounded spike outcomes, hypotheses, protocols, negative results and follow-up decisions here. Every record identifies immutable model/dataset revisions, seeds, hardware and software.
 
 - [Competitive technology acquisition matrix (initial audit)](technology-acquisition-matrix-v1.md)
+- [ShortGPT SmolLM2 16k-token held-out follow-up](shortgpt-depth-smollm2-16k-followup-2026-10-25.md)
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
