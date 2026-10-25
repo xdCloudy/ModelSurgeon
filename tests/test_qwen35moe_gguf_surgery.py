@@ -23,11 +23,11 @@ from modelsurgeon.adapters.gguf import (
 )
 
 
-def _metadata(experts: int = 4) -> tuple[GGUFWriteMetadata, ...]:
+def _metadata(experts: int = 4, block_count: int = 2) -> tuple[GGUFWriteMetadata, ...]:
     return (
         GGUFWriteMetadata("general.architecture", GGUFValueType.STRING, "qwen35moe"),
         GGUFWriteMetadata("general.quantization_version", GGUFValueType.UINT32, 2),
-        GGUFWriteMetadata("qwen35moe.block_count", GGUFValueType.UINT32, 2),
+        GGUFWriteMetadata("qwen35moe.block_count", GGUFValueType.UINT32, block_count),
         GGUFWriteMetadata("qwen35moe.expert_count", GGUFValueType.UINT32, experts),
         GGUFWriteMetadata("qwen35moe.expert_used_count", GGUFValueType.UINT32, 2),
         GGUFWriteMetadata("qwen35moe.embedding_length", GGUFValueType.UINT32, 256),
@@ -195,4 +195,17 @@ def test_qwen35moe_layout_rejects_malformed_block_tensor_name(tmp_path: Path) ->
     write_gguf_transactionally(path, metadata, tensors, disk)
 
     with open_gguf(path) as source, pytest.raises(Qwen35MoeSurgeryError, match="malformed"):
+        build_qwen35moe_gguf_layout(source.container)
+
+
+def test_qwen35moe_layout_rejects_block_count_larger_than_tensor_inventory(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "excessive-block-count.gguf"
+    metadata = _metadata(block_count=1_000_000_000)
+    _write(path, metadata)
+
+    with open_gguf(path) as source, pytest.raises(
+        Qwen35MoeSurgeryError, match="block_count exceeds"
+    ):
         build_qwen35moe_gguf_layout(source.container)

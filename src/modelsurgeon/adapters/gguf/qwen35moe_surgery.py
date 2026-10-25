@@ -111,6 +111,10 @@ def build_qwen35moe_gguf_layout(container: GGUFContainer) -> Qwen35MoeGGUFLayout
     expert_ffn = _positive_metadata(container, "qwen35moe.expert_feed_forward_length")
     if expert_used_count > expert_count:
         raise Qwen35MoeSurgeryError("expert_used_count cannot exceed expert_count")
+    if block_count > len(container.tensors) // 4:
+        raise Qwen35MoeSurgeryError(
+            "block_count exceeds the available routed-expert tensor inventory"
+        )
 
     by_name = {tensor.name: tensor for tensor in container.tensors}
     blocks: list[Qwen35MoeBlockLayout] = []
