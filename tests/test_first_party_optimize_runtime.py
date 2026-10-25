@@ -360,7 +360,12 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(
     assert detail["method"] == "lora"
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
-    assert detail["repair"]["selected_step"] == 1
+    assert 0 <= detail["repair"]["selected_step"] <= 1
+    assert detail["repair"]["baseline_validation_loss"] is not None
+    assert detail["repair"]["selected_validation_loss"] is not None
+    assert detail["repair"]["validation_improved"] is (
+        detail["repair"]["selected_step"] > 0
+    )
     assert len(detail["repair"]["training_examples_sha256"]) == 64
     assert len(detail["repair"]["validation_examples_sha256"]) == 64
     assert detail["repair"]["evaluation_source"] == (

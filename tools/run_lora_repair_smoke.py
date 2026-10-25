@@ -111,7 +111,7 @@ def main() -> None:
     adapter_bytes = save(lora_adapter_state_dict(loaded.model, (args.target,)))
     record = {
         "record_type": "v0.9_lora_repair_smoke",
-        "version": "3",
+        "version": "4",
         "model": {
             "identifier": args.model,
             "requested_revision": args.revision,

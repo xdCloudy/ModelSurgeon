@@ -17,7 +17,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-LORA_REPAIR_SCHEMA_VERSION = 3
+LORA_REPAIR_SCHEMA_VERSION = 4
 
 
 class LoRARepairError(RuntimeError):
@@ -103,6 +103,9 @@ class LoRARepairResult:
     losses: tuple[float, ...]
     validation_losses: tuple[float, ...]
     selected_step: int
+    baseline_validation_loss: float | None
+    selected_validation_loss: float | None
+    validation_improved: bool | None
     training_examples_sha256: str
     validation_examples_sha256: str | None
     validation_dataset_sha256: str | None
@@ -124,6 +127,9 @@ class LoRARepairResult:
             "losses": list(self.losses),
             "validation_losses": list(self.validation_losses),
             "selected_step": self.selected_step,
+            "baseline_validation_loss": self.baseline_validation_loss,
+            "selected_validation_loss": self.selected_validation_loss,
+            "validation_improved": self.validation_improved,
             "training_examples_sha256": self.training_examples_sha256,
             "validation_examples_sha256": self.validation_examples_sha256,
             "validation_dataset_sha256": self.validation_dataset_sha256,
@@ -280,6 +286,9 @@ def run_bounded_lora_repair(
     losses: list[float] = []
     validation_losses: list[float] = []
     selected_step = 0
+    baseline_validation_loss: float | None = None
+    selected_validation_loss: float | None = None
+    validation_improved: bool | None = None
     selected_adapter_state: tuple[Any, ...] | None = None
     best_validation_loss = math.inf
     report_box: list[MemoryTelemetryReport] = []
@@ -312,8 +321,38 @@ def run_bounded_lora_repair(
         device = next(peft_model.parameters()).device
         cuda = TorchCudaMemoryProvider(device) if str(device).startswith("cuda") else None
 
+        def evaluate_validation() -> float:
+            if validation_examples is None:
+                raise LoRARepairError("validation examples are required for evaluation")
+            peft_model.eval()
+            validation_step_losses = []
+            with torch.inference_mode():
+                for validation_example in validation_examples:
+                    if "labels" not in validation_example:
+                        raise LoRARepairError("every validation example requires labels")
+                    validation_inputs = {
+                        name: value.to(device) if hasattr(value, "to") else value
+                        for name, value in validation_example.items()
+                    }
+                    validation_output = peft_model(**validation_inputs)
+                    validation_loss = getattr(validation_output, "loss", None)
+                    if validation_loss is None or not bool(torch.isfinite(validation_loss).item()):
+                        raise LoRARepairError(
+                            "validation forward did not return a finite loss"
+                        )
+                    validation_step_losses.append(validation_loss.detach().float())
+            return float(torch.stack(validation_step_losses).mean().item())
+
         def train() -> object:
             nonlocal best_validation_loss, selected_step, selected_adapter_state
+            nonlocal baseline_validation_loss
+            if validation_examples is not None:
+                baseline_validation_loss = evaluate_validation()
+                best_validation_loss = baseline_validation_loss
+                selected_step = 0
+                selected_adapter_state = tuple(
+                    parameter.detach().clone() for parameter in adapter_parameters
+                )
             for step in range(config.max_steps):
                 model.train()
                 raw = repair_examples[step % len(repair_examples)]
@@ -332,30 +371,7 @@ def run_bounded_lora_repair(
                 optimizer.step()
                 losses.append(float(loss.detach().item()))
                 if validation_examples is not None:
-                    peft_model.eval()
-                    validation_step_losses = []
-                    with torch.inference_mode():
-                        for validation_example in validation_examples:
-                            if "labels" not in validation_example:
-                                raise LoRARepairError(
-                                    "every validation example requires labels"
-                                )
-                            validation_inputs = {
-                                name: value.to(device) if hasattr(value, "to") else value
-                                for name, value in validation_example.items()
-                            }
-                            validation_output = peft_model(**validation_inputs)
-                            validation_loss = getattr(validation_output, "loss", None)
-                            if validation_loss is None or not bool(
-                                torch.isfinite(validation_loss).item()
-                            ):
-                                raise LoRARepairError(
-                                    "validation forward did not return a finite loss"
-                                )
-                            validation_step_losses.append(validation_loss.detach().float())
-                    mean_validation_loss = float(
-                        torch.stack(validation_step_losses).mean().item()
-                    )
+                    mean_validation_loss = evaluate_validation()
                     validation_losses.append(mean_validation_loss)
                     if mean_validation_loss < best_validation_loss:
                         best_validation_loss = mean_validation_loss
@@ -376,13 +392,15 @@ def run_bounded_lora_repair(
             raise LoRARepairError("LoRA repair did not produce one resource report")
         report = report_box[0]
         if validation_examples is not None:
-            if selected_adapter_state is None or selected_step <= 0:
-                raise LoRARepairError("validation did not select a trained adapter checkpoint")
+            if selected_adapter_state is None or baseline_validation_loss is None:
+                raise LoRARepairError("validation did not retain a candidate checkpoint")
             with torch.no_grad():
                 for parameter, selected_parameter in zip(
                     adapter_parameters, selected_adapter_state, strict=True
                 ):
                     parameter.copy_(selected_parameter)
+            selected_validation_loss = best_validation_loss
+            validation_improved = best_validation_loss < baseline_validation_loss
         else:
             selected_step = len(losses)
         adapter_sha256 = _adapter_digest(tuple(wrappers))
@@ -406,6 +424,9 @@ def run_bounded_lora_repair(
             losses=tuple(losses),
             validation_losses=tuple(validation_losses),
             selected_step=selected_step,
+            baseline_validation_loss=baseline_validation_loss,
+            selected_validation_loss=selected_validation_loss,
+            validation_improved=validation_improved,
             training_examples_sha256=training_examples_sha256,
             validation_examples_sha256=validation_examples_sha256,
             validation_dataset_sha256=validation_dataset_sha256,

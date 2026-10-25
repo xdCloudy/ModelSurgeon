@@ -138,6 +138,68 @@ def test_heldout_selection_restores_best_adapter_checkpoint() -> None:
     assert selected.to_record()["evaluation_source"] == "external_text"
 
 
+def test_heldout_selection_keeps_zero_update_when_all_steps_are_worse() -> None:
+    torch.manual_seed(7)
+    model = _TinyLM()
+    original_weight = model.proj.weight.detach().clone()
+    result = run_bounded_lora_repair(
+        model,
+        EXAMPLES,
+        ("proj",),
+        LoRARepairConfig(
+            rank=2,
+            alpha=4,
+            learning_rate=0.5,
+            max_steps=8,
+            seed=7,
+            output_mode=LoRAOutputMode.MERGED,
+        ),
+        source_checkpoint_id="checkpoint_source",
+        candidate_checkpoint_id="checkpoint_candidate",
+        validation_examples=VALIDATION_EXAMPLES,
+    )
+
+    assert result.selected_step == 0
+    assert result.validation_improved is False
+    assert result.selected_validation_loss == result.baseline_validation_loss
+    assert all(loss > result.baseline_validation_loss for loss in result.validation_losses)
+    assert torch.equal(model.proj.weight, original_weight)
+
+
+def test_heldout_selection_keeps_zero_update_when_validation_is_tied() -> None:
+    torch.manual_seed(11)
+    model = _TinyLM()
+    original_weight = model.proj.weight.detach().clone()
+    tied_validation = (
+        {
+            "input_ids": torch.zeros((1, 4)),
+            "labels": torch.zeros((1, 4)),
+        },
+    )
+    result = run_bounded_lora_repair(
+        model,
+        EXAMPLES,
+        ("proj",),
+        LoRARepairConfig(
+            rank=2,
+            alpha=4,
+            learning_rate=0.05,
+            max_steps=3,
+            seed=11,
+            output_mode=LoRAOutputMode.MERGED,
+        ),
+        source_checkpoint_id="checkpoint_source",
+        candidate_checkpoint_id="checkpoint_candidate",
+        validation_examples=tied_validation,
+    )
+
+    assert result.selected_step == 0
+    assert result.validation_improved is False
+    assert result.selected_validation_loss == result.baseline_validation_loss == 0.0
+    assert result.validation_losses == (0.0, 0.0, 0.0)
+    assert torch.equal(model.proj.weight, original_weight)
+
+
 def test_lora_repair_rejects_overlapping_training_and_validation_examples() -> None:
     model = _TinyLM()
     original = model.proj
