@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from modelsurgeon.adapters.huggingface import Qwen35MoeReapError, Qwen35MoeReapObserver
@@ -108,5 +110,43 @@ def test_forward_hooks_observe_and_close_removes_hooks() -> None:
     module(torch.ones(2, 3), indices, weights)
     assert observer.report().routed_counts_by_layer == ((1, 0, 1, 0),)
     observer.close()
+    observer.close()
+    assert len(module._forward_hooks) == 0
+
+
+def test_real_transformers_qwen35_fused_expert_contract() -> None:
+    qwen_module = pytest.importorskip("transformers.models.qwen3_5_moe.modeling_qwen3_5_moe")
+    torch.manual_seed(20261026)
+    module = qwen_module.Qwen3_5MoeExperts(
+        SimpleNamespace(
+            num_experts=4,
+            hidden_size=3,
+            moe_intermediate_size=5,
+            hidden_act="silu",
+            _experts_implementation="eager",
+        )
+    )
+    torch.nn.init.normal_(module.gate_up_proj)
+    torch.nn.init.normal_(module.down_proj)
+    hidden_states = torch.randn(7, 3)
+    indices = torch.tensor([[0, 1], [2, 0], [1, 3], [2, 3], [0, 2], [1, 3], [0, 1]])
+    weights = torch.rand(7, 2)
+    valid_mask = torch.tensor([True, True, False, True, True, False, True])
+    expected_scores, expected_counts = dense_reference(
+        module, hidden_states, indices, weights, valid_mask
+    )
+
+    observer = Qwen35MoeReapObserver(num_layers=1, num_experts=4)
+    observer.register_hooks(
+        {0: module},
+        valid_token_mask_provider=lambda _layer, _args: valid_mask,
+    )
+    output = module(hidden_states, indices, weights)
+    result = observer.report()
+
+    assert output.shape == hidden_states.shape
+    assert result.routed_counts_by_layer == (tuple(expected_counts),)
+    for actual, expected in zip(result.scores_by_layer[0], expected_scores, strict=True):
+        assert actual == pytest.approx(expected, abs=1e-6)
     observer.close()
     assert len(module._forward_hooks) == 0

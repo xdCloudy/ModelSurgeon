@@ -44,6 +44,14 @@ were 57 versus 114 dense expert/token pairs. This establishes only toy
 mathematical agreement and fewer evaluated pairs for that fixture. It is not
 a runtime, peak-memory, full-model, or quality benchmark.
 
+A separate optional CPU integration test constructs Transformers 5.10.1's
+actual `Qwen3_5MoeExperts` module with small random weights, runs its eager
+forward path, observes its positional hook inputs, and checks score parity,
+padding exclusion, route counts, and hook cleanup. This verifies that exact
+library implementation's tensor and hook contract; it does not validate
+pretrained weights, other Transformers versions, or model-level quality and
+performance.
+
 ## Next evidence required
 
 Use the same checkpoint, calibration and held-out splits, retained expert
