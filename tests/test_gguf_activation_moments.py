@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
+from tools.collect_gguf_activation_moments import _verify_model_and_tokenizer
 
 from modelsurgeon.adapters.gguf import load_gguf_activation_moments
 
@@ -146,3 +149,73 @@ def test_rejects_manifest_over_configured_limit(tmp_path: Path) -> None:
         load_gguf_activation_moments(
             path, expected_source_sha256=_SOURCE_SHA256, max_file_bytes=8
         )
+
+
+class _FixtureTokenizer:
+    vocab_size = 3
+    bos_token_id = None
+    eos_token_id = 2
+    unk_token_id = None
+    add_bos_token = False
+    _merges: ClassVar[list[tuple[str, str]]] = [("a", "b")]
+    _tokens: ClassVar[list[str]] = ["a", "b", "c", "added", "reserved"]
+
+    def __len__(self) -> int:
+        return 4
+
+    def convert_ids_to_tokens(self, ids: list[int]) -> list[str]:
+        return [self._tokens[index] for index in ids]
+
+
+def _qwen2_fixture() -> tuple[SimpleNamespace, _FixtureTokenizer, dict[str, object]]:
+    tokenizer = _FixtureTokenizer()
+    config = SimpleNamespace(
+        model_type="qwen2",
+        num_hidden_layers=2,
+        hidden_size=4,
+        intermediate_size=8,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        rope_parameters={"rope_theta": 10000.0},
+        rms_norm_eps=1e-6,
+        vocab_size=5,
+    )
+    metadata: dict[str, object] = {
+        "general.architecture": "qwen2",
+        "qwen2.block_count": 2,
+        "qwen2.embedding_length": 4,
+        "qwen2.feed_forward_length": 8,
+        "qwen2.attention.head_count": 2,
+        "qwen2.attention.head_count_kv": 1,
+        "qwen2.rope.freq_base": 10000.0,
+        "qwen2.attention.layer_norm_rms_epsilon": 1e-6,
+        "tokenizer.ggml.tokens": [*tokenizer._tokens],
+        "tokenizer.ggml.merges": ["a b"],
+        "tokenizer.ggml.bos_token_id": 3,
+        "tokenizer.ggml.eos_token_id": 2,
+        "tokenizer.ggml.add_bos_token": False,
+    }
+    return config, tokenizer, metadata
+
+
+def test_verifies_dense_qwen2_metadata_and_padded_vocabulary() -> None:
+    config, tokenizer, metadata = _qwen2_fixture()
+
+    _verify_model_and_tokenizer(config, tokenizer, metadata)
+
+
+def test_rejects_qwen2_vocabulary_that_does_not_match_model_config() -> None:
+    config, tokenizer, metadata = _qwen2_fixture()
+    config.vocab_size = 6
+
+    with pytest.raises(ValueError, match="vocabulary differs"):
+        _verify_model_and_tokenizer(config, tokenizer, metadata)
+
+
+def test_rejects_moe_architecture_in_qwen2_activation_collector() -> None:
+    config, tokenizer, metadata = _qwen2_fixture()
+    metadata["general.architecture"] = "qwen2_moe"
+    config.model_type = "qwen2_moe"
+
+    with pytest.raises(ValueError, match="dense llama and qwen2"):
+        _verify_model_and_tokenizer(config, tokenizer, metadata)

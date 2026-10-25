@@ -1,4 +1,4 @@
-"""Collect input second moments for supported Llama GGUF projection tensors.
+"""Collect input second moments for supported dense Llama and Qwen2 projections.
 
 This research tool uses the exact quantized source GGUF through Transformers'
 GGUF loader, which dequantizes the complete model on CPU. It refuses models
@@ -25,6 +25,7 @@ _PROJECTIONS = {
     "up_proj": ("mlp", "ffn_up"),
     "down_proj": ("mlp", "ffn_down"),
 }
+_SUPPORTED_ARCHITECTURES = {"llama", "qwen2"}
 
 
 def _sha256(path: Path) -> str:
@@ -54,21 +55,24 @@ def _metadata(container: Any) -> dict[str, Any]:
 
 
 def _verify_model_and_tokenizer(config: Any, tokenizer: Any, metadata: dict[str, Any]) -> None:
-    if metadata.get("general.architecture") != "llama" or config.model_type != "llama":
-        raise ValueError("activation calibration currently supports GGUF architecture llama only")
+    architecture = metadata.get("general.architecture")
+    if architecture not in _SUPPORTED_ARCHITECTURES or config.model_type != architecture:
+        raise ValueError(
+            "activation calibration supports only matching dense llama and qwen2 GGUF models"
+        )
     checks = (
-        ("llama.block_count", "num_hidden_layers"),
-        ("llama.embedding_length", "hidden_size"),
-        ("llama.feed_forward_length", "intermediate_size"),
-        ("llama.attention.head_count", "num_attention_heads"),
-        ("llama.attention.head_count_kv", "num_key_value_heads"),
+        (f"{architecture}.block_count", "num_hidden_layers"),
+        (f"{architecture}.embedding_length", "hidden_size"),
+        (f"{architecture}.feed_forward_length", "intermediate_size"),
+        (f"{architecture}.attention.head_count", "num_attention_heads"),
+        (f"{architecture}.attention.head_count_kv", "num_key_value_heads"),
     )
     for gguf_key, config_key in checks:
         if metadata.get(gguf_key) != getattr(config, config_key, None):
             raise ValueError(f"model configuration does not match GGUF metadata: {gguf_key}")
     float_checks = (
-        ("llama.rope.freq_base", "rope_theta"),
-        ("llama.attention.layer_norm_rms_epsilon", "rms_norm_eps"),
+        (f"{architecture}.rope.freq_base", "rope_theta"),
+        (f"{architecture}.attention.layer_norm_rms_epsilon", "rms_norm_eps"),
     )
     for gguf_key, config_key in float_checks:
         actual = metadata.get(gguf_key)
@@ -86,9 +90,16 @@ def _verify_model_and_tokenizer(config: Any, tokenizer: Any, metadata: dict[str,
     merges = metadata.get("tokenizer.ggml.merges")
     if not isinstance(tokens, (list, tuple)) or not isinstance(merges, (list, tuple)):
         raise ValueError("source GGUF is missing its tokenizer vocabulary or merges")
-    if len(tokens) != tokenizer.vocab_size:
-        raise ValueError("model tokenizer vocabulary size differs from source GGUF")
-    if list(tokens) != tokenizer.convert_ids_to_tokens(list(range(tokenizer.vocab_size))):
+    tokenizer_size = len(tokenizer)
+    tokenizer_tokens = tokenizer.convert_ids_to_tokens(list(range(tokenizer_size)))
+    if architecture == "qwen2":
+        if (
+            len(tokens) < tokenizer_size
+            or list(tokens[:tokenizer_size]) != tokenizer_tokens
+            or getattr(config, "vocab_size", None) != len(tokens)
+        ):
+            raise ValueError("model tokenizer vocabulary differs from source Qwen2 GGUF")
+    elif len(tokens) != tokenizer_size or list(tokens) != tokenizer_tokens:
         raise ValueError("model tokenizer vocabulary differs from source GGUF")
     tokenizer_merges = getattr(tokenizer, "_merges", None)
     if not isinstance(tokenizer_merges, list) or [
@@ -100,7 +111,22 @@ def _verify_model_and_tokenizer(config: Any, tokenizer: Any, metadata: dict[str,
         ("tokenizer.ggml.eos_token_id", "eos_token_id"),
         ("tokenizer.ggml.unknown_token_id", "unk_token_id"),
     ):
-        if metadata.get(key) != getattr(tokenizer, attribute, None):
+        recorded_id = metadata.get(key)
+        tokenizer_id = getattr(tokenizer, attribute, None)
+        if (
+            architecture == "qwen2"
+            and key == "tokenizer.ggml.bos_token_id"
+            and tokenizer_id is None
+            and isinstance(recorded_id, int)
+            and not isinstance(recorded_id, bool)
+            and 0 <= recorded_id < tokenizer_size
+            and not metadata.get("tokenizer.ggml.add_bos_token")
+        ):
+            # Qwen2 GGUF records its vocabulary's end-of-text ID as BOS even
+            # though the matching Transformers tokenizer leaves BOS unset.
+            # The exact prefix check above proves this ID maps to the same token.
+            continue
+        if recorded_id != tokenizer_id:
             raise ValueError(f"model tokenizer special token differs from source GGUF: {key}")
     if metadata.get("tokenizer.ggml.add_bos_token") != getattr(tokenizer, "add_bos_token", None):
         raise ValueError("model tokenizer BOS behavior differs from source GGUF")
@@ -154,9 +180,9 @@ def main() -> int:
                 "GGUF float32 weight size exceeds --max-dense-weight-bytes; "
                 "the calibration loader dequantizes the complete model"
             )
-        if metadata.get("general.architecture") != "llama":
+        if metadata.get("general.architecture") not in _SUPPORTED_ARCHITECTURES:
             raise ValueError(
-                "activation calibration currently supports GGUF architecture llama only"
+                "activation calibration supports only dense llama and qwen2 GGUF architectures"
             )
         tensor_dimensions = {tensor.name: tensor.dimensions for tensor in mapped.container.tensors}
         source_sha256 = _sha256(source)
@@ -182,7 +208,11 @@ def main() -> int:
         str(source), return_tensors=True, model_to_load=model
     )
     incompatibility = model.load_state_dict(parsed["tensors"], strict=False)
-    expected_missing = {"lm_head.weight"} if config.tie_word_embeddings else set()
+    expected_missing = (
+        {"lm_head.weight"}
+        if config.tie_word_embeddings and metadata["general.architecture"] == "llama"
+        else set()
+    )
     if set(incompatibility.missing_keys) != expected_missing or incompatibility.unexpected_keys:
         raise ValueError("GGUF tensors did not load exactly into the revision-pinned HF model")
     if config.tie_word_embeddings and (
@@ -202,7 +232,7 @@ def main() -> int:
         )
     layers = getattr(getattr(model, "model", None), "layers", None)
     if layers is None or len(layers) != config.num_hidden_layers:
-        raise ValueError("loaded llama model does not expose the expected decoder layers")
+        raise ValueError("loaded model does not expose the expected decoder layers")
 
     accumulators: dict[str, tuple[Any, int]] = {}
     handles = []
@@ -266,7 +296,7 @@ def main() -> int:
         "model": {
             "model_id": args.model,
             "revision": args.model_revision,
-            "architecture": "llama",
+            "architecture": metadata["general.architecture"],
             "dense_weight_bytes": dense_weight_bytes,
             "dtype": "float32",
         },
