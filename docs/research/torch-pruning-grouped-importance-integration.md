@@ -37,3 +37,25 @@ checks signed compatibility and physical artifact reload. These tests establish
 semantic consistency only; they do not show improved quality retention, ranking
 regret, compression, or inference speed. Those claims require held-out real
 models and equivalent unguided, magnitude, and activation baselines.
+
+### Real-checkpoint pipeline smoke
+
+A bounded CPU run collected 12 candidate records from
+`HuggingFaceTB/SmolLM2-135M` at revision
+`93efa2f097d58c2a74874c7e644dbc9b0cee75a2`. It used the repository README as a
+local calibration corpus (revision
+`9cc5e5dd016fe8acf727801a7db2cedac0f422a914ac226845115f9e93af8543`), sequence
+length 32, and at most 128 tokens per candidate. The records identify each
+candidate canonically at layer 0 and carry the `mlp_channel_index_all_layers`
+feature-group marker with a 30-layer count. The leakage manifest reports 12
+examples and no findings.
+
+The baseline calibration perplexity was 26.814. Candidate deltas ranged from
+−0.183 to +0.592 across this short corpus. All mutations were temporary masks
+and were rolled back; the run produced no structurally reduced model, artifact
+size result, or latency result. The small README sample is neither independent
+held-out data nor sufficient to interpret the negative deltas as quality gains.
+This run therefore supports real-checkpoint pipeline execution and evidence
+shape only. It does not establish all-layer physical artifact validity, quality
+retention, ranking benefit, compression, or speed; those still require the
+separate mutation and held-out evaluations described above.
