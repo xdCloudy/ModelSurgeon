@@ -92,9 +92,30 @@ The repository's `task-quality-code-exact-match-v1.jsonl` is also not an
 adequate substitute for a cyber-security benchmark: inspection shows only four
 generic Python function prompts, and existing acceptance evidence documents
 that this tiny set establishes neither broad coding ability nor security
-behavior. The next meaningful quality study should use a pinned,
-license-compatible cybersecurity benchmark with benign utility and safe-code
-measures, rather than treating the four-item exact-match fixture as validation.
+behavior.
+
+As a limited follow-up, on 2026-10-25 the source and the 252-expert
+router-norm candidate each received the same four manually screened benign
+defensive prompts (MITRE FRR dataset indices 0, 1, 7, and 10). Both models had
+0/4 responses classified as refusals by the pinned upstream
+`is_response_llm_refusal` scorer (0% on this subset). Inference used the same
+llama.cpp `c7fc50941` CPU server, 12 threads, context 512, temperature 0, seed
+`20261025`, and 64-token output cap. The scorer applies keyword patterns to
+the first 220 response characters and treats code blocks as non-refusals, so
+this result only checks gross false-refusal behavior on four prompts; it does
+not assess code correctness, defensive utility, security, or quality retention.
+The complete paired responses and settings are retained outside the
+repository at `D:\ModelSurgeonEval\cyberseceval\mitre-frr-four-prompt-paired-smoke.json`.
+
+Dataset and scorer provenance: [Meta PurpleLlama CyberSecEval 2 at pinned
+revision `d934ea285d124d81c10f7e15a06a1e1f74eff2c3`](https://github.com/meta-llama/PurpleLlama/tree/d934ea285d124d81c10f7e15a06a1e1f74eff2c3/CybersecurityBenchmarks);
+the MITRE FRR dataset is covered by that directory's MIT license. Only its
+selected prompt indices and aggregated refusal result are recorded here; no
+dataset or upstream scorer code is copied into ModelSurgeon. This four-prompt
+smoke is not a benchmark score. A meaningful task-quality study still needs a
+larger, pinned, license-compatible cybersecurity evaluation with benign
+utility and safe-code measures, scored for output correctness as well as
+refusals rather than treating this refusal subset as validation.
 
 The source model SHA-256 is
 `ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1`. Candidate
