@@ -103,6 +103,27 @@ def test_quantization_config_is_explicit_and_canonical() -> None:
         method="gguf_byte_budget", target_file_bytes=1024, target_type="Q3_K"
     )
     assert configured.max_working_mib == 16
+    configured_candidates = QuantizationConfig(
+        method="gguf_byte_budget", target_file_bytes=1024, candidate_types=("Q2_K", "Q3_K")
+    )
+    assert configured_candidates.candidate_types == ("Q2_K", "Q3_K")
+    with pytest.raises(ValidationError, match="non-empty and unique"):
+        QuantizationConfig(
+            method="gguf_byte_budget", target_file_bytes=1024, candidate_types=()
+        )
+    with pytest.raises(ValidationError, match="non-empty and unique"):
+        QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=1024,
+            candidate_types=("Q2_K", "Q2_K"),
+        )
+    with pytest.raises(ValidationError, match="non-default target_type"):
+        QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=1024,
+            target_type="Q4_K",
+            candidate_types=("Q2_K", "Q3_K"),
+        )
     with pytest.raises(ValidationError, match="target_file_bytes is required"):
         QuantizationConfig(method="gguf_byte_budget")
     with pytest.raises(ValidationError, match="requires gguf_byte_budget"):

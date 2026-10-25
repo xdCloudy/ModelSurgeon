@@ -630,15 +630,26 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         loss_metric = settings.get("loss_metric", "weight_mse")
         if loss_metric not in {"weight_mse", "activation_weighted_mse"}:
             raise NativeGGUFOptimizeRuntimeError("quantization.loss_metric is unsupported")
-        target_name = settings.get("target_type")
-        if not isinstance(target_name, str):
-            raise NativeGGUFOptimizeRuntimeError("quantization.target_type must be a string")
+        raw_candidate_types = settings.get("candidate_types")
+        if raw_candidate_types is None:
+            raw_candidate_types = (settings.get("target_type"),)
+        if not isinstance(raw_candidate_types, (list, tuple)) or not raw_candidate_types:
+            raise NativeGGUFOptimizeRuntimeError("quantization candidate types must be non-empty")
         try:
-            target_type = GGMLQuantizationType(target_name)
-        except (TypeError, ValueError) as error:
+            candidate_types = tuple(
+                GGMLQuantizationType(item) for item in raw_candidate_types if isinstance(item, str)
+            )
+        except ValueError as error:
             raise NativeGGUFOptimizeRuntimeError(
-                "quantization.target_type is not a supported GGML quantization type"
+                "quantization candidate types include an unsupported GGML type"
             ) from error
+        if (
+            len(candidate_types) != len(raw_candidate_types)
+            or len(set(candidate_types)) != len(candidate_types)
+        ):
+            raise NativeGGUFOptimizeRuntimeError(
+                "quantization candidate types must be strings and unique"
+            )
         max_working_bytes = (
             _integer(settings.get("max_working_mib"), 16, "quantization.max_working_mib")
             * 1024
@@ -692,7 +703,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             self._artifact_root() / "optimize" / str(self.campaign_run_id) / "gguf" / "quantized"
         )
         destination_root.mkdir(parents=True, exist_ok=True)
-        destination = destination_root / f"{self.selected.candidate_id}.{target_type.value}.gguf"
+        target_suffix = candidate_types[0].value if len(candidate_types) == 1 else "mixed"
+        destination = destination_root / f"{self.selected.candidate_id}.{target_suffix}.gguf"
         if destination.exists():
             raise NativeGGUFOptimizeRuntimeError(
                 f"refusing to overwrite an existing quantized candidate: {destination}"
@@ -710,11 +722,21 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
             supported = set(codecs.supported_types())
             for handle in reader.index.tensors:
-                if handle.quant_type not in supported or handle.quant_type is target_type:
+                if handle.quant_type not in supported:
                     continue
-                try:
-                    gguf_tensor_byte_size(target_type, handle.dimensions)
-                except ValueError:
+                tensor_candidate_types: list[GGMLQuantizationType] = []
+                for candidate_type in candidate_types:
+                    if candidate_type is handle.quant_type:
+                        continue
+                    try:
+                        candidate_bytes = gguf_tensor_byte_size(
+                            candidate_type, handle.dimensions
+                        )
+                    except ValueError:
+                        continue
+                    if candidate_bytes < handle.byte_size:
+                        tensor_candidate_types.append(candidate_type)
+                if not tensor_candidate_types:
                     continue
                 activation: dict[str, object] | None = None
                 input_axis: int | None = None
@@ -744,19 +766,21 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 estimates = estimate_tensor_quantization_losses(
                     reader,
                     handle,
-                    (target_type,),
+                    tuple(tensor_candidate_types),
                     codecs,
                     byte_order=mapped.container.byte_order,
                     input_activation_second_moments=activation_values,
                     input_axis=input_axis,
                     max_working_bytes=max_working_bytes,
                 )
-                estimate = next(item for item in estimates if item.quant_type is target_type)
-                alternative = estimate.to_alternative(
-                    activation_weighted=loss_metric == "activation_weighted_mse"
+                alternatives[handle.name] = tuple(
+                    estimate.to_alternative(
+                        activation_weighted=loss_metric == "activation_weighted_mse"
+                    )
+                    for estimate in estimates
+                    if estimate.quant_type in tensor_candidate_types
                 )
-                alternatives[handle.name] = (alternative,)
-                loss_estimate_count += 1
+                loss_estimate_count += len(alternatives[handle.name])
 
             try:
                 plan = plan_gguf_quantization_budget(
@@ -768,18 +792,29 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     max_frontier_states=10_000,
                 )
             except GGUFQuantizationBudgetError as error:
-                if "no quantization assignment fits" not in str(error):
+                error_text = str(error)
+                planner_limited = any(
+                    marker in error_text
+                    for marker in (
+                        "planner exceeded its",
+                        "planner exceeded its bounded intermediate frontier",
+                    )
+                )
+                no_assignment_fits = "no quantization assignment fits" in error_text
+                if not planner_limited and not no_assignment_fits:
                     raise
                 record = {
-                    "status": "infeasible",
-                    "reason": str(error),
+                    "status": "inconclusive" if planner_limited else "infeasible",
+                    "reason": error_text,
                     "source_bytes": source.stat().st_size,
                     "target_file_bytes": target_bytes,
                     "candidate_tensor_count": len(alternatives),
+                    "planner_limits_exceeded": planner_limited,
                 }
                 evidence = self._publish_evidence(
                     stage="gguf_byte_budget_quantization",
-                    state_id="infeasible:" + self.artifact_digest,
+                    state_id=("planner_limited:" if planner_limited else "infeasible:")
+                    + self.artifact_digest,
                     outcome=OptimizationEvidenceOutcome.INCONCLUSIVE,
                     candidate_id=self.selected.candidate_id,
                     mutation_id=self.selected.mutation_id + ".quantization",
@@ -833,7 +868,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         candidate_record: dict[str, object] = {
             "status": "accepted" if accepted else "rejected",
             "method": "gguf_byte_budget",
-            "target_type": target_type.value,
+            "target_type": candidate_types[0].value if len(candidate_types) == 1 else None,
+            "candidate_types": [item.value for item in candidate_types],
             "loss_metric": loss_metric,
             "target_file_bytes": target_bytes,
             "source_bytes": source.stat().st_size,
@@ -864,7 +900,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "loss_estimates": {
                 "count": loss_estimate_count,
                 "skipped_tensor_counts": activation_skipped,
-                "target_type": target_type.value,
+                "candidate_types": [item.value for item in candidate_types],
                 "metric": loss_metric,
             },
             "activation_moments": (

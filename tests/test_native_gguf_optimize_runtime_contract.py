@@ -265,3 +265,118 @@ def test_gguf_byte_budget_stage_supports_source_bound_activation_weighting(
     assert record["loss_estimates"]["count"] == 1
     assert record["activation_moments"]["source_sha256"] == source_digest.removeprefix("sha256:")
     assert record["activation_moments"]["calibration"]["dataset"] == "fixture/dataset"
+
+
+def test_gguf_byte_budget_stage_plans_multiple_quantization_types(tmp_path, monkeypatch) -> None:
+    from modelsurgeon.adapters.gguf import open_gguf
+
+    source = tmp_path / "source.gguf"
+    _write_q8_gguf(source)
+    settings = Settings(
+        model=ModelConfig(
+            path=str(source),
+            revision="source-r1",
+            format=ModelFormat.GGUF,
+            family=ModelFamily.LLAMA,
+        ),
+        calibration=CalibrationConfig(dataset="unused.txt", dataset_revision="dataset-r1"),
+        runtime=RuntimeConfig(
+            llama_cli="unused-cli",
+            llama_perplexity="unused-perplexity",
+            llama_bench="unused-bench",
+            expected_revision="runtime-r1",
+        ),
+        quantization=QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=source.stat().st_size - 1,
+            candidate_types=("Q2_K", "Q3_K"),
+        ),
+        artifact_dir=tmp_path / "artifacts",
+    )
+    plan = build_optimize_plan(settings, dry_run=False)
+    runtime = NativeGGUFOptimizeRuntime(plan)
+    source_digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    runtime.source_path = source
+    runtime.discovery = SimpleNamespace(family=ModelFamily.LLAMA)
+    runtime.artifact = source
+    runtime.artifact_digest = source_digest
+    runtime.selected = SimpleNamespace(
+        candidate_id="candidate_mixed_fixture",
+        mutation_id="mutation_mixed_fixture",
+    )
+    quality = {
+        "baseline": {"perplexity": 100.0, "uncertainty": 0.0},
+        "candidate": {"perplexity": 100.0, "uncertainty": 0.0},
+    }
+    monkeypatch.setattr(runtime, "_validate", lambda path: {"successful": True})
+    monkeypatch.setattr(runtime, "_quality", lambda path: quality)
+    monkeypatch.setattr(runtime, "_publish_evidence", lambda **kwargs: {"evidence_id": "e"})
+
+    record = runtime._quantize_selected()
+
+    assert record["status"] == "accepted"
+    assert record["target_type"] is None
+    assert record["candidate_types"] == ["Q2_K", "Q3_K"]
+    assert record["loss_estimates"]["count"] == 2
+    quantized = next((tmp_path / "artifacts" / "optimize").rglob("*.gguf"))
+    with open_gguf(quantized) as mapped:
+        assert mapped.container.tensors[0].quant_type in {
+            GGMLQuantizationType.Q2_K,
+            GGMLQuantizationType.Q3_K,
+        }
+
+
+def test_gguf_byte_budget_stage_keeps_source_when_planner_budget_is_exceeded(
+    tmp_path, monkeypatch
+) -> None:
+    import modelsurgeon.native_gguf_optimize_runtime as native_runtime
+    from modelsurgeon.adapters.gguf.quantization_budget import GGUFQuantizationBudgetError
+
+    source = tmp_path / "source.gguf"
+    _write_q8_gguf(source)
+    settings = Settings(
+        model=ModelConfig(
+            path=str(source),
+            revision="source-r1",
+            format=ModelFormat.GGUF,
+            family=ModelFamily.LLAMA,
+        ),
+        calibration=CalibrationConfig(dataset="unused.txt", dataset_revision="dataset-r1"),
+        runtime=RuntimeConfig(
+            llama_cli="unused-cli",
+            llama_perplexity="unused-perplexity",
+            llama_bench="unused-bench",
+            expected_revision="runtime-r1",
+        ),
+        quantization=QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=source.stat().st_size - 1,
+            candidate_types=("Q2_K", "Q3_K"),
+        ),
+        artifact_dir=tmp_path / "artifacts",
+    )
+    runtime = NativeGGUFOptimizeRuntime(build_optimize_plan(settings, dry_run=False))
+    source_digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    runtime.source_path = source
+    runtime.discovery = SimpleNamespace(family=ModelFamily.LLAMA)
+    runtime.artifact = source
+    runtime.artifact_digest = source_digest
+    runtime.selected = SimpleNamespace(
+        candidate_id="candidate_planner_limited",
+        mutation_id="mutation_planner_limited",
+    )
+    monkeypatch.setattr(
+        native_runtime,
+        "plan_gguf_quantization_budget",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            GGUFQuantizationBudgetError("planner exceeded its 50,000 state budget")
+        ),
+    )
+    monkeypatch.setattr(runtime, "_publish_evidence", lambda **kwargs: {"evidence_id": "e"})
+
+    record = runtime._quantize_selected()
+
+    assert record["status"] == "inconclusive"
+    assert record["planner_limits_exceeded"] is True
+    assert runtime.artifact == source
+    assert runtime.artifact_digest == source_digest

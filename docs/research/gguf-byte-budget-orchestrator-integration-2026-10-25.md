@@ -61,6 +61,31 @@ local physical evidence is observation
 record SHA-256
 `78da999b84b2efe24fb302d692b4d6636a6bc5693b16fddf8b30726794fad17b`.
 
+## Mixed-codec candidate-set follow-up
+
+The runtime and research benchmark now accept an explicit set of cheaper
+per-tensor codec alternatives. This lets the exact byte planner allocate
+different quant types to different tensors under one whole-file ceiling;
+the existing `target_type` setting remains the single-type shorthand. On the
+same source, activation moments, held-out text, and llama.cpp build, two
+mixed-codec searches did **not** beat the Q3_K-only result:
+
+| Search | Candidate bytes | PPL ± uncertainty | PPL delta | Changed tensors |
+| --- | ---: | ---: | ---: | ---: |
+| Q3_K only (reference) | 100,125,024 | 21.681 ± 1.40764 | +1.8377 | 24 |
+| Q2_K, Q3_K, Q4_K, Q5_0, Q5_K, Q6_K | 100,180,320 | 22.0409 ± 1.43180 | +2.1976 | 34 |
+| Q2_K, Q3_K, Q4_K | 100,111,200 | 22.4142 ± 1.44659 | +2.5709 | 22 |
+
+All three candidates loaded and completed the same eight-chunk CPU perplexity
+evaluation. The planner explored 68,503 states for the six-type search and
+24,101 for the three-type search. Mixed quantization therefore remains an
+optional search capability, not a demonstrated quality improvement. The
+existing quality gate would reject all three on this profile; no speedup is
+claimed. The six-type candidate SHA-256 is
+`1068294ece77b4e9dc2e33fb698dcce4e4ed480dc23419accd7d21b306e4499d`, and the
+three-type candidate SHA-256 is
+`d3bb59bcb47b4ecaf4b338f651c7f6f2fb05616c62f4efe0925339cf4f8aae7d`.
+
 ## Provenance and limits
 
 - Source: `unsloth/SmolLM2-135M-Instruct-GGUF`, revision
