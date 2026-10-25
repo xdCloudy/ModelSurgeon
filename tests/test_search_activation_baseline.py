@@ -20,6 +20,7 @@ def test_activation_magnitude_order_uses_lowest_finite_channel_signal() -> None:
             ),
             "channel-a": ({"name": "activation_abs_mean", "value": 0.1},),
             "channel-c": (
+                {"name": "activation_abs_mean", "value": -0.5},
                 {"name": "activation_abs_mean", "value": math.nan},
                 {"name": "activation_abs_mean", "value": True},
                 {"name": "activation_rms", "value": 0.0},

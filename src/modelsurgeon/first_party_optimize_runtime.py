@@ -158,6 +158,7 @@ def _activation_magnitude_order(
             and isinstance(value, (int, float))
             and not isinstance(value, bool)
             and math.isfinite(float(value))
+            and float(value) >= 0
         ]
         if values:
             magnitudes[candidate_id] = statistics.fmean(values)
