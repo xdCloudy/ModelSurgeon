@@ -6,9 +6,13 @@ Does the diagonal activation-weighted codec-allocation objective transfer from
 the earlier small Llama experiment to a dense Qwen2 model? It does not show an
 improvement on this Qwen2 cell. At a 5% file-byte target, the activation
 weighted candidate had the highest held-out perplexity of the three tested
-allocations. The reported chunk intervals overlap, so this small run does not
-establish that the differences are statistically reliable. No candidate passes
-a quality gate, and none is promoted.
+allocations. An initial eight-window comparison had overlapping reported
+intervals, so evaluation was repeated on 64 windows. The longer run's reported
+interval for each compressed artifact no longer overlaps the source interval,
+although candidate intervals still overlap each other. This remains one
+model/corpus/runtime cell without independent seeds; no formal significance or
+general ranking claim is made. No candidate passes a quality gate, and none is
+promoted.
 
 ## Provenance and protocol
 
@@ -25,7 +29,7 @@ a quality gate, and none is promoted.
   (4,096 tokens total), tokenized with the pinned Qwen checkpoint. Train text
   SHA-256: `6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57`.
   The source-bound activation manifest contains 168 projection tensors.
-- Evaluation: raw WikiText-2 test text, one held-out file evaluated as eight
+- Evaluation: raw WikiText-2 test text, first evaluated as eight and then as 64
   llama.cpp chunks, context/batch/microbatch 512. Test text SHA-256:
   `a1ac9f35d8d3014f89b8d5cb4cfd5e55516c0126b3a8de75447b7d3084fc5011`.
 - Runtime: `llama-perplexity` from llama.cpp commit `c7fc50941`, CPU-only,
@@ -57,13 +61,31 @@ a quality gate, and none is promoted.
 | Activation-weighted, Q2_K/Q3_K/Q4_K | 466,749,312 | 5.015% | 19 | 17.9591 ± 1.18121 | +1.8191 |
 
 All source and candidate files loaded successfully in the same pinned
-llama.cpp evaluator. The activation plan's held-out PPL was numerically worse
-than both weight-MSE candidates at a similar byte budget. The intervals overlap
-and this is one corpus, one model, one calibration sample set, and one runtime
-configuration; do not interpret the ranking as a statistically established
-regression or as evidence for a general method ranking. All three candidates
-show a material PPL increase over the source, and quality retention remains
-unproven.
+llama.cpp evaluator. The eight-window intervals overlap, so the initial sample
+does not establish method ranking.
+
+### Extended held-out evaluation
+
+To reduce sensitivity to that short sample, the same four unchanged artifacts
+were evaluated on 64 WikiText-2 test windows (32,768 tokens nominal), with the
+same CPU llama.cpp build and settings. The source PPL was lower than in the
+eight-window run, illustrating why the short comparison was too noisy to rank
+methods. In the extended run, the source's reported interval did not overlap
+any candidate's interval; the three candidate intervals overlap one another.
+
+| Artifact | Bytes | Reduction | Test PPL ± reported 64-window uncertainty | Delta vs source |
+| --- | ---: | ---: | ---: | ---: |
+| Source Q4_K_M | 491,400,032 | — | 15.6328 ± 0.35296 | — |
+| Weight-MSE, Q2_K/Q3_K/Q4_K | 466,613,120 | 5.044% | 16.9625 ± 0.38405 | +1.3297 |
+| Weight-MSE, Q3_K only | 466,340,736 | 5.100% | 16.9100 ± 0.38301 | +1.2772 |
+| Activation-weighted, Q2_K/Q3_K/Q4_K | 466,749,312 | 5.015% | 17.2917 ± 0.39335 | +1.6589 |
+
+All four 64-window runs returned successfully, and the test text digest was
+rechecked. This larger sample strengthens the finding that all tested 5%-smaller
+candidates regress on this test, but does not distinguish the candidates from
+each other reliably. There was no independent-seed repeat, task-accuracy run,
+or throughput measurement. Full command-log hashes and per-artifact identities
+are in [`gguf-qwen2-activation-transfer-64chunk-2026-10-25.json`](gguf-qwen2-activation-transfer-64chunk-2026-10-25.json).
 
 ## Acquisition matrix and next step
 
@@ -74,7 +96,7 @@ unproven.
 | Integration | **REIMPLEMENT** the published mathematical principle; **INTEGRATE** the optional Transformers loader behind the research collector. Dense Qwen2 is now verified; MoE is excluded. |
 | Benefit hypothesis | Activation-weighted allocation may improve held-out quality at equal file bytes. This Qwen2 result does not support that hypothesis; the activation candidate was numerically worse than weight-MSE alternatives. |
 | Hardware and cost | CPU calibration dequantizes 2.52 GB of float32 weights; 16 MiB allocation working-set bound; CPU-only evaluation. Collector duration was about six minutes and plan/write about 431 seconds. Peak RAM was not measured reliably. |
-| Risks and validation | Diagonal covariance omits feature correlations and downstream error accumulation. Eight calibration contexts and eight evaluation chunks are insufficient for a quality claim. Transformers/loader version was not captured in the moment manifest. |
+| Risks and validation | Diagonal covariance omits feature correlations and downstream error accumulation. Calibration used eight contexts; evaluation used 64 windows but only one corpus and no independent seeds. Transformers/loader version was not captured in the moment manifest. |
 | Priority | Keep as an experimental objective. Collect repeat runs with independent calibration text, multiple dense Qwen2 sizes, and more held-out data before using it to guide autonomous decisions. |
 
 The exact candidate and JSON report were retained locally, outside this source
@@ -113,7 +135,7 @@ uv run --frozen python tools/benchmark_gguf_quantization_budget.py `
   --tokenizer Qwen/Qwen2.5-0.5B-Instruct `
   --tokenizer-revision 7ae557604adf67be50417f59c2c2f167def9a775 `
   --llama-perplexity llama-perplexity.exe --llama-revision c7fc50941 `
-  --context-size 512 --threads 8 --chunks 8 --timeout-seconds 900
+  --context-size 512 --threads 8 --chunks 64 --timeout-seconds 900
 ```
 
 The local report retains evaluator commands, outputs, return codes, hashes and
