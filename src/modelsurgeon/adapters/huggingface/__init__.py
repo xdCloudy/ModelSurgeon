@@ -45,6 +45,12 @@ from modelsurgeon.adapters.huggingface.physical_mlp import (
     HuggingFacePhysicalMLPError,
     remove_huggingface_mlp_channels,
 )
+from modelsurgeon.adapters.huggingface.qwen35moe_reap import (
+    Qwen35MoeReapDependencyError,
+    Qwen35MoeReapError,
+    Qwen35MoeReapObserver,
+    Qwen35MoeReapResult,
+)
 
 __all__ = [
     "HF_LOW_RANK_SCHEMA_VERSION",
@@ -73,6 +79,10 @@ __all__ = [
     "LowRankReplacement",
     "LowRankReplacementReport",
     "ParameterReconciliationError",
+    "Qwen35MoeReapDependencyError",
+    "Qwen35MoeReapError",
+    "Qwen35MoeReapObserver",
+    "Qwen35MoeReapResult",
     "TransformerShape",
     "discover_huggingface_components",
     "load_causal_lm",
