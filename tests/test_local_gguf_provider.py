@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import struct
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from modelsurgeon.conversation import (
 )
 from modelsurgeon.conversation.bounded_process import BoundedProcessResult, run_bounded_process
 from modelsurgeon.conversation.local_gguf import LocalGGUFProviderError
+from modelsurgeon.conversation.provider import ProviderCancelledError
 from modelsurgeon.search import compile_intent_record
 from modelsurgeon.search.spec_preview import build_spec_preview
 
@@ -330,6 +332,46 @@ def test_llama_cli_runtime_rejects_output_over_budget(tmp_path: Path, monkeypatc
         raise AssertionError("over-budget llama-cli output should be rejected")
 
 
+def test_llama_cli_runtime_maps_cancellation(tmp_path: Path, monkeypatch: Any) -> None:
+    executable = tmp_path / "llama-cli.exe"
+    executable.write_bytes(b"runtime")
+    model = tmp_path / "model.gguf"
+    _gguf(model)
+    cancellation = CancellationToken()
+    cancellation.cancel()
+
+    def cancelled_process(*_args: object, **kwargs: object) -> BoundedProcessResult:
+        callback = kwargs.get("cancelled")
+        assert callable(callback) and callback()
+        return BoundedProcessResult(0, b"", b"", False, False, True)
+
+    monkeypatch.setattr(
+        "modelsurgeon.conversation.local_gguf.run_bounded_process",
+        cancelled_process,
+    )
+    runtime = LlamaCliRuntime(
+        executable=executable,
+        model_path=str(model),
+        n_ctx=640,
+        n_batch=1,
+        n_gpu_layers=0,
+        verbose=False,
+    )
+
+    try:
+        runtime.create_chat_completion(
+            messages=[{"role": "user", "content": "return JSON"}],
+            max_tokens=8,
+            temperature=0.0,
+            top_p=1.0,
+            cancellation=cancellation,
+        )
+    except ProviderCancelledError:
+        pass
+    else:
+        raise AssertionError("cancelled llama-cli output should remain a cancellation")
+
+
 def test_bounded_process_stops_after_output_limit() -> None:
     result = run_bounded_process(
         (
@@ -355,6 +397,30 @@ def test_bounded_process_stops_after_wall_time_limit() -> None:
     )
 
     assert result.timed_out
+
+
+def test_bounded_process_stops_after_cancellation() -> None:
+    cancellation = threading.Event()
+    results: list[BoundedProcessResult] = []
+    worker = threading.Thread(
+        target=lambda: results.append(
+            run_bounded_process(
+                (sys.executable, "-c", "import time; time.sleep(5)"),
+                timeout_seconds=5,
+                max_stdout_bytes=1024,
+                max_stderr_bytes=128,
+                cancelled=cancellation.is_set,
+            )
+        ),
+        daemon=True,
+    )
+    worker.start()
+    time.sleep(0.1)
+    cancellation.set()
+    worker.join(timeout=3)
+
+    assert not worker.is_alive()
+    assert results and results[0].cancelled
 
 
 def test_local_provider_rejects_missing_and_malformed_models(tmp_path: Path) -> None:

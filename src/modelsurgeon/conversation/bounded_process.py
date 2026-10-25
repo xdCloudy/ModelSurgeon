@@ -7,7 +7,7 @@ import signal
 import subprocess
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from math import isfinite
@@ -24,6 +24,7 @@ class BoundedProcessResult:
     stderr: bytes
     timed_out: bool
     output_exceeded: bool
+    cancelled: bool = False
 
 
 def _drain_bounded(
@@ -79,6 +80,7 @@ def run_bounded_process(
     timeout_seconds: float,
     max_stdout_bytes: int,
     max_stderr_bytes: int,
+    cancelled: Callable[[], bool] | None = None,
 ) -> BoundedProcessResult:
     """Run a command while retaining only each stream's byte budget plus one byte."""
 
@@ -142,7 +144,13 @@ def run_bounded_process(
     deadline = time.monotonic() + timeout_seconds
     timed_out = False
     terminated = False
+    was_cancelled = False
     while process.poll() is None or any(reader.is_alive() for reader in readers):
+        if cancelled is not None and cancelled():
+            was_cancelled = True
+            _terminate_process_tree(process)
+            terminated = True
+            break
         if output_exceeded.is_set():
             _terminate_process_tree(process)
             terminated = True
@@ -173,4 +181,5 @@ def run_bounded_process(
         bytes(stderr),
         timed_out,
         output_exceeded.is_set(),
+        was_cancelled,
     )

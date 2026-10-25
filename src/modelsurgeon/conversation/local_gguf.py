@@ -197,6 +197,7 @@ class LlamaCliRuntime:
         temperature: float,
         top_p: float,
         stream: bool = False,
+        cancellation: CancellationToken | None = None,
     ) -> dict[str, object]:
         if stream:
             raise LocalGGUFProviderError("external llama-cli runtime does not support streaming")
@@ -251,11 +252,14 @@ class LlamaCliRuntime:
                 timeout_seconds=self.max_wall_seconds,
                 max_stdout_bytes=self.max_response_bytes,
                 max_stderr_bytes=_LLAMA_CLI_STDERR_BYTES,
+                cancelled=None if cancellation is None else lambda: cancellation.cancelled,
             )
         except OSError as error:
             raise LocalGGUFProviderError("external llama-cli runtime could not start") from error
         if completed.timed_out:
             raise LocalGGUFProviderError("external llama-cli runtime timed out")
+        if completed.cancelled:
+            raise ProviderCancelledError("external llama-cli runtime was cancelled")
         if completed.output_exceeded:
             raise LocalGGUFProviderError("external llama-cli runtime exceeded its output budget")
         if completed.returncode != 0:
@@ -853,20 +857,25 @@ class LocalGGUFProvider:
             return choice_text
         raise LocalGGUFProviderError("local GGUF runtime response has no text content")
 
-    def _generate(self, prompt: str, output_tokens: int) -> str:
+    def _generate(
+        self, prompt: str, output_tokens: int, cancellation: CancellationToken
+    ) -> str:
         runtime = self._runtime
         if runtime is None:
             raise LocalGGUFProviderError("local GGUF runtime is not started")
         create_chat = getattr(runtime, "create_chat_completion", None)
         try:
             if callable(create_chat):
-                response = create_chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=output_tokens,
-                    temperature=0.0,
-                    top_p=1.0,
-                    stream=False,
-                )
+                arguments: dict[str, object] = {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": output_tokens,
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                    "stream": False,
+                }
+                if isinstance(runtime, LlamaCliRuntime):
+                    arguments["cancellation"] = cancellation
+                response = create_chat(**arguments)
             else:
                 create_completion = getattr(runtime, "create_completion", None)
                 if not callable(create_completion):
@@ -946,7 +955,7 @@ class LocalGGUFProvider:
                         ProviderFailureCode.LIMIT_EXCEEDED,
                         "model and configured context exceed the request memory budget",
                     )
-                raw_text = self._generate(prompt, output_limit)
+                raw_text = self._generate(prompt, output_limit, cancellation)
                 cancellation.raise_if_cancelled()
                 response_limit = min(
                     request.budget.max_response_bytes, self.config.max_response_bytes
