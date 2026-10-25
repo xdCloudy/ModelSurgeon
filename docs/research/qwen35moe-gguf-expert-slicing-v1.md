@@ -45,6 +45,17 @@ calibration only; model weights and per-expert score vectors are not included
 in this repository. Evaluation results must identify the model revision and
 license and must not be generalized to other Qwen3.5/3.6 models.
 
+For a sparse implementation reference, Hugging Face Transformers' pinned
+[`Qwen3_5MoeExperts`](https://github.com/huggingface/transformers/blob/50e35cc0ca18ec19b80653690de553e6decf74f5/src/transformers/models/qwen3_5_moe/modeling_qwen3_5_moe.py#L752-L785)
+dispatches only token indices selected for each expert, computes the fused
+gate/up and down projections on those tokens, then weights and accumulates the
+outputs. That implementation is Apache-2.0
+([pinned license](https://github.com/huggingface/transformers/blob/50e35cc0ca18ec19b80653690de553e6decf74f5/LICENSE)); no source is copied.
+Its public return is the weighted sum, so REAP still needs an architecture-aware
+observation point before router weighting, or a separately computed sparse
+expert pass. The latter is a plausible way to avoid the dense PR #26 path, but
+its calibration time and peak memory remain to be measured.
+
 The pinned llama.cpp implementation declares `ffn_gate_inp.weight` with logical
 dimensions `(embedding_length, expert_count)`. Routed gate/up/down tensors put
 the expert dimension last; Qwen3.5 also has shared-expert weights and hybrid
