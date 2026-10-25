@@ -137,6 +137,9 @@ reference RTX 3060.
 
 Keep activation-weighted allocation as an experimental planner objective, but
 do not use its score as an optimizer quality prediction or promotion signal.
+The follow-up [order-balanced deployment benchmark](gguf-byte-budget-throughput-2026-10-25.md)
+resolved no reliable CPU or RTX 3060 throughput difference against the source,
+so the 5% size reduction is not a demonstrated speed improvement.
 Next, test independent calibration and evaluation corpora, repeated model
 families, and quality-gated candidate selection; compare against a properly
 matched activation-aware baseline before connecting this objective to

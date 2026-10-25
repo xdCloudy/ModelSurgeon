@@ -1,0 +1,2657 @@
+{
+  "schema_version": 1,
+  "description": "Position-balanced physical llama.cpp throughput comparison for the GGUF byte-budget experiment.",
+  "model_family": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "gguf_source_revision": "unsloth/SmolLM2-135M-Instruct-GGUF@9e6855bc4be717fca1ef21360a1db4b29d5c559a",
+  "llama_cpp": {
+    "revision": "c7fc50941",
+    "version": "0.7.0-dev",
+    "build_number": 11804
+  },
+  "hardware": {
+    "cpu": "Intel Core i5-14600K",
+    "gpu": "NVIDIA RTX 3060 12 GB",
+    "system_ram_gb": 64
+  },
+  "models": {
+    "source": {
+      "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747",
+      "artifact_file_bytes": 105454144
+    },
+    "weight_mse": {
+      "sha256": "ab390de77e83d183c2fe725578e08e8420fab67f394133bd22752018a4a10d8f",
+      "artifact_file_bytes": 100145760
+    },
+    "activation_weighted": {
+      "sha256": "905a45028be5b2f99d7a297952ae28fe6bd68f368057bc1955e5c4e53664be24",
+      "artifact_file_bytes": 100125024
+    }
+  },
+  "design": {
+    "ordering": "all six permutations of the three models, repeated twice; one fixed-seed shuffle (20261025)",
+    "rounds_per_mode": 12,
+    "llama_bench_processes_per_mode": 36,
+    "warmup": true,
+    "measured_repetitions_per_process": 1,
+    "prompt_tokens": 512,
+    "generation_tokens": 128,
+    "batch_size": 512,
+    "microbatch_size": 512,
+    "threads": 8,
+    "cpu_mode_gpu_layers": 0,
+    "gpu_mode_gpu_layers": 99,
+    "phases": [
+      "prompt_processing",
+      "generation"
+    ],
+    "comparison": "Each candidate throughput was divided by source throughput within the same order-balanced round. Confidence intervals use paired ratios."
+  },
+  "results": {
+    "cpu": {
+      "capture_sha256": "518509c87eaee9dd00741cfa510142139e76b77984fc97e28748a4594934323d",
+      "balanced_order_repetitions": 12,
+      "per_model_summaries": {
+        "source": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 8438.065233333333,
+            "sample_standard_deviation_tokens_per_second": 374.66396476560664,
+            "median_tokens_per_second": 8441.2796695
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 237.02591616666666,
+            "sample_standard_deviation_tokens_per_second": 51.29724633072162,
+            "median_tokens_per_second": 249.87584950000002
+          }
+        },
+        "weight_mse": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 8279.827713583334,
+            "sample_standard_deviation_tokens_per_second": 790.9008603455992,
+            "median_tokens_per_second": 8338.9308995
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 220.36744,
+            "sample_standard_deviation_tokens_per_second": 60.27804201074145,
+            "median_tokens_per_second": 225.6661165
+          }
+        },
+        "activation_weighted": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 8019.620079666666,
+            "sample_standard_deviation_tokens_per_second": 959.8645555011234,
+            "median_tokens_per_second": 8155.780860999999
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 224.9813745,
+            "sample_standard_deviation_tokens_per_second": 63.11363620460404,
+            "median_tokens_per_second": 203.04707050000002
+          }
+        }
+      },
+      "paired_comparisons": {
+        "weight_mse": {
+          "prompt_processing": {
+            "paired_ratio_mean": 0.9835788687100759,
+            "mean_change_percent": -1.6421131289924062,
+            "approximate_95_percent_t_interval_change_percent": [
+              -8.521779137365492,
+              5.23755287938068
+            ],
+            "paired_ratio_median_change_percent": 1.871631738058488,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          },
+          "generation": {
+            "paired_ratio_mean": 0.9545597657300704,
+            "mean_change_percent": -4.54402342699296,
+            "approximate_95_percent_t_interval_change_percent": [
+              -21.277477845011607,
+              12.189430991025674
+            ],
+            "paired_ratio_median_change_percent": -12.394764308839235,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          }
+        },
+        "activation_weighted": {
+          "prompt_processing": {
+            "paired_ratio_mean": 0.9494307275775286,
+            "mean_change_percent": -5.056927242247145,
+            "approximate_95_percent_t_interval_change_percent": [
+              -11.22987519931925,
+              1.1160207148249723
+            ],
+            "paired_ratio_median_change_percent": -5.7288382647160185,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          },
+          "generation": {
+            "paired_ratio_mean": 0.990339370512051,
+            "mean_change_percent": -0.9660629487948991,
+            "approximate_95_percent_t_interval_change_percent": [
+              -23.69736209027883,
+              21.76523619268902
+            ],
+            "paired_ratio_median_change_percent": 4.770517587846856,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          }
+        }
+      },
+      "raw_runs": [
+        {
+          "round": 1,
+          "model_order": [
+            "activation_weighted",
+            "weight_mse",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9102.982827,
+                  "mean_latency_nanoseconds": 56245300,
+                  "measured_samples_tokens_per_second": [
+                    9102.98
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56245300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 100.252786,
+                  "mean_latency_nanoseconds": 1276772500,
+                  "measured_samples_tokens_per_second": [
+                    100.253
+                  ],
+                  "measured_samples_nanoseconds": [
+                    1276772500
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9099.714745,
+                  "mean_latency_nanoseconds": 56265500,
+                  "measured_samples_tokens_per_second": [
+                    9099.71
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56265500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 145.835208,
+                  "mean_latency_nanoseconds": 877703000,
+                  "measured_samples_tokens_per_second": [
+                    145.835
+                  ],
+                  "measured_samples_nanoseconds": [
+                    877703000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8514.742812,
+                  "mean_latency_nanoseconds": 60131000,
+                  "measured_samples_tokens_per_second": [
+                    8514.74
+                  ],
+                  "measured_samples_nanoseconds": [
+                    60131000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 203.179409,
+                  "mean_latency_nanoseconds": 629985100,
+                  "measured_samples_tokens_per_second": [
+                    203.179
+                  ],
+                  "measured_samples_nanoseconds": [
+                    629985100
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "model_order": [
+            "activation_weighted",
+            "source",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7623.903319,
+                  "mean_latency_nanoseconds": 67157200,
+                  "measured_samples_tokens_per_second": [
+                    7623.9
+                  ],
+                  "measured_samples_nanoseconds": [
+                    67157200
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 202.006684,
+                  "mean_latency_nanoseconds": 633642400,
+                  "measured_samples_tokens_per_second": [
+                    202.007
+                  ],
+                  "measured_samples_nanoseconds": [
+                    633642400
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8410.8296,
+                  "mean_latency_nanoseconds": 60873900,
+                  "measured_samples_tokens_per_second": [
+                    8410.83
+                  ],
+                  "measured_samples_nanoseconds": [
+                    60873900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 188.675407,
+                  "mean_latency_nanoseconds": 678413800,
+                  "measured_samples_tokens_per_second": [
+                    188.675
+                  ],
+                  "measured_samples_nanoseconds": [
+                    678413800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8130.881788,
+                  "mean_latency_nanoseconds": 62969800,
+                  "measured_samples_tokens_per_second": [
+                    8130.88
+                  ],
+                  "measured_samples_nanoseconds": [
+                    62969800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 191.119027,
+                  "mean_latency_nanoseconds": 669739700,
+                  "measured_samples_tokens_per_second": [
+                    191.119
+                  ],
+                  "measured_samples_nanoseconds": [
+                    669739700
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "model_order": [
+            "activation_weighted",
+            "source",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7606.720657,
+                  "mean_latency_nanoseconds": 67308900,
+                  "measured_samples_tokens_per_second": [
+                    7606.72
+                  ],
+                  "measured_samples_nanoseconds": [
+                    67308900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 197.012339,
+                  "mean_latency_nanoseconds": 649705500,
+                  "measured_samples_tokens_per_second": [
+                    197.012
+                  ],
+                  "measured_samples_nanoseconds": [
+                    649705500
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8347.762571,
+                  "mean_latency_nanoseconds": 61333800,
+                  "measured_samples_tokens_per_second": [
+                    8347.76
+                  ],
+                  "measured_samples_nanoseconds": [
+                    61333800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 241.162706,
+                  "mean_latency_nanoseconds": 530762000,
+                  "measured_samples_tokens_per_second": [
+                    241.163
+                  ],
+                  "measured_samples_nanoseconds": [
+                    530762000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9129.440126,
+                  "mean_latency_nanoseconds": 56082300,
+                  "measured_samples_tokens_per_second": [
+                    9129.44
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56082300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 138.025734,
+                  "mean_latency_nanoseconds": 927363300,
+                  "measured_samples_tokens_per_second": [
+                    138.026
+                  ],
+                  "measured_samples_nanoseconds": [
+                    927363300
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "model_order": [
+            "source",
+            "activation_weighted",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8067.082836,
+                  "mean_latency_nanoseconds": 63467800,
+                  "measured_samples_tokens_per_second": [
+                    8067.08
+                  ],
+                  "measured_samples_nanoseconds": [
+                    63467800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 110.939348,
+                  "mean_latency_nanoseconds": 1153783600,
+                  "measured_samples_tokens_per_second": [
+                    110.939
+                  ],
+                  "measured_samples_nanoseconds": [
+                    1153783600
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8149.05124,
+                  "mean_latency_nanoseconds": 62829400,
+                  "measured_samples_tokens_per_second": [
+                    8149.05
+                  ],
+                  "measured_samples_nanoseconds": [
+                    62829400
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 204.087457,
+                  "mean_latency_nanoseconds": 627182100,
+                  "measured_samples_tokens_per_second": [
+                    204.087
+                  ],
+                  "measured_samples_nanoseconds": [
+                    627182100
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 6796.138413,
+                  "mean_latency_nanoseconds": 75336900,
+                  "measured_samples_tokens_per_second": [
+                    6796.14
+                  ],
+                  "measured_samples_nanoseconds": [
+                    75336900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 161.386288,
+                  "mean_latency_nanoseconds": 793128100,
+                  "measured_samples_tokens_per_second": [
+                    161.386
+                  ],
+                  "measured_samples_nanoseconds": [
+                    793128100
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "model_order": [
+            "weight_mse",
+            "source",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9027.944309,
+                  "mean_latency_nanoseconds": 56712800,
+                  "measured_samples_tokens_per_second": [
+                    9027.94
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56712800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 304.083003,
+                  "mean_latency_nanoseconds": 420937700,
+                  "measured_samples_tokens_per_second": [
+                    304.083
+                  ],
+                  "measured_samples_nanoseconds": [
+                    420937700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8471.729739,
+                  "mean_latency_nanoseconds": 60436300,
+                  "measured_samples_tokens_per_second": [
+                    8471.73
+                  ],
+                  "measured_samples_nanoseconds": [
+                    60436300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 227.869509,
+                  "mean_latency_nanoseconds": 561725000,
+                  "measured_samples_tokens_per_second": [
+                    227.87
+                  ],
+                  "measured_samples_nanoseconds": [
+                    561725000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9108.69952,
+                  "mean_latency_nanoseconds": 56210000,
+                  "measured_samples_tokens_per_second": [
+                    9108.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56210000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 154.437918,
+                  "mean_latency_nanoseconds": 828812000,
+                  "measured_samples_tokens_per_second": [
+                    154.438
+                  ],
+                  "measured_samples_nanoseconds": [
+                    828812000
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "model_order": [
+            "weight_mse",
+            "source",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7881.348757,
+                  "mean_latency_nanoseconds": 64963500,
+                  "measured_samples_tokens_per_second": [
+                    7881.35
+                  ],
+                  "measured_samples_nanoseconds": [
+                    64963500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 301.242602,
+                  "mean_latency_nanoseconds": 424906700,
+                  "measured_samples_tokens_per_second": [
+                    301.243
+                  ],
+                  "measured_samples_nanoseconds": [
+                    424906700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8571.132026,
+                  "mean_latency_nanoseconds": 59735400,
+                  "measured_samples_tokens_per_second": [
+                    8571.13
+                  ],
+                  "measured_samples_nanoseconds": [
+                    59735400
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 262.368739,
+                  "mean_latency_nanoseconds": 487863000,
+                  "measured_samples_tokens_per_second": [
+                    262.369
+                  ],
+                  "measured_samples_nanoseconds": [
+                    487863000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7629.049394,
+                  "mean_latency_nanoseconds": 67111900,
+                  "measured_samples_tokens_per_second": [
+                    7629.05
+                  ],
+                  "measured_samples_nanoseconds": [
+                    67111900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 284.819964,
+                  "mean_latency_nanoseconds": 449406700,
+                  "measured_samples_tokens_per_second": [
+                    284.82
+                  ],
+                  "measured_samples_nanoseconds": [
+                    449406700
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "model_order": [
+            "source",
+            "weight_mse",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8139.374063,
+                  "mean_latency_nanoseconds": 62904100,
+                  "measured_samples_tokens_per_second": [
+                    8139.37
+                  ],
+                  "measured_samples_nanoseconds": [
+                    62904100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 282.7236,
+                  "mean_latency_nanoseconds": 452739000,
+                  "measured_samples_tokens_per_second": [
+                    282.724
+                  ],
+                  "measured_samples_nanoseconds": [
+                    452739000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8546.980011,
+                  "mean_latency_nanoseconds": 59904200,
+                  "measured_samples_tokens_per_second": [
+                    8546.98
+                  ],
+                  "measured_samples_nanoseconds": [
+                    59904200
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 240.793867,
+                  "mean_latency_nanoseconds": 531575000,
+                  "measured_samples_tokens_per_second": [
+                    240.794
+                  ],
+                  "measured_samples_nanoseconds": [
+                    531575000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 5992.362079,
+                  "mean_latency_nanoseconds": 85442100,
+                  "measured_samples_tokens_per_second": [
+                    5992.36
+                  ],
+                  "measured_samples_nanoseconds": [
+                    85442100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 201.891917,
+                  "mean_latency_nanoseconds": 634002600,
+                  "measured_samples_tokens_per_second": [
+                    201.892
+                  ],
+                  "measured_samples_nanoseconds": [
+                    634002600
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "model_order": [
+            "source",
+            "activation_weighted",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7870.094257,
+                  "mean_latency_nanoseconds": 65056400,
+                  "measured_samples_tokens_per_second": [
+                    7870.09
+                  ],
+                  "measured_samples_nanoseconds": [
+                    65056400
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 261.128032,
+                  "mean_latency_nanoseconds": 490181000,
+                  "measured_samples_tokens_per_second": [
+                    261.128
+                  ],
+                  "measured_samples_nanoseconds": [
+                    490181000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 6869.818285,
+                  "mean_latency_nanoseconds": 74528900,
+                  "measured_samples_tokens_per_second": [
+                    6869.82
+                  ],
+                  "measured_samples_nanoseconds": [
+                    74528900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 286.073602,
+                  "mean_latency_nanoseconds": 447437300,
+                  "measured_samples_tokens_per_second": [
+                    286.074
+                  ],
+                  "measured_samples_nanoseconds": [
+                    447437300
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8029.986983,
+                  "mean_latency_nanoseconds": 63761000,
+                  "measured_samples_tokens_per_second": [
+                    8029.99
+                  ],
+                  "measured_samples_nanoseconds": [
+                    63761000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 287.844852,
+                  "mean_latency_nanoseconds": 444684000,
+                  "measured_samples_tokens_per_second": [
+                    287.845
+                  ],
+                  "measured_samples_nanoseconds": [
+                    444684000
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "model_order": [
+            "weight_mse",
+            "activation_weighted",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8882.489179,
+                  "mean_latency_nanoseconds": 57641500,
+                  "measured_samples_tokens_per_second": [
+                    8882.49
+                  ],
+                  "measured_samples_nanoseconds": [
+                    57641500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 242.198649,
+                  "mean_latency_nanoseconds": 528491800,
+                  "measured_samples_tokens_per_second": [
+                    242.199
+                  ],
+                  "measured_samples_nanoseconds": [
+                    528491800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8507.654396,
+                  "mean_latency_nanoseconds": 60181100,
+                  "measured_samples_tokens_per_second": [
+                    8507.65
+                  ],
+                  "measured_samples_nanoseconds": [
+                    60181100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 197.553058,
+                  "mean_latency_nanoseconds": 647927200,
+                  "measured_samples_tokens_per_second": [
+                    197.553
+                  ],
+                  "measured_samples_nanoseconds": [
+                    647927200
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8733.013691,
+                  "mean_latency_nanoseconds": 58628100,
+                  "measured_samples_tokens_per_second": [
+                    8733.01
+                  ],
+                  "measured_samples_nanoseconds": [
+                    58628100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 295.579926,
+                  "mean_latency_nanoseconds": 433047000,
+                  "measured_samples_tokens_per_second": [
+                    295.58
+                  ],
+                  "measured_samples_nanoseconds": [
+                    433047000
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "model_order": [
+            "weight_mse",
+            "activation_weighted",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7588.771582,
+                  "mean_latency_nanoseconds": 67468100,
+                  "measured_samples_tokens_per_second": [
+                    7588.77
+                  ],
+                  "measured_samples_nanoseconds": [
+                    67468100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 210.538366,
+                  "mean_latency_nanoseconds": 607965200,
+                  "measured_samples_tokens_per_second": [
+                    210.538
+                  ],
+                  "measured_samples_nanoseconds": [
+                    607965200
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8162.510482,
+                  "mean_latency_nanoseconds": 62725800,
+                  "measured_samples_tokens_per_second": [
+                    8162.51
+                  ],
+                  "measured_samples_nanoseconds": [
+                    62725800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 285.882752,
+                  "mean_latency_nanoseconds": 447736000,
+                  "measured_samples_tokens_per_second": [
+                    285.883
+                  ],
+                  "measured_samples_nanoseconds": [
+                    447736000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8972.460505,
+                  "mean_latency_nanoseconds": 57063500,
+                  "measured_samples_tokens_per_second": [
+                    8972.46
+                  ],
+                  "measured_samples_nanoseconds": [
+                    57063500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 258.588993,
+                  "mean_latency_nanoseconds": 494994000,
+                  "measured_samples_tokens_per_second": [
+                    258.589
+                  ],
+                  "measured_samples_nanoseconds": [
+                    494994000
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "model_order": [
+            "activation_weighted",
+            "weight_mse",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9264.034016,
+                  "mean_latency_nanoseconds": 55267500,
+                  "measured_samples_tokens_per_second": [
+                    9264.03
+                  ],
+                  "measured_samples_nanoseconds": [
+                    55267500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 294.985523,
+                  "mean_latency_nanoseconds": 433919600,
+                  "measured_samples_tokens_per_second": [
+                    294.986
+                  ],
+                  "measured_samples_nanoseconds": [
+                    433919600
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 7250.214533,
+                  "mean_latency_nanoseconds": 70618600,
+                  "measured_samples_tokens_per_second": [
+                    7250.21
+                  ],
+                  "measured_samples_nanoseconds": [
+                    70618600
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 165.851081,
+                  "mean_latency_nanoseconds": 771776700,
+                  "measured_samples_tokens_per_second": [
+                    165.851
+                  ],
+                  "measured_samples_nanoseconds": [
+                    771776700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 9103.015196,
+                  "mean_latency_nanoseconds": 56245100,
+                  "measured_samples_tokens_per_second": [
+                    9103.02
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56245100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 228.346507,
+                  "mean_latency_nanoseconds": 560551600,
+                  "measured_samples_tokens_per_second": [
+                    228.347
+                  ],
+                  "measured_samples_nanoseconds": [
+                    560551600
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "model_order": [
+            "source",
+            "weight_mse",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8055.545504,
+                  "mean_latency_nanoseconds": 63558700,
+                  "measured_samples_tokens_per_second": [
+                    8055.55
+                  ],
+                  "measured_samples_nanoseconds": [
+                    63558700
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 283.748818,
+                  "mean_latency_nanoseconds": 451103200,
+                  "measured_samples_tokens_per_second": [
+                    283.749
+                  ],
+                  "measured_samples_nanoseconds": [
+                    451103200
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8994.022137,
+                  "mean_latency_nanoseconds": 56926700,
+                  "measured_samples_tokens_per_second": [
+                    8994.02
+                  ],
+                  "measured_samples_nanoseconds": [
+                    56926700
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 255.490603,
+                  "mean_latency_nanoseconds": 500996900,
+                  "measured_samples_tokens_per_second": [
+                    255.491
+                  ],
+                  "measured_samples_nanoseconds": [
+                    500996900
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 8218.654741,
+                  "mean_latency_nanoseconds": 62297300,
+                  "measured_samples_tokens_per_second": [
+                    8218.65
+                  ],
+                  "measured_samples_nanoseconds": [
+                    62297300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 290.772494,
+                  "mean_latency_nanoseconds": 440206700,
+                  "measured_samples_tokens_per_second": [
+                    290.772
+                  ],
+                  "measured_samples_nanoseconds": [
+                    440206700
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "gpu": {
+      "capture_sha256": "4b071aa048d25ff80d9f5e4fd945c24eec9784da1fdee8b8744e137f6313448b",
+      "balanced_order_repetitions": 12,
+      "per_model_summaries": {
+        "source": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 23652.675158416667,
+            "sample_standard_deviation_tokens_per_second": 1043.9808628364933,
+            "median_tokens_per_second": 23580.4535035
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 552.8034235,
+            "sample_standard_deviation_tokens_per_second": 12.291659669764373,
+            "median_tokens_per_second": 551.5466865000001
+          }
+        },
+        "weight_mse": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 24164.275164666666,
+            "sample_standard_deviation_tokens_per_second": 751.3448288981707,
+            "median_tokens_per_second": 23958.5458315
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 546.1178381666667,
+            "sample_standard_deviation_tokens_per_second": 16.21401703429584,
+            "median_tokens_per_second": 546.2245190000001
+          }
+        },
+        "activation_weighted": {
+          "prompt_processing": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 24359.434846083335,
+            "sample_standard_deviation_tokens_per_second": 1102.6542863929644,
+            "median_tokens_per_second": 24375.631535
+          },
+          "generation": {
+            "sample_count": 12,
+            "mean_tokens_per_second": 552.4527669166666,
+            "sample_standard_deviation_tokens_per_second": 7.574422161928275,
+            "median_tokens_per_second": 555.0563995
+          }
+        }
+      },
+      "paired_comparisons": {
+        "weight_mse": {
+          "prompt_processing": {
+            "paired_ratio_mean": 1.0229042774090835,
+            "mean_change_percent": 2.2904277409083518,
+            "approximate_95_percent_t_interval_change_percent": [
+              -0.4142326564140597,
+              4.995088138230774
+            ],
+            "paired_ratio_median_change_percent": 2.373660088428875,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          },
+          "generation": {
+            "paired_ratio_mean": 0.9883770500215215,
+            "mean_change_percent": -1.1622949978478458,
+            "approximate_95_percent_t_interval_change_percent": [
+              -3.536172257453052,
+              1.2115822617573713
+            ],
+            "paired_ratio_median_change_percent": -1.863079781446153,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          }
+        },
+        "activation_weighted": {
+          "prompt_processing": {
+            "paired_ratio_mean": 1.031220695698393,
+            "mean_change_percent": 3.122069569839292,
+            "approximate_95_percent_t_interval_change_percent": [
+              -0.45420199042828235,
+              6.698341130106855
+            ],
+            "paired_ratio_median_change_percent": 3.4399956301891743,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          },
+          "generation": {
+            "paired_ratio_mean": 0.9998668029191933,
+            "mean_change_percent": -0.013319708080672399,
+            "approximate_95_percent_t_interval_change_percent": [
+              -1.8022122309679478,
+              1.775572814806603
+            ],
+            "paired_ratio_median_change_percent": -0.3366421731167524,
+            "round_count": 12,
+            "interval_method": "paired Student t interval, df=11, t*=2.201"
+          }
+        }
+      },
+      "raw_runs": [
+        {
+          "round": 1,
+          "model_order": [
+            "activation_weighted",
+            "weight_mse",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 22625.934093,
+                  "mean_latency_nanoseconds": 22628900,
+                  "measured_samples_tokens_per_second": [
+                    22625.9
+                  ],
+                  "measured_samples_nanoseconds": [
+                    22628900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 546.274811,
+                  "mean_latency_nanoseconds": 234314300,
+                  "measured_samples_tokens_per_second": [
+                    546.275
+                  ],
+                  "measured_samples_nanoseconds": [
+                    234314300
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23352.337514,
+                  "mean_latency_nanoseconds": 21925000,
+                  "measured_samples_tokens_per_second": [
+                    23352.3
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21925000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 544.125843,
+                  "mean_latency_nanoseconds": 235239700,
+                  "measured_samples_tokens_per_second": [
+                    544.126
+                  ],
+                  "measured_samples_nanoseconds": [
+                    235239700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 22833.493881,
+                  "mean_latency_nanoseconds": 22423200,
+                  "measured_samples_tokens_per_second": [
+                    22833.5
+                  ],
+                  "measured_samples_nanoseconds": [
+                    22423200
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 566.229623,
+                  "mean_latency_nanoseconds": 226056700,
+                  "measured_samples_tokens_per_second": [
+                    566.23
+                  ],
+                  "measured_samples_nanoseconds": [
+                    226056700
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "model_order": [
+            "activation_weighted",
+            "source",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25905.687108,
+                  "mean_latency_nanoseconds": 19764000,
+                  "measured_samples_tokens_per_second": [
+                    25905.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    19764000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 554.985154,
+                  "mean_latency_nanoseconds": 230636800,
+                  "measured_samples_tokens_per_second": [
+                    554.985
+                  ],
+                  "measured_samples_nanoseconds": [
+                    230636800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23508.668822,
+                  "mean_latency_nanoseconds": 21779200,
+                  "measured_samples_tokens_per_second": [
+                    23508.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21779200
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 541.809262,
+                  "mean_latency_nanoseconds": 236245500,
+                  "measured_samples_tokens_per_second": [
+                    541.809
+                  ],
+                  "measured_samples_nanoseconds": [
+                    236245500
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24552.115702,
+                  "mean_latency_nanoseconds": 20853600,
+                  "measured_samples_tokens_per_second": [
+                    24552.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20853600
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 556.93799,
+                  "mean_latency_nanoseconds": 229828100,
+                  "measured_samples_tokens_per_second": [
+                    556.938
+                  ],
+                  "measured_samples_nanoseconds": [
+                    229828100
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "model_order": [
+            "activation_weighted",
+            "source",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25286.572929,
+                  "mean_latency_nanoseconds": 20247900,
+                  "measured_samples_tokens_per_second": [
+                    25286.6
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20247900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 557.14938,
+                  "mean_latency_nanoseconds": 229740900,
+                  "measured_samples_tokens_per_second": [
+                    557.149
+                  ],
+                  "measured_samples_nanoseconds": [
+                    229740900
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 22158.171258,
+                  "mean_latency_nanoseconds": 23106600,
+                  "measured_samples_tokens_per_second": [
+                    22158.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    23106600
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 531.159342,
+                  "mean_latency_nanoseconds": 240982300,
+                  "measured_samples_tokens_per_second": [
+                    531.159
+                  ],
+                  "measured_samples_nanoseconds": [
+                    240982300
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23584.90566,
+                  "mean_latency_nanoseconds": 21708800,
+                  "measured_samples_tokens_per_second": [
+                    23584.9
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21708800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 546.53605,
+                  "mean_latency_nanoseconds": 234202300,
+                  "measured_samples_tokens_per_second": [
+                    546.536
+                  ],
+                  "measured_samples_nanoseconds": [
+                    234202300
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "model_order": [
+            "source",
+            "activation_weighted",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23309.386581,
+                  "mean_latency_nanoseconds": 21965400,
+                  "measured_samples_tokens_per_second": [
+                    23309.4
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21965400
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 546.338932,
+                  "mean_latency_nanoseconds": 234286800,
+                  "measured_samples_tokens_per_second": [
+                    546.339
+                  ],
+                  "measured_samples_nanoseconds": [
+                    234286800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23983.174304,
+                  "mean_latency_nanoseconds": 21348300,
+                  "measured_samples_tokens_per_second": [
+                    23983.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21348300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 556.162168,
+                  "mean_latency_nanoseconds": 230148700,
+                  "measured_samples_tokens_per_second": [
+                    556.162
+                  ],
+                  "measured_samples_nanoseconds": [
+                    230148700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23884.384651,
+                  "mean_latency_nanoseconds": 21436600,
+                  "measured_samples_tokens_per_second": [
+                    23884.4
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21436600
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 564.255474,
+                  "mean_latency_nanoseconds": 226847600,
+                  "measured_samples_tokens_per_second": [
+                    564.255
+                  ],
+                  "measured_samples_nanoseconds": [
+                    226847600
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "model_order": [
+            "weight_mse",
+            "source",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24732.507306,
+                  "mean_latency_nanoseconds": 20701500,
+                  "measured_samples_tokens_per_second": [
+                    24732.5
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20701500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 555.182783,
+                  "mean_latency_nanoseconds": 230554700,
+                  "measured_samples_tokens_per_second": [
+                    555.183
+                  ],
+                  "measured_samples_nanoseconds": [
+                    230554700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24181.055654,
+                  "mean_latency_nanoseconds": 21173600,
+                  "measured_samples_tokens_per_second": [
+                    24181.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21173600
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 561.245966,
+                  "mean_latency_nanoseconds": 228064000,
+                  "measured_samples_tokens_per_second": [
+                    561.246
+                  ],
+                  "measured_samples_nanoseconds": [
+                    228064000
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23802.99304,
+                  "mean_latency_nanoseconds": 21509900,
+                  "measured_samples_tokens_per_second": [
+                    23803
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21509900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 559.805608,
+                  "mean_latency_nanoseconds": 228650800,
+                  "measured_samples_tokens_per_second": [
+                    559.806
+                  ],
+                  "measured_samples_nanoseconds": [
+                    228650800
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "model_order": [
+            "weight_mse",
+            "source",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23344.99063,
+                  "mean_latency_nanoseconds": 21931900,
+                  "measured_samples_tokens_per_second": [
+                    23345
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21931900
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 536.335471,
+                  "mean_latency_nanoseconds": 238656600,
+                  "measured_samples_tokens_per_second": [
+                    536.335
+                  ],
+                  "measured_samples_nanoseconds": [
+                    238656600
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23652.238185,
+                  "mean_latency_nanoseconds": 21647000,
+                  "measured_samples_tokens_per_second": [
+                    23652.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21647000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 550.911781,
+                  "mean_latency_nanoseconds": 232342100,
+                  "measured_samples_tokens_per_second": [
+                    550.912
+                  ],
+                  "measured_samples_nanoseconds": [
+                    232342100
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 22741.708382,
+                  "mean_latency_nanoseconds": 22513700,
+                  "measured_samples_tokens_per_second": [
+                    22741.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    22513700
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 548.616415,
+                  "mean_latency_nanoseconds": 233314200,
+                  "measured_samples_tokens_per_second": [
+                    548.616
+                  ],
+                  "measured_samples_nanoseconds": [
+                    233314200
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "model_order": [
+            "source",
+            "weight_mse",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24368.072114,
+                  "mean_latency_nanoseconds": 21011100,
+                  "measured_samples_tokens_per_second": [
+                    24368.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21011100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 561.823644,
+                  "mean_latency_nanoseconds": 227829500,
+                  "measured_samples_tokens_per_second": [
+                    561.824
+                  ],
+                  "measured_samples_nanoseconds": [
+                    227829500
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24032.707012,
+                  "mean_latency_nanoseconds": 21304300,
+                  "measured_samples_tokens_per_second": [
+                    24032.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21304300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 517.594576,
+                  "mean_latency_nanoseconds": 247297800,
+                  "measured_samples_tokens_per_second": [
+                    517.595
+                  ],
+                  "measured_samples_nanoseconds": [
+                    247297800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24988.774574,
+                  "mean_latency_nanoseconds": 20489200,
+                  "measured_samples_tokens_per_second": [
+                    24988.8
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20489200
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 561.253595,
+                  "mean_latency_nanoseconds": 228060900,
+                  "measured_samples_tokens_per_second": [
+                    561.254
+                  ],
+                  "measured_samples_nanoseconds": [
+                    228060900
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "model_order": [
+            "source",
+            "activation_weighted",
+            "weight_mse"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23839.123167,
+                  "mean_latency_nanoseconds": 21477300,
+                  "measured_samples_tokens_per_second": [
+                    23839.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21477300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 571.976034,
+                  "mean_latency_nanoseconds": 223785600,
+                  "measured_samples_tokens_per_second": [
+                    571.976
+                  ],
+                  "measured_samples_nanoseconds": [
+                    223785600
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25038.63383,
+                  "mean_latency_nanoseconds": 20448400,
+                  "measured_samples_tokens_per_second": [
+                    25038.6
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20448400
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 555.127645,
+                  "mean_latency_nanoseconds": 230577600,
+                  "measured_samples_tokens_per_second": [
+                    555.128
+                  ],
+                  "measured_samples_nanoseconds": [
+                    230577600
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24667.209474,
+                  "mean_latency_nanoseconds": 20756300,
+                  "measured_samples_tokens_per_second": [
+                    24667.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20756300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 545.912988,
+                  "mean_latency_nanoseconds": 234469600,
+                  "measured_samples_tokens_per_second": [
+                    545.913
+                  ],
+                  "measured_samples_nanoseconds": [
+                    234469600
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "model_order": [
+            "weight_mse",
+            "activation_weighted",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23720.725521,
+                  "mean_latency_nanoseconds": 21584500,
+                  "measured_samples_tokens_per_second": [
+                    23720.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21584500
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 517.722071,
+                  "mean_latency_nanoseconds": 247236900,
+                  "measured_samples_tokens_per_second": [
+                    517.722
+                  ],
+                  "measured_samples_nanoseconds": [
+                    247236900
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25833.795852,
+                  "mean_latency_nanoseconds": 19819000,
+                  "measured_samples_tokens_per_second": [
+                    25833.8
+                  ],
+                  "measured_samples_nanoseconds": [
+                    19819000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 560.518725,
+                  "mean_latency_nanoseconds": 228359900,
+                  "measured_samples_tokens_per_second": [
+                    560.519
+                  ],
+                  "measured_samples_nanoseconds": [
+                    228359900
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24705.655279,
+                  "mean_latency_nanoseconds": 20724000,
+                  "measured_samples_tokens_per_second": [
+                    24705.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20724000
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 538.00207,
+                  "mean_latency_nanoseconds": 237917300,
+                  "measured_samples_tokens_per_second": [
+                    538.002
+                  ],
+                  "measured_samples_nanoseconds": [
+                    237917300
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "model_order": [
+            "weight_mse",
+            "activation_weighted",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "weight_mse",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23499.066004,
+                  "mean_latency_nanoseconds": 21788100,
+                  "measured_samples_tokens_per_second": [
+                    23499.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21788100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 543.636606,
+                  "mean_latency_nanoseconds": 235451400,
+                  "measured_samples_tokens_per_second": [
+                    543.637
+                  ],
+                  "measured_samples_nanoseconds": [
+                    235451400
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23354.680971,
+                  "mean_latency_nanoseconds": 21922800,
+                  "measured_samples_tokens_per_second": [
+                    23354.7
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21922800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 545.957928,
+                  "mean_latency_nanoseconds": 234450300,
+                  "measured_samples_tokens_per_second": [
+                    545.958
+                  ],
+                  "measured_samples_nanoseconds": [
+                    234450300
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 22029.938342,
+                  "mean_latency_nanoseconds": 23241100,
+                  "measured_samples_tokens_per_second": [
+                    22029.9
+                  ],
+                  "measured_samples_nanoseconds": [
+                    23241100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 562.579497,
+                  "mean_latency_nanoseconds": 227523400,
+                  "measured_samples_tokens_per_second": [
+                    562.579
+                  ],
+                  "measured_samples_nanoseconds": [
+                    227523400
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "model_order": [
+            "activation_weighted",
+            "weight_mse",
+            "source"
+          ],
+          "results": [
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24444.157989,
+                  "mean_latency_nanoseconds": 20945700,
+                  "measured_samples_tokens_per_second": [
+                    24444.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20945700
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 536.191457,
+                  "mean_latency_nanoseconds": 238720700,
+                  "measured_samples_tokens_per_second": [
+                    536.191
+                  ],
+                  "measured_samples_nanoseconds": [
+                    238720700
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25801.119728,
+                  "mean_latency_nanoseconds": 19844100,
+                  "measured_samples_tokens_per_second": [
+                    25801.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    19844100
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 555.687483,
+                  "mean_latency_nanoseconds": 230345300,
+                  "measured_samples_tokens_per_second": [
+                    555.687
+                  ],
+                  "measured_samples_nanoseconds": [
+                    230345300
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "source",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 23506.402281,
+                  "mean_latency_nanoseconds": 21781300,
+                  "measured_samples_tokens_per_second": [
+                    23506.4
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21781300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 549.383339,
+                  "mean_latency_nanoseconds": 232988500,
+                  "measured_samples_tokens_per_second": [
+                    549.383
+                  ],
+                  "measured_samples_nanoseconds": [
+                    232988500
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "model_order": [
+            "source",
+            "weight_mse",
+            "activation_weighted"
+          ],
+          "results": [
+            {
+              "model": "source",
+              "position_zero_based": 0,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 25739.896337,
+                  "mean_latency_nanoseconds": 19891300,
+                  "measured_samples_tokens_per_second": [
+                    25739.9
+                  ],
+                  "measured_samples_nanoseconds": [
+                    19891300
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 552.181592,
+                  "mean_latency_nanoseconds": 231807800,
+                  "measured_samples_tokens_per_second": [
+                    552.182
+                  ],
+                  "measured_samples_nanoseconds": [
+                    231807800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "weight_mse",
+              "position_zero_based": 1,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24799.232774,
+                  "mean_latency_nanoseconds": 20645800,
+                  "measured_samples_tokens_per_second": [
+                    24799.2
+                  ],
+                  "measured_samples_nanoseconds": [
+                    20645800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 569.486723,
+                  "mean_latency_nanoseconds": 224763800,
+                  "measured_samples_tokens_per_second": [
+                    569.487
+                  ],
+                  "measured_samples_nanoseconds": [
+                    224763800
+                  ]
+                }
+              ]
+            },
+            {
+              "model": "activation_weighted",
+              "position_zero_based": 2,
+              "measurements": [
+                {
+                  "phase": "prompt_processing",
+                  "tokens": 512,
+                  "mean_tokens_per_second": 24307.105081,
+                  "mean_latency_nanoseconds": 21063800,
+                  "measured_samples_tokens_per_second": [
+                    24307.1
+                  ],
+                  "measured_samples_nanoseconds": [
+                    21063800
+                  ]
+                },
+                {
+                  "phase": "generation",
+                  "tokens": 128,
+                  "mean_tokens_per_second": 547.390317,
+                  "mean_latency_nanoseconds": 233836800,
+                  "measured_samples_tokens_per_second": [
+                    547.39
+                  ],
+                  "measured_samples_nanoseconds": [
+                    233836800
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Single small Llama model and one llama.cpp build.",
+    "Each balanced run block has one measured repetition per model after warmup; intervals summarize order-balanced repeated blocks, not independent machines or runs across days.",
+    "No latency-to-first-token, model-loading-time, RAM, or VRAM claim is made from these throughput-only records.",
+    "No consistent throughput difference was resolved at these settings; this is not proof of equivalence."
+  ]
+}
