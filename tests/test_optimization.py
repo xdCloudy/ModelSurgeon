@@ -13,6 +13,7 @@ from modelsurgeon.config import (
     CalibrationConfig,
     ConstraintConfig,
     ModelConfig,
+    QuantizationConfig,
     RuntimeConfig,
     Settings,
 )
@@ -118,6 +119,39 @@ def test_gguf_plan_is_explicitly_unsupported() -> None:
         runtime=executable,
     )
     assert build_optimize_plan(configured).outcome is OptimizeOutcome.SUPPORTED
+
+
+def test_gguf_byte_budget_quantization_is_opt_in_and_format_scoped() -> None:
+    from modelsurgeon.adapters import ModelFamily, ModelFormat
+    from modelsurgeon.config import CalibrationConfig
+
+    runtime = RuntimeConfig(
+        llama_cli="llama-cli",
+        llama_perplexity="llama-perplexity",
+        llama_bench="llama-bench",
+        expected_revision="de8656bd9",
+    )
+    quantization = QuantizationConfig(method="gguf_byte_budget", target_file_bytes=100_000_000)
+    gguf_settings = Settings(
+        model=ModelConfig(
+            path="models/model.gguf",
+            revision="sha",
+            format=ModelFormat.GGUF,
+            family=ModelFamily.LLAMA,
+        ),
+        calibration=CalibrationConfig(dataset="calibration.txt", dataset_revision="dataset-v1"),
+        runtime=runtime,
+        quantization=quantization,
+    )
+    assert build_optimize_plan(gguf_settings).outcome is OptimizeOutcome.SUPPORTED
+
+    hf_settings = Settings(
+        model=ModelConfig(path="models/model", revision="sha"),
+        quantization=quantization,
+    )
+    plan = build_optimize_plan(hf_settings)
+    assert plan.outcome is OptimizeOutcome.UNSUPPORTED
+    assert any("requires a GGUF model" in reason for reason in plan.uncertainties)
 
 
 def test_plan_artifact_is_not_overwritten_by_default(tmp_path: Path) -> None:
