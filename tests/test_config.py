@@ -94,6 +94,8 @@ def test_repair_config_is_explicit_and_canonical() -> None:
     assert RepairConfig(method="distillation").method == "distillation"
     validation = RepairConfig(method="distillation", validation_dataset=Path("heldout.txt"))
     assert validation.validation_dataset == Path("heldout.txt")
+    assert validation.max_trainable_parameters == 10_000_000
+    assert RepairConfig(method="lora", max_trainable_parameters=64).max_trainable_parameters == 64
     with pytest.raises(ValidationError, match="requires method=distillation"):
         RepairConfig(method="lora", validation_dataset=Path("heldout.txt"))
     with pytest.raises(ValidationError, match="sorted, unique"):

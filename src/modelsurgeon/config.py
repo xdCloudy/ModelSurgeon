@@ -258,6 +258,7 @@ class RepairConfig(StrictConfigModel):
     validation_dataset: Path | None = None
     target_modules: tuple[str, ...] = ()
     max_steps: int | None = Field(default=None, gt=0)
+    max_trainable_parameters: int = Field(default=10_000_000, gt=0)
     rank: int = Field(default=4, ge=1, le=64)
     alpha: float = Field(default=8.0, gt=0.0)
     dropout: float = Field(default=0.0, ge=0.0, lt=1.0)

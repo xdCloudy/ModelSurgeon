@@ -17,7 +17,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-LORA_REPAIR_SCHEMA_VERSION = 1
+LORA_REPAIR_SCHEMA_VERSION = 2
 
 
 class LoRARepairError(RuntimeError):
@@ -36,12 +36,20 @@ class LoRARepairConfig:
     dropout: float = 0.0
     learning_rate: float = 1e-3
     max_steps: int = 16
+    max_trainable_parameters: int = 10_000_000
     seed: int = 0
     output_mode: LoRAOutputMode = LoRAOutputMode.SEPARATE
 
     def __post_init__(self) -> None:
-        if not 1 <= self.rank <= 64 or not 1 <= self.max_steps <= 10_000 or self.seed < 0:
-            raise LoRARepairError("LoRA rank/steps must be bounded and seed non-negative")
+        if (
+            not 1 <= self.rank <= 64
+            or not 1 <= self.max_steps <= 10_000
+            or self.max_trainable_parameters <= 0
+            or self.seed < 0
+        ):
+            raise LoRARepairError(
+                "LoRA rank, steps, and trainable-parameter budget must be bounded"
+            )
         if (
             not math.isfinite(self.alpha)
             or self.alpha <= 0
@@ -60,6 +68,7 @@ class LoRARepairConfig:
             "dropout": self.dropout,
             "learning_rate": self.learning_rate,
             "max_steps": self.max_steps,
+            "max_trainable_parameters": self.max_trainable_parameters,
             "seed": self.seed,
             "output_mode": self.output_mode.value,
         }
@@ -87,6 +96,7 @@ class LoRARepairResult:
     candidate_checkpoint_id: str
     target_modules: tuple[str, ...]
     trainable_parameters: int
+    max_trainable_parameters: int
     completed_steps: int
     seed: int
     output_mode: LoRAOutputMode
@@ -101,6 +111,7 @@ class LoRARepairResult:
             "candidate_checkpoint_id": self.candidate_checkpoint_id,
             "target_modules": list(self.target_modules),
             "trainable_parameters": self.trainable_parameters,
+            "max_trainable_parameters": self.max_trainable_parameters,
             "completed_steps": self.completed_steps,
             "seed": self.seed,
             "output_mode": self.output_mode.value,
@@ -212,14 +223,21 @@ def run_bounded_lora_repair(
     if target_modules != tuple(sorted(set(target_modules))) or not target_modules:
         raise LoRARepairError("LoRA targets must be non-empty, unique, and canonical")
     torch = import_module("torch")
-    torch.manual_seed(config.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(config.seed)
-
     original_training = bool(model.training)
     original_requires_grad = {
         id(parameter): bool(parameter.requires_grad) for parameter in model.parameters()
     }
+    expected_trainable_parameters = 0
+    for name in target_modules:
+        _, _, base = _resolve_parent(model, name)
+        if not isinstance(base, torch.nn.Linear):
+            raise LoRARepairError("LoRA repair currently supports exact torch Linear targets")
+        expected_trainable_parameters += config.rank * (base.in_features + base.out_features)
+    if expected_trainable_parameters > config.max_trainable_parameters:
+        raise LoRARepairError("LoRA trainable-parameter budget exceeded")
+    torch.manual_seed(config.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(config.seed)
     replacements: list[tuple[Any, str, Any]] = []
     wrappers: list[tuple[str, Any]] = []
     completed = False
@@ -292,6 +310,7 @@ def run_bounded_lora_repair(
             candidate_checkpoint_id,
             target_modules,
             trainable_parameters,
+            config.max_trainable_parameters,
             len(losses),
             config.seed,
             config.output_mode,

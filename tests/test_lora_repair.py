@@ -62,6 +62,8 @@ def test_separate_lora_is_bounded_deterministic_and_preserves_base_weights() -> 
 
     assert result.completed_steps == 3
     assert result.trainable_parameters == 16
+    assert result.max_trainable_parameters == 10_000_000
+    assert result.to_record()["max_trainable_parameters"] == 10_000_000
     assert result.seed == 7
     assert result.adapter_sha256 == repeated.adapter_sha256
     assert torch.equal(first.proj.base.weight, base_weight)
@@ -96,3 +98,22 @@ def test_invalid_target_restores_model_before_failure() -> None:
             candidate_checkpoint_id="checkpoint_candidate",
         )
     assert model.proj is original
+
+
+def test_trainable_parameter_budget_rejects_before_wrapping_targets() -> None:
+    model = _TinyLM()
+    original = model.proj
+    config = LoRARepairConfig(rank=2, max_trainable_parameters=15)
+
+    with pytest.raises(LoRARepairError, match="parameter budget exceeded"):
+        run_bounded_lora_repair(
+            model,
+            EXAMPLES,
+            ("proj",),
+            config,
+            source_checkpoint_id="checkpoint_source",
+            candidate_checkpoint_id="checkpoint_candidate",
+        )
+
+    assert model.proj is original
+    assert model.proj.weight.requires_grad

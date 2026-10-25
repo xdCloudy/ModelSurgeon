@@ -1488,6 +1488,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     settings.get("learning_rate", 1e-3), "repair.learning_rate"
                 ),
                 max_steps=min(max_steps, self.plan.budget.repair_steps),
+                max_trainable_parameters=_integer(
+                    settings.get("max_trainable_parameters", 10_000_000),
+                    1,
+                    "repair.max_trainable_parameters",
+                ),
                 seed=seed,
                 output_mode=LoRAOutputMode.MERGED,
             )
@@ -1531,6 +1536,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     settings.get("learning_rate", 1e-3), "repair.learning_rate"
                 ),
                 max_steps=min(max_steps, self.plan.budget.repair_steps),
+                max_trainable_parameters=_integer(
+                    settings.get("max_trainable_parameters", 10_000_000),
+                    1,
+                    "repair.max_trainable_parameters",
+                ),
                 seed=seed,
             )
             distillation_result = run_distillation_repair(

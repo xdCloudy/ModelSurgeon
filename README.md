@@ -524,7 +524,8 @@ bounded first-party LoRA arm or `distillation` for teacher-logit repair. Distill
 checkpoints on a disjoint calibration chunk by default; `repair.validation_dataset` can instead
 provide a separate local UTF-8 text corpus (limited to 16 MiB and eight token chunks) for
 checkpoint selection. Exact token-example overlap with training is rejected. Its content digest
-and token-example digests are retained in repair evidence. Both
+and token-example digests are retained in repair evidence. Both repair methods enforce the
+configurable `repair.max_trainable_parameters` ceiling (default 10 million). Both
 use real calibration examples, resource telemetry, reload results, and a
 physical accept/reject decision. The default `repair.method: none` keeps
 no-repair as an explicit control. To request rank-bounded projection surgery,

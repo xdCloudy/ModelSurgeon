@@ -331,6 +331,7 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
             method="lora",
             target_modules=("model.layers.0.mlp.down_proj",),
             max_steps=1,
+            max_trainable_parameters=2_000,
         ),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
     )
@@ -353,6 +354,7 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
     assert detail["method"] == "lora"
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
+    assert detail["repair"]["max_trainable_parameters"] == 2_000
     assert detail["repair"]["resource_use"]["wall_seconds"] >= 0
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
@@ -411,6 +413,7 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
             validation_dataset=validation if external_validation else None,
             target_modules=("model.layers.0.mlp.down_proj",),
             max_steps=1,
+            max_trainable_parameters=2_000,
         ),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
     )
@@ -431,6 +434,7 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     detail = json.loads(repair.detail)
     assert detail["method"] == "distillation"
     assert detail["repair"]["evaluation_split"] == "validation"
+    assert detail["repair"]["config"]["max_trainable_parameters"] == 2_000
     assert detail["repair"]["evaluation_source"] == (
         "external_text" if external_validation else "calibration_holdout"
     )
