@@ -45,6 +45,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.3 kernel shape and offload microbenchmarks](v1.3-kernel-microbenchmarks-v1.json)
 - [v1.3 hardware-specific alignment rules](v1.3-alignment-rules-v1.json)
 - [v1.3 hardware cost training dataset](v1.3-hardware-cost-dataset-v1.json)
+- [v1.8 post-surgery LoRA WikiText smoke](v1.8-lora-post-surgery-smoke.md)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
