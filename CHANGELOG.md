@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Meta-Surgeon candidate ordering now follows the metric direction recorded in
+    the verified bundle's target schema. Unknown or malformed target directions
+    make optional guidance abstain instead of silently assuming minimization.
+
   - Make optional Meta-Surgeon guidance respect signed mutation, compatibility,
     hardware, codec, and minimum-support-coverage declarations; verify declared
     feature names against the loaded bundle; and include live target hardware

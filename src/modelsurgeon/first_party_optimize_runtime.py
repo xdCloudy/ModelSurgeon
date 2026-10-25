@@ -193,6 +193,27 @@ def _hf_dtype(value: object) -> HuggingFaceDType:
     }.get(str(value), HuggingFaceDType.AUTO)
 
 
+def _meta_target_direction(
+    target_name: str, target_schema: Mapping[str, object]
+) -> str | None:
+    if target_name == "safe_mutation":
+        return "higher_is_better"
+    raw_metrics = target_schema.get("metrics")
+    if not isinstance(raw_metrics, list):
+        return None
+    matches = [
+        item
+        for item in raw_metrics
+        if isinstance(item, Mapping) and item.get("name") == target_name
+    ]
+    if len(matches) != 1:
+        return None
+    direction = matches[0].get("direction")
+    if direction not in {"higher_is_better", "lower_is_better"}:
+        return None
+    return str(direction)
+
+
 def _integer(value: object, default: int, label: str) -> int:
     selected = default if value is None else value
     if not isinstance(selected, int) or isinstance(selected, bool):
@@ -592,6 +613,23 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 f"Meta-Surgeon bundle could not be verified or loaded: {error}"
             ) from error
 
+        target_direction = _meta_target_direction(
+            bundle.card.target_name,
+            bundle.target_schema,
+        )
+        if target_direction is None:
+            self.meta_guidance = {
+                "status": "unsupported_target_direction",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target": bundle.card.target_name,
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the verified bundle does not declare a recognized direction for its target"
+                ),
+            }
+            return ()
+
         supported_mutations = set(card.supported_mutations)
         unsupported_candidates = tuple(
             candidate
@@ -937,7 +975,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 return ()
             predictions[candidate.candidate_id] = numeric_prediction
 
-        higher_is_better = bundle.card.target_name in {"behavior", "safe_mutation"}
+        higher_is_better = target_direction == "higher_is_better"
         ordered = tuple(
             candidate_id
             for candidate_id, _ in sorted(
