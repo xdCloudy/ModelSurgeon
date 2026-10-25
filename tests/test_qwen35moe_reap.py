@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+from importlib import import_module
 from types import SimpleNamespace
 
 import pytest
 
 from modelsurgeon.adapters.huggingface import Qwen35MoeReapError, Qwen35MoeReapObserver
 
-torch = pytest.importorskip("torch")
+try:
+    torch = import_module("torch")
+except ModuleNotFoundError as exc:
+    if exc.name == "torch":
+        pytest.skip(
+            "Qwen3.5 REAP tests require the optional PyTorch dependency", allow_module_level=True
+        )
+    raise
+
+
+def _qwen35_module():
+    module_name = "transformers.models.qwen3_5_moe.modeling_qwen3_5_moe"
+    try:
+        return import_module(module_name)
+    except ModuleNotFoundError as exc:
+        if exc.name in {"transformers", "transformers.models.qwen3_5_moe"}:
+            pytest.skip("Qwen3.5 REAP tests require Transformers with Qwen3.5 support")
+        raise
 
 
 class TinyExperts(torch.nn.Module):
@@ -115,7 +133,7 @@ def test_forward_hooks_observe_and_close_removes_hooks() -> None:
 
 
 def test_real_transformers_qwen35_fused_expert_contract() -> None:
-    qwen_module = pytest.importorskip("transformers.models.qwen3_5_moe.modeling_qwen3_5_moe")
+    qwen_module = _qwen35_module()
     torch.manual_seed(20261026)
     module = qwen_module.Qwen3_5MoeExperts(
         SimpleNamespace(
@@ -153,7 +171,7 @@ def test_real_transformers_qwen35_fused_expert_contract() -> None:
 
 
 def test_qwen35_router_passes_final_renormalized_top_k_weights() -> None:
-    qwen_module = pytest.importorskip("transformers.models.qwen3_5_moe.modeling_qwen3_5_moe")
+    qwen_module = _qwen35_module()
     torch.manual_seed(20261027)
     config = SimpleNamespace(
         num_experts=4,
@@ -171,9 +189,7 @@ def test_qwen35_router_passes_final_renormalized_top_k_weights() -> None:
     hidden_states = torch.randn(7, 3)
     _, top_k_weights, top_k_index = router(hidden_states)
 
-    assert torch.allclose(
-        top_k_weights.sum(dim=-1), torch.ones(hidden_states.shape[0]), atol=1e-6
-    )
+    assert torch.allclose(top_k_weights.sum(dim=-1), torch.ones(hidden_states.shape[0]), atol=1e-6)
     expected_scores, expected_counts = dense_reference(
         experts,
         hidden_states,
