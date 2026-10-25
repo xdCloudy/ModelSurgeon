@@ -502,6 +502,55 @@ def test_first_party_runtime_executes_real_attention_and_layer_scopes(
     assert surgery.artifact_digest is not None
 
 
+def test_shortgpt_layer_ranking_spends_budget_on_lowest_influence_layer(
+    tmp_path: Path,
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        search=SearchConfig(
+            scopes=("transformer_layer",),
+            layer_ranking="shortgpt_block_influence",
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=1),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    active = run.stages[4].result
+    assert active is not None
+    detail = json.loads(active.detail)
+    selection = detail["search_comparison"]["candidate_selection"]
+    ranked_layers = sorted(
+        selection["ranked_layers"],
+        key=lambda item: (item["block_influence"], item["layer_index"]),
+    )
+    assert selection["method"] == "shortgpt_block_influence"
+    assert selection["scored_layer_count"] == 2
+    assert len(selection["evaluated_candidate_ids"]) == 1
+    assert detail["candidate_id"] == selection["evaluated_candidate_ids"][0]
+    assert detail["candidate_scope"] == "layer"
+    assert ranked_layers[0]["token_count"] > 0
+
+
 def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) -> None:
     model_path = tmp_path / "model"
     model_path.mkdir()

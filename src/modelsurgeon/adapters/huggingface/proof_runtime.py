@@ -19,6 +19,10 @@ from types import TracebackType
 from typing import Any, Self, cast
 
 from modelsurgeon.adapters import ArchitectureEvidence, detect_model_family
+from modelsurgeon.adapters.huggingface.block_influence import (
+    BlockInfluenceScore,
+    measure_huggingface_block_influence,
+)
 from modelsurgeon.adapters.huggingface.discovery import discover_huggingface_components
 from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceDependencyError,
@@ -694,6 +698,7 @@ class HuggingFaceMLPProofRuntime:
         self._run_id = derive_run_identity(identity.experiment_id, "hf-mlp-channel-proof").run_id
         self._hardware = collect_hardware_inventory(config.calibration_text.parent)
         self._input_device = self._resolve_input_device()
+        self._block_influence_scores: tuple[BlockInfluenceScore, ...] | None = None
         self._baseline: _PerplexityMeasurement | None = None
         self._activation_stats: dict[int, _ActivationAccumulator] = {}
         self._weight_stats: dict[int, _LayerWeightStatistics] = {}
@@ -798,6 +803,16 @@ class HuggingFaceMLPProofRuntime:
             "model": self._model_target.to_record(),
             **self._task_quality_record(self.model),
         }
+
+    def block_influence_scores(self) -> tuple[BlockInfluenceScore, ...]:
+        """Return cached ShortGPT-style importance scores over calibration tokens."""
+        if self._block_influence_scores is None:
+            self._block_influence_scores = measure_huggingface_block_influence(
+                self.model,
+                self._chunks,
+                input_device=self._input_device,
+            )
+        return self._block_influence_scores
 
     def _task_quality_record(self, model: Any) -> dict[str, object]:
         if self._task_quality_dataset is None:

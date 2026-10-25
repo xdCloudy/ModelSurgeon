@@ -1,0 +1,323 @@
+{
+  "calibration": {
+    "sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57",
+    "split": "train",
+    "tokens": 2048,
+    "name": "wiki.train.raw.txt",
+    "bytes": 10940747
+  },
+  "candidates": {
+    "random": [
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 3.6927075273408665,
+        "parameter_delta": -3540096,
+        "perplexity": 40.153416386308926,
+        "perplexity_delta": 4.51657146713741,
+        "removed_layer": 14,
+        "seed": 11,
+        "token_count": 2032,
+        "wall_seconds": 39.55607749999035
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 5.709956522063007,
+        "parameter_delta": -3540096,
+        "perplexity": 301.8579438368174,
+        "perplexity_delta": 266.2210989176459,
+        "removed_layer": 29,
+        "seed": 23,
+        "token_count": 2032,
+        "wall_seconds": 39.771162299992284
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 6.947655324860821,
+        "parameter_delta": -3540096,
+        "perplexity": 1040.7067460651042,
+        "perplexity_delta": 1005.0699011459327,
+        "removed_layer": 11,
+        "seed": 47,
+        "token_count": 2032,
+        "wall_seconds": 50.44269969998277
+      }
+    ],
+    "shortgpt_block_influence": {
+      "artifact_reload": {
+        "disk_bytes": 265503956,
+        "finite_logits": true,
+        "parameter_count": 130974912,
+        "perplexity": 40.153416386308926,
+        "perplexity_delta": 4.51657146713741
+      },
+      "candidate_parameters": 130974912,
+      "mean_loss": 3.6927075273408665,
+      "parameter_delta": -3540096,
+      "perplexity": 40.153416386308926,
+      "perplexity_delta": 4.51657146713741,
+      "removed_layer": 14,
+      "token_count": 2032,
+      "wall_seconds": 48.273115499992855
+    },
+    "weight_magnitude": {
+      "candidate_parameters": 130974912,
+      "mean_loss": 11.515978715551181,
+      "parameter_delta": -3540096,
+      "perplexity": 100305.79164980377,
+      "perplexity_delta": 100270.1548048846,
+      "removed_layer": 0,
+      "token_count": 2032,
+      "wall_seconds": 48.40151820000028
+    }
+  },
+  "evaluation": {
+    "baseline": {
+      "mean_loss": 3.57338007228581,
+      "perplexity": 35.636844919171516,
+      "token_count": 2032,
+      "wall_seconds": 48.83087289999821
+    },
+    "sha256": "a1ac9f35d8d3014f89b8d5cb4cfd5e55516c0126b3a8de75447b7d3084fc5011",
+    "split": "test",
+    "tokens": 2032,
+    "name": "wiki.test.raw.txt",
+    "bytes": 1121800
+  },
+  "limitations": [
+    "One pinned model and one removed layer; cross-model generalization is untested.",
+    "Three predeclared random seeds give descriptive, not powered, uncertainty estimates.",
+    "CPU latency is environment-sensitive and is not evidence of acceleration.",
+    "Scores use WikiText-2 train tokens; quality uses its held-out test split."
+  ],
+  "model": {
+    "identifier": "HuggingFaceTB/SmolLM2-135M",
+    "parameters": 134515008,
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "source_disk_bytes": 272437465,
+    "weight_file_sha256": "80521b40281d6ce74e35c9282c22539e75aa0ac8578892b2a59955ef78d55da1"
+  },
+  "record_type": "shortgpt_depth_pruning_physical_comparison",
+  "schema_version": 1,
+  "selection": {
+    "metric": "mean(1 - cosine(block_input, block_output))",
+    "random_seeds": [
+      11,
+      23,
+      47
+    ],
+    "random_selected_layers": [
+      14,
+      29,
+      11
+    ],
+    "shortgpt_layer_order": [
+      {
+        "layer_index": 14,
+        "score": 0.019325116649270058,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 17,
+        "score": 0.019592974334955215,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 13,
+        "score": 0.02137966826558113,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 25,
+        "score": 0.021775897592306137,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 26,
+        "score": 0.022624220699071884,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 12,
+        "score": 0.023522788658738136,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 15,
+        "score": 0.0237572081387043,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 16,
+        "score": 0.023895515128970146,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 18,
+        "score": 0.03017468936741352,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 3,
+        "score": 0.031128814443945885,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 4,
+        "score": 0.031869638711214066,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 7,
+        "score": 0.03215343877673149,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 9,
+        "score": 0.032156892120838165,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 6,
+        "score": 0.03224600851535797,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 5,
+        "score": 0.034368835389614105,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 2,
+        "score": 0.03642389923334122,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 19,
+        "score": 0.03646283224225044,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 21,
+        "score": 0.03654281049966812,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 11,
+        "score": 0.03677967190742493,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 22,
+        "score": 0.03822889178991318,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 8,
+        "score": 0.0383969321846962,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 10,
+        "score": 0.03954760730266571,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 27,
+        "score": 0.04246347397565842,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 20,
+        "score": 0.04673122614622116,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 28,
+        "score": 0.04952901974320412,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 23,
+        "score": 0.05152878165245056,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 1,
+        "score": 0.16151104867458344,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 24,
+        "score": 0.1641853004693985,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 29,
+        "score": 0.2518841624259949,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 0,
+        "score": 0.9736746549606323,
+        "tokens": 2048
+      }
+    ],
+    "weight_magnitude_layer_order": [
+      0,
+      18,
+      17,
+      14,
+      15,
+      20,
+      19,
+      2,
+      5,
+      7,
+      8,
+      21,
+      16,
+      13,
+      4,
+      12,
+      3,
+      6,
+      29,
+      9,
+      22,
+      1,
+      11,
+      10,
+      23,
+      24,
+      27,
+      28,
+      26,
+      25
+    ]
+  },
+  "environment": {
+    "os": "Windows 11 Pro",
+    "cpu": "Intel Core i5-14600K",
+    "logical_processors": 20,
+    "system_ram_gib": 63.7,
+    "python": "3.12.14",
+    "torch": "2.14.1+cu130",
+    "transformers": "5.10.1",
+    "device": "CPU",
+    "torch_threads": 2
+  },
+  "source": {
+    "reported_git_head_at_run": "eaf4e177f4af7342c45342a96fce889b3bb6c3a5",
+    "raw_report_sha256": "1e36328aca69af45326335b0519330af467930552aabea2486a4c2a5c935a103",
+    "benchmark_command": "python tools/benchmark_shortgpt_depth.py --model HuggingFaceTB/SmolLM2-135M --revision 93efa2f097d58c2a74874c7e644dbc9b0cee75a2 --calibration-tokens 2048 --evaluation-tokens 2048 --sequence-length 128 --cpu-threads 2 --random-seeds 11 23 47"
+  },
+  "interpretation": {
+    "status": "exploratory_negative_quality_result",
+    "shortgpt_matches_random_seed_11": true,
+    "shortgpt_not_proven_superior_to_random": true,
+    "heldout_quality_retained": false,
+    "physical_artifact_reload_succeeded": true,
+    "inference_speed_claimed": false,
+    "scope": "One layer removed from one pinned model using 2048 WikiText-2 train tokens for ranking and the first 2048 test tokens for held-out perplexity."
+  }
+}

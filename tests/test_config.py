@@ -81,6 +81,11 @@ def test_search_scopes_are_non_empty_and_unique() -> None:
         SearchConfig(scopes=("attention_head", "attention_head"))
     with pytest.raises(ValidationError, match="non-empty"):
         SearchConfig(scopes=())
+    assert SearchConfig(
+        scopes=("transformer_layer",), layer_ranking="shortgpt_block_influence"
+    ).layer_ranking == "shortgpt_block_influence"
+    with pytest.raises(ValidationError, match="requires scopes"):
+        SearchConfig(layer_ranking="shortgpt_block_influence")
 
 
 def test_repair_config_is_explicit_and_canonical() -> None:

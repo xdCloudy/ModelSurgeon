@@ -235,6 +235,7 @@ class SearchConfig(StrictConfigModel):
     )
     max_surgery_steps: int | None = Field(default=None, gt=0)
     low_rank_rank: int = Field(default=4, ge=1, le=64)
+    layer_ranking: Literal["none", "shortgpt_block_influence"] = "none"
 
     @field_validator("scopes")
     @classmethod
@@ -249,6 +250,14 @@ class SearchConfig(StrictConfigModel):
         if not value or len(value) != len(set(value)):
             raise ValueError("search scopes must be non-empty and unique")
         return value
+
+    @model_validator(mode="after")
+    def validate_layer_ranking_scope(self) -> SearchConfig:
+        if self.layer_ranking != "none" and self.scopes != ("transformer_layer",):
+            raise ValueError(
+                "search.layer_ranking requires scopes=('transformer_layer',)"
+            )
+        return self
 
 
 class RepairConfig(StrictConfigModel):
