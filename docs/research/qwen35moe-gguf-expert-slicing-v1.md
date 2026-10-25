@@ -47,9 +47,64 @@ published to a separate destination.
 Both source and output loaded with local llama.cpp
 `0.7.0-dev`, commit `c7fc50941`, on CPU and generated a short continuation
 from the same prompt. This establishes reload compatibility for that exact
-artifact/runtime pair. It is not a quality benchmark: there was no suitable
-held-out corpus available locally, and the short generations cannot establish
-quality retention. No latency or throughput improvement is claimed.
+artifact/runtime pair. At that point, no suitable held-out corpus was cached
+locally, so no quality or latency claim was made.
+
+## Exploratory quality screen
+
+On 2026-10-25, the source and three physical candidates were scored on the first
+four 512-token chunks of the WikiText-2 raw test split using paired settings:
+llama.cpp `c7fc50941`, CPU-only, 12 threads, context/batch 512, microbatch 256,
+no warmup. The corpus came from the llama.cpp CI mirror's
+`wikitext-2-raw-v1.zip`; its SHA-256 was
+`ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11`, matching
+the published WikiText-2 archive checksum. The extracted test text SHA-256 was
+`173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08`. The
+dataset card identifies WikiText as CC BY-SA/GFDL; no corpus text is committed
+or redistributed here. See the
+[Salesforce WikiText dataset card](https://huggingface.co/datasets/Salesforce/wikitext)
+and [llama.cpp's test-corpus mirror](https://huggingface.co/datasets/ggml-org/ci).
+
+| Artifact | Experts retained (of 256, each block) | GGUF bytes | PPL ± reported uncertainty | Delta vs source | PPL retention (`source / candidate`) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Source | 256 | 21,713,462,496 | 4.9739 ± 0.36559 | — | 100% |
+| Router norm, 32 removed | 224 | 19,199,501,568 | 7.4661 ± 0.58849 | +2.4922 | 66.6% |
+| Seeded random (`20261025`), 32 removed | 224 | 19,199,501,568 | 6.4236 ± 0.49709 | +1.4497 | 77.4% |
+| Router norm, 8 removed | 248 | 21,084,972,288 | 5.3220 ± 0.39128 | +0.3481 | 93.5% |
+| Seeded random (`20261025`), 4 removed | 252 | 21,399,217,408 | 5.1149 ± 0.37713 | +0.1410 | 97.2% |
+| Router norm, 4 removed | 252 | 21,399,217,408 | 5.0868 ± 0.37537 | +0.1129 | 97.8% |
+
+This short screen puts all five settings below ModelSurgeon's 98% minimum
+point-estimate PPL-retention requirement. At 224 experts, router-norm ranking
+scored worse than the one seeded-random selection at equal compression. At 252
+experts, router-norm's 0.0281 lower PPL point estimate than random is much
+smaller than either reported uncertainty; it does not demonstrate a ranking
+advantage. The 252-expert outputs reduce disk size by 314,245,088 bytes
+(1.45%), so this potential benefit is modest. The reported uncertainty
+intervals for both 252-expert candidates overlap the source; this four-chunk
+screen cannot confirm or rule out a 98% retention result. Treat these as
+diagnostic measurements, not final acceptance decisions. WikiText is a
+general-language corpus, not a cyber-security task benchmark. Do not expose
+these rankings for autonomous selection based on this evidence. No speedup is
+claimed.
+
+The repository's `task-quality-code-exact-match-v1.jsonl` is also not an
+adequate substitute for a cyber-security benchmark: inspection shows only four
+generic Python function prompts, and existing acceptance evidence documents
+that this tiny set establishes neither broad coding ability nor security
+behavior. The next meaningful quality study should use a pinned,
+license-compatible cybersecurity benchmark with benign utility and safe-code
+measures, rather than treating the four-item exact-match fixture as validation.
+
+The source model SHA-256 is
+`ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1`. Candidate
+SHA-256 values, in table order after the source, are:
+
+- Router norm, 224 experts: `3c76db1ba5dd1f7ad3dc12fc41590a6da9519a27d79a74597adaf0e0635ec869`
+- Seeded random, 224 experts: `e66234dbda6333dbf485aba2bb185f30b971bdd2700198014c99506a5b72ae62`
+- Router norm, 248 experts: `6b2a0bd324c9d6ccf067d6982a020101df07fc3e070e48bde1afb742479ad898`
+- Seeded random, 252 experts: `17bbf662f37f0b454583c4847bb1adce3af1b1f45478697ec48b609de7a1042d`
+- Router norm, 252 experts: `06969df1ce0505ad2f7d506497c9f5f9731c3a3887d07351ccafbd3edd7d3fe3`
 
 ## Current integration boundary
 
