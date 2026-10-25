@@ -127,6 +127,23 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
         quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
     )
     runtime = build_first_party_optimize_runtime(plan)
+    proof = runtime._ensure_loaded()
+    initial_candidates = runtime._enumerate_for_proof(proof)
+    for candidate in initial_candidates:
+        runtime._prepare_candidate_features(proof, candidate)
+    grouped_candidate = initial_candidates[0]
+    channel = runtime._channel(grouped_candidate)
+    expected_group_l1 = sum(
+        float(proof._layer_weight_statistics(layer).values[channel, 0].item())
+        for layer in range(proof._discovery.shape.layers)
+    )
+    grouped_feature_values = {
+        item["name"]: item["value"]
+        for item in runtime.candidate_features[grouped_candidate.candidate_id]
+    }
+    assert grouped_feature_values["coupled_group_weight_l1_norm"] == pytest.approx(
+        expected_group_l1
+    )
     run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
         runtime,
         approvals=tuple(item.code for item in plan.approvals if item.required),
