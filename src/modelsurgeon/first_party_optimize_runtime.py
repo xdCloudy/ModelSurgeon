@@ -1217,11 +1217,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         root = _mapping(self.plan.resolved_config, "resolved configuration")
         return _mapping(root.get("quantization", {}), "quantization")
 
-    def _repair_examples(self) -> tuple[dict[str, Any], ...]:
+    def _repair_examples(self, *, exclude_validation: bool = False) -> tuple[dict[str, Any], ...]:
         proof = self._ensure_loaded()
+        if exclude_validation and len(proof._chunks) < 2:
+            raise FirstPartyOptimizeRuntimeError(
+                "distillation requires at least two calibration chunks for held-out selection"
+            )
         torch = proof._torch
         examples: list[dict[str, Any]] = []
-        for chunk in proof._chunks[: min(len(proof._chunks), 8)]:
+        available = proof._chunks[:-1] if exclude_validation else proof._chunks
+        for chunk in available[:8]:
             input_ids = torch.tensor((chunk,), dtype=torch.long)
             examples.append(
                 {
@@ -1235,6 +1240,22 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "repair calibration examples are unavailable"
             )
         return tuple(examples)
+
+    def _repair_validation_examples(self) -> tuple[dict[str, Any], ...]:
+        proof = self._ensure_loaded()
+        if len(proof._chunks) < 2:
+            raise FirstPartyOptimizeRuntimeError(
+                "distillation requires at least two calibration chunks for held-out selection"
+            )
+        torch = proof._torch
+        input_ids = torch.tensor((proof._chunks[-1],), dtype=torch.long)
+        return (
+            {
+                "input_ids": input_ids,
+                "attention_mask": torch.ones_like(input_ids),
+                "labels": input_ids.clone(),
+            },
+        )
 
     def _repair_targets(self, model: Any) -> tuple[str, ...]:
         configured = self._repair_settings().get("target_modules", ())
@@ -1375,7 +1396,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             else _integer(max_steps_value, 1, "repair.max_steps")
         )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
-        examples = self._repair_examples()
+        examples = self._repair_examples(exclude_validation=method == "distillation")
         if method == "lora":
             lora_config = LoRARepairConfig(
                 rank=_integer(settings.get("rank"), 4, "repair.rank"),
@@ -1412,6 +1433,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "distillation targets expose no trainable weight or bias parameters",
                 )
             tokenizer_signature = TokenizerSignature.from_tokenizer(proof._tokenizer)
+            validation_examples = self._repair_validation_examples()
             # Distillation must recover the immutable source behavior. Using
             # the surgically modified parent here would make the student match
             # its own damaged logits and the default KL-only objective could
@@ -1436,6 +1458,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
                 candidate_parent_checkpoint_id=self._checkpoint_id(self.artifact_digest),
                 teacher_model=teacher_model,
+                validation_examples=validation_examples,
             )
             repair_record = distillation_result.to_record()
         repaired_measurement = proof.measure_model(

@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
-from typing import Any
+from typing import Any, cast
 
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
@@ -18,7 +18,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-DISTILLATION_REPAIR_SCHEMA_VERSION = 1
+DISTILLATION_REPAIR_SCHEMA_VERSION = 2
 
 
 class DistillationRepairError(RuntimeError):
@@ -200,6 +200,7 @@ class DistillationRepairResult:
     output_checkpoint_id: str | None
     teacher_source: TeacherLogitSource
     teacher_logits_sha256: str
+    evaluation_split: str
     tokenizer_signature: TokenizerSignature
     trainable_parameters: int
     completed_steps: int
@@ -219,6 +220,7 @@ class DistillationRepairResult:
             "output_checkpoint_id": self.output_checkpoint_id,
             "teacher_source": self.teacher_source.value,
             "teacher_logits_sha256": self.teacher_logits_sha256,
+            "evaluation_split": self.evaluation_split,
             "tokenizer_signature": self.tokenizer_signature.to_record(),
             "trainable_parameters": self.trainable_parameters,
             "completed_steps": self.completed_steps,
@@ -274,6 +276,7 @@ def _capture_teacher_logits(
     *,
     teacher_model: Any | None,
     baseline_logits: tuple[Any, ...] | None,
+    max_bytes: int | None = None,
 ) -> tuple[TeacherLogitSource, tuple[Any, ...], int]:
     if (teacher_model is None) == (baseline_logits is None):
         raise DistillationRepairError("provide exactly one teacher model or baseline-logit set")
@@ -313,7 +316,8 @@ def _capture_teacher_logits(
         if not bool(torch.isfinite(logits).all().item()):
             raise DistillationRepairError("teacher logits must be finite")
         total_bytes += int(logits.numel() * logits.element_size())
-        if total_bytes > config.max_teacher_logit_bytes:
+        byte_limit = config.max_teacher_logit_bytes if max_bytes is None else max_bytes
+        if total_bytes > byte_limit:
             raise DistillationRepairError("teacher-logit byte budget exceeded")
     return source, tuple(captured), total_bytes
 
@@ -393,8 +397,10 @@ def run_distillation_repair(
     candidate_parent_checkpoint_id: str,
     teacher_model: Any | None = None,
     baseline_logits: tuple[Any, ...] | None = None,
+    validation_examples: tuple[dict[str, Any], ...] | None = None,
+    baseline_validation_logits: tuple[Any, ...] | None = None,
 ) -> DistillationRepairResult:
-    """Repair selected candidate parameters toward immutable teacher logits."""
+    """Repair selected candidate parameters and select weights on held-out teacher logits."""
 
     if teacher_tokenizer != candidate_tokenizer:
         raise DistillationRepairError("teacher and candidate tokenizers are incompatible")
@@ -406,6 +412,20 @@ def run_distillation_repair(
         raise DistillationRepairError("candidate parent must not alias the immutable source")
     if not examples:
         raise DistillationRepairError("distillation requires a non-empty example set")
+    if validation_examples is not None and not validation_examples:
+        raise DistillationRepairError("validation examples must be non-empty when supplied")
+    if validation_examples is None and baseline_validation_logits is not None:
+        raise DistillationRepairError("validation logits require validation examples")
+    if validation_examples is not None:
+        def example_key(example: dict[str, Any]) -> bytes:
+            input_ids = example.get("input_ids")
+            if input_ids is None or not hasattr(input_ids, "detach"):
+                raise DistillationRepairError("distillation examples require tensor input_ids")
+            return cast(bytes, input_ids.detach().cpu().contiguous().numpy().tobytes())
+
+        training_keys = {example_key(example) for example in examples}
+        if any(example_key(example) in training_keys for example in validation_examples):
+            raise DistillationRepairError("training and validation examples must be disjoint")
     if teacher_model is candidate_model:
         raise DistillationRepairError("teacher and candidate models must be distinct")
     torch = import_module("torch")
@@ -429,15 +449,36 @@ def run_distillation_repair(
         teacher_model=teacher_model,
         baseline_logits=baseline_logits,
     )
+    evaluation_examples = examples if validation_examples is None else validation_examples
+    if validation_examples is None:
+        evaluation_logits = immutable_logits
+    else:
+        remaining_logit_budget = config.max_teacher_logit_bytes - teacher_logit_bytes
+        if remaining_logit_budget <= 0:
+            raise DistillationRepairError("teacher-logit byte budget exceeded")
+        validation_source, evaluation_logits, validation_logit_bytes = _capture_teacher_logits(
+            torch,
+            validation_examples,
+            config,
+            teacher_tokenizer,
+            teacher_model=teacher_model,
+            baseline_logits=baseline_validation_logits,
+            max_bytes=remaining_logit_budget,
+        )
+        if validation_source is not teacher_source:
+            raise DistillationRepairError("training and validation teacher sources differ")
+        teacher_logit_bytes += validation_logit_bytes
     teacher_capture_seconds = time.perf_counter() - teacher_started
-    teacher_logits_sha256 = _logit_digest(immutable_logits)
+    teacher_logits_sha256 = _logit_digest(immutable_logits + evaluation_logits)
     device = next(candidate_model.parameters()).device
-    baseline_loss = _evaluate(torch, candidate_model, examples, immutable_logits, config, device)
+    baseline_loss = _evaluate(
+        torch, candidate_model, evaluation_examples, evaluation_logits, config, device
+    )
     token_rows = sum(
         int(example["attention_mask"].sum().item())
         if "attention_mask" in example
         else int(example["input_ids"].numel())
-        for example in examples
+        for example in examples + (() if evaluation_examples is examples else evaluation_examples)
     )
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
@@ -486,7 +527,7 @@ def run_distillation_repair(
             optimizer.step()
             training_losses.append(float(loss.detach().item()))
             evaluated = _evaluate(
-                torch, candidate_model, examples, immutable_logits, config, device
+                torch, candidate_model, evaluation_examples, evaluation_logits, config, device
             )
             evaluation_losses.append(evaluated)
             if evaluated < best_loss:
@@ -550,21 +591,22 @@ def run_distillation_repair(
         state = result_box[0]
         report = report_box[0]
         result = DistillationRepairResult(
-            state.status,
-            source_checkpoint_id,
-            candidate_parent_checkpoint_id,
-            state.output_checkpoint_id,
-            teacher_source,
-            teacher_logits_sha256,
-            candidate_tokenizer,
-            trainable_parameters,
-            len(state.training_losses),
-            baseline_loss,
-            state.repaired_loss,
-            state.training_losses,
-            state.evaluation_losses,
-            config,
-            DistillationResourceUse(
+            status=state.status,
+            source_checkpoint_id=source_checkpoint_id,
+            candidate_parent_checkpoint_id=candidate_parent_checkpoint_id,
+            output_checkpoint_id=state.output_checkpoint_id,
+            teacher_source=teacher_source,
+            teacher_logits_sha256=teacher_logits_sha256,
+            evaluation_split="validation" if validation_examples is not None else "training",
+            tokenizer_signature=candidate_tokenizer,
+            trainable_parameters=trainable_parameters,
+            completed_steps=len(state.training_losses),
+            baseline_loss=baseline_loss,
+            repaired_loss=state.repaired_loss,
+            training_losses=state.training_losses,
+            evaluation_losses=state.evaluation_losses,
+            config=config,
+            resource_use=DistillationResourceUse(
                 time.perf_counter() - started,
                 teacher_capture_seconds,
                 training_seconds,

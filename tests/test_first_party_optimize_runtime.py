@@ -382,6 +382,12 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
         teacher_observation["differs_from_damaged_candidate"] = not torch.equal(
             candidate_parameters[target], teacher_parameters[target]
         )
+        validation_examples = kwargs["validation_examples"]
+        teacher_observation["has_disjoint_validation"] = all(
+            not torch.equal(train["input_ids"], validation["input_ids"])
+            for train in examples
+            for validation in validation_examples
+        )
         return original_distillation(candidate_model, examples, config, **kwargs)
 
     monkeypatch.setattr(runtime_module, "run_distillation_repair", observe_teacher)
@@ -419,6 +425,8 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     assert repair is not None
     detail = json.loads(repair.detail)
     assert detail["method"] == "distillation"
+    assert detail["repair"]["evaluation_split"] == "validation"
+    assert teacher_observation["has_disjoint_validation"]
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
     assert detail["repair"]["teacher_source"] == "teacher_inference"
