@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import math
 import random
 from pathlib import Path
 
@@ -363,6 +364,97 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
             by_type[GGMLQuantizationType.Q5_K].mean_squared_error
             < by_type[GGMLQuantizationType.Q4_K].mean_squared_error
         )
+
+        activation_moments = tuple(float(index + 1) for index in range(256))
+        activation_weighted = estimate_tensor_quantization_losses(
+            reader,
+            reader.index.tensor("tensor.weight"),
+            (GGMLQuantizationType.Q4_K, GGMLQuantizationType.Q5_K),
+            _estimator_codecs(),
+            byte_order=ByteOrder.LITTLE,
+            input_activation_second_moments=activation_moments,
+            input_axis=0,
+            max_working_bytes=32 * 1024,
+        )
+        weighted_by_type = {estimate.quant_type: estimate for estimate in activation_weighted}
+        assert all(
+            estimate.activation_weighted_mean_squared_error is not None
+            for estimate in activation_weighted
+        )
+        assert (
+            weighted_by_type[GGMLQuantizationType.Q8_0]
+            .activation_weighted_mean_squared_error
+            == 0
+        )
+        source_values: list[float] = []
+        source_handle = reader.index.tensor("tensor.weight")
+        source_chunk = reader.read_blocks(source_handle, 0, source_handle.block_count)
+        Q8_0_CODEC.decode_blocks(
+            memoryview(source_chunk.data), source_values, byte_order=ByteOrder.LITTLE
+        )
+        q4_encoded = bytearray(Q4_K_CODEC.layout.encoded_size(len(source_values)))
+        Q4_K_CODEC.encode_blocks(
+            source_values, memoryview(q4_encoded), byte_order=ByteOrder.LITTLE
+        )
+        q4_reconstructed: list[float] = []
+        Q4_K_CODEC.decode_blocks(
+            memoryview(q4_encoded), q4_reconstructed, byte_order=ByteOrder.LITTLE
+        )
+        expected_weighted_mse = math.fsum(
+            (source - reconstructed) ** 2 * activation_moments[index % 256]
+            for index, (source, reconstructed) in enumerate(
+                zip(source_values, q4_reconstructed, strict=True)
+            )
+        ) / len(source_values)
+        q4_weighted = weighted_by_type[GGMLQuantizationType.Q4_K]
+        assert q4_weighted.activation_weighted_mean_squared_error == pytest.approx(
+            expected_weighted_mse
+        )
+        assert q4_weighted.to_alternative(activation_weighted=True).estimated_loss == pytest.approx(
+            expected_weighted_mse * len(source_values)
+        )
+        axis1_moments = (0.5, 2.0)
+        axis1_estimates = estimate_tensor_quantization_losses(
+            reader,
+            source_handle,
+            (GGMLQuantizationType.Q4_K,),
+            _estimator_codecs(),
+            byte_order=ByteOrder.LITTLE,
+            input_activation_second_moments=axis1_moments,
+            input_axis=1,
+            max_working_bytes=32 * 1024,
+        )
+        expected_axis1_mse = math.fsum(
+            (source - reconstructed) ** 2 * axis1_moments[(index // 256) % 2]
+            for index, (source, reconstructed) in enumerate(
+                zip(source_values, q4_reconstructed, strict=True)
+            )
+        ) / len(source_values)
+        assert axis1_estimates[0].activation_weighted_mean_squared_error == pytest.approx(
+            expected_axis1_mse
+        )
+        with pytest.raises(GGUFQuantizationBudgetError, match="activation-weighted loss"):
+            by_type[GGMLQuantizationType.Q4_K].to_alternative(activation_weighted=True)
+        with pytest.raises(GGUFQuantizationBudgetError, match="match the declared"):
+            estimate_tensor_quantization_losses(
+                reader,
+                source_handle,
+                (GGMLQuantizationType.Q4_K,),
+                _estimator_codecs(),
+                byte_order=ByteOrder.LITTLE,
+                input_activation_second_moments=(1.0, 2.0),
+                input_axis=0,
+            )
+        with pytest.raises(GGUFQuantizationBudgetError, match="positive finite sum"):
+            estimate_tensor_quantization_losses(
+                reader,
+                source_handle,
+                (GGMLQuantizationType.Q4_K,),
+                _estimator_codecs(),
+                byte_order=ByteOrder.LITTLE,
+                input_activation_second_moments=(0.0,) * 256,
+                input_axis=0,
+            )
 
         alternatives = {
             "tensor.weight": tuple(

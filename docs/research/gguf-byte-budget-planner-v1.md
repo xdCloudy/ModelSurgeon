@@ -19,6 +19,16 @@ scores while retaining each source codec as a zero-loss, no-rewrite option.
 Unavailable codecs, infeasible budgets, invalid estimates, and search
 frontiers beyond configured limits are rejected.
 
+For a declared input axis on a 2D weight tensor, the estimator can also accept
+per-input-feature activation second moments. It then scores reconstruction
+error as `sum((W - Wq)^2 * E[x^2])`, the expected squared layer-output error
+under a diagonal activation-covariance approximation. Raw moments are retained
+so the planner can compare contributions across tensors. This is inspired by
+WANDA's use of calibration activation norms with weight magnitudes; it is a
+separate quantization-error objective and does not copy WANDA's pruning code.
+The caller is responsible for collecting moments from representative,
+revision-pinned calibration data and choosing the correct GGUF input axis.
+
 `execute_gguf_quantization_plan` streams the selected plan through the existing
 transactional GGUF writer. Changed tensors are decoded and re-encoded in
 bounded chunks; unchanged tensor payloads are copied byte-for-byte. The writer
@@ -34,6 +44,15 @@ The upstream repository declares Apache-2.0. No upstream source code is copied
 and no dependency is added. RCO optimizes discretized average-bit costs; this
 planner accounts for exact GGUF encoded bytes and alignment.
 
+The activation-weighted error option is independently implemented from the
+expected linear-layer output-error expression. Its research basis includes
+WANDA's activation-aware importance method, inspected at
+[locuslab/wanda `8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6`](https://github.com/locuslab/wanda/tree/8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6/lib/prune.py).
+That repository declares MIT; no WANDA source is copied and no dependency is
+added. Its score scales weight magnitude by input activation norm for pruning;
+this estimator instead weights squared quantization reconstruction error by
+per-feature activation second moments.
+
 ## Evidence and limits
 
 Tests compare assignments against exhaustive search for hand-checked and 40
@@ -44,7 +63,8 @@ planner. A selected plan is then written to a candidate GGUF, reparsed, and
 checked for output types, source preservation, and byte-identical copying of an
 untouched tensor. These tests validate local codec behavior and physical file
 construction on a tiny fixture. They do not establish that tensor-local MSE
-predicts model quality, or validate a full-model runtime reload, perplexity,
-task quality, or deployment performance. The estimator and planner are not yet
-connected to the optimization orchestrator; full-model runtime and held-out
-quality/performance evaluation remain necessary before promotion.
+or the diagonal activation-weighted proxy predicts model quality, or validate a
+full-model runtime reload, perplexity, task quality, or deployment performance.
+The estimator and planner are not yet connected to the optimization
+orchestrator; full-model runtime and held-out quality/performance evaluation
+remain necessary before promotion.

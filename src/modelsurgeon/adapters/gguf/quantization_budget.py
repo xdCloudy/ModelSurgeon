@@ -92,6 +92,7 @@ class GGUFQuantizationLossEstimate:
     mean_squared_error: float
     max_absolute_error: float
     estimated_peak_working_bytes: int
+    activation_weighted_mean_squared_error: float | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -105,15 +106,31 @@ class GGUFQuantizationLossEstimate:
                     self.max_absolute_error,
                 )
             )
+            or (
+                self.activation_weighted_mean_squared_error is not None
+                and (
+                    not math.isfinite(self.activation_weighted_mean_squared_error)
+                    or self.activation_weighted_mean_squared_error < 0
+                )
+            )
         ):
             raise GGUFQuantizationBudgetError(
                 "codec loss estimates must be finite and non-negative"
             )
 
-    def to_alternative(self) -> GGUFQuantizationAlternative:
-        """Convert tensor MSE to summed squared error for global additive ranking."""
+    def to_alternative(
+        self, *, activation_weighted: bool = False
+    ) -> GGUFQuantizationAlternative:
+        """Convert a per-element MSE proxy to summed loss for additive ranking."""
+        loss = self.mean_squared_error
+        if activation_weighted:
+            if self.activation_weighted_mean_squared_error is None:
+                raise GGUFQuantizationBudgetError(
+                    "activation-weighted loss was not requested for this estimate"
+                )
+            loss = self.activation_weighted_mean_squared_error
         return GGUFQuantizationAlternative(
-            self.quant_type, self.mean_squared_error * self.sample_count
+            self.quant_type, loss * self.sample_count
         )
 
 
@@ -143,6 +160,8 @@ def estimate_tensor_quantization_losses(
     codecs: CodecRegistry,
     *,
     byte_order: ByteOrder,
+    input_activation_second_moments: Sequence[float] | None = None,
+    input_axis: int | None = None,
     max_working_bytes: int = 16 * 1024 * 1024,
 ) -> tuple[GGUFQuantizationLossEstimate, ...]:
     """Measure bounded codec round-trip errors for one encoded GGUF tensor.
@@ -151,6 +170,10 @@ def estimate_tensor_quantization_losses(
     of the source tensor. The source quantization error relative to original
     full-precision weights is unknown, and these local errors are not estimates
     of language-model quality. The output MSE is an optional planner proxy.
+    When input activation second moments and a matrix input axis are supplied,
+    the estimator also reports output-error MSE under a diagonal activation
+    covariance approximation. Raw second moments retain scale differences
+    between layers for additive planner costs.
     """
     if (
         isinstance(max_working_bytes, bool)
@@ -161,6 +184,42 @@ def estimate_tensor_quantization_losses(
 
     descriptor = reader.descriptor(handle)
     source_codec = codecs.resolve(handle.quant_type)
+    activation_moments: Sequence[float] | None = None
+    if (input_activation_second_moments is None) != (input_axis is None):
+        raise GGUFQuantizationBudgetError(
+            "activation moments and input axis must be supplied together"
+        )
+    if input_activation_second_moments is not None:
+        if (
+            len(descriptor.dimensions) != 2
+            or isinstance(input_axis, bool)
+            or input_axis not in (0, 1)
+        ):
+            raise GGUFQuantizationBudgetError(
+                "activation-weighted estimates require a 2D tensor and input axis 0 or 1"
+            )
+        assert input_axis is not None
+        expected_moments = descriptor.dimensions[input_axis]
+        if len(input_activation_second_moments) != expected_moments:
+            raise GGUFQuantizationBudgetError(
+                "activation second-moment count must match the declared tensor input axis"
+            )
+        try:
+            activation_sum = math.fsum(
+                _activation_second_moment(value, index)
+                for index, value in enumerate(input_activation_second_moments)
+            )
+        except (OverflowError, TypeError, ValueError) as error:
+            raise GGUFQuantizationBudgetError(
+                "activation second moments must be finite non-negative numbers"
+            ) from error
+        if not math.isfinite(activation_sum) or activation_sum <= 0:
+            raise GGUFQuantizationBudgetError(
+                "activation second moments must have a positive finite sum"
+            )
+        activation_moments = input_activation_second_moments
+    elif input_axis is not None:
+        raise GGUFQuantizationBudgetError("input axis requires activation second moments")
     requested: tuple[GGMLQuantizationType, ...]
     if not candidate_types:
         requested = (handle.quant_type,)
@@ -217,7 +276,23 @@ def estimate_tensor_quantization_losses(
     squared_error: dict[GGMLQuantizationType, float] = dict.fromkeys(quant_types, 0.0)
     absolute_error: dict[GGMLQuantizationType, float] = dict.fromkeys(quant_types, 0.0)
     max_absolute_error: dict[GGMLQuantizationType, float] = dict.fromkeys(quant_types, 0.0)
+    activation_weighted_error: dict[GGMLQuantizationType, float] = dict.fromkeys(
+        quant_types, 0.0
+    )
     compensation: dict[GGMLQuantizationType, float] = dict.fromkeys(quant_types, 0.0)
+    activation_compensation: dict[GGMLQuantizationType, float] = dict.fromkeys(
+        quant_types, 0.0
+    )
+    input_stride = (
+        prod(descriptor.dimensions[:input_axis])
+        if input_axis is not None
+        else 1
+    )
+    input_width = (
+        descriptor.dimensions[input_axis]
+        if input_axis is not None
+        else 1
+    )
     block_count_per_chunk = chunk_values // source_codec.layout.block_size
     processed = 0
     block_offset = 0
@@ -268,6 +343,33 @@ def estimate_tensor_quantization_losses(
             max_absolute_error[quant_type] = max(
                 max_absolute_error[quant_type], loss_metrics.max_absolute_error
             )
+            if activation_moments is not None:
+                weighted_terms = (
+                    (source_value - reconstructed_value) ** 2
+                    * float(
+                        activation_moments[
+                            ((block_offset * source_codec.layout.block_size + index)
+                             // input_stride)
+                            % input_width
+                        ]
+                    )
+                    for index, (source_value, reconstructed_value) in enumerate(
+                        zip(source_values, reconstructed, strict=True)
+                    )
+                )
+                weighted_term = math.fsum(weighted_terms)
+                if not math.isfinite(weighted_term):
+                    raise GGUFQuantizationBudgetError(
+                        "activation-weighted codec loss overflowed"
+                    )
+                adjusted_weighted = (
+                    weighted_term - activation_compensation[quant_type]
+                )
+                updated_weighted = activation_weighted_error[quant_type] + adjusted_weighted
+                activation_compensation[quant_type] = (
+                    updated_weighted - activation_weighted_error[quant_type]
+                ) - adjusted_weighted
+                activation_weighted_error[quant_type] = updated_weighted
         processed += values_in_chunk
         block_offset += blocks
 
@@ -281,9 +383,27 @@ def estimate_tensor_quantization_losses(
             squared_error[quant_type] / element_count,
             max_absolute_error[quant_type],
             estimated_peak_working_bytes,
+            (
+                activation_weighted_error[quant_type] / element_count
+                if activation_moments is not None
+                else None
+            ),
         )
         for quant_type in quant_types
     )
+
+
+def _activation_second_moment(value: float, index: int) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise GGUFQuantizationBudgetError(
+            f"activation second moment at index {index} must be numeric"
+        )
+    moment = float(value)
+    if not math.isfinite(moment) or moment < 0:
+        raise GGUFQuantizationBudgetError(
+            f"activation second moment at index {index} must be finite and non-negative"
+        )
+    return moment
 
 
 def execute_gguf_quantization_plan(
