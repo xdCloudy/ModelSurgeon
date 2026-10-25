@@ -10,9 +10,13 @@ calculation assumes the source metadata, names, dimensions, tensor order and
 alignment remain fixed. The selected size is cross-checked against
 `plan_gguf_output` in the tests.
 
-Each tensor option carries an externally supplied non-negative loss estimate.
-The bounded Pareto dynamic program minimizes their sum while retaining the
-source codec as a zero-loss, no-rewrite option. It rejects changed codecs
+Each tensor option can carry an externally supplied non-negative loss estimate
+or use `estimate_tensor_quantization_losses` to measure a streaming codec
+round-trip error. The estimator decodes bounded source blocks, re-encodes them
+with each available destination codec, and compares against the decoded source
+weights. Its MSE score is summed across tensor elements for planner input. The
+bounded Pareto dynamic program minimizes these additive scores while retaining
+the source codec as a zero-loss, no-rewrite option. It rejects changed codecs
 without a registered writer, infeasible budgets, invalid estimates, and search
 frontiers beyond configured limits.
 
@@ -29,10 +33,11 @@ bit costs; this planner uses exact GGUF encoded bytes and layout alignment.
 
 Tests compare assignments against exhaustive search for a hand-checked budget
 and 40 seeded tiny cases, then compare planned file sizes with the GGUF writer's
-layout planner. These tests establish the discrete planner's cost accounting
-and deterministic optimum for the tested cases. They do not validate tensor
-encoding, additive loss estimates as predictors of model quality, physical
-artifact reload, or inference performance. The planner is not yet connected to
-the optimization orchestrator; physical use requires a calibration-backed
-loss source, transactional tensor rewriting, runtime reload, and held-out
-quality/performance evaluation.
+layout planner. A writer-created Q8_0 fixture is reopened, streamed through the
+Q4_K/Q5_K/Q6_K codecs, and its measured round-trip losses are passed to the
+planner. These tests establish codec-local measurements and discrete size
+accounting on a tiny fixture. They do not establish that tensor-local MSE
+predicts model quality, or validate full-model quantization, inference reload,
+or deployment performance. The estimator/planner are not yet connected to the
+optimization orchestrator; physical use still requires transactional tensor
+rewriting, model runtime reload, and held-out quality/performance evaluation.

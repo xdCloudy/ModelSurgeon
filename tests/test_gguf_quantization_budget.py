@@ -11,10 +11,13 @@ from modelsurgeon.adapters.gguf.container import (
     GGUFContainer,
     GGUFTensorDescriptor,
     GGUFValueType,
+    open_gguf,
 )
+from modelsurgeon.adapters.gguf.disk import GGUFDiskEstimate, preflight_gguf_disk
 from modelsurgeon.adapters.gguf.q4_k_codec import Q4_K_CODEC
 from modelsurgeon.adapters.gguf.q5_k_codec import Q5_K_CODEC
 from modelsurgeon.adapters.gguf.q6_k_codec import Q6_K_CODEC
+from modelsurgeon.adapters.gguf.q8_codec import Q8_0_CODEC
 from modelsurgeon.adapters.gguf.quantization import (
     ByteOrder,
     CodecRegistry,
@@ -23,15 +26,21 @@ from modelsurgeon.adapters.gguf.quantization import (
 from modelsurgeon.adapters.gguf.quantization_budget import (
     GGUFQuantizationAlternative,
     GGUFQuantizationBudgetError,
+    estimate_tensor_quantization_losses,
     plan_gguf_quantization_budget,
 )
+from modelsurgeon.adapters.gguf.tensor_reader import GGUFTensorReader
 from modelsurgeon.adapters.gguf.writer import (
     GGUFWriteMetadata,
     GGUFWriteTensor,
     plan_gguf_output,
+    write_gguf_transactionally,
 )
 
-_METADATA = (GGUFWriteMetadata("general.architecture", GGUFValueType.STRING, "test"),)
+_METADATA = (
+    GGUFWriteMetadata("general.architecture", GGUFValueType.STRING, "test"),
+    GGUFWriteMetadata("general.quantization_version", GGUFValueType.UINT32, 2),
+)
 
 
 def _type_id(quant_type: GGMLQuantizationType) -> int:
@@ -74,6 +83,12 @@ def _codecs() -> CodecRegistry:
     result = CodecRegistry()
     for codec in (Q4_K_CODEC, Q5_K_CODEC, Q6_K_CODEC):
         result.register(codec)
+    return result
+
+
+def _estimator_codecs() -> CodecRegistry:
+    result = _codecs()
+    result.register(Q8_0_CODEC)
     return result
 
 
@@ -272,3 +287,70 @@ def test_planner_requires_integer_limits_and_finite_nonnegative_losses() -> None
         )
     with pytest.raises(GGUFQuantizationBudgetError, match="finite non-negative loss"):
         GGUFQuantizationAlternative(GGMLQuantizationType.Q5_K, float("nan"))
+
+
+def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -> None:
+    rng = random.Random(91)
+    values = [rng.uniform(-1.0, 1.0) for _ in range(512)]
+    encoded_source = bytearray(Q8_0_CODEC.layout.encoded_size(len(values)))
+    Q8_0_CODEC.encode_blocks(values, memoryview(encoded_source), byte_order=ByteOrder.LITTLE)
+    tensor = GGUFWriteTensor(
+        "tensor.weight",
+        (256, 2),
+        _type_id(GGMLQuantizationType.Q8_0),
+        (bytes(encoded_source),),
+    )
+    output_layout = plan_gguf_output(_METADATA, (tensor,), alignment=32)
+    source_path = tmp_path / "source.gguf"
+    disk = preflight_gguf_disk(
+        source_path,
+        tmp_path,
+        GGUFDiskEstimate(output_layout.total_bytes, 0, alignment_bytes=output_layout.alignment),
+    )
+    write_gguf_transactionally(source_path, _METADATA, (tensor,), disk)
+
+    with open_gguf(source_path) as mapped:
+        reader = GGUFTensorReader(mapped)
+        estimates = estimate_tensor_quantization_losses(
+            reader,
+            reader.index.tensor("tensor.weight"),
+            (
+                GGMLQuantizationType.Q4_K,
+                GGMLQuantizationType.Q5_K,
+                GGMLQuantizationType.Q6_K,
+            ),
+            _estimator_codecs(),
+            byte_order=ByteOrder.LITTLE,
+            max_working_bytes=32 * 1024,
+        )
+        by_type = {estimate.quant_type: estimate for estimate in estimates}
+        assert set(by_type) == {
+            GGMLQuantizationType.Q4_K,
+            GGMLQuantizationType.Q5_K,
+            GGMLQuantizationType.Q6_K,
+            GGMLQuantizationType.Q8_0,
+        }
+        assert all(estimate.sample_count == 512 for estimate in estimates)
+        assert by_type[GGMLQuantizationType.Q8_0].mean_squared_error == 0
+        assert all(estimate.estimated_peak_working_bytes <= 32 * 1024 for estimate in estimates)
+        assert (
+            by_type[GGMLQuantizationType.Q5_K].mean_squared_error
+            < by_type[GGMLQuantizationType.Q4_K].mean_squared_error
+        )
+
+        alternatives = {
+            "tensor.weight": tuple(
+                estimate.to_alternative()
+                for estimate in estimates
+                if estimate.quant_type is not GGMLQuantizationType.Q8_0
+            )
+        }
+        target_bytes = mapped.container.data_offset + 352
+        plan = plan_gguf_quantization_budget(
+            mapped.container,
+            alternatives,
+            _estimator_codecs(),
+            target_file_bytes=target_bytes,
+        )
+        assert plan.choices[0].output_quant_type is GGMLQuantizationType.Q5_K
+        assert plan.planned_file_bytes == target_bytes
