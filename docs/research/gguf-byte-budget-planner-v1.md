@@ -83,4 +83,12 @@ recorded in
 the output reloaded, but its short WikiText perplexity was worse. This is
 negative evidence, not a quality pass. The estimator and planner are not yet
 connected to the optimization orchestrator; broader held-out quality and
-deployment-performance evaluation remain necessary before promotion.
+deployment-performance evaluation remain necessary before promotion. A full
+WikiText-2 test comparison of activation-weighted and weight-only GGUF
+allocation is recorded in
+[`gguf-activation-weighted-allocation-2026-10-25.md`](gguf-activation-weighted-allocation-2026-10-25.md).
+At approximately equal 5% file reduction, activation weighting reduced the
+PPL penalty versus weight-only allocation, but both candidates still regressed
+materially against the source and failed quality retention. The result is
+promising ranking evidence for one model/dataset pair, not a promotion signal
+or general claim.
