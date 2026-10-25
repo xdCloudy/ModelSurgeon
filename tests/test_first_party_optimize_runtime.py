@@ -629,6 +629,14 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
         "magnitude",
+        "activation_magnitude",
         "random",
         "no_guidance",
     }
+    activation_baseline = next(
+        item
+        for item in detail["search_comparison"]["baselines"]
+        if item["method"] == "activation_magnitude"
+    )
+    assert activation_baseline["measured"] is True
+    assert activation_baseline["candidate_id"] is not None

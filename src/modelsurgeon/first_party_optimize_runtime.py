@@ -14,6 +14,7 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
@@ -139,6 +140,31 @@ def _digest_tree(path: Path) -> str:
     return hashlib.sha256(
         json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _activation_magnitude_order(
+    candidate_ids: tuple[str, ...],
+    candidate_features: Mapping[str, tuple[Mapping[str, object], ...]],
+) -> tuple[str, ...]:
+    """Rank candidates by their lowest finite pre-mutation activation magnitude."""
+
+    magnitudes: dict[str, float] = {}
+    for candidate_id in candidate_ids:
+        values = [
+            float(value)
+            for item in candidate_features.get(candidate_id, ())
+            if item.get("name") == "activation_abs_mean"
+            and (value := item.get("value")) is not None
+            and isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        ]
+        if values:
+            magnitudes[candidate_id] = statistics.fmean(values)
+    return tuple(
+        candidate_id
+        for candidate_id, _ in sorted(magnitudes.items(), key=lambda item: (item[1], item[0]))
+    )
 
 
 def _tree_entries(path: Path) -> list[dict[str, object]]:
@@ -885,6 +911,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 magnitudes.items(), key=lambda item: (item[1], item[0])
             )
         )
+        activation_order = _activation_magnitude_order(
+            tuple(candidate.candidate_id for candidate in candidates),
+            self.candidate_features,
+        )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
         random_order = tuple(
             item.candidate_id
@@ -913,6 +943,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "baselines": [
                 baseline_record("meta_surgeon", self.meta_order[0] if self.meta_order else None),
                 baseline_record("magnitude", magnitude_order[0] if magnitude_order else None),
+                baseline_record(
+                    "activation_magnitude",
+                    activation_order[0] if activation_order else None,
+                ),
                 baseline_record("random", random_order[0] if random_order else None),
                 baseline_record("no_guidance", ranked[0][3].candidate_id),
             ],
