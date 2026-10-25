@@ -983,9 +983,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "regret_vs_measured_best": measured_delta - best_delta,
             }
 
+        measured_best_quality_gate = self._quality_gate_for_candidate_record(ranked[0][4])
         self.search_comparison = {
             "measured_authority": "physical_evaluation",
             "measured_best": ranked[0][3].candidate_id,
+            "measured_best_constraints_passed": bool(
+                measured_best_quality_gate["accepted"]
+            ),
             "baselines": [
                 baseline_record("meta_surgeon", self.meta_order[0] if self.meta_order else None),
                 baseline_record("magnitude", magnitude_order[0] if magnitude_order else None),
@@ -2003,12 +2007,19 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         reference = self._record_runtime_boundary(
             stage, outcome, detail
         )
+        stage_detail: dict[str, object] = {
+            "status": workflow_outcome.value,
+            "reason": detail,
+            "evidence": reference,
+        }
+        if stage is OptimizeStage.ACTIVE_SEARCH and self.search_comparison is not None:
+            stage_detail["search_comparison"] = self.search_comparison
         return StageResult(
             workflow_outcome,
             ("unknown_" if classification == "unknown" else "unsupported_")
             + hashlib.sha256(run_key.encode()).hexdigest(),
             json.dumps(
-                {"status": workflow_outcome.value, "reason": detail, "evidence": reference},
+                stage_detail,
                 sort_keys=True,
             ),
             complete=True,
@@ -2553,6 +2564,32 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     )
                 )
         if not scored:
+            measured: list[
+                tuple[float, float, str, MutationCandidate, Mapping[str, object]]
+            ] = []
+            for candidate in candidate_pool:
+                observed_measurement = self.actual_measurements.get(candidate.candidate_id)
+                if observed_measurement is None:
+                    continue
+                measured.append(
+                    (
+                        _number(
+                            observed_measurement["perplexity_delta"], "perplexity_delta"
+                        ),
+                        _number(
+                            observed_measurement["latency_delta_seconds"],
+                            "latency_delta_seconds",
+                        ),
+                        candidate.request.mutation_id,
+                        candidate,
+                        observed_measurement,
+                    )
+                )
+            if measured:
+                self._build_search_comparison(
+                    candidate_pool,
+                    sorted(measured, key=lambda item: (item[0], item[1], item[2])),
+                )
             raise FirstPartyOptimizeRuntimeError(
                 "no measured candidate met the declared quality constraints"
             )

@@ -648,3 +648,68 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     )
     assert activation_weighted_baseline["measured"] is True
     assert activation_weighted_baseline["candidate_id"] is not None
+
+
+def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=2),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=0.0),
+    )
+    runtime = build_first_party_optimize_runtime(plan)
+
+    def rejected_measurement(_proof: object, _candidate: object) -> dict[str, object]:
+        return {
+            "measurement_authority": "physical_model_evaluation",
+            "baseline_perplexity": 1.0,
+            "candidate_perplexity": 1.1,
+            "perplexity_delta": 0.1,
+            "baseline_median_seconds": 0.1,
+            "candidate_median_seconds": 0.1,
+            "latency_delta_seconds": 0.0,
+            "baseline_parameter_count": 100,
+            "candidate_parameter_count": 90,
+            "parameter_delta": -10,
+            "baseline_storage_bytes": 400,
+            "candidate_storage_bytes": 360,
+            "storage_delta_bytes": -40,
+            "measurement_wall_seconds": 0.1,
+            "repetitions": 1,
+            "baseline_task_quality": None,
+            "candidate_task_quality": None,
+            "token_count": 16,
+        }
+
+    monkeypatch.setattr(runtime, "_measure_candidate", rejected_measurement)
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        runtime,
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.UNSUPPORTED
+    active_search = run.stages[4].result
+    assert active_search is not None
+    detail = json.loads(active_search.detail)
+    comparison = detail["search_comparison"]
+    assert comparison["measured_best"] is not None
+    assert comparison["measured_best_constraints_passed"] is False
+    assert len(comparison["baselines"]) == 6
+    measured_baselines = [item for item in comparison["baselines"] if item["measured"]]
+    assert measured_baselines
+    assert all(item["constraints_passed"] is False for item in measured_baselines)
