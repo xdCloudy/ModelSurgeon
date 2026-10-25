@@ -76,8 +76,11 @@ planner. A selected plan is then written to a candidate GGUF, reparsed, and
 checked for output types, source preservation, and byte-identical copying of an
 untouched tensor. These tests validate local codec behavior and physical file
 construction on a tiny fixture. They do not establish that tensor-local MSE
-or the diagonal activation-weighted proxy predicts model quality, or validate a
-full-model runtime reload, perplexity, task quality, or deployment performance.
-The estimator and planner are not yet connected to the optimization
-orchestrator; full-model runtime and held-out quality/performance evaluation
-remain necessary before promotion.
+or the diagonal activation-weighted proxy predicts model quality, or validate
+task quality or deployment performance. One real-model CPU smoke experiment is
+recorded in
+[`gguf-byte-budget-experiment-2026-10-25.md`](gguf-byte-budget-experiment-2026-10-25.md):
+the output reloaded, but its short WikiText perplexity was worse. This is
+negative evidence, not a quality pass. The estimator and planner are not yet
+connected to the optimization orchestrator; broader held-out quality and
+deployment-performance evaluation remain necessary before promotion.
