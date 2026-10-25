@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -361,8 +362,29 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
 
 
 def test_first_party_runtime_executes_real_distillation_repair_when_requested(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from modelsurgeon import first_party_optimize_runtime as runtime_module
+
+    original_distillation = runtime_module.run_distillation_repair
+    teacher_observation: dict[str, bool] = {}
+
+    def observe_teacher(
+        candidate_model: Any,
+        examples: Any,
+        config: Any,
+        **kwargs: Any,
+    ) -> Any:
+        teacher_model = kwargs["teacher_model"]
+        candidate_parameters = dict(candidate_model.named_parameters())
+        teacher_parameters = dict(teacher_model.named_parameters())
+        target = config.parameter_names[0]
+        teacher_observation["differs_from_damaged_candidate"] = not torch.equal(
+            candidate_parameters[target], teacher_parameters[target]
+        )
+        return original_distillation(candidate_model, examples, config, **kwargs)
+
+    monkeypatch.setattr(runtime_module, "run_distillation_repair", observe_teacher)
     model_path = tmp_path / "model"
     model_path.mkdir()
     _write_tiny_llama(model_path)
@@ -400,6 +422,7 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
     assert detail["repair"]["teacher_source"] == "teacher_inference"
+    assert teacher_observation["differs_from_damaged_candidate"] is True
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
 

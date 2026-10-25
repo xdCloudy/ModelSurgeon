@@ -1412,7 +1412,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "distillation targets expose no trainable weight or bias parameters",
                 )
             tokenizer_signature = TokenizerSignature.from_tokenizer(proof._tokenizer)
-            teacher_model = copy.deepcopy(parent_model)
+            # Distillation must recover the immutable source behavior. Using
+            # the surgically modified parent here would make the student match
+            # its own damaged logits and the default KL-only objective could
+            # never recover information lost during surgery. The teacher path
+            # only performs inference, so reuse the already-loaded source model
+            # instead of allocating another full checkpoint copy.
+            teacher_model = proof.model
             distillation_config = DistillationRepairConfig(
                 parameter_names=parameter_names,
                 learning_rate=_number(
