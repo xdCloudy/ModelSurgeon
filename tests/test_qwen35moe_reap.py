@@ -22,9 +22,25 @@ def _qwen35_module():
     try:
         return import_module(module_name)
     except ModuleNotFoundError as exc:
-        if exc.name in {"transformers", "transformers.models.qwen3_5_moe"}:
+        if exc.name in {
+            "transformers",
+            "transformers.models.qwen3_5_moe",
+            module_name,
+        }:
             pytest.skip("Qwen3.5 REAP tests require Transformers with Qwen3.5 support")
         raise
+
+
+def test_missing_qwen35_model_module_skips_cleanly(monkeypatch) -> None:
+    module_name = "transformers.models.qwen3_5_moe.modeling_qwen3_5_moe"
+
+    def import_missing_module(_name: str):
+        raise ModuleNotFoundError(name=module_name)
+
+    monkeypatch.setattr(f"{__name__}.import_module", import_missing_module)
+
+    with pytest.raises(pytest.skip.Exception, match=r"Qwen3\.5 support"):
+        _qwen35_module()
 
 
 class TinyExperts(torch.nn.Module):
