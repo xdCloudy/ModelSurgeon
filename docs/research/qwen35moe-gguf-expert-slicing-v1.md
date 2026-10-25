@@ -160,8 +160,35 @@ seed, one contiguous 4,096-token prefix, and a general-language corpus. It
 does not validate cyber-security task retention or throughput, and it does
 not justify autonomous ranking or promotion.
 
-The detailed run manifest and per-run logs remain local rather than being
-redistributed. The manifest's SHA-256 is
+## Paired 64-window follow-up
+
+On 2026-10-25, the same three artifacts were evaluated on the first 64
+consecutive 512-token WikiText-2 test contexts (32,768 tokens each), using the
+same llama.cpp `c7fc50941` CPU settings. The full held-out test file was not
+processed. The expanded prefix shifts the source PPL relative to the earlier
+eight-window run, which is a reminder that short prefixes are sample-dependent.
+
+| Artifact | Experts retained (of 256, each block) | GGUF bytes | PPL ± reported uncertainty | Delta vs paired source | PPL retention (`source / candidate`) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Source | 256 | 21,713,462,496 | 6.4083 ± 0.11895 | — | 100% |
+| Router norm, 4 removed | 252 | 21,399,217,408 | 6.4863 ± 0.12059 | +0.0780 | 98.80% |
+| Seeded random (`20261025`), 4 removed | 252 | 21,399,217,408 | 6.5198 ± 0.12151 | +0.1115 | 98.29% |
+
+Both candidates meet the 98% point-estimate retention threshold on this prefix,
+but the llama.cpp `+/-` values are propagated uncertainty, not formal
+confidence intervals. The source and candidate bands overlap, as do the two
+candidate bands. Router norm's mean PPL is 0.0335 lower than random at equal
+bytes; this run does not establish a reliable ranking advantage or a formal
+quality-gate pass. No inference-speed or cybersecurity-task result was
+measured. The exact hashes, settings, return codes, and log digests are in the
+[64-window evidence manifest](qwen35moe-gguf-expert-slicing-64chunk-2026-10-25.json).
+
+Together, the four- and 64-window screens do not justify exposing the scorer to
+autonomous selection. A full held-out corpus, independent random selections,
+and representative cybersecurity task-quality measurements remain necessary.
+
+For the earlier eight-window run, the detailed manifest and per-run logs
+remain local rather than being redistributed. That manifest's SHA-256 is
 `1b2ac496b5a116ea0796afba0528bdd137cf72face56d57d7a270d27ca387875`.
 
 The repository's `task-quality-code-exact-match-v1.jsonl` is also not an
