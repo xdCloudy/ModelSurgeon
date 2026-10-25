@@ -106,6 +106,33 @@ def _write_q8_gguf(path) -> None:
     write_gguf_transactionally(path, metadata, (tensor,), disk_plan, alignment=32)
 
 
+def _write_activation_moments(path, source) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "calibration": {
+                    "dataset": "fixture/dataset",
+                    "dataset_revision": "fixture-r1",
+                    "split": "train",
+                    "text_sha256": "a" * 64,
+                    "tokenizer": "fixture/model",
+                    "tokenizer_revision": "fixture-r1",
+                },
+                "tensors": {
+                    "test.weight": {
+                        "input_axis": 0,
+                        "sample_count": 4,
+                        "second_moments": [1.0] * 256,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 @pytest.mark.parametrize(
     ("candidate_perplexity", "expected_status"),
     ((100.0, "accepted"), (125.0, "rejected")),
@@ -180,3 +207,61 @@ def test_gguf_byte_budget_stage_uses_quality_gate_and_keeps_rejected_artifact(
     else:
         assert runtime.artifact == source
         assert result.artifact_digest == original_digest
+
+
+def test_gguf_byte_budget_stage_supports_source_bound_activation_weighting(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "source.gguf"
+    _write_q8_gguf(source)
+    activation_moments = tmp_path / "activation-moments.json"
+    _write_activation_moments(activation_moments, source)
+    settings = Settings(
+        model=ModelConfig(
+            path=str(source),
+            revision="source-r1",
+            format=ModelFormat.GGUF,
+            family=ModelFamily.LLAMA,
+        ),
+        calibration=CalibrationConfig(dataset="unused.txt", dataset_revision="dataset-r1"),
+        runtime=RuntimeConfig(
+            llama_cli="unused-cli",
+            llama_perplexity="unused-perplexity",
+            llama_bench="unused-bench",
+            expected_revision="runtime-r1",
+        ),
+        quantization=QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=source.stat().st_size - 1,
+            target_type="Q3_K",
+            loss_metric="activation_weighted_mse",
+            activation_moments_path=activation_moments,
+        ),
+        artifact_dir=tmp_path / "artifacts",
+    )
+    plan = build_optimize_plan(settings, dry_run=False)
+    runtime = NativeGGUFOptimizeRuntime(plan)
+    source_digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    runtime.source_path = source
+    runtime.discovery = SimpleNamespace(family=ModelFamily.LLAMA)
+    runtime.artifact = source
+    runtime.artifact_digest = source_digest
+    runtime.selected = SimpleNamespace(
+        candidate_id="candidate_activation_fixture",
+        mutation_id="mutation_activation_fixture",
+    )
+    quality = {
+        "baseline": {"perplexity": 100.0, "uncertainty": 0.0},
+        "candidate": {"perplexity": 100.0, "uncertainty": 0.0},
+    }
+    monkeypatch.setattr(runtime, "_validate", lambda path: {"successful": True})
+    monkeypatch.setattr(runtime, "_quality", lambda path: quality)
+    monkeypatch.setattr(runtime, "_publish_evidence", lambda **kwargs: {"evidence_id": "e"})
+
+    record = runtime._quantize_selected()
+
+    assert record["status"] == "accepted"
+    assert record["loss_metric"] == "activation_weighted_mse"
+    assert record["loss_estimates"]["count"] == 1
+    assert record["activation_moments"]["source_sha256"] == source_digest.removeprefix("sha256:")
+    assert record["activation_moments"]["calibration"]["dataset"] == "fixture/dataset"

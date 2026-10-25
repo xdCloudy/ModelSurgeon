@@ -35,6 +35,32 @@ eligible tensor estimates; the budget search explored 6,405 states. The
 physical candidate SHA-256 was
 `ab390de77e83d183c2fe725578e08e8420fab67f394133bd22752018a4a10d8f`.
 
+## Activation-weighted follow-up
+
+The stage also supports an explicit experimental activation-weighted loss
+metric when given a bounded activation-moment manifest whose source digest
+matches the exact selected GGUF. On the same source, target byte ceiling, held-
+out text, and llama.cpp build, this objective produced a 100,125,024-byte
+candidate (5.053% smaller) and changed 24 tensors. Its PPL was 21.681 ± 1.40764
+versus 24.7233 ± 1.59424 for weight-MSE under the same 8-chunk runtime, reducing
+the measured PPL penalty from +4.88 to +1.8377. This is a 62.3% smaller penalty
+on this single model/corpus pair, not a generalization or quality-preservation
+claim.
+
+The activation-weighted artifact reloaded successfully, but its 0.9152 measured
+quality retention still missed the existing 0.98 minimum and the 0.05
+quality-profile guard. The optimizer rejected it and retained the source.
+Activation moments were source-bound to SHA-256
+`ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747`; their
+manifest SHA-256 is
+`2dd1e613509d58b89e44c7db178c614015697d46884954a9daf97d0ecbfa0584`. The
+candidate SHA-256 is
+`905a45028be5b2f99d7a297952ae28fe6bd68f368057bc1955e5c4e53664be24`. The
+local physical evidence is observation
+`obs_a1e4e3bc8f5da5d4c05008e048460b199ae5d4110544920fb974145f721caeb2`,
+record SHA-256
+`78da999b84b2efe24fb302d692b4d6636a6bc5693b16fddf8b30726794fad17b`.
+
 ## Provenance and limits
 
 - Source: `unsloth/SmolLM2-135M-Instruct-GGUF`, revision
@@ -54,6 +80,10 @@ physical candidate SHA-256 was
   remains responsible for measured runtime-cost constraints.
 
 The planner implementation and its source-code provenance are documented in
-PR #737 and `gguf-byte-budget-planner-v1.md`. This change integrates that
-first-party ModelSurgeon implementation; it introduces no new optimizer
-dependency or copied upstream code.
+PR #737 and `gguf-byte-budget-planner-v1.md`. Activation weighting is an
+experimental diagonal-covariance proxy documented in
+`gguf-activation-weighted-allocation-2026-10-25.md`; missing or shape-mismatched
+moment entries preserve the source tensor codec. The optimizer requires a
+source-bound manifest and still uses physical perplexity gates to decide
+promotion. This change introduces no new optimizer dependency or copied
+upstream code.

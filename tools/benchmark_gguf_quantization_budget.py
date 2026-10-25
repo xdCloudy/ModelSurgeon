@@ -11,8 +11,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
-import re
 import time
 from collections import Counter
 from pathlib import Path
@@ -33,6 +31,7 @@ from modelsurgeon.adapters.gguf import (
     GGUFTensorReader,
     estimate_tensor_quantization_losses,
     execute_gguf_quantization_plan,
+    load_gguf_activation_moments,
     open_gguf,
     plan_gguf_quantization_budget,
     preflight_gguf_disk,
@@ -53,82 +52,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"activation moment manifest has duplicate key {key!r}")
-        result[key] = value
-    return result
-
-
-def _load_activation_moments(
-    path: Path,
-    *,
-    expected_source_sha256: str,
-    max_file_bytes: int = 16 * 1024 * 1024,
-) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
-    """Read bounded, source-bound activation statistics from the calibration tool."""
-    if max_file_bytes <= 0:
-        raise ValueError("activation moment file limit must be positive")
-    resolved = path.expanduser().resolve(strict=True)
-    if not resolved.is_file():
-        raise ValueError(f"activation moment manifest is not a file: {resolved}")
-    with resolved.open("rb") as stream:
-        payload = stream.read(max_file_bytes + 1)
-    if len(payload) > max_file_bytes:
-        raise ValueError("activation moment manifest exceeds its configured file limit")
-    record = json.loads(payload, object_pairs_hook=_unique_object)
-    if not isinstance(record, dict) or record.get("schema_version") != 1:
-        raise ValueError("unsupported activation moment manifest schema")
-    if record.get("source_sha256") != expected_source_sha256:
-        raise ValueError("activation moments were calibrated for a different source GGUF")
-    calibration = record.get("calibration")
-    if not isinstance(calibration, dict):
-        raise ValueError("activation moment calibration provenance is missing")
-    for key in (
-        "dataset",
-        "dataset_revision",
-        "split",
-        "text_sha256",
-        "tokenizer",
-        "tokenizer_revision",
-    ):
-        value = calibration.get(key)
-        if not isinstance(value, str) or not value:
-            raise ValueError(f"activation moment calibration provenance needs {key}")
-    if re.fullmatch(r"[0-9a-f]{64}", calibration["text_sha256"]) is None:
-        raise ValueError("activation calibration text digest must be a lowercase SHA-256")
-    tensors = record.get("tensors")
-    if not isinstance(tensors, dict) or not tensors:
-        raise ValueError("activation moment tensor table must be a non-empty object")
-    validated: dict[str, dict[str, Any]] = {}
-    for name, entry in tensors.items():
-        if not isinstance(name, str) or not name or not isinstance(entry, dict):
-            raise ValueError("activation moment entries need tensor names and objects")
-        axis = entry.get("input_axis")
-        sample_count = entry.get("sample_count")
-        values = entry.get("second_moments")
-        if isinstance(axis, bool) or axis not in (0, 1):
-            raise ValueError(f"activation moments for {name!r} need input axis 0 or 1")
-        if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count <= 0:
-            raise ValueError(f"activation moments for {name!r} need a positive sample count")
-        if not isinstance(values, list) or not values:
-            raise ValueError(f"activation moments for {name!r} need a non-empty vector")
-        if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
-            or value < 0
-            for value in values
-        ):
-            raise ValueError(f"activation moments for {name!r} must be finite and non-negative")
-        validated[name] = {
-            "input_axis": axis,
-            "sample_count": sample_count,
-            "second_moments": values,
-        }
-    return validated, calibration
+_load_activation_moments = load_gguf_activation_moments
 
 
 def _codecs() -> CodecRegistry:

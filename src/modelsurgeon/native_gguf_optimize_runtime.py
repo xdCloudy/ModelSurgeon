@@ -41,6 +41,7 @@ from modelsurgeon.adapters.gguf import (
     discover_gguf_components,
     estimate_tensor_quantization_losses,
     execute_gguf_quantization_plan,
+    load_gguf_activation_moments,
     open_gguf,
     plan_gguf_quantization_budget,
     preflight_gguf_disk,
@@ -626,6 +627,9 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         target_bytes = _integer(
             settings.get("target_file_bytes"), 0, "quantization.target_file_bytes"
         )
+        loss_metric = settings.get("loss_metric", "weight_mse")
+        if loss_metric not in {"weight_mse", "activation_weighted_mse"}:
+            raise NativeGGUFOptimizeRuntimeError("quantization.loss_metric is unsupported")
         target_name = settings.get("target_type")
         if not isinstance(target_name, str):
             raise NativeGGUFOptimizeRuntimeError("quantization.target_type must be a string")
@@ -645,6 +649,23 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             raise NativeGGUFOptimizeRuntimeError(
                 "selected GGUF artifact changed before byte-budget quantization"
             )
+        activation_by_tensor: dict[str, dict[str, object]] = {}
+        activation_calibration: dict[str, object] | None = None
+        activation_path: Path | None = None
+        activation_skipped: dict[str, int] = {}
+        if loss_metric == "activation_weighted_mse":
+            raw_path = settings.get("activation_moments_path")
+            activation_path = _path(raw_path, "quantization.activation_moments_path")
+            try:
+                activation_by_tensor, raw_calibration = load_gguf_activation_moments(
+                    activation_path,
+                    expected_source_sha256=_raw_digest_file(source),
+                )
+            except (OSError, ValueError) as error:
+                raise NativeGGUFOptimizeRuntimeError(
+                    f"could not load activation moments for the selected GGUF: {error}"
+                ) from error
+            activation_calibration = raw_calibration
         if target_bytes >= source.stat().st_size:
             record: Mapping[str, object] = {
                 "status": "infeasible",
@@ -695,16 +716,45 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     gguf_tensor_byte_size(target_type, handle.dimensions)
                 except ValueError:
                     continue
+                activation: dict[str, object] | None = None
+                input_axis: int | None = None
+                activation_values: list[float] | None = None
+                if loss_metric == "activation_weighted_mse":
+                    activation = activation_by_tensor.get(handle.name)
+                    if activation is None:
+                        activation_skipped["missing_tensor_moments"] = (
+                            activation_skipped.get("missing_tensor_moments", 0) + 1
+                        )
+                        continue
+                    raw_axis = activation.get("input_axis")
+                    raw_values = activation.get("second_moments")
+                    if (
+                        isinstance(raw_axis, bool)
+                        or raw_axis not in (0, 1)
+                        or not isinstance(raw_values, list)
+                        or len(handle.dimensions) != 2
+                        or len(raw_values) != handle.dimensions[raw_axis]
+                    ):
+                        activation_skipped["incompatible_tensor_geometry"] = (
+                            activation_skipped.get("incompatible_tensor_geometry", 0) + 1
+                        )
+                        continue
+                    input_axis = raw_axis
+                    activation_values = raw_values
                 estimates = estimate_tensor_quantization_losses(
                     reader,
                     handle,
                     (target_type,),
                     codecs,
                     byte_order=mapped.container.byte_order,
+                    input_activation_second_moments=activation_values,
+                    input_axis=input_axis,
                     max_working_bytes=max_working_bytes,
                 )
                 estimate = next(item for item in estimates if item.quant_type is target_type)
-                alternative = estimate.to_alternative()
+                alternative = estimate.to_alternative(
+                    activation_weighted=loss_metric == "activation_weighted_mse"
+                )
                 alternatives[handle.name] = (alternative,)
                 loss_estimate_count += 1
 
@@ -784,6 +834,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "status": "accepted" if accepted else "rejected",
             "method": "gguf_byte_budget",
             "target_type": target_type.value,
+            "loss_metric": loss_metric,
             "target_file_bytes": target_bytes,
             "source_bytes": source.stat().st_size,
             "candidate_bytes": write_result.file_size,
@@ -812,9 +863,21 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "quality": self._compact_quality(quality),
             "loss_estimates": {
                 "count": loss_estimate_count,
+                "skipped_tensor_counts": activation_skipped,
                 "target_type": target_type.value,
-                "metric": "decoded-weight mean squared error",
+                "metric": loss_metric,
             },
+            "activation_moments": (
+                {
+                    "path": str(activation_path),
+                    "sha256": _raw_digest_file(activation_path),
+                    "source_sha256": _raw_digest_file(source),
+                    "tensor_count": len(activation_by_tensor),
+                    "calibration": activation_calibration,
+                }
+                if activation_path is not None
+                else None
+            ),
             "constraints_passed": accepted,
         }
         evidence = self._publish_evidence(

@@ -1,5 +1,6 @@
 """Native, low-memory GGUF analysis and surgery adapter."""
 
+from modelsurgeon.adapters.gguf.activation_moments import load_gguf_activation_moments
 from modelsurgeon.adapters.gguf.architecture import (
     GGUF_ARCHITECTURE_CONTRACTS,
     AmbiguousGGUFArchitectureError,
@@ -401,6 +402,7 @@ __all__ = [
     "execute_gguf_quantization_plan",
     "iq_type_support",
     "load_gemma_gguf_surgery_adapter",
+    "load_gguf_activation_moments",
     "load_llama_gguf_surgery_adapter",
     "load_mistral_gguf_surgery_adapter",
     "load_qwen_gguf_surgery_adapter",

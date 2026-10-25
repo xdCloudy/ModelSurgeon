@@ -282,6 +282,8 @@ class QuantizationConfig(StrictConfigModel):
         "Q3_K"
     )
     max_working_mib: int = Field(default=16, ge=1, le=512)
+    loss_metric: Literal["weight_mse", "activation_weighted_mse"] = "weight_mse"
+    activation_moments_path: Path | None = None
 
     @model_validator(mode="after")
     def validate_gguf_byte_budget(self) -> QuantizationConfig:
@@ -289,6 +291,13 @@ class QuantizationConfig(StrictConfigModel):
             raise ValueError("quantization.target_file_bytes is required for gguf_byte_budget")
         if self.method != "gguf_byte_budget" and self.target_file_bytes is not None:
             raise ValueError("quantization.target_file_bytes requires gguf_byte_budget")
+        if self.loss_metric == "activation_weighted_mse":
+            if self.method != "gguf_byte_budget":
+                raise ValueError("activation-weighted loss requires gguf_byte_budget")
+            if self.activation_moments_path is None:
+                raise ValueError("activation_moments_path is required for activation-weighted loss")
+        elif self.activation_moments_path is not None:
+            raise ValueError("activation_moments_path requires activation-weighted loss")
         return self
 
 
