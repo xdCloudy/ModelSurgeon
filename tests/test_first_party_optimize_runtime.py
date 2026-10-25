@@ -28,6 +28,7 @@ from modelsurgeon.experiments.hardware import (
 )
 from modelsurgeon.first_party_optimize_runtime import (
     FirstPartyOptimizeRuntimeError,
+    _meta_target_direction,
     build_first_party_optimize_runtime,
 )
 from modelsurgeon.optimization import build_optimize_plan
@@ -44,6 +45,9 @@ from modelsurgeon.surgeon import (
     LinearSurgeonModel,
     PretrainedSurgeonCard,
     PretrainedSurgeonRegistry,
+    TargetDirection,
+    TargetMetricSpec,
+    TargetSchema,
     TrainingModelIdentity,
 )
 from modelsurgeon.surgeon.matrix import NumericPreprocessor, SurgeonPreprocessor
@@ -545,6 +549,27 @@ def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) 
     assert (artifact_dir / "modelsurgeon-low-rank.json").is_file()
 
 
+def test_meta_target_direction_uses_declared_schema_and_rejects_unknown() -> None:
+    assert _meta_target_direction(
+        "quality_gain",
+        {
+            "metrics": [
+                {"name": "quality_gain", "direction": "higher_is_better"}
+            ]
+        },
+    ) == "higher_is_better"
+    assert _meta_target_direction(
+        "latency",
+        {"metrics": [{"name": "latency", "direction": "lower_is_better"}]},
+    ) == "lower_is_better"
+    assert _meta_target_direction("safe_mutation", {}) == "higher_is_better"
+    assert _meta_target_direction(
+        "quality_gain",
+        {"metrics": [{"name": "quality_gain", "direction": "maximize"}]},
+    ) is None
+    assert _meta_target_direction("missing", {"metrics": []}) is None
+
+
 def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -560,18 +585,34 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     )
     model = LinearSurgeonModel(
         preprocessor.output_feature_names,
-        "perplexity",
+        "quality_gain",
         (-1.0, 0.0),
         0.0,
         LinearConfig(max_epochs=1),
         1,
     )
     training_model = TrainingModelIdentity("tiny/source", "source-revision")
+    target_schema = TargetSchema(
+        tuple(
+            sorted(
+                (
+                    *DEFAULT_TARGET_SCHEMA.metrics,
+                    TargetMetricSpec(
+                        "quality_gain",
+                        ("quality_gain",),
+                        "score",
+                        TargetDirection.HIGHER_IS_BETTER,
+                    ),
+                ),
+                key=lambda item: item.name,
+            )
+        )
+    )
     evidence = registry.bundles.artifacts.put_bytes(b"held-out-evidence")
     bundle = registry.bundles.publish(
         model,
         preprocessor,
-        DEFAULT_TARGET_SCHEMA,
+        target_schema,
         training_models=(training_model,),
         metrics={"ranking": 0.5},
         split_manifest={"version": "test"},
@@ -625,6 +666,12 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     assert active is not None
     detail = json.loads(active.detail)
     assert detail["meta_guidance"]["status"] == "verified_bundle"
+    assert detail["meta_guidance"]["target"] == "quality_gain"
+    assert detail["meta_guidance"]["direction"] == "higher_is_better"
+    guidance_predictions = detail["meta_guidance"]["predictions"]
+    assert guidance_predictions[detail["meta_guidance"]["ordered_candidates"][0]] == max(
+        guidance_predictions.values()
+    )
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
