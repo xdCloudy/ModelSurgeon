@@ -109,7 +109,7 @@ direct expert-output calculation. This prevents confusing expert-boundary
 weights with raw router logits during future integration.
 
 The focused adapter suite passes on Python 3.12.14 and PyTorch 2.14.1+cu130
-through its CPU path: 6 passed, no skips. This confirms the installed
+through its CPU path: 7 passed, no skips. This confirms the installed
 Transformers Qwen3.5 modules load in the updated environment; it is not a CUDA
 execution or model-quality result.
 
@@ -134,6 +134,14 @@ versus `0.710203528` from direct evaluation (absolute error `2.98e-8`). This
 checks the updated environment against real tensor dtypes and dimensions; the
 CUDA build was not exercised on the busy GPU, and this remains synthetic-input
 parity rather than a calibration or quality result.
+
+The pinned Hugging Face checkpoint lists 26 safetensors totaling
+`71,903,776,776` bytes. This exceeds the target workstation's 64 GiB of physical
+RAM, so a fully resident Transformers load is not a valid consumer-hardware
+plan. The checkpoint was downloaded for shard and real-weight inspection, but
+no full-model forward or calibration run was attempted. A model-level result
+requires a measured layerwise/offload path or a smaller supported checkpoint;
+the synthetic-input parity above must not be presented as model validation.
 
 ## Next evidence required
 
