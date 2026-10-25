@@ -11,6 +11,11 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-24.04
+    name: quality (Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -18,7 +23,7 @@ jobs:
           enable-cache: true
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - run: uv sync --extra dev --locked
       - run: uv run --locked --extra dev python tools/audit_v20_release.py
       - run: uv run --locked --extra dev python tools/audit_v30_release.py
