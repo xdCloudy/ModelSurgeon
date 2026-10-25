@@ -47,6 +47,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [GGUF exact-byte quantization planner](gguf-byte-budget-planner-v1.md)
 - [GGUF activation-weighted codec allocation experiment](gguf-activation-weighted-allocation-2026-10-25.md)
 - [GGUF byte-budget deployment throughput comparison](gguf-byte-budget-throughput-2026-10-25.md)
+- [GGUF mixed-codec CPU/GPU throughput comparison](gguf-mixed-codec-throughput-2026-10-25.md)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.

@@ -80,8 +80,11 @@ All three candidates loaded and completed the same eight-chunk CPU perplexity
 evaluation. The planner explored 68,503 states for the six-type search and
 24,101 for the three-type search. Mixed quantization therefore remains an
 optional search capability, not a demonstrated quality improvement. The
-existing quality gate would reject all three on this profile; no speedup is
-claimed. The six-type candidate SHA-256 is
+existing quality gate would reject all three on this profile. A separate
+order-balanced CPU/RTX 3060 throughput check also found no reliable speedup;
+its confidence intervals include zero for every candidate and workload. See
+[`gguf-mixed-codec-throughput-2026-10-25.md`](gguf-mixed-codec-throughput-2026-10-25.md).
+The six-type candidate SHA-256 is
 `1068294ece77b4e9dc2e33fb698dcce4e4ed480dc23419accd7d21b306e4499d`, and the
 three-type candidate SHA-256 is
 `d3bb59bcb47b4ecaf4b338f651c7f6f2fb05616c62f4efe0925339cf4f8aae7d`.
@@ -100,9 +103,10 @@ three-type candidate SHA-256 is
   `obs_4424af070267451c9b3c76f7562442350aead0b2b9a5eb11bee8a7ee31cd9743`
   with record SHA-256
   `dba6eadc63a310f4102afca210d38c245927a7bf316e6599343064fb05a72363`.
-- No latency, throughput, peak-memory, or task-accuracy claim is made. The
-  added stage measures perplexity and artifact validity; deployment benchmarking
-  remains responsible for measured runtime-cost constraints.
+- The optimizer stage measures perplexity and artifact validity, not latency,
+  throughput, peak-memory, or task accuracy. A separate paired deployment
+  benchmark found no reliable throughput change on this small model; runtime
+  cost claims remain limited to the hardware and workload recorded there.
 
 The planner implementation and its source-code provenance are documented in
 PR #737 and `gguf-byte-budget-planner-v1.md`. Activation weighting is an
