@@ -21,6 +21,7 @@ def test_activation_magnitude_order_uses_lowest_finite_channel_signal() -> None:
             "channel-a": ({"name": "activation_abs_mean", "value": 0.1},),
             "channel-c": (
                 {"name": "activation_abs_mean", "value": -0.5},
+                {"name": "activation_abs_mean", "value": 10**10000},
                 {"name": "activation_abs_mean", "value": math.nan},
                 {"name": "activation_abs_mean", "value": True},
                 {"name": "activation_rms", "value": 0.0},
@@ -44,6 +45,7 @@ def test_activation_weighted_order_combines_weight_and_calibration_signal() -> N
                 {"name": "activation_rms", "value": 1.0},
             ),
             "channel-c": (
+                {"name": "weight_l2_norm", "value": 10**10000},
                 {"name": "weight_l2_norm", "value": math.inf},
                 {"name": "activation_rms", "value": 0.0},
             ),

@@ -150,16 +150,13 @@ def _activation_magnitude_order(
 
     magnitudes: dict[str, float] = {}
     for candidate_id in candidate_ids:
-        values = [
-            float(value)
-            for item in candidate_features.get(candidate_id, ())
-            if item.get("name") == "activation_abs_mean"
-            and (value := item.get("value")) is not None
-            and isinstance(value, (int, float))
-            and not isinstance(value, bool)
-            and math.isfinite(float(value))
-            and float(value) >= 0
-        ]
+        values: list[float] = []
+        for item in candidate_features.get(candidate_id, ()):
+            if item.get("name") != "activation_abs_mean":
+                continue
+            value = _finite_nonnegative_feature_value(item.get("value"))
+            if value is not None:
+                values.append(value)
         if values:
             magnitudes[candidate_id] = statistics.fmean(values)
     return tuple(
@@ -182,16 +179,11 @@ def _activation_weighted_order(
         }
         for item in candidate_features.get(candidate_id, ()):
             name = item.get("name")
-            value = item.get("value")
-            if (
-                isinstance(name, str)
-                and name in values
-                and isinstance(value, (int, float))
-                and not isinstance(value, bool)
-                and math.isfinite(float(value))
-                and float(value) >= 0
-            ):
-                values[name].append(float(value))
+            if not isinstance(name, str) or name not in values:
+                continue
+            value = _finite_nonnegative_feature_value(item.get("value"))
+            if value is not None:
+                values[name].append(value)
         if not values["weight_l2_norm"] or not values["activation_rms"]:
             continue
         score = statistics.fmean(values["weight_l2_norm"]) * statistics.fmean(
@@ -203,6 +195,18 @@ def _activation_weighted_order(
         candidate_id
         for candidate_id, _ in sorted(scores.items(), key=lambda item: (item[1], item[0]))
     )
+
+
+def _finite_nonnegative_feature_value(value: object) -> float | None:
+    """Return finite, non-negative numeric feature data; ignore malformed cache values."""
+
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        normalized = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return normalized if math.isfinite(normalized) and normalized >= 0 else None
 
 
 def _tree_entries(path: Path) -> list[dict[str, object]]:
