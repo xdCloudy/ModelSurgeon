@@ -38,6 +38,7 @@ _SECRET_KEY = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|"
     r"password|secret|(?<!new_)token)"
 )
+_NON_SECRET_TOKEN_KEYS = frozenset({"max_input_tokens"})
 
 
 def redact_secret_text(value: str, *, secrets: Sequence[str] = ()) -> str:
@@ -65,7 +66,11 @@ def redact_untrusted_value(value: object, *, secrets: Sequence[str] = ()) -> obj
         return {
             str(key): (
                 "<redacted>"
-                if isinstance(key, str) and _SECRET_KEY.search(key)
+                if (
+                    isinstance(key, str)
+                    and key not in _NON_SECRET_TOKEN_KEYS
+                    and _SECRET_KEY.search(key)
+                )
                 else redact_untrusted_value(child, secrets=secrets)
             )
             for key, child in value.items()
