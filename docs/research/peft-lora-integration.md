@@ -14,7 +14,7 @@
 | Integration approach | **INTEGRATE** PEFT `0.21.2` through the `hf` optional extra (`peft>=0.21.2,<0.22`); lock resolves `0.21.2`. No copied upstream implementation. |
 | Expected benefit | Reduce custom LoRA algorithm maintenance while retaining existing bounded behavior. Success criteria: unchanged target count and state export, deterministic tiny-model adapter digest, merged reloadable model, and rollback after failed repair. Real-model quality or speed improvement is not claimed. |
 | Risk | PEFT target-name matching may wrap additional modules if paths share suffixes; exact post-injection trainable-parameter count check aborts and restores the original modules. Upstream API changes are constrained by the minor-version range and lock. |
-| Validation | Tiny physical PyTorch tests cover separate adapters, deterministic digest, unchanged base weights, safe merge, budget rejection, and rollback. Full suite and CI results are recorded with the PR. A real-model quality recovery benchmark remains future work. |
+| Validation | Tiny physical PyTorch tests cover separate adapters, deterministic digest, unchanged base weights, safe merge, budget rejection, and rollback. A repeated RTX 3060 run on revision-pinned SmolLM2-135M verifies PEFT injection, state export, telemetry, and base-weight immutability; it is explicitly not a post-surgery or held-out quality benchmark. Full suite and CI results are recorded with the PR. |
 | Priority | High: replace duplicated foundational LoRA mechanics with a compatible established library while preserving ModelSurgeon authority and constraints. |
 
 ## Integration boundary

@@ -26,6 +26,11 @@ def _tensor_sha256(tensor: object) -> str:
     return hashlib.sha256(host.numpy().tobytes()).hexdigest()
 
 
+def _token_ids_sha256(tensor: object) -> str:
+    host = tensor.detach().cpu().contiguous()  # type: ignore[attr-defined]
+    return hashlib.sha256(host.numpy().tobytes()).hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
@@ -36,7 +41,9 @@ def main() -> None:
     parser.add_argument("--rank", type=int, default=2)
     args = parser.parse_args()
 
+    import peft
     import torch
+    import transformers
     from safetensors.torch import save
     from transformers import AutoTokenizer
 
@@ -80,18 +87,25 @@ def main() -> None:
         candidate_checkpoint_id="checkpoint_real_lora_smoke_candidate",
     )
     wrapper = loaded.model.get_submodule(args.target)
-    after = _tensor_sha256(wrapper.base.weight)
+    after = _tensor_sha256(wrapper.base_layer.weight)
     adapter_bytes = save(lora_adapter_state_dict(loaded.model, (args.target,)))
     record = {
         "record_type": "v0.9_lora_repair_smoke",
-        "version": "1",
+        "version": "2",
         "model": {
             "identifier": args.model,
             "requested_revision": args.revision,
             "resolved_revision": loaded.provenance.resolved_revision,
         },
+        "runtime": {
+            "python_version": __import__("sys").version.split()[0],
+            "torch_version": torch.__version__,
+            "peft_version": peft.__version__,
+            "transformers_version": transformers.__version__,
+        },
         "target": args.target,
         "tokens": int(encoded["input_ids"].numel()),
+        "token_ids_sha256": _token_ids_sha256(encoded["input_ids"]),
         "base_weight_sha256_before": before,
         "base_weight_sha256_after": after,
         "base_weight_preserved": before == after,

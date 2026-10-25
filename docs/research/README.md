@@ -17,6 +17,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v0.7 native Q4_K_M MLP proof](v0.7-native-q4-k-m-mlp-proof.md)
 - [v0.8 permissive model ladder](v0.8-model-ladder.md)
 - [v0.9 bounded LoRA repair evidence](v0.9-lora-repair-evidence.md)
+- [v0.9 PEFT-backed LoRA repair smoke](v0.9-peft-lora-repair-evidence.md)
 - [v0.9 short fine-tuning repair evidence](v0.9-short-finetune-evidence.md)
 - [v0.9 logit-distillation repair evidence](v0.9-distillation-repair-evidence.md)
 - [v1.0 performance regression evidence](v1.0-performance-regression-evidence.md)
