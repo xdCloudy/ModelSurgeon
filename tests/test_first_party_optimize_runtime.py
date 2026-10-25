@@ -361,7 +361,9 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
     assert repair.lineage["parent"]["manifest"]
 
 
+@pytest.mark.parametrize("external_validation", (False, True))
 def test_first_party_runtime_executes_real_distillation_repair_when_requested(
+    external_validation: bool,
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from modelsurgeon import first_party_optimize_runtime as runtime_module
@@ -396,6 +398,8 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     _write_tiny_llama(model_path)
     calibration = tmp_path / "calibration.txt"
     calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    validation = tmp_path / "repair-validation.txt"
+    validation.write_text("f g h i j k l m n o f g h i j", encoding="utf-8")
     settings = Settings(
         artifact_dir=tmp_path / "artifacts",
         model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
@@ -404,6 +408,7 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
         ),
         repair=RepairConfig(
             method="distillation",
+            validation_dataset=validation if external_validation else None,
             target_modules=("model.layers.0.mlp.down_proj",),
             max_steps=1,
         ),
@@ -426,6 +431,16 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     detail = json.loads(repair.detail)
     assert detail["method"] == "distillation"
     assert detail["repair"]["evaluation_split"] == "validation"
+    assert detail["repair"]["evaluation_source"] == (
+        "external_text" if external_validation else "calibration_holdout"
+    )
+    assert len(detail["repair"]["training_examples_sha256"]) == 64
+    assert len(detail["repair"]["evaluation_examples_sha256"]) == 64
+    assert (
+        len(detail["repair"]["validation_dataset_sha256"]) == 64
+        if external_validation
+        else detail["repair"]["validation_dataset_sha256"] is None
+    )
     assert teacher_observation["has_disjoint_validation"]
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1

@@ -92,6 +92,10 @@ def test_repair_config_is_explicit_and_canonical() -> None:
     )
     assert configured.method == "lora"
     assert RepairConfig(method="distillation").method == "distillation"
+    validation = RepairConfig(method="distillation", validation_dataset=Path("heldout.txt"))
+    assert validation.validation_dataset == Path("heldout.txt")
+    with pytest.raises(ValidationError, match="requires method=distillation"):
+        RepairConfig(method="lora", validation_dataset=Path("heldout.txt"))
     with pytest.raises(ValidationError, match="sorted, unique"):
         RepairConfig(method="lora", target_modules=("b", "a"))
 

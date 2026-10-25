@@ -255,12 +255,26 @@ class RepairConfig(StrictConfigModel):
     """Optional real post-surgery repair executed by a first-party runtime."""
 
     method: Literal["none", "lora", "distillation"] = "none"
+    validation_dataset: Path | None = None
     target_modules: tuple[str, ...] = ()
     max_steps: int | None = Field(default=None, gt=0)
     rank: int = Field(default=4, ge=1, le=64)
     alpha: float = Field(default=8.0, gt=0.0)
     dropout: float = Field(default=0.0, ge=0.0, lt=1.0)
     learning_rate: float = Field(default=1e-3, gt=0.0)
+
+    @field_validator("validation_dataset")
+    @classmethod
+    def reject_blank_validation_dataset(cls, value: Path | None) -> Path | None:
+        if value is not None and not str(value).strip():
+            raise ValueError("repair.validation_dataset cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validation_dataset_requires_distillation(self) -> RepairConfig:
+        if self.validation_dataset is not None and self.method != "distillation":
+            raise ValueError("repair.validation_dataset requires method=distillation")
+        return self
 
     @field_validator("target_modules")
     @classmethod
