@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from modelsurgeon.adapters.gguf import GGUFValueType
@@ -327,7 +328,7 @@ def test_llama_cli_runtime_rejects_output_over_budget(tmp_path: Path, monkeypatc
             top_p=1.0,
         )
     except LocalGGUFProviderError as error:
-        assert "output budget" in str(error)
+        assert "response-byte budget" in str(error)
     else:
         raise AssertionError("over-budget llama-cli output should be rejected")
 
@@ -421,6 +422,131 @@ def test_bounded_process_stops_after_cancellation() -> None:
 
     assert not worker.is_alive()
     assert results and results[0].cancelled
+
+
+def test_builtin_local_runtime_stream_observes_cancellation(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    path = tmp_path / "fixture.gguf"
+    _gguf(path)
+    cancellation = CancellationToken()
+    first_chunk = threading.Event()
+
+    class StreamingRuntime:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def tokenize(self, prompt: bytes, *, add_bos: bool) -> list[int]:
+            del prompt, add_bos
+            return [1]
+
+        def create_chat_completion(self, *, stream: bool, **_: object) -> Any:
+            assert stream
+
+            def chunks() -> Any:
+                yield {"choices": [{"delta": {"content": "{"}}]}
+                first_chunk.set()
+                while not cancellation.cancelled:
+                    time.sleep(0.005)
+                yield {"choices": [{"delta": {"content": "}"}}]}
+
+            return chunks()
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "llama_cpp",
+        SimpleNamespace(Llama=StreamingRuntime, __version__="fixture-runtime-1"),
+    )
+    provider = LocalGGUFProvider(
+        LocalGGUFProviderConfig(
+            path,
+            "fixture-revision-1",
+            "fixture-runtime-1",
+            max_input_tokens=512,
+            max_output_tokens=128,
+            max_context_tokens=640,
+            max_memory_bytes=8 * 1024 * 1024,
+            n_batch=1,
+        ),
+        runtime_version="fixture-runtime-1",
+    )
+    results: list[Any] = []
+    worker = threading.Thread(
+        target=lambda: results.append(
+            invoke_provider(
+                provider,
+                InterpretIntentRequest("request-stream-cancel", "explain"),
+                cancellation=cancellation,
+            )
+        ),
+        daemon=True,
+    )
+    worker.start()
+    assert first_chunk.wait(timeout=5)
+    cancellation.cancel()
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert results and results[0].outcome is ProviderOutcome.CANCELLED
+
+
+def test_builtin_local_runtime_stream_caps_response_bytes(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    path = tmp_path / "fixture.gguf"
+    _gguf(path)
+    resumed = threading.Event()
+
+    class StreamingRuntime:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def tokenize(self, prompt: bytes, *, add_bos: bool) -> list[int]:
+            del prompt, add_bos
+            return [1]
+
+        def create_chat_completion(self, *, stream: bool, **_: object) -> Any:
+            assert stream
+
+            def chunks() -> Any:
+                yield {"choices": [{"delta": {"content": "x" * 9}}]}
+                resumed.set()
+                yield {"choices": [{"delta": {"content": "should not be read"}}]}
+
+            return chunks()
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "llama_cpp",
+        SimpleNamespace(Llama=StreamingRuntime, __version__="fixture-runtime-1"),
+    )
+    provider = LocalGGUFProvider(
+        LocalGGUFProviderConfig(
+            path,
+            "fixture-revision-1",
+            "fixture-runtime-1",
+            max_input_tokens=512,
+            max_output_tokens=128,
+            max_context_tokens=640,
+            max_memory_bytes=8 * 1024 * 1024,
+            max_response_bytes=8,
+            n_batch=1,
+        ),
+        runtime_version="fixture-runtime-1",
+    )
+
+    result = invoke_provider(provider, InterpretIntentRequest("request-stream-size", "explain"))
+
+    assert result.outcome is ProviderOutcome.FAILED
+    assert result.failure is not None
+    assert result.failure.code is ProviderFailureCode.LIMIT_EXCEEDED
+    assert not resumed.is_set()
 
 
 def test_local_provider_rejects_missing_and_malformed_models(tmp_path: Path) -> None:

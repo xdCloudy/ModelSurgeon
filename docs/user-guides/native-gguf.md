@@ -187,6 +187,12 @@ and fails closed for missing or malformed metadata, unavailable runtimes,
 memory exhaustion, timeout, cancellation, and invalid structured output. It
 does not download models or contact a network service.
 
+The built-in `llama-cpp-python` path consumes generated text as a stream so it
+can check cancellation and the response-byte limit as tokens arrive. The
+external `llama-cli` path bounds captured stdout and stderr and stops its
+process tree when the output budget, wall-time limit, or cancellation signal is
+reached.
+
 Keep the provider result and provenance with the run. A supported result is
 only a validated typed provider output; interpretation still requires the
 normal intent-policy and compiler gates. Unsupported, failed, timed-out,

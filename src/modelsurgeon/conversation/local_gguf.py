@@ -12,7 +12,8 @@ import hashlib
 import json
 import re
 import threading
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,6 +75,10 @@ _LLAMA_CLI_STDERR_BYTES = 64 * 1024
 
 class LocalGGUFProviderError(RuntimeError):
     """Raised when a local GGUF provider cannot be safely prepared."""
+
+
+class LocalGGUFResponseLimitError(LocalGGUFProviderError):
+    """Raised when generated text exceeds the active response-byte budget."""
 
 
 class LocalGGUFUnsupportedError(LocalGGUFProviderError):
@@ -198,9 +203,19 @@ class LlamaCliRuntime:
         top_p: float,
         stream: bool = False,
         cancellation: CancellationToken | None = None,
+        max_response_bytes: int | None = None,
     ) -> dict[str, object]:
         if stream:
             raise LocalGGUFProviderError("external llama-cli runtime does not support streaming")
+        response_limit = self.max_response_bytes
+        if max_response_bytes is not None:
+            if (
+                isinstance(max_response_bytes, bool)
+                or not isinstance(max_response_bytes, int)
+                or max_response_bytes <= 0
+            ):
+                raise LocalGGUFProviderError("local GGUF response-byte limit must be positive")
+            response_limit = min(response_limit, max_response_bytes)
         if not self.executable.is_file():
             raise LocalGGUFProviderError("configured llama-cli executable is missing")
         if not self.model_path.is_file():
@@ -250,7 +265,7 @@ class LlamaCliRuntime:
             completed = run_bounded_process(
                 command,
                 timeout_seconds=self.max_wall_seconds,
-                max_stdout_bytes=self.max_response_bytes,
+                max_stdout_bytes=response_limit,
                 max_stderr_bytes=_LLAMA_CLI_STDERR_BYTES,
                 cancelled=None if cancellation is None else lambda: cancellation.cancelled,
             )
@@ -261,7 +276,9 @@ class LlamaCliRuntime:
         if completed.cancelled:
             raise ProviderCancelledError("external llama-cli runtime was cancelled")
         if completed.output_exceeded:
-            raise LocalGGUFProviderError("external llama-cli runtime exceeded its output budget")
+            raise LocalGGUFResponseLimitError(
+                "external llama-cli runtime exceeded its response-byte budget"
+            )
         if completed.returncode != 0:
             raise LocalGGUFProviderError("external llama-cli runtime failed")
         output = completed.stdout.decode("utf-8", errors="replace").strip()
@@ -637,6 +654,7 @@ class LocalGGUFProvider:
     ) -> None:
         self.config = config
         self._runtime_factory = runtime_factory
+        self._uses_builtin_runtime = runtime_factory is None
         self._runtime_version_override = runtime_version
         self._runtime: object | None = None
         self._runtime_revision: str | None = None
@@ -857,13 +875,68 @@ class LocalGGUFProvider:
             return choice_text
         raise LocalGGUFProviderError("local GGUF runtime response has no text content")
 
+    @staticmethod
+    def _stream_response_text(
+        response: object,
+        cancellation: CancellationToken,
+        max_response_bytes: int,
+    ) -> str:
+        if isinstance(response, Mapping) or not isinstance(response, Iterable):
+            return LocalGGUFProvider._response_text(response)
+        output: list[str] = []
+        total_bytes = 0
+        close = getattr(response, "close", None)
+        try:
+            for chunk in response:
+                cancellation.raise_if_cancelled()
+                if not isinstance(chunk, Mapping):
+                    raise LocalGGUFProviderError(
+                        "local GGUF runtime returned an invalid streaming chunk"
+                    )
+                choices = chunk.get("choices")
+                if not isinstance(choices, list) or not choices or not isinstance(
+                    choices[0], Mapping
+                ):
+                    raise LocalGGUFProviderError(
+                        "local GGUF runtime returned an invalid streaming choice"
+                    )
+                delta = choices[0].get("delta")
+                if not isinstance(delta, Mapping):
+                    raise LocalGGUFProviderError(
+                        "local GGUF runtime returned an invalid streaming delta"
+                    )
+                content = delta.get("content")
+                if content is None:
+                    continue
+                if not isinstance(content, str):
+                    raise LocalGGUFProviderError(
+                        "local GGUF runtime returned non-text streaming content"
+                    )
+                total_bytes += len(content.encode("utf-8"))
+                if total_bytes > max_response_bytes:
+                    raise LocalGGUFResponseLimitError(
+                        "local GGUF runtime exceeded its response-byte budget"
+                    )
+                output.append(content)
+        finally:
+            if callable(close):
+                with suppress(Exception):
+                    close()
+        cancellation.raise_if_cancelled()
+        return "".join(output)
+
     def _generate(
-        self, prompt: str, output_tokens: int, cancellation: CancellationToken
+        self,
+        prompt: str,
+        output_tokens: int,
+        cancellation: CancellationToken,
+        max_response_bytes: int,
     ) -> str:
         runtime = self._runtime
         if runtime is None:
             raise LocalGGUFProviderError("local GGUF runtime is not started")
         create_chat = getattr(runtime, "create_chat_completion", None)
+        use_stream = self._uses_builtin_runtime and callable(create_chat)
         try:
             if callable(create_chat):
                 arguments: dict[str, object] = {
@@ -871,10 +944,11 @@ class LocalGGUFProvider:
                     "max_tokens": output_tokens,
                     "temperature": 0.0,
                     "top_p": 1.0,
-                    "stream": False,
+                    "stream": use_stream,
                 }
                 if isinstance(runtime, LlamaCliRuntime):
                     arguments["cancellation"] = cancellation
+                    arguments["max_response_bytes"] = max_response_bytes
                 response = create_chat(**arguments)
             else:
                 create_completion = getattr(runtime, "create_completion", None)
@@ -900,6 +974,8 @@ class LocalGGUFProvider:
             if "out of memory" in text or "oom" in text or "alloc" in text:
                 raise LocalGGUFProviderError("local GGUF runtime exhausted memory") from error
             raise LocalGGUFProviderError("local GGUF runtime generation failed") from error
+        if use_stream:
+            return self._stream_response_text(response, cancellation, max_response_bytes)
         return self._response_text(response)
 
     def call(
@@ -955,11 +1031,11 @@ class LocalGGUFProvider:
                         ProviderFailureCode.LIMIT_EXCEEDED,
                         "model and configured context exceed the request memory budget",
                     )
-                raw_text = self._generate(prompt, output_limit, cancellation)
-                cancellation.raise_if_cancelled()
                 response_limit = min(
                     request.budget.max_response_bytes, self.config.max_response_bytes
                 )
+                raw_text = self._generate(prompt, output_limit, cancellation, response_limit)
+                cancellation.raise_if_cancelled()
                 if len(raw_text.encode("utf-8")) > response_limit:
                     return self._failure(
                         request,
@@ -1000,6 +1076,13 @@ class LocalGGUFProvider:
                     ProviderOutcome.CANCELLED,
                     ProviderFailureCode.CANCELLED,
                     "provider request was cancelled",
+                )
+            except LocalGGUFResponseLimitError as error:
+                return self._failure(
+                    request,
+                    ProviderOutcome.FAILED,
+                    ProviderFailureCode.LIMIT_EXCEEDED,
+                    str(error),
                 )
             except LocalGGUFProviderError as error:
                 code = (
