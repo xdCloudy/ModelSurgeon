@@ -104,8 +104,9 @@ llama.cpp `c7fc50941` CPU server, 12 threads, context 512, temperature 0, seed
 the first 220 response characters and treats code blocks as non-refusals, so
 this result only checks gross false-refusal behavior on four prompts; it does
 not assess code correctness, defensive utility, security, or quality retention.
-The complete paired responses and settings are retained outside the
-repository at `D:\ModelSurgeonEval\cyberseceval\mitre-frr-four-prompt-paired-smoke.json`.
+The raw paired-response JSON is retained locally and is not included in this
+PR; its SHA-256 is
+`46177ed8d772435dac9faceb2ba053156517c2cb044e6ca989b9389ebc60b0d3`.
 
 Dataset and scorer provenance: [Meta PurpleLlama CyberSecEval 2 at pinned
 revision `d934ea285d124d81c10f7e15a06a1e1f74eff2c3`](https://github.com/meta-llama/PurpleLlama/tree/d934ea285d124d81c10f7e15a06a1e1f74eff2c3/CybersecurityBenchmarks);
