@@ -20,6 +20,44 @@ latency, or resource benefit has been established.
 | Validation | Dense-reference numerical parity; route, padding, accumulation, and hook tests. Before optimizer integration: pinned real checkpoints, held-out task and perplexity evaluation against random and router-norm baselines, multiple seeds, plus peak RAM/VRAM and calibration-time measurements. |
 | Priority | P0 research candidate; do not promote until paired held-out evaluation shows a repeatable improvement over simple baselines without violating quality and hardware constraints. |
 
+## Upstream implementation review
+
+At CerebrasResearch/REAP revision
+[`1970473c51ca3caeb98c10392f15b3a08a672974`](https://github.com/CerebrasResearch/reap/tree/1970473c51ca3caeb98c10392f15b3a08a672974),
+the score update entry point is
+[`src/reap/pruning_metrics.py:update_pruning_state`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/src/reap/pruning_metrics.py).
+It softmaxes full router logits, gathers selected probabilities, optionally
+renormalizes them over each token's selected experts, then accumulates the
+mean router-weighted activation norm for each routed expert. The standard
+hook path is
+[`src/reap/observer.py:MoETransformerObserver._hook_factory`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/src/reap/observer.py);
+the layerwise alternative is
+[`src/reap/layerwise_observer.py:LayerwiseMoEObserver`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/src/reap/layerwise_observer.py).
+The latter captures the first block's inputs and replays blocks one at a time,
+offloading each block after use. Its parity checks against the ordinary
+observer are in
+[`tests/test_layerwise_observer.py`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/tests/test_layerwise_observer.py).
+
+The pinned
+[`Qwen3_5MoeTopKRouter.forward`](https://github.com/huggingface/transformers/blob/50e35cc0ca18ec19b80653690de553e6decf74f5/src/transformers/models/qwen3_5_moe/modeling_qwen3_5_moe.py)
+already applies full softmax, top-k selection, and selected-weight
+renormalization before calling `Qwen3_5MoeExperts`. ModelSurgeon observes the
+expert boundary and therefore consumes these final weights directly; applying
+the generic observer's optional renormalization again is unnecessary. The
+new router-contract test verifies this path against a direct expert-output
+reference.
+
+REAP's separate
+[`src/reap/prune.py:prune`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/src/reap/prune.py)
+uses per-layer low-score selection and mutates architecture-specific expert
+and router tensors. ModelSurgeon adapts the score only; it does not reuse that
+mutation path, which is coupled to REAP's model registry and does not provide
+ModelSurgeon's transactional planning and artifact-publication contract. The
+upstream repository declares Apache-2.0, compatible with this project, but no
+REAP code or dependency is copied. Its end-to-end environment also includes
+evaluation and serving dependencies that are not required for the isolated
+score calculation.
+
 ## Implementation boundary
 
 `Qwen35MoeReapObserver` accepts the tensors at the fused-expert boundary or
@@ -27,9 +65,13 @@ installs forward hooks on each layer's expert module. It recomputes only the
 selected expert/token pairs to obtain per-expert outputs, accumulates weighted
 L2 means and route counts, and reports `None` for experts not observed. It
 does not change router decisions, prune or merge experts, normalize top-k
-weights, choose an artifact, or publish model output. It computes the score
-from the unweighted expert output before applying the selected router weight,
-matching the pinned REAP metric's observation semantics.
+weights again, choose an artifact, or publish model output. The pinned
+Transformers Qwen3.5 router already softmaxes all expert logits, selects the
+top-k probabilities, and renormalizes those selected probabilities before
+passing them as `top_k_weights` to the fused expert module. The observer uses
+those final values verbatim; it does not accept router logits or apply a
+second normalization. Its score uses the unweighted expert output before
+applying the selected router weight, matching REAP's observation semantics.
 
 The implementation compacts valid routes, sorts by expert, and transfers the
 per-expert route counts once before processing bounded expert slices. This
@@ -59,6 +101,17 @@ padding exclusion, route counts, and hook cleanup. This verifies that exact
 library implementation's tensor and hook contract; it does not validate
 pretrained weights, other Transformers versions, or model-level quality and
 performance.
+
+A second tiny contract test runs Transformers' real `Qwen3_5MoeTopKRouter`
+and passes its returned indices and already-renormalized weights to the
+observer. It checks the selected weights sum to one and that scores match a
+direct expert-output calculation. This prevents confusing expert-boundary
+weights with raw router logits during future integration.
+
+The focused adapter suite passes on Python 3.12.14 and PyTorch 2.14.1+cu130
+through its CPU path: 6 passed, no skips. This confirms the installed
+Transformers Qwen3.5 modules load in the updated environment; it is not a CUDA
+execution or model-quality result.
 
 As a local checkpoint-weight smoke test, the adapter also scored expert 23 in
 layer 0 using its real BF16 gate/up and down tensors from

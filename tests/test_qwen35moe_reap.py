@@ -150,3 +150,49 @@ def test_real_transformers_qwen35_fused_expert_contract() -> None:
         assert actual == pytest.approx(expected, abs=1e-6)
     observer.close()
     assert len(module._forward_hooks) == 0
+
+
+def test_qwen35_router_passes_final_renormalized_top_k_weights() -> None:
+    qwen_module = pytest.importorskip("transformers.models.qwen3_5_moe.modeling_qwen3_5_moe")
+    torch.manual_seed(20261027)
+    config = SimpleNamespace(
+        num_experts=4,
+        hidden_size=3,
+        num_experts_per_tok=2,
+        moe_intermediate_size=5,
+        hidden_act="silu",
+        _experts_implementation="eager",
+    )
+    router = qwen_module.Qwen3_5MoeTopKRouter(config)
+    experts = qwen_module.Qwen3_5MoeExperts(config)
+    torch.nn.init.normal_(router.weight)
+    torch.nn.init.normal_(experts.gate_up_proj)
+    torch.nn.init.normal_(experts.down_proj)
+    hidden_states = torch.randn(7, 3)
+    _, top_k_weights, top_k_index = router(hidden_states)
+
+    assert torch.allclose(
+        top_k_weights.sum(dim=-1), torch.ones(hidden_states.shape[0]), atol=1e-6
+    )
+    expected_scores, expected_counts = dense_reference(
+        experts,
+        hidden_states,
+        top_k_index,
+        top_k_weights,
+        torch.ones(hidden_states.shape[0], dtype=torch.bool),
+    )
+
+    observer = Qwen35MoeReapObserver(num_layers=1, num_experts=4)
+    observer.update(
+        0,
+        experts,
+        hidden_states,
+        top_k_index,
+        top_k_weights,
+        valid_token_mask=None,
+    )
+    result = observer.report()
+
+    assert result.routed_counts_by_layer == (tuple(expected_counts),)
+    for actual, expected in zip(result.scores_by_layer[0], expected_scores, strict=True):
+        assert actual == pytest.approx(expected, abs=1e-6)
