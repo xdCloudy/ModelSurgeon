@@ -413,6 +413,19 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
         assert q4_weighted.to_alternative(activation_weighted=True).estimated_loss == pytest.approx(
             expected_weighted_mse * len(source_values)
         )
+        basis_forward_error = math.fsum(
+            (
+                (source_values[input_index + 256 * output_index]
+                 - q4_reconstructed[input_index + 256 * output_index])
+                * math.sqrt(256 * activation_moments[input_index])
+            )
+            ** 2
+            for output_index in range(2)
+            for input_index in range(256)
+        ) / 256
+        assert q4_weighted.to_alternative(activation_weighted=True).estimated_loss == pytest.approx(
+            basis_forward_error
+        )
         axis1_moments = (0.5, 2.0)
         axis1_estimates = estimate_tensor_quantization_losses(
             reader,
