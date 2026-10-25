@@ -185,18 +185,27 @@ class Qwen35MoeReapObserver:
         assert valid_token_mask is not None
 
         batch_sums = torch.zeros(self.num_experts, dtype=torch.float64, device=hidden_states.device)
-        batch_counts = torch.zeros(self.num_experts, dtype=torch.int64, device=hidden_states.device)
         has_nonfinite_output = torch.zeros((), dtype=torch.bool, device=hidden_states.device)
         with torch.inference_mode():
-            for expert in range(self.num_experts):
-                token_indices, top_k_positions = torch.where(top_k_index == expert)
-                if token_indices.numel() == 0:
+            top_k = top_k_index.shape[1]
+            valid_route_positions = torch.nonzero(
+                valid_token_mask.repeat_interleave(top_k), as_tuple=True
+            )[0]
+            expert_ids = top_k_index.reshape(-1)[valid_route_positions].to(torch.int64)
+            route_order = torch.argsort(expert_ids, stable=True)
+            sorted_route_positions = valid_route_positions[route_order]
+            route_counts = torch.bincount(expert_ids, minlength=self.num_experts).cpu().tolist()
+
+            start = 0
+            for expert, routed_count in enumerate(route_counts):
+                stop = start + routed_count
+                expert_routes = sorted_route_positions[start:stop]
+                start = stop
+                if routed_count == 0:
                     continue
-                keep = valid_token_mask[token_indices]
-                token_indices = token_indices[keep]
-                top_k_positions = top_k_positions[keep]
-                if token_indices.numel() == 0:
-                    continue
+
+                token_indices = torch.div(expert_routes, top_k, rounding_mode="floor")
+                top_k_positions = torch.remainder(expert_routes, top_k)
 
                 projected = functional.linear(hidden_states[token_indices], gate_up_proj[expert])
                 gate, up = projected.chunk(2, dim=-1)
@@ -206,13 +215,17 @@ class Qwen35MoeReapObserver:
                 weighted_norm = output_norm * top_k_weights[token_indices, top_k_positions].float()
                 has_nonfinite_output |= (~torch.isfinite(weighted_norm)).any()
                 batch_sums[expert] = weighted_norm.sum(dtype=torch.float64)
-                batch_counts[expert] = token_indices.numel()
 
-        if bool(has_nonfinite_output.item()):
+        batch_values = (
+            torch.cat((batch_sums, has_nonfinite_output.reshape(1).to(torch.float64)))
+            .cpu()
+            .tolist()
+        )
+        if bool(batch_values[-1]):
             raise Qwen35MoeReapError("expert output saliency became non-finite")
-        sums = batch_sums.cpu().tolist()
-        counts = batch_counts.cpu().tolist()
-        for expert, (weighted_sum, routed_count) in enumerate(zip(sums, counts, strict=True)):
+        for expert, (weighted_sum, routed_count) in enumerate(
+            zip(batch_values[:-1], route_counts, strict=True)
+        ):
             self._weighted_sums[layer][expert] += float(weighted_sum)
             self._routed_counts[layer][expert] += int(routed_count)
 

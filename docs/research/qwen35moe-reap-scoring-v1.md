@@ -31,6 +31,14 @@ weights, choose an artifact, or publish model output. It computes the score
 from the unweighted expert output before applying the selected router weight,
 matching the pinned REAP metric's observation semantics.
 
+The implementation compacts valid routes, sorts by expert, and transfers the
+per-expert route counts once before processing bounded expert slices. This
+avoids discovering route positions with a separate data-dependent `where`
+operation for every expert and avoids materializing a tensor of every selected
+expert weight. The structural reduction in route-discovery synchronizations is
+not a measured CUDA latency result; current host VRAM availability prevented
+an RTX 3060 timing run.
+
 Padding is deliberately explicit: hook registration requires a mask provider.
 Returning `None` means every routed token in that call is valid. The caller is
 responsible for matching flattened routed-token order to its attention mask.
