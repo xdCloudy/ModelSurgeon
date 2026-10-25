@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
-from typing import Any
+from typing import Any, cast
 
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
@@ -17,7 +17,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-LORA_REPAIR_SCHEMA_VERSION = 2
+LORA_REPAIR_SCHEMA_VERSION = 3
 
 
 class LoRARepairError(RuntimeError):
@@ -101,6 +101,12 @@ class LoRARepairResult:
     seed: int
     output_mode: LoRAOutputMode
     losses: tuple[float, ...]
+    validation_losses: tuple[float, ...]
+    selected_step: int
+    training_examples_sha256: str
+    validation_examples_sha256: str | None
+    validation_dataset_sha256: str | None
+    evaluation_source: str
     adapter_sha256: str
     resource_use: LoRARepairResourceUse
 
@@ -116,6 +122,12 @@ class LoRARepairResult:
             "seed": self.seed,
             "output_mode": self.output_mode.value,
             "losses": list(self.losses),
+            "validation_losses": list(self.validation_losses),
+            "selected_step": self.selected_step,
+            "training_examples_sha256": self.training_examples_sha256,
+            "validation_examples_sha256": self.validation_examples_sha256,
+            "validation_dataset_sha256": self.validation_dataset_sha256,
+            "evaluation_source": self.evaluation_source,
             "adapter_sha256": self.adapter_sha256,
             "resource_use": self.resource_use.to_record(),
         }
@@ -133,6 +145,22 @@ def _resolve_parent(model: Any, name: str) -> tuple[Any, str, Any]:
     except AttributeError as error:
         raise LoRARepairError(f"LoRA target module {name!r} does not exist") from error
     return parent, parts[-1], child
+
+
+def _example_input_ids(example: dict[str, Any]) -> bytes:
+    input_ids = example.get("input_ids")
+    if input_ids is None or not hasattr(input_ids, "detach"):
+        raise LoRARepairError("repair examples require tensor input_ids")
+    return cast(bytes, input_ids.detach().cpu().contiguous().numpy().tobytes())
+
+
+def _examples_sha256(examples: tuple[dict[str, Any], ...]) -> str:
+    digest = hashlib.sha256()
+    for example in examples:
+        encoded = _example_input_ids(example)
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+    return digest.hexdigest()
 
 
 def _adapter_matrices(wrapper: Any) -> tuple[Any, Any]:
@@ -185,6 +213,9 @@ def run_bounded_lora_repair(
     *,
     source_checkpoint_id: str,
     candidate_checkpoint_id: str,
+    validation_examples: tuple[dict[str, Any], ...] | None = None,
+    validation_dataset_sha256: str | None = None,
+    evaluation_source: str | None = None,
 ) -> LoRARepairResult:
     """Train bounded adapters on a mutated candidate and merge or retain them."""
 
@@ -196,6 +227,31 @@ def run_bounded_lora_repair(
         raise LoRARepairError("LoRA repair candidate must not alias its immutable source")
     if not repair_examples:
         raise LoRARepairError("LoRA repair requires a non-empty repair set")
+    if validation_examples is not None and not validation_examples:
+        raise LoRARepairError("validation examples must be non-empty when supplied")
+    if validation_examples is None and validation_dataset_sha256 is not None:
+        raise LoRARepairError("validation dataset digest requires validation examples")
+    if validation_dataset_sha256 is not None:
+        if len(validation_dataset_sha256) != 64:
+            raise LoRARepairError("validation dataset digest must be SHA-256")
+        try:
+            int(validation_dataset_sha256, 16)
+        except ValueError as error:
+            raise LoRARepairError("validation dataset digest must be SHA-256") from error
+        validation_dataset_sha256 = validation_dataset_sha256.lower()
+    selected_evaluation_source = (
+        "training_fallback" if validation_examples is None else "provided_validation"
+    ) if evaluation_source is None else evaluation_source
+    if not selected_evaluation_source.strip():
+        raise LoRARepairError("evaluation source cannot be blank")
+    training_examples_sha256 = _examples_sha256(repair_examples)
+    validation_examples_sha256 = (
+        None if validation_examples is None else _examples_sha256(validation_examples)
+    )
+    if validation_examples is not None:
+        training_keys = {_example_input_ids(example) for example in repair_examples}
+        if any(_example_input_ids(example) in training_keys for example in validation_examples):
+            raise LoRARepairError("training and validation examples must be disjoint")
     if target_modules != tuple(sorted(set(target_modules))) or not target_modules:
         raise LoRARepairError("LoRA targets must be non-empty, unique, and canonical")
     torch = import_module("torch")
@@ -222,6 +278,10 @@ def run_bounded_lora_repair(
     wrappers: list[tuple[str, Any]] = []
     completed = False
     losses: list[float] = []
+    validation_losses: list[float] = []
+    selected_step = 0
+    selected_adapter_state: tuple[Any, ...] | None = None
+    best_validation_loss = math.inf
     report_box: list[MemoryTelemetryReport] = []
     started = time.perf_counter()
     try:
@@ -253,8 +313,9 @@ def run_bounded_lora_repair(
         cuda = TorchCudaMemoryProvider(device) if str(device).startswith("cuda") else None
 
         def train() -> object:
-            model.train()
+            nonlocal best_validation_loss, selected_step, selected_adapter_state
             for step in range(config.max_steps):
+                model.train()
                 raw = repair_examples[step % len(repair_examples)]
                 if "labels" not in raw:
                     raise LoRARepairError("every repair example requires labels")
@@ -270,6 +331,38 @@ def run_bounded_lora_repair(
                 loss.backward()
                 optimizer.step()
                 losses.append(float(loss.detach().item()))
+                if validation_examples is not None:
+                    peft_model.eval()
+                    validation_step_losses = []
+                    with torch.inference_mode():
+                        for validation_example in validation_examples:
+                            if "labels" not in validation_example:
+                                raise LoRARepairError(
+                                    "every validation example requires labels"
+                                )
+                            validation_inputs = {
+                                name: value.to(device) if hasattr(value, "to") else value
+                                for name, value in validation_example.items()
+                            }
+                            validation_output = peft_model(**validation_inputs)
+                            validation_loss = getattr(validation_output, "loss", None)
+                            if validation_loss is None or not bool(
+                                torch.isfinite(validation_loss).item()
+                            ):
+                                raise LoRARepairError(
+                                    "validation forward did not return a finite loss"
+                                )
+                            validation_step_losses.append(validation_loss.detach().float())
+                    mean_validation_loss = float(
+                        torch.stack(validation_step_losses).mean().item()
+                    )
+                    validation_losses.append(mean_validation_loss)
+                    if mean_validation_loss < best_validation_loss:
+                        best_validation_loss = mean_validation_loss
+                        selected_step = step + 1
+                        selected_adapter_state = tuple(
+                            parameter.detach().clone() for parameter in adapter_parameters
+                        )
             return None
 
         collect_memory_telemetry(
@@ -282,6 +375,16 @@ def run_bounded_lora_repair(
         if len(report_box) != 1:
             raise LoRARepairError("LoRA repair did not produce one resource report")
         report = report_box[0]
+        if validation_examples is not None:
+            if selected_adapter_state is None or selected_step <= 0:
+                raise LoRARepairError("validation did not select a trained adapter checkpoint")
+            with torch.no_grad():
+                for parameter, selected_parameter in zip(
+                    adapter_parameters, selected_adapter_state, strict=True
+                ):
+                    parameter.copy_(selected_parameter)
+        else:
+            selected_step = len(losses)
         adapter_sha256 = _adapter_digest(tuple(wrappers))
         if config.output_mode is LoRAOutputMode.MERGED:
             peft_model.merge_and_unload(safe_merge=True)
@@ -292,17 +395,23 @@ def run_bounded_lora_repair(
                 adapter_b.requires_grad_(False)
         completed = True
         return LoRARepairResult(
-            source_checkpoint_id,
-            candidate_checkpoint_id,
-            target_modules,
-            trainable_parameters,
-            config.max_trainable_parameters,
-            len(losses),
-            config.seed,
-            config.output_mode,
-            tuple(losses),
-            adapter_sha256,
-            LoRARepairResourceUse(
+            source_checkpoint_id=source_checkpoint_id,
+            candidate_checkpoint_id=candidate_checkpoint_id,
+            target_modules=target_modules,
+            trainable_parameters=trainable_parameters,
+            max_trainable_parameters=config.max_trainable_parameters,
+            completed_steps=len(losses),
+            seed=config.seed,
+            output_mode=config.output_mode,
+            losses=tuple(losses),
+            validation_losses=tuple(validation_losses),
+            selected_step=selected_step,
+            training_examples_sha256=training_examples_sha256,
+            validation_examples_sha256=validation_examples_sha256,
+            validation_dataset_sha256=validation_dataset_sha256,
+            evaluation_source=selected_evaluation_source,
+            adapter_sha256=adapter_sha256,
+            resource_use=LoRARepairResourceUse(
                 time.perf_counter() - started,
                 report.peak_rss_bytes,
                 report.peak_cuda_allocated_bytes,
