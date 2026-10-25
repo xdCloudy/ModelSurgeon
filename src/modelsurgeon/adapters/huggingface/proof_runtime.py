@@ -397,6 +397,46 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         handle.remove()
 
 
+class _DownProjectionChannelMaskGroup(
+    AbstractContextManager["_DownProjectionChannelMaskGroup"]
+):
+    """Temporarily mask one shared channel in every transformer layer."""
+
+    def __init__(self, modules: Sequence[Any], channel_index: int, torch: Any) -> None:
+        if not modules:
+            raise HuggingFaceMLPProofError("coupled MLP channel mask requires model layers")
+        self._modules = tuple(modules)
+        self._channel_index = channel_index
+        self._torch = torch
+        self._stack: ExitStack | None = None
+
+    def __enter__(self) -> Self:
+        if self._stack is not None:
+            raise HuggingFaceMLPProofError("coupled MLP channel mask is already active")
+        stack = ExitStack()
+        try:
+            for module in self._modules:
+                stack.enter_context(
+                    _DownProjectionChannelMask(module, self._channel_index, self._torch)
+                )
+        except BaseException:
+            stack.close()
+            raise
+        self._stack = stack
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        stack = self._stack
+        self._stack = None
+        if stack is not None:
+            stack.__exit__(exc_type, exc_value, traceback)
+
+
 class _DownProjectionChannelMaskSet(AbstractContextManager["_DownProjectionChannelMaskSet"]):
     """Temporarily zero a canonical set of channels with one hook and one clone."""
 
@@ -1413,18 +1453,7 @@ class HuggingFaceMLPProofRuntime:
     ) -> tuple[FeaturePartition, ...]:
         if candidate.scope is not CandidateScope.MLP_CHANNEL:
             raise HuggingFaceMLPProofError("HF proof runtime only accepts MLP-channel candidates")
-        layer, channel = _channel_coordinates(candidate.request)
-        records = self._feature_records(layer, channel)
-        encoded = canonical_identity_json([item.to_record() for item in records]).encode("utf-8")
-        checksum = hashlib.sha256(encoded).hexdigest()
-        key = FeaturePartitionKey(
-            model_revision=self._model_target.revision,
-            input_revision=self._dataset.manifest_id,
-            component_id=candidate.component_id,
-            extractor=HF_MLP_FEATURE_EXTRACTOR,
-            extractor_version=HF_MLP_FEATURE_EXTRACTOR_VERSION,
-        )
-        return (FeaturePartition(key, records, checksum),)
+        return (self.pre_mutation_group_feature_partition(candidate),)
 
     def pre_mutation_group_feature_partition(
         self,
@@ -1593,8 +1622,14 @@ class HuggingFaceMLPProofRuntime:
         transaction: MutationTransaction,
     ) -> AbstractContextManager[object]:
         require_safe_transaction(transaction)
-        layer, channel = _channel_coordinates(plan.request)
-        return _DownProjectionChannelMask(self._down_projection(layer), channel, self._torch)
+        _, channel = _channel_coordinates(plan.request)
+        return _DownProjectionChannelMaskGroup(
+            tuple(
+                self._down_projection(layer) for layer in range(self._discovery.shape.layers)
+            ),
+            channel,
+            self._torch,
+        )
 
     def evaluate(self, plan: MutationPlan) -> TieredEvaluationReport:
         baseline = self._ensure_baseline()

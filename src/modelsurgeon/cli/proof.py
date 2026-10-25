@@ -156,7 +156,10 @@ def run_first_surgeon_proof(
         runtime.run_id,
         CandidateEnumeratorConfig(
             seed=config.seed,
-            filters=CandidateFilter(scopes=config.scopes),
+            filters=CandidateFilter(
+                scopes=config.scopes,
+                layer_indices=(0,) if config.scopes == (CandidateScope.MLP_CHANNEL,) else (),
+            ),
             max_candidates=config.max_candidates,
         ),
     )
