@@ -183,10 +183,10 @@ quality-gate pass. No inference-speed or cybersecurity-task result was
 measured. The exact hashes, settings, return codes, and log digests are in the
 [64-window evidence manifest](qwen35moe-gguf-expert-slicing-64chunk-2026-10-25.json).
 
-Together, the four- and 64-window screens do not justify exposing the scorer to
-autonomous selection. A paired full-test comparison, independent random
-selections, and representative cybersecurity task-quality measurements remain
-necessary.
+The four- and 64-window screens alone do not justify exposing the scorer to
+autonomous selection. The full-split comparison below adds one random control;
+independent random selections and representative cybersecurity task-quality
+measurements remain necessary.
 
 ## Full-test baseline and resource-limited comparison
 
@@ -200,7 +200,8 @@ complete test split.
 The equal-size router-norm candidate used the same full-split command, but
 available system memory fell to 852 MiB while the inference process held about
 14.31 GiB. The run was interrupted after 107 output rows (last recorded offset
-54,272); it produced no final PPL estimate. The random candidate was not run.
+54,272); it produced no final PPL estimate. At that time, the random candidate
+had not been run.
 These incomplete outputs are retained as a resource-pressure record only. They
 are not quality results, and no quality gate or ranking conclusion follows.
 The [full-test run manifest](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json)
@@ -217,7 +218,7 @@ generic Python function prompts, and existing acceptance evidence documents
 that this tiny set establishes neither broad coding ability nor security
 behavior.
 
-## Pinned full-test router-norm recheck (2026-10-26)
+## Pinned three-way full-test comparison (2026-10-26)
 
 The earlier source-only full-test baseline and resource-limited candidate
 attempt are retained in the [2026-10-25 full-test manifest](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json).
@@ -225,24 +226,30 @@ The router-norm 252-expert candidate was re-evaluated on 2026-10-26 using the
 same complete WikiText-2 test split, source artifact, llama.cpp build, and CPU
 settings. The local ZIP archive SHA-256 matched the pinned archive, and a fresh
 extraction matched the recorded test-text SHA-256 before inference. The
-candidate artifact SHA-256 also matched the previously recorded artifact.
+router-norm candidate SHA-256 matched the previously recorded artifact. The
+equal-size seeded-random candidate was evaluated with the same command and
+runtime, and its SHA-256 matched the pinned artifact.
 
 | Artifact | GGUF bytes | Full-test contexts / tokens | PPL ± propagated uncertainty | Delta vs source | Point-estimate PPL retention |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Source | 21,713,462,496 | 580 / 296,960 | 6.7090 ± 0.04243 | — | 100% |
 | Router norm, 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8094 ± 0.04317 | +0.1004 | 98.53% |
+| Seeded random (`20261025`), 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8291 ± 0.04336 | +0.1201 | 98.24% |
 
-This candidate is 314,245,088 bytes (1.45%) smaller. The full-split point
-estimate clears the configured 98% PPL-retention floor, but the uncertainty
-bands overlap and llama.cpp's propagated uncertainty is not a formal
-confidence interval. This is not a formal first-party optimizer quality-gate
-pass, a task-quality result, or evidence of router-norm superiority. The
-equal-size seeded-random full-split control is still being evaluated; until it
-completes, this run does not establish a ranking advantage. No inference
-speed, latency, load-time, or deployment-memory benefit was measured.
+Both candidates are 314,245,088 bytes (1.45%) smaller, and both point estimates
+clear the configured 98% PPL-retention floor. Router norm's PPL point estimate
+is 0.0197 lower than the one seeded-random selection, but the reported
+uncertainty bands overlap; llama.cpp's propagated uncertainty is not a formal
+confidence interval. This does not establish a reliable ranking advantage,
+pass ModelSurgeon's first-party quality gate, or demonstrate task-quality
+retention. It is one model, one corpus, and one random seed. Additional random
+seeds and representative cybersecurity task-quality measurements remain
+necessary. No inference speed, latency, load-time, or deployment-memory
+benefit was measured.
 
-The exact hashes, command, settings, runtime, metrics, raw-log digests, and
-limitations are in the [full-test router-norm recheck manifest](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json).
+The exact artifact and dataset hashes, command, settings, runtime, metrics,
+raw-log digests, and limitations are in the
+[full-test three-way comparison manifest](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json).
 
 As a limited follow-up, on 2026-10-25 the source and the 252-expert
 router-norm candidate each received the same four manually screened benign

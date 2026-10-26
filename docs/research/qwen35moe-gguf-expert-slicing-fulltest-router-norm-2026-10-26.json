@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
-  "record_type": "qwen35moe_gguf_expert_slicing_full_test_router_norm_recheck",
+  "record_type": "qwen35moe_gguf_expert_slicing_full_test_three_way_comparison",
   "date": "2026-10-26",
-  "status": "completed_source_and_router_norm_full_split",
+  "status": "completed_source_router_norm_and_random_full_split",
   "interpretation": {
-    "claim": "The source and router-norm 252-expert artifacts were evaluated on the complete pinned WikiText-2 raw test split with matching CPU settings.",
+    "claim": "The source, router-norm 252-expert, and equal-size seeded-random 252-expert artifacts were evaluated on the complete pinned WikiText-2 raw test split with matching CPU settings.",
     "quality_gate_applied": false,
-    "point_estimate_retention_floor_passed": true,
+    "point_estimate_retention_floor_passed_by_both_candidates": true,
     "inference_speed_measured": false,
-    "ranking_conclusion": null,
-    "random_full_split_comparison_pending": true,
+    "ranking_conclusion": "The router-norm candidate has a 0.0197 lower PPL point estimate than this one equal-size random selection; the reported uncertainty bands overlap, so no reliable ranking advantage is established.",
+    "random_full_split_comparison_pending": false,
     "limitations": [
-      "The llama.cpp propagated uncertainty values are not formal confidence intervals; the reported source and candidate uncertainty bands overlap.",
-      "This is one model, one corpus, and one router-norm selection. It does not establish autonomous-ranking superiority or task-quality retention.",
+      "The llama.cpp propagated uncertainty values are not formal confidence intervals; the source and both candidate uncertainty bands overlap.",
+      "This is one model, one corpus, one router-norm selection, and one random seed. It does not establish autonomous-ranking superiority or task-quality retention.",
       "No inference throughput, latency, load-time, or deployment-memory comparison was measured."
     ]
   },
@@ -122,9 +122,24 @@
     },
     {
       "artifact": "random_252_seed_20261025",
-      "status": "full_split_comparison_not_included_in_this_record",
-      "return_code": null,
-      "perplexity": null
+      "status": "completed",
+      "retained_experts_per_block": 252,
+      "bytes": 21399217408,
+      "sha256": "17bbf662f37f0b454583c4847bb1adce3af1b1f45478697ec48b609de7a1042d",
+      "return_code": 0,
+      "elapsed_seconds": 2010.105223,
+      "chunks_processed": 580,
+      "output_rows": 580,
+      "tokens_scored": 296960,
+      "perplexity": 6.8291,
+      "reported_uncertainty": 0.04336,
+      "delta_perplexity_vs_source": 0.1201,
+      "point_estimate_perplexity_retention": 0.9824134951897028,
+      "bytes_removed": 314245088,
+      "disk_reduction_fraction": 0.014472361930203,
+      "ppl_point_estimate_difference_vs_router_norm_252": 0.0197,
+      "stdout_sha256": "56a85812ec01a8062b0d7cd33426ea2a24d5d9453cb3e04a7180dbc2fb59ad96",
+      "stderr_sha256": "7597e6186dc2707a3d4dba6f4d91c5dc2ac97f8b00bd270d40e3b046c4ea0573"
     }
   ],
   "provenance": {
