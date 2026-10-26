@@ -70,12 +70,12 @@
     {
       "method": "activation_weighted",
       "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_weighted.json",
-      "sha256": "4dd639c0a8198799db8818f4293581ff0efa7807a9ba23b37401e077c9daf0ca"
+      "sha256_lf_normalized": "b80b6a7c422c1059c470899a5fc3d18e250ea673ae6f768ad5e0710caeb932ae"
     },
     {
       "method": "magnitude",
       "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
-      "sha256": "92ee9d968b712a1d49fb9fa1f68150a73d8c61da83cc1c2c05267f785b56ac75"
+      "sha256_lf_normalized": "17f6dc0a17b50619b8bc971bacdf71d80e9b3da7f89736c561e9df826d23335c"
     }
   ]
 }

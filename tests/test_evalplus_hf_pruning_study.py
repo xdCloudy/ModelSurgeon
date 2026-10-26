@@ -330,8 +330,9 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
     assert "No third-party source code copied" in report["method_provenance"]["reuse"]
     for item in report["source_reports"]:
         source = root / item["path"]
-        digest = hashlib.sha256(source.read_bytes()).hexdigest()
-        assert digest == item["sha256"]
+        normalized = source.read_bytes().replace(b"\r\n", b"\n")
+        digest = hashlib.sha256(normalized).hexdigest()
+        assert digest == item["sha256_lf_normalized"]
 
 
 def test_checkpoint_recovery_discards_only_an_incomplete_final_record(tmp_path) -> None:
