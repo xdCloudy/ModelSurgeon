@@ -12,6 +12,7 @@ import os
 import shutil
 import tempfile
 from collections import Counter
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,43 @@ HUMANEVAL_PLUS_VERSION = "v0.1.10"
 HUMANEVAL_PLUS_RELEASE_COMMIT = "200defce9e3429d28ca215b6dd061c0f7f31c18b"
 EVALPLUS_IMAGE_DEFAULT = f"modelsurgeon-evalplus:{EVALPLUS_REVISION[:7]}"
 REPORT_MARKER = "MODELSURGEON_EVALPLUS_REPORT="
+WORKSPACE_MANIFEST = ".modelsurgeon-evalplus-study.json"
+
+
+def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "model": args.model,
+        "model_revision": args.model_revision,
+        "remove_channels": args.remove_channels,
+        "max_new_tokens": args.max_new_tokens,
+        "evalplus_image": args.evalplus_image,
+        "evalplus_revision": EVALPLUS_REVISION,
+        "dataset_version": HUMANEVAL_PLUS_VERSION,
+    }
+
+
+def _prepare_workspace(path: Path, args: argparse.Namespace) -> Path:
+    """Create or validate a persistent workspace before resuming any generated samples."""
+    path.mkdir(parents=True, exist_ok=True)
+    manifest_path = path / WORKSPACE_MANIFEST
+    expected = _workspace_identity(args)
+    if manifest_path.exists():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError("persistent study workspace has an unreadable manifest") from exc
+        if existing != expected:
+            raise RuntimeError("persistent study workspace settings do not match this run")
+    else:
+        if any(path.iterdir()):
+            raise RuntimeError(
+                "refusing to resume a non-empty workspace without a study manifest"
+            )
+        manifest_path.write_text(
+            canonical_identity_json(expected) + "\n", encoding="utf-8"
+        )
+    return path
 
 
 def _sha256_file(path: Path) -> str:
@@ -401,12 +439,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output.exists():
         raise FileExistsError(f"refusing to overwrite study report: {args.output}")
-    with tempfile.TemporaryDirectory(
-        prefix="modelsurgeon-evalplus-pruning-", dir=args.output.parent
-    ) as temp_name:
-        root = Path(temp_name)
+    if args.work_dir is None:
+        workspace = tempfile.TemporaryDirectory(
+            prefix="modelsurgeon-evalplus-pruning-", dir=args.output.parent
+        )
+    else:
+        workspace = nullcontext(_prepare_workspace(args.work_dir, args))
+    with workspace as workspace_path:
+        root = Path(workspace_path)
         candidate_path = root / "pruned-candidate"
-        candidate_path.mkdir()
+        candidate_path.mkdir(exist_ok=True)
         candidate_record = _build_pruned_candidate(
             snapshot,
             candidate_path,
@@ -418,8 +460,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         # Evaluation inputs share a read-only mount; each generated arm sees only its own samples.
         source_input = root / "source-input"
         candidate_input = root / "candidate-input"
-        source_input.mkdir()
-        candidate_input.mkdir()
+        source_input.mkdir(exist_ok=True)
+        candidate_input.mkdir(exist_ok=True)
         shutil.copyfile(dataset_input, source_input / dataset_input.name)
         shutil.copyfile(dataset_input, candidate_input / dataset_input.name)
 
@@ -595,7 +637,7 @@ def _generate_predictions(
         dataset="humaneval",
         greedy=True,
         n_samples=1,
-        resume=False,
+        resume=True,
     )
     del decoder
     raw_path = target_path.with_name(f"{target_path.stem}.raw.jsonl")
@@ -612,6 +654,11 @@ def _generate_predictions(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--work-dir",
+        type=Path,
+        help="retain model artifacts and resumable EvalPlus predictions in this directory",
+    )
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--remove-channels", type=int, default=256)

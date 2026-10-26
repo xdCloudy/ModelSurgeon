@@ -9,6 +9,7 @@ from tools.run_evalplus_hf_pruning_study import (
     _docker_wrapper,
     _generate_predictions,
     _low_magnitude_channels,
+    _prepare_workspace,
 )
 
 
@@ -96,6 +97,7 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
 
     def _codegen(**kwargs: object) -> None:
         observed["dataset"] = kwargs["dataset"]
+        observed["resume"] = kwargs["resume"]
         target.write_text(
             json.dumps({"task_id": "HumanEval/0", "solution": "def f(): return 1"}) + "\n",
             encoding="utf-8",
@@ -113,6 +115,41 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     result = _generate_predictions(tmp_path, target, tasks, max_new_tokens=8)
 
     assert observed["dataset"] == "humaneval"
+    assert observed["resume"] is True
     assert observed["decoder_kwargs"]["force_base_prompt"] is True
     assert result["sample_count"] == 1
     assert not target.with_name("predictions.raw.jsonl").exists()
+
+
+def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> None:
+    args = SimpleNamespace(
+        model="Qwen/Qwen2.5-Coder-0.5B-Instruct",
+        model_revision="revision-a",
+        remove_channels=256,
+        max_new_tokens=256,
+        evalplus_image="modelsurgeon-evalplus:test",
+    )
+
+    workspace = _prepare_workspace(tmp_path / "study", args)
+
+    assert workspace == tmp_path / "study"
+    assert _prepare_workspace(workspace, args) == workspace
+    args.remove_channels = 128
+    with pytest.raises(RuntimeError, match="settings do not match"):
+        _prepare_workspace(workspace, args)
+
+
+def test_workspace_refuses_unmarked_nonempty_directory(tmp_path) -> None:
+    workspace = tmp_path / "study"
+    workspace.mkdir()
+    (workspace / "unrelated.json").write_text("{}", encoding="utf-8")
+    args = SimpleNamespace(
+        model="model",
+        model_revision="revision-a",
+        remove_channels=256,
+        max_new_tokens=256,
+        evalplus_image="modelsurgeon-evalplus:test",
+    )
+
+    with pytest.raises(RuntimeError, match="without a study manifest"):
+        _prepare_workspace(workspace, args)

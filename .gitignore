@@ -17,6 +17,7 @@ runs/
 checkpoints/
 work/
 reports/benchmarks/modelsurgeon-evalplus-pruning-*/
+reports/benchmarks/evalplus-*/
 *.safetensors
 *.gguf
 *.bin

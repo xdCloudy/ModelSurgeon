@@ -39,12 +39,26 @@ python tools/run_evalplus_hf_pruning_study.py `
   --output reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning.json
 ```
 
+For long runs, retain a resumable workspace:
+
+```powershell
+python tools/run_evalplus_hf_pruning_study.py `
+  --output reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning.json `
+  --work-dir reports/benchmarks/evalplus-work
+```
+
+EvalPlus checkpoints each completed task. Re-run the same command with the same study
+settings to continue either arm after interruption. The workspace manifest rejects a
+resume when the model revision, pruning amount, token limit, evaluator image, or pinned
+dataset version differs. A workspace is retained when `--work-dir` is set; without it,
+the temporary workspace is removed after a successful run.
+
 The runner refuses to overwrite a report. It records source revisions, dataset and
 artifact digests, parameter counts, generated-sample digests, per-task pass status, and
 source-relative pass@1 retention. It does not publish generated code. The evaluator
 container has networking disabled, a read-only root and input mount, no Linux
 capabilities, a non-root uid, a 3 GiB memory limit, and a 2 CPU limit. Generated code is
-removed from the temporary workspace after the study.
+removed when the study uses its default temporary workspace.
 
 EvalPlus's HF decoder is explicitly put in base-prompt mode because HumanEval is a
 function-completion task and the pinned EvalPlus revision does not provide an instruction
