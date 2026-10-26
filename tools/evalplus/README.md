@@ -91,3 +91,14 @@ had 16,515,072 fewer parameters (3.34%) and a 33,110,070-byte smaller checkpoint
 11.59 percentage-point decrease and 72.46% relative retention. This magnitude-based
 pruning result is a negative quality-efficiency outcome at this severity; the study did
 not measure inference latency or throughput.
+
+## Runtime follow-up
+
+The separate synchronized run in
+[`reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning_runtime.json`](../../reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning_runtime.json)
+measured 47.32 generated tokens/s for the source and 47.42 for the pruned model
+(+0.22%). Median per-task `model.generate` time was 1.281 s vs 1.325 s; p95 was
+3.469 s vs 5.075 s. The candidate emitted 12,489 tokens vs 11,435, so its total
+generation wall time was 8.98% higher. These single-pass measurements include prompt
+prefill, and the differing completion lengths make the tiny token-throughput increase
+inconclusive. This run does not demonstrate an inference speedup.
