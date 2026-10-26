@@ -22,6 +22,20 @@ latency, or resource benefit has been established.
 
 ## Upstream implementation review
 
+### Current upstream status
+
+On 2026-10-26, `CerebrasResearch/reap` `main` still resolved to
+`1970473c51ca3caeb98c10392f15b3a08a672974`, the revision reviewed below. The
+upstream repository has an open Qwen3.5-MoE support proposal, PR
+[#25](https://github.com/CerebrasResearch/reap/pull/25), at head
+`ed8f8b776394d863bd0ff800e3498825d1d6d62a`. Its proposed changes are limited
+to `model_util.py`, `observer.py`, and `prune.py`; they are not part of upstream
+`main`. This adapter remains an independent implementation of the observer
+contract at the Hugging Face fused-expert boundary; it copies no code from
+that unmerged proposal. The upstream `LICENSE` declares Apache-2.0, compatible
+with ModelSurgeon's Apache-2.0 distribution; the adapter introduces no copied
+source or new dependency.
+
 At CerebrasResearch/REAP revision
 [`1970473c51ca3caeb98c10392f15b3a08a672974`](https://github.com/CerebrasResearch/reap/tree/1970473c51ca3caeb98c10392f15b3a08a672974),
 the score update entry point is
