@@ -42,6 +42,7 @@ def test_isotonic_calibration_pools_violations_and_round_trips() -> None:
 
 def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> None:
     selection = fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4)
+    assert fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4) == selection
     record = selection.to_record()
 
     assert selection.calibrator.method in {CalibrationMethod.PLATT, CalibrationMethod.ISOTONIC}
@@ -51,8 +52,22 @@ def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> N
     }
     assert all(len(candidate.metrics.reliability_curve) == 4 for candidate in selection.candidates)
     assert record["fit_partition"] == "validation"
-    assert record["selection_rule"] == "minimum_brier_then_ece_then_method"
+    assert record["schema_version"] == 2
+    assert record["evaluation_partition"] == "validation_out_of_fold"
+    assert record["fold_assignment"] == "stratified_round_robin_v1"
+    assert record["cross_validation_folds"] == 4
+    assert record["selection_rule"] == "minimum_cross_fitted_brier_then_ece_then_method"
     assert "test_labels" not in inspect.signature(fit_probability_calibrator).parameters
+
+    fitted_metrics = calibration_metrics(
+        LABELS, selection.calibrator.calibrate(PROBABILITIES), bins=4
+    )
+    selected_metrics = next(
+        candidate.metrics
+        for candidate in selection.candidates
+        if candidate.method is selection.calibrator.method
+    )
+    assert selected_metrics.brier_score != pytest.approx(fitted_metrics.brier_score)
 
 
 def test_calibration_metrics_keep_empty_bins_explicit() -> None:
@@ -73,6 +88,7 @@ def test_calibration_metrics_keep_empty_bins_explicit() -> None:
         ((-0.1, 0.8), (0, 1)),
         ((0.2, 0.8), (0, 2)),
         ((0.2, 0.8), (1, 1)),
+        ((0.2, 0.3, 0.8), (0, 0, 1)),
     ],
 )
 def test_fitting_fails_closed_for_malformed_or_single_class_inputs(

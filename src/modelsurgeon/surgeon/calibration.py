@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Final, Protocol, Self
 
 CALIBRATION_SCHEMA_VERSION: Final[int] = 1
+CALIBRATION_SELECTION_SCHEMA_VERSION: Final[int] = 2
 _LOGIT_EPSILON: Final[float] = 1e-12
 
 
@@ -164,16 +165,30 @@ class CalibrationSelection:
     observation_count: int
     reliability_bins: int
     selection_rule: str = "minimum_brier_then_ece_then_method"
+    cross_validation_folds: int = 0
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.cross_validation_folds, bool)
+            or not isinstance(self.cross_validation_folds, int)
+            or self.cross_validation_folds < 0
+        ):
+            raise ProbabilityCalibrationError("cross-validation fold count cannot be negative")
 
     def to_record(self) -> dict[str, object]:
         return {
-            "schema_version": CALIBRATION_SCHEMA_VERSION,
+            "schema_version": CALIBRATION_SELECTION_SCHEMA_VERSION,
             "calibrator": self.calibrator.to_record(),
             "candidates": [candidate.to_record() for candidate in self.candidates],
             "observation_count": self.observation_count,
             "reliability_bins": self.reliability_bins,
+            "cross_validation_folds": self.cross_validation_folds,
             "selection_rule": self.selection_rule,
             "fit_partition": "validation",
+            "evaluation_partition": (
+                "validation_out_of_fold" if self.cross_validation_folds >= 2 else "unspecified"
+            ),
+            "fold_assignment": "stratified_round_robin_v1",
         }
 
 
@@ -318,31 +333,83 @@ def fit_probability_calibrator(
     """
 
     count = _validate_inputs(validation_probabilities, validation_labels, require_both_classes=True)
-    calibrators: tuple[PlattCalibrator | IsotonicCalibrator, ...] = (
-        fit_platt_calibrator(validation_probabilities, validation_labels),
-        fit_isotonic_calibrator(validation_probabilities, validation_labels),
-    )
-    evaluated = tuple(
-        (
-            calibrator,
-            calibration_metrics(
-                validation_labels,
-                calibrator.calibrate(validation_probabilities),
-                bins=reliability_bins,
-            ),
+    if reliability_bins <= 0:
+        raise ProbabilityCalibrationError("reliability bin count must be positive")
+    class_counts = (validation_labels.count(0), validation_labels.count(1))
+    folds = min(5, *class_counts)
+    if folds < 2:
+        raise ProbabilityCalibrationError(
+            "cross-fitted calibration selection requires at least two examples per class"
         )
-        for calibrator in calibrators
-    )
+    fold_indices: list[list[int]] = [[] for _ in range(folds)]
+    class_positions = [0, 0]
+    for index, label in enumerate(validation_labels):
+        fold = class_positions[label] % folds
+        fold_indices[fold].append(index)
+        class_positions[label] += 1
+
+    cross_fitted: dict[CalibrationMethod, list[float | None]] = {
+        CalibrationMethod.PLATT: [None] * count,
+        CalibrationMethod.ISOTONIC: [None] * count,
+    }
+    for held_out_indices in fold_indices:
+        held_out = set(held_out_indices)
+        training_indices = tuple(index for index in range(count) if index not in held_out)
+        training_probabilities = tuple(
+            validation_probabilities[index] for index in training_indices
+        )
+        training_labels = tuple(validation_labels[index] for index in training_indices)
+        calibrators: tuple[PlattCalibrator | IsotonicCalibrator, ...] = (
+            fit_platt_calibrator(training_probabilities, training_labels),
+            fit_isotonic_calibrator(training_probabilities, training_labels),
+        )
+        held_out_probabilities = tuple(
+            validation_probabilities[index] for index in held_out_indices
+        )
+        for calibrator in calibrators:
+            predictions = calibrator.calibrate(held_out_probabilities)
+            output = cross_fitted[calibrator.method]
+            for index, prediction in zip(held_out_indices, predictions, strict=True):
+                output[index] = prediction
+
+    evaluated: list[tuple[CalibrationMethod, CalibrationMetrics]] = []
+    for method in (CalibrationMethod.PLATT, CalibrationMethod.ISOTONIC):
+        output_values = cross_fitted[method]
+        complete_predictions: list[float] = []
+        for oof_prediction in output_values:
+            if oof_prediction is None:
+                raise ProbabilityCalibrationError(
+                    "cross-fitting did not predict every validation row"
+                )
+            complete_predictions.append(oof_prediction)
+        metrics = calibration_metrics(
+            validation_labels,
+            complete_predictions,
+            bins=reliability_bins,
+        )
+        evaluated.append((method, metrics))
     selected, _ = min(
         evaluated,
         key=lambda item: (
             item[1].brier_score,
             item[1].expected_calibration_error,
-            item[0].method.value,
+            item[0].value,
         ),
     )
-    candidates = tuple(CalibrationCandidate(item.method, metrics) for item, metrics in evaluated)
-    return CalibrationSelection(selected, candidates, count, reliability_bins)
+    calibrator = (
+        fit_platt_calibrator(validation_probabilities, validation_labels)
+        if selected[0] is CalibrationMethod.PLATT
+        else fit_isotonic_calibrator(validation_probabilities, validation_labels)
+    )
+    candidates = tuple(CalibrationCandidate(method, metrics) for method, metrics in evaluated)
+    return CalibrationSelection(
+        calibrator,
+        candidates,
+        count,
+        reliability_bins,
+        selection_rule="minimum_cross_fitted_brier_then_ece_then_method",
+        cross_validation_folds=folds,
+    )
 
 
 def calibrator_from_record(record: Mapping[str, object]) -> PlattCalibrator | IsotonicCalibrator:

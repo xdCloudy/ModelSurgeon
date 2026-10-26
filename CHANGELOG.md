@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Changed safe-mutation calibrator comparison to stratified, deterministic
+    out-of-fold Brier/ECE measurements. The selected Platt or isotonic transform
+    is then refit on the full validation set; selection evidence records the
+    fold protocol and uses a revised selection-record schema. At least two
+    examples from each class are required so every training fold retains both
+    outcomes.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
