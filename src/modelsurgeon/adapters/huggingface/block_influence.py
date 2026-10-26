@@ -58,7 +58,6 @@ def measure_huggingface_block_influence(
 
     cosine_sums: list[Any | None] = [None] * configured_layers
     token_counts: list[Any | None] = [None] * configured_layers
-    epsilon = 1e-12
 
     def capture(layer_index: int) -> Any:
         def hook(_module: Any, inputs: tuple[Any, ...], output: Any) -> None:
@@ -80,15 +79,16 @@ def measure_huggingface_block_influence(
 
             source = hidden_in.detach().float()
             target = hidden_out.detach().float()
-            source_norm = torch.linalg.vector_norm(source, dim=-1)
-            target_norm = torch.linalg.vector_norm(target, dim=-1)
-            valid = (source_norm > epsilon) & (target_norm > epsilon)
-            similarity = torch.nn.functional.cosine_similarity(source, target, dim=-1, eps=epsilon)
-            selected = similarity.masked_select(valid)
-            if selected.numel() == 0:
-                return
-            score_sum = (1.0 - selected).sum().detach()
-            count = valid.sum().detach()
+            source_norm = torch.linalg.vector_norm(source, dim=-1, keepdim=True)
+            target_norm = torch.linalg.vector_norm(target, dim=-1, keepdim=True)
+            similarity = (source * target).sum(dim=-1) / (
+                source_norm.squeeze(-1) * target_norm.squeeze(-1)
+            )
+            # ShortGPT maps the undefined cosine for a zero-norm pair to 0.5.
+            # Keep those rows in the mean rather than dropping and reweighting them.
+            similarity = torch.nan_to_num(similarity, nan=0.5)
+            score_sum = (1.0 - similarity).sum().detach()
+            count = score_sum.new_tensor(hidden_in.shape[0] * hidden_in.shape[1], dtype=torch.long)
             if cosine_sums[layer_index] is None:
                 cosine_sums[layer_index] = score_sum
                 token_counts[layer_index] = count
@@ -118,7 +118,7 @@ def measure_huggingface_block_influence(
     ):
         if score_sum is None or token_count is None:
             raise HuggingFaceBlockInfluenceError(
-                f"decoder block {layer_index} produced no non-zero hidden-state pairs"
+                f"decoder block {layer_index} produced no hidden-state pairs"
             )
         count = int(token_count.detach().cpu().item())
         value = float((score_sum / token_count).detach().cpu().item())
