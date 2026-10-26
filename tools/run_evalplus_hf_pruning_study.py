@@ -10,7 +10,9 @@ import json
 import math
 import os
 import shutil
+import statistics
 import tempfile
+import time
 from collections import Counter
 from contextlib import nullcontext
 from pathlib import Path
@@ -39,7 +41,7 @@ WORKSPACE_MANIFEST = ".modelsurgeon-evalplus-study.json"
 
 def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "model": args.model,
         "model_revision": args.model_revision,
         "remove_channels": args.remove_channels,
@@ -48,6 +50,7 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
         "evalplus_revision": EVALPLUS_REVISION,
         "dataset_version": HUMANEVAL_PLUS_VERSION,
         "stop_criteria_policy": "restore-after-each-task-v1",
+        "runtime_measurement_policy": "cuda-synchronized-generate-wall-time-v1",
     }
 
 
@@ -497,8 +500,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     source_score = float(source_eval["plus_pass_at_1"])
     candidate_score = float(candidate_eval["plus_pass_at_1"])
     return {
-        "schema_version": 1,
-        "protocol": "physical-mlp-pruning-humanevalplus-pass-at-1-v1",
+        "schema_version": 2,
+        "protocol": "physical-mlp-pruning-humanevalplus-pass-at-1-v2",
         "model": {
             "identifier": args.model,
             "revision": args.model_revision,
@@ -530,6 +533,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "greedy": True,
             "samples_per_task": 1,
             "execution_parallelism": 2,
+            "runtime_measurement": (
+                "per-task model.generate wall time, CUDA-synchronized before and after; "
+                "includes prompt prefill and token generation, excludes model loading, "
+                "tokenization, and EvalPlus sandbox execution"
+            ),
             "sandbox_network": "disabled",
             "sandbox_memory_limit_bytes": 3 * 1024**3,
             "sandbox_cpu_limit": 2,
@@ -559,11 +567,29 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 None if source_score <= 0 else candidate_score / source_score
             ),
             "retention_inconclusive": source_score <= 0,
+            "generated_tokens_per_second_ratio": (
+                float(candidate_generation["runtime"]["generated_tokens_per_second"])
+                / float(source_generation["runtime"]["generated_tokens_per_second"])
+                if float(source_generation["runtime"]["generated_tokens_per_second"]) > 0
+                else None
+            ),
+            "median_generation_latency_delta_seconds": (
+                float(candidate_generation["runtime"]["median_generation_latency_seconds"])
+                - float(source_generation["runtime"]["median_generation_latency_seconds"])
+            ),
+            "p95_generation_latency_delta_seconds": (
+                float(candidate_generation["runtime"]["p95_generation_latency_seconds"])
+                - float(source_generation["runtime"]["p95_generation_latency_seconds"])
+            ),
         },
         "limitations": [
             (
                 "One code-specialized model revision, one magnitude-based MLP pruning severity, "
                 "and one greedy sample per task."
+            ),
+            (
+                "Runtime timing is one generation pass per arm; token throughput includes "
+                "prompt prefill and is not a repeated decode-only latency benchmark."
             ),
             (
                 "HumanEval+ is public and may be present in model training data; contamination "
@@ -659,19 +685,92 @@ def _decoder_with_task_local_stopping_criteria(decoder_type: type) -> type:
             self._modelsurgeon_base_get_stopping_criteria = (
                 self.model._get_stopping_criteria
             )
+            self._modelsurgeon_generation_metrics: list[dict[str, int | float]] = []
 
         def codegen(self, *args: object, **kwargs: object) -> object:
             self.model._get_stopping_criteria = (
                 self._modelsurgeon_base_get_stopping_criteria
             )
+            original_generate = getattr(self.model, "generate", None)
+            had_instance_generate = "generate" in self.model.__dict__
+            if callable(original_generate):
+                import torch
+
+                def measured_generate(*generate_args: object, **generate_kwargs: object) -> object:
+                    input_ids = (
+                        generate_args[0]
+                        if generate_args
+                        else generate_kwargs.get("inputs")
+                    )
+                    if input_ids is None or not hasattr(input_ids, "shape"):
+                        raise RuntimeError("generation runtime measurement lacks input token IDs")
+                    input_tokens = int(input_ids.shape[-1])
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    started_at = time.perf_counter()
+                    output_ids = original_generate(*generate_args, **generate_kwargs)
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    elapsed = time.perf_counter() - started_at
+                    generated_per_sequence = max(
+                        0, int(output_ids.shape[-1]) - input_tokens
+                    )
+                    sequence_count = (
+                        int(output_ids.shape[0]) if len(output_ids.shape) > 1 else 1
+                    )
+                    self._modelsurgeon_generation_metrics.append(
+                        {
+                            "seconds": elapsed,
+                            "prompt_tokens": input_tokens,
+                            "generated_tokens": generated_per_sequence * sequence_count,
+                        }
+                    )
+                    return output_ids
+
+                self.model.generate = measured_generate
             try:
                 return super().codegen(*args, **kwargs)
             finally:
+                if callable(original_generate):
+                    if had_instance_generate:
+                        self.model.generate = original_generate
+                    else:
+                        del self.model.generate
                 self.model._get_stopping_criteria = (
                     self._modelsurgeon_base_get_stopping_criteria
                 )
 
     return TaskLocalStoppingCriteriaDecoder
+
+
+def _summarize_generation_metrics(
+    records: list[dict[str, int | float]],
+) -> dict[str, object]:
+    if not records:
+        raise RuntimeError("EvalPlus generated no measurable model outputs")
+    latencies = sorted(float(record["seconds"]) for record in records)
+    total_seconds = sum(latencies)
+    generated_tokens = sum(int(record["generated_tokens"]) for record in records)
+    return {
+        "measurement_scope": (
+            "model.generate wall time, CUDA-synchronized before and after each call; "
+            "includes prompt prefill and token generation, excludes model loading, "
+            "tokenization, and EvalPlus sandbox execution"
+        ),
+        "generation_calls": len(records),
+        "prompt_tokens": sum(int(record["prompt_tokens"]) for record in records),
+        "generated_tokens": generated_tokens,
+        "generate_wall_seconds": round(total_seconds, 6),
+        "generated_tokens_per_second": round(
+            generated_tokens / total_seconds if total_seconds > 0 else 0.0, 6
+        ),
+        "median_generation_latency_seconds": round(
+            statistics.median(latencies), 6
+        ),
+        "p95_generation_latency_seconds": round(
+            latencies[math.ceil(0.95 * len(latencies)) - 1], 6
+        ),
+    }
 
 
 def _generate_predictions(
@@ -706,6 +805,12 @@ def _generate_predictions(
         n_samples=1,
         resume=True,
     )
+    runtime_records = decoder._modelsurgeon_generation_metrics
+    if len(runtime_records) != len(tasks):
+        raise RuntimeError(
+            "generation timing did not cover every task; refusing to report partial runtime data"
+        )
+    generation_metrics = _summarize_generation_metrics(runtime_records)
     del decoder
     if raw_path.exists():
         raw_path.unlink()
@@ -714,7 +819,7 @@ def _generate_predictions(
         torch.cuda.empty_cache()
     if not target_path.is_file():
         raise RuntimeError("EvalPlus code generation did not write its JSONL sample file")
-    return _sample_digests(target_path, tasks)
+    return {**_sample_digests(target_path, tasks), "runtime": generation_metrics}
 
 
 def main() -> None:

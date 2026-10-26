@@ -13,6 +13,7 @@ from tools.run_evalplus_hf_pruning_study import (
     _low_magnitude_channels,
     _prepare_workspace,
     _repair_prediction_checkpoint,
+    _summarize_generation_metrics,
 )
 
 
@@ -159,11 +160,28 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     class _Decoder:
         def __init__(self, **kwargs: object) -> None:
             observed["decoder_kwargs"] = kwargs
-            self.model = SimpleNamespace(_get_stopping_criteria=lambda: [])
+            self.model = _Model()
+
+        def codegen(self, *_args: object, **_kwargs: object) -> object:
+            return self.model.generate(_Tensor((1, 3)))
+
+    class _Tensor:
+        def __init__(self, shape: tuple[int, ...]) -> None:
+            self.shape = shape
+
+    class _Model:
+        def __init__(self) -> None:
+            self._get_stopping_criteria = lambda: []
+
+        def generate(self, input_ids: _Tensor) -> _Tensor:
+            return _Tensor((1, input_ids.shape[-1] + 2))
 
     def _codegen(**kwargs: object) -> None:
         observed["dataset"] = kwargs["dataset"]
         observed["resume"] = kwargs["resume"]
+        decoder = kwargs["model"]
+        observed["decoder"] = decoder
+        decoder.codegen("prompt")
         target.write_text(
             json.dumps({"task_id": "HumanEval/0", "solution": "def f(): return 1"}) + "\n",
             encoding="utf-8",
@@ -184,6 +202,11 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     assert observed["resume"] is True
     assert observed["decoder_kwargs"]["force_base_prompt"] is True
     assert result["sample_count"] == 1
+    assert result["runtime"]["generation_calls"] == 1
+    assert result["runtime"]["generated_tokens"] == 2
+    decoder = observed["decoder"]
+    assert "generate" not in decoder.model.__dict__
+    assert decoder.model._get_stopping_criteria == decoder._modelsurgeon_base_get_stopping_criteria
     assert not target.with_name("predictions.raw.jsonl").exists()
 
 
@@ -220,6 +243,23 @@ def test_decoder_restores_stopping_criteria_after_each_task() -> None:
     assert decoder.model.calls == 2
 
 
+def test_generation_metrics_report_synchronized_latency_and_effective_throughput() -> None:
+    result = _summarize_generation_metrics(
+        [
+            {"seconds": 1.0, "prompt_tokens": 3, "generated_tokens": 10},
+            {"seconds": 2.0, "prompt_tokens": 4, "generated_tokens": 20},
+        ]
+    )
+
+    assert result["generation_calls"] == 2
+    assert result["prompt_tokens"] == 7
+    assert result["generated_tokens"] == 30
+    assert result["generate_wall_seconds"] == 3.0
+    assert result["generated_tokens_per_second"] == 10.0
+    assert result["median_generation_latency_seconds"] == 1.5
+    assert result["p95_generation_latency_seconds"] == 2.0
+
+
 def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> None:
     args = SimpleNamespace(
         model="Qwen/Qwen2.5-Coder-0.5B-Instruct",
@@ -233,8 +273,9 @@ def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> N
 
     assert workspace == tmp_path / "study"
     manifest = json.loads((workspace / ".modelsurgeon-evalplus-study.json").read_text())
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["stop_criteria_policy"] == "restore-after-each-task-v1"
+    assert manifest["runtime_measurement_policy"] == "cuda-synchronized-generate-wall-time-v1"
     assert _prepare_workspace(workspace, args) == workspace
     args.remove_channels = 128
     with pytest.raises(RuntimeError, match="settings do not match"):

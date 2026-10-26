@@ -75,6 +75,12 @@ parameter reduction. It does not establish generalization, contamination-free co
 ability, latency improvement, or broad quality retention. A zero source pass@1 makes a
 retention ratio inconclusive; the runner reports that explicitly.
 
+The runner also records each `model.generate` call with CUDA synchronization before and
+after execution. It reports total wall time, generated-token throughput, and median/p95
+per-task latency. The timing includes prompt prefill and token generation, and excludes
+model loading, tokenization, and sandbox evaluation. This is a single sweep, not a repeated
+decode-only latency benchmark; the throughput figure should be interpreted accordingly.
+
 ## Recorded result
 
 The RTX 3060 run recorded in
