@@ -1,0 +1,465 @@
+{
+  "configuration": "wikitext-2-raw-v1",
+  "dataset": "Salesforce/wikitext",
+  "measurements": [
+    {
+      "calibration_text_sha256": "4555771a59b9da449ae22fd82b523a1526d49dd31a98c9396443a08414416d85",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999998211860657,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.031621985137462616,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "90f1deeaf95c9ad46f4592d8474d1b3f05cafdd7",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 0,
+      "max_abs_first_order_difference": 5.700625479221344e-06,
+      "max_abs_gradient_difference": 0.0001220703125,
+      "max_relative_first_order_difference": 1.5733308792114258,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-0.5B",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 2922599424,
+        "median_peak_incremental_bytes": 1917462528,
+        "median_peak_reserved_bytes": 2973761536,
+        "median_wall_seconds": 0.47100080002564937,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 988097536,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2915128320,
+            "peak_incremental_bytes": 1927030784,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 1.0846321000135504
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2922599424,
+            "peak_incremental_bytes": 1917462528,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 0.47100080002564937
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2922599424,
+            "peak_incremental_bytes": 1917462528,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 0.45292449998669326
+          }
+        ]
+      },
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 1509749760,
+        "median_peak_incremental_bytes": 504612864,
+        "median_peak_reserved_bytes": 1570766848,
+        "median_wall_seconds": 0.4941325999679975,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.44695760001195595
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.4941325999679975
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.5091250999830663
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    },
+    {
+      "calibration_text_sha256": "4555771a59b9da449ae22fd82b523a1526d49dd31a98c9396443a08414416d85",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999998211860657,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.06397530436515808,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "90f1deeaf95c9ad46f4592d8474d1b3f05cafdd7",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 23,
+      "max_abs_first_order_difference": 3.310665488243103e-05,
+      "max_abs_gradient_difference": 0.000244140625,
+      "max_relative_first_order_difference": 0.6349015235900879,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-0.5B",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 1944089600,
+        "median_peak_incremental_bytes": 938952704,
+        "median_peak_reserved_bytes": 2021654528,
+        "median_wall_seconds": 0.30989340000087395,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 988097536,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 1936421888,
+            "peak_incremental_bytes": 948324352,
+            "peak_reserved_bytes": 2002780160,
+            "wall_seconds": 0.7216219000401907
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 1944089600,
+            "peak_incremental_bytes": 938952704,
+            "peak_reserved_bytes": 2021654528,
+            "wall_seconds": 0.20598580001387745
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 1944089600,
+            "peak_incremental_bytes": 938952704,
+            "peak_reserved_bytes": 2021654528,
+            "wall_seconds": 0.30989340000087395
+          }
+        ]
+      },
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 1387378688,
+        "median_peak_incremental_bytes": 382241792,
+        "median_peak_reserved_bytes": 1472200704,
+        "median_wall_seconds": 0.2150005999719724,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1387378688,
+            "peak_incremental_bytes": 382241792,
+            "peak_reserved_bytes": 1472200704,
+            "wall_seconds": 0.20948850002605468
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1387378688,
+            "peak_incremental_bytes": 382241792,
+            "peak_reserved_bytes": 1472200704,
+            "wall_seconds": 0.2150005999719724
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1387378688,
+            "peak_incremental_bytes": 382241792,
+            "peak_reserved_bytes": 1472200704,
+            "wall_seconds": 0.23254850000375882
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    },
+    {
+      "calibration_text_sha256": "4555771a59b9da449ae22fd82b523a1526d49dd31a98c9396443a08414416d85",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999999403953552,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.00829568225890398,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "90f1deeaf95c9ad46f4592d8474d1b3f05cafdd7",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 12,
+      "max_abs_first_order_difference": 2.7026981115341187e-06,
+      "max_abs_gradient_difference": 3.0517578125e-05,
+      "max_relative_first_order_difference": 0.6273050904273987,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-0.5B",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 2406011904,
+        "median_peak_incremental_bytes": 1400875008,
+        "median_peak_reserved_bytes": 2453667840,
+        "median_wall_seconds": 0.5849075999576598,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 988097536,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2399392768,
+            "peak_incremental_bytes": 1411295232,
+            "peak_reserved_bytes": 2455764992,
+            "wall_seconds": 0.8539849000517279
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2406011904,
+            "peak_incremental_bytes": 1400875008,
+            "peak_reserved_bytes": 2453667840,
+            "wall_seconds": 0.5849075999576598
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2406011904,
+            "peak_incremental_bytes": 1400875008,
+            "peak_reserved_bytes": 2453667840,
+            "wall_seconds": 0.5227584000094794
+          }
+        ]
+      },
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 1444561920,
+        "median_peak_incremental_bytes": 439425024,
+        "median_peak_reserved_bytes": 1509949440,
+        "median_wall_seconds": 0.3655554000288248,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.3655554000288248
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.5635163999977522
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.3177770000183955
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    },
+    {
+      "calibration_text_sha256": "eccff19b074c43973b4e9e3ebeab752c839601047ae11ae404e816de84298a8a",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999996423721313,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.04897192120552063,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "90f1deeaf95c9ad46f4592d8474d1b3f05cafdd7",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 12,
+      "max_abs_first_order_difference": 8.378177881240845e-06,
+      "max_abs_gradient_difference": 0.0001220703125,
+      "max_relative_first_order_difference": 0.44883739948272705,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-0.5B",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 2406011904,
+        "median_peak_incremental_bytes": 1400875008,
+        "median_peak_reserved_bytes": 2453667840,
+        "median_wall_seconds": 0.3920456999912858,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 988097536,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2399392768,
+            "peak_incremental_bytes": 1411295232,
+            "peak_reserved_bytes": 2455764992,
+            "wall_seconds": 0.9245559999835677
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2406011904,
+            "peak_incremental_bytes": 1400875008,
+            "peak_reserved_bytes": 2453667840,
+            "wall_seconds": 0.3294164999970235
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2406011904,
+            "peak_incremental_bytes": 1400875008,
+            "peak_reserved_bytes": 2453667840,
+            "wall_seconds": 0.3920456999912858
+          }
+        ]
+      },
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 1444561920,
+        "median_peak_incremental_bytes": 439425024,
+        "median_peak_reserved_bytes": 1509949440,
+        "median_wall_seconds": 0.2845456999493763,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.3063536999979988
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.2794203000376001
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1444561920,
+            "peak_incremental_bytes": 439425024,
+            "peak_reserved_bytes": 1509949440,
+            "wall_seconds": 0.2845456999493763
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    },
+    {
+      "calibration_text_sha256": "a6df826ae58173f3c852fc9918c7074ef56ce431d55702a98a167147794ea0f2",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999997615814209,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.03029240295290947,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "90f1deeaf95c9ad46f4592d8474d1b3f05cafdd7",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 0,
+      "max_abs_first_order_difference": 8.15466046333313e-06,
+      "max_abs_gradient_difference": 0.0001220703125,
+      "max_relative_first_order_difference": 0.20075753331184387,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-0.5B",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 2922599424,
+        "median_peak_incremental_bytes": 1917462528,
+        "median_peak_reserved_bytes": 2973761536,
+        "median_wall_seconds": 0.547632000001613,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 988097536,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2915128320,
+            "peak_incremental_bytes": 1927030784,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 0.8819702000473626
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2922599424,
+            "peak_incremental_bytes": 1917462528,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 0.547632000001613
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 2922599424,
+            "peak_incremental_bytes": 1917462528,
+            "peak_reserved_bytes": 2973761536,
+            "wall_seconds": 0.4552541999728419
+          }
+        ]
+      },
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 1509749760,
+        "median_peak_incremental_bytes": 504612864,
+        "median_peak_reserved_bytes": 1570766848,
+        "median_wall_seconds": 0.43456379999406636,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.43456379999406636
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.41840460000094026
+          },
+          {
+            "baseline_allocated_bytes": 1005136896,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 1509749760,
+            "peak_incremental_bytes": 504612864,
+            "peak_reserved_bytes": 1570766848,
+            "wall_seconds": 0.636159099987708
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    }
+  ],
+  "record_type": "hf_gradient_graph_memory_wikitext_followup",
+  "schema_version": 1,
+  "source_archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+  "train_member_sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57"
+}

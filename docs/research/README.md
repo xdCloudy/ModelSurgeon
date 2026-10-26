@@ -3,6 +3,7 @@
 Store bounded spike outcomes, hypotheses, protocols, negative results and follow-up decisions here. Every record identifies immutable model/dataset revisions, seeds, hardware and software.
 
 - [Chunk-streamed HF gradient GPU memory and score comparison](v1.8-gradient-graph-memory-evidence.md) and [raw measurement record](v1.8-gradient-graph-memory-evidence-v1.json)
+- [WikiText-2 HF gradient GPU memory follow-up](v1.8-gradient-wikitext-memory-evidence.md) and [five raw measurement records](v1.8-gradient-wikitext-memory-evidence-v1.json)
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
