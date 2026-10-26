@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from tools import run_first_party_hf_acceptance as acceptance
 from tools.run_first_party_hf_acceptance import _model_reference, _stage_summary
+
+from modelsurgeon.config import ComputeDType, Settings
 
 
 def test_acceptance_model_reference_requires_immutable_revision() -> None:
@@ -47,11 +50,12 @@ def test_acceptance_stage_summary_retains_measured_artifact_evidence() -> None:
 
 
 def test_acceptance_cell_passes_declared_hardware_profile_to_planner(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_build_optimize_plan(_settings: object, **kwargs: object) -> SimpleNamespace:
+        captured["settings"] = _settings
         captured.update(kwargs)
         return SimpleNamespace(
             executable=False,
@@ -71,6 +75,7 @@ def test_acceptance_cell_passes_declared_hardware_profile_to_planner(
         artifact_root=tmp_path / "artifacts",
         preset="balanced",
         hardware_profile="gpu-12gb",
+        dtype=ComputeDType.AUTO,
         quality_profile="quality",
         evaluations=None,
         search_scope="mlp_channel",
@@ -86,5 +91,8 @@ def test_acceptance_cell_passes_declared_hardware_profile_to_planner(
     )
 
     assert captured["hardware_profile"] == "gpu-12gb"
+    settings = captured["settings"]
+    assert isinstance(settings, Settings)
+    assert settings.model.dtype is ComputeDType.AUTO
     assert cell["plan"] == {"hardware_profile": "gpu-12gb"}
     assert cell["status"] == "not_executed"

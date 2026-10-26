@@ -33,6 +33,12 @@ campaign against the repository's 12 GB CUDA envelope; the selected profile is
 recorded in the campaign and is a declared budget, while runtime telemetry
 records actual resource use.
 
+The acceptance runner defaults to `--dtype auto`, which follows the checkpoint's
+declared tensor dtype for loading and artifact publication. This keeps a BF16 or
+FP16 source from silently becoming a larger FP32 output. Pass `--dtype fp32`,
+`--dtype fp16`, or `--dtype bf16` only when that conversion is intentional; the
+selected dtype is recorded with the campaign contract.
+
 Keep downloaded models, generated checkpoints, logs, and reports below an ignored work/ or artifacts/ directory. Never use the source model directory as an output directory. The source checkpoint is an immutable input and every published artifact must have a different path.
 
 ## 2. Pin and inspect a model

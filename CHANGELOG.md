@@ -6,6 +6,11 @@
     acceptance runner. CPU remains the default; GPU campaigns now carry the
     selected resource envelope in the reproducibility record.
 
+  - Changed the first-party HF acceptance runner to preserve the checkpoint
+    dtype by default (`--dtype auto`) and record any explicit dtype override.
+    This avoids silently widening BF16/FP16 source artifacts to FP32 during
+    physical surgery.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
