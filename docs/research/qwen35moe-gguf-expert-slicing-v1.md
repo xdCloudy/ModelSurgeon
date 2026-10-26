@@ -218,7 +218,7 @@ generic Python function prompts, and existing acceptance evidence documents
 that this tiny set establishes neither broad coding ability nor security
 behavior.
 
-## Pinned three-way full-test comparison (2026-10-26)
+## Pinned full-test comparison with two random controls (2026-10-26)
 
 The earlier source-only full-test baseline and resource-limited candidate
 attempt are retained in the [2026-10-25 full-test manifest](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json).
@@ -227,29 +227,34 @@ same complete WikiText-2 test split, source artifact, llama.cpp build, and CPU
 settings. The local ZIP archive SHA-256 matched the pinned archive, and a fresh
 extraction matched the recorded test-text SHA-256 before inference. The
 router-norm candidate SHA-256 matched the previously recorded artifact. The
-equal-size seeded-random candidate was evaluated with the same command and
-runtime, and its SHA-256 matched the pinned artifact.
+two equal-size seeded-random candidates were evaluated with the same command
+and runtime, and their SHA-256 values matched the pinned artifacts. Each retained
+252 experts in all 41 blocks and reloaded with the expected GGUF geometry.
 
 | Artifact | GGUF bytes | Full-test contexts / tokens | PPL ± propagated uncertainty | Delta vs source | Point-estimate PPL retention |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Source | 21,713,462,496 | 580 / 296,960 | 6.7090 ± 0.04243 | — | 100% |
 | Router norm, 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8094 ± 0.04317 | +0.1004 | 98.53% |
 | Seeded random (`20261025`), 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8291 ± 0.04336 | +0.1201 | 98.24% |
+| Seeded random (`20261026`), 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8073 ± 0.04313 | +0.0983 | 98.56% |
 
-Both candidates are 314,245,088 bytes (1.45%) smaller, and both point estimates
-clear the configured 98% PPL-retention floor. Router norm's PPL point estimate
-is 0.0197 lower than the one seeded-random selection, but the reported
-uncertainty bands overlap; llama.cpp's propagated uncertainty is not a formal
-confidence interval. This does not establish a reliable ranking advantage,
-pass ModelSurgeon's first-party quality gate, or demonstrate task-quality
-retention. It is one model, one corpus, and one random seed. Additional random
-seeds and representative cybersecurity task-quality measurements remain
-necessary. No inference speed, latency, load-time, or deployment-memory
-benefit was measured.
+All three candidates are 314,245,088 bytes (1.45%) smaller than source, and
+their point estimates clear the configured 98% PPL-retention floor. Router
+norm's PPL point estimate is 0.0197 lower than random seed `20261025` and
+0.0021 higher than random seed `20261026`; the two random selections differ by
+0.0218. The candidate propagated-uncertainty bands overlap one another, while
+the source's reported plus/minus band is separated from each candidate band by
+0.0127–0.0343 PPL. These propagated uncertainties are not formal confidence
+intervals, and no significance test was performed. The results do not
+establish a reliable ranking advantage, pass ModelSurgeon's first-party
+quality gate, or demonstrate task-quality retention. This is one model, one
+corpus, and one router-norm selection. Representative cybersecurity task-
+quality measurements remain necessary. No inference speed, latency, load-time,
+or deployment-memory benefit was measured.
 
 The exact artifact and dataset hashes, command, settings, runtime, metrics,
 raw-log digests, and limitations are in the
-[full-test three-way comparison manifest](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json).
+[full-test comparison manifest](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json).
 
 As a limited follow-up, on 2026-10-25 the source and the 252-expert
 router-norm candidate each received the same four manually screened benign
@@ -284,6 +289,7 @@ SHA-256 values, in table order after the source, are:
 - Router norm, 248 experts: `6b2a0bd324c9d6ccf067d6982a020101df07fc3e070e48bde1afb742479ad898`
 - Seeded random, 252 experts: `17bbf662f37f0b454583c4847bb1adce3af1b1f45478697ec48b609de7a1042d`
 - Router norm, 252 experts: `06969df1ce0505ad2f7d506497c9f5f9731c3a3887d07351ccafbd3edd7d3fe3`
+- Seeded random (`20261026`), 252 experts: `24132ae97ce7b6b37f378857bb965ae313896e217ee15d3580dbab948c001b3a`
 
 ## Current integration boundary
 
