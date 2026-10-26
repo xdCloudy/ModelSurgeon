@@ -226,6 +226,15 @@ def acquire_candidates(
             remaining_features,
             quota_map[AcquisitionReason.DIVERSE],
             config=resolved_diversity_config,
+            initial_centers=(
+                tuple(
+                    diverse_by_id[item.candidate_id]
+                    for item in candidates
+                    if item.candidate_id in selected
+                )
+                if quota_map[AcquisitionReason.DIVERSE] > 0
+                else ()
+            ),
         )
         for selection in diversity_report.selections:
             output.append(

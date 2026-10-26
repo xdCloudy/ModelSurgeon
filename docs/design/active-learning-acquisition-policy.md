@@ -8,11 +8,12 @@ integer quotas.
 High-value and uncertainty phases take their highest-scoring unselected candidates with
 seed-hash tie-breaking. The diversity phase retains scalar-score ranking by default. Callers
 can instead provide a feature/topology row for every candidate; those rows must align exactly
-with the acquisition candidate IDs. In feature mode, seeded farthest-first selection runs on
-the candidates remaining after the first two phases, and its normalization/report are embedded
-in the acquisition record. This makes the diversity quota measure feature-space coverage
-rather than rank a caller-supplied scalar. Overlap between phases is skipped; any remaining
-shortfall is filled by the deterministic combined score. Every acquired candidate records its
+with the acquisition candidate IDs. In feature mode, seeded farthest-first selection starts
+from the candidates already selected by the first two phases, then chooses from the residual
+pool. Its normalization and center count are embedded in the acquisition record. This makes
+the diversity quota measure batch coverage rather than rank a caller-supplied scalar. Overlap
+between phases is skipped; any remaining shortfall is filled by the deterministic combined
+score. Every acquired candidate records its
 phase reason, policy score, rank, and propensity. Because this policy is deterministic
 conditional on inputs and seed, selected propensity is truthfully recorded as 1.0 rather than
 presenting score normalization as a sampling probability.

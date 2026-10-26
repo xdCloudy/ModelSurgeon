@@ -76,7 +76,7 @@ def test_feature_diversity_selects_from_remaining_pool_and_records_provenance() 
             candidate.candidate_id,
             (float(index - 3),),
             ("shared",),
-            frozenset({f"layer:{index % 3}"}),
+            frozenset({"layer:0"}),
         )
         for index, candidate in enumerate(candidates)
     )
@@ -104,11 +104,13 @@ def test_feature_diversity_selects_from_remaining_pool_and_records_provenance() 
     assert [item.candidate_id for item in report.selections[:2]] == ["cand_0", "cand_1"]
     assert report.selections[2].candidate_id == "cand_2"
     assert all(item.reason.value == "diverse" for item in report.selections[3:])
+    assert report.selections[3].candidate_id == "cand_5"
     assert len({item.candidate_id for item in report.selections}) == 6
     recorded_diversity = report.to_record()["diversity_selection"]
     assert report.to_record()["schema_version"] == 2
     assert isinstance(recorded_diversity, dict)
     assert recorded_diversity["candidate_count"] == 3
+    assert recorded_diversity["initial_center_count"] == 3
     assert [item["candidate_id"] for item in recorded_diversity["selections"]] == [
         item.candidate_id for item in report.selections[3:]
     ]
