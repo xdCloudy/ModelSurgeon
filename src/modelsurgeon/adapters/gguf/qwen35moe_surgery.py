@@ -199,7 +199,9 @@ def _validated_retained_experts(
     for layer in range(layout.block_count):
         indices = retained_by_layer[layer]
         if (
-            not indices
+            not isinstance(indices, tuple)
+            or not indices
+            or any(isinstance(index, bool) or not isinstance(index, int) for index in indices)
             or tuple(sorted(set(indices))) != indices
             or any(index < 0 or index >= layout.expert_count for index in indices)
         ):

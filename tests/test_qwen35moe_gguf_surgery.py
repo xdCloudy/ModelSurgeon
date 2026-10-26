@@ -230,6 +230,9 @@ def test_qwen35moe_saliency_selection_refuses_unsupported_or_incomplete_scores(
         {0: (0,), 1: (0,)},
         {0: (0, 1, 1), 1: (0, 1, 2)},
         {0: (0, 1, 2), 1: (0, 1, 4)},
+        {0: (True, 2, 3), 1: (0, 1, 3)},
+        {0: (0, 2.0, 3), 1: (0, 1, 3)},
+        {0: ("0", 2, 3), 1: (0, 1, 3)},
     ),
 )
 def test_qwen35moe_selection_must_be_uniform_valid_and_keep_top_k(
