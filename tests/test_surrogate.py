@@ -193,6 +193,11 @@ def test_exact_two_objective_hypervolume_and_feasible_frontier() -> None:
     assert tuple(item.candidate_id for item in _feasible_frontier(examples)) == ("feasible",)
 
 
+def test_one_objective_hypervolume_rejects_overflow() -> None:
+    with pytest.raises(SurrogateError, match="finite numeric range"):
+        _hypervolume_1d_or_2d(((1.7976931348623157e308,),), (-1.7976931348623157e308,))
+
+
 def test_two_objective_hypervolume_matches_independent_union_oracle() -> None:
     reference = (0.0, 0.0)
     grid = tuple((x, y) for x in (-1.0, 0.0, 1.0) for y in (-1.0, 0.0, 1.0))

@@ -808,7 +808,10 @@ def _hypervolume_1d_or_2d(
     if not valid:
         return 0.0
     if dimensions == 1:
-        return max(0.0, max(point[0] for point in valid) - reference[0])
+        improvement = max(point[0] for point in valid) - reference[0]
+        if not math.isfinite(improvement):
+            raise SurrogateError("hypervolume exceeded finite numeric range")
+        return max(0.0, improvement)
 
     by_x: dict[float, float] = {}
     for x_value, y_value in valid:
