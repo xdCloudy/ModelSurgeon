@@ -83,7 +83,7 @@ def load_gguf_activation_moments(
         axis = entry.get("input_axis")
         sample_count = entry.get("sample_count")
         values = entry.get("second_moments")
-        if isinstance(axis, bool) or axis not in (0, 1):
+        if isinstance(axis, bool) or not isinstance(axis, int) or axis not in (0, 1):
             raise ValueError(f"activation moments for {name!r} need input axis 0 or 1")
         if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count <= 0:
             raise ValueError(f"activation moments for {name!r} need a positive sample count")

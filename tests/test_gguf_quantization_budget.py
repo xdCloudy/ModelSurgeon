@@ -495,6 +495,16 @@ def test_streaming_codec_estimates_feed_the_exact_byte_planner(tmp_path: Path) -
                 input_activation_second_moments=(0.0,) * 256,
                 input_axis=0,
             )
+        with pytest.raises(GGUFQuantizationBudgetError, match="input axis 0 or 1"):
+            estimate_tensor_quantization_losses(
+                reader,
+                source_handle,
+                (GGMLQuantizationType.Q4_K,),
+                _estimator_codecs(),
+                byte_order=ByteOrder.LITTLE,
+                input_activation_second_moments=(1.0,) * 256,
+                input_axis=0.0,
+            )
 
         alternatives = {
             "tensor.weight": tuple(

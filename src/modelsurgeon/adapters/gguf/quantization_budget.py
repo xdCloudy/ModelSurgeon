@@ -263,6 +263,7 @@ def estimate_tensor_quantization_losses(
         if (
             len(descriptor.dimensions) != 2
             or isinstance(input_axis, bool)
+            or not isinstance(input_axis, int)
             or input_axis not in (0, 1)
         ):
             raise GGUFQuantizationBudgetError(

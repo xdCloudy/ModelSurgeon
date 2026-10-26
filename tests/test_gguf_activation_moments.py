@@ -94,6 +94,7 @@ def test_loads_legacy_flat_collector_provenance(tmp_path: Path) -> None:
         (lambda item: item["calibration"].pop("split"), "needs split"),
         (lambda item: item["calibration"].update(text_sha256="bad"), "SHA-256"),
         (lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(input_axis=True), "axis"),
+        (lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(input_axis=0.0), "axis"),
         (
             lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(sample_count=False),
             "sample count",
