@@ -110,12 +110,14 @@ def _compare(
     right: dict[str, str],
     *,
     bootstrap_samples: int,
+    left_removed_channels: frozenset[int] | None = None,
+    right_removed_channels: frozenset[int] | None = None,
 ) -> dict[str, Any]:
     both_pass, left_only, right_only, neither, deltas = _paired_outcomes(left, right)
     task_count = len(deltas)
     left_passes = both_pass + left_only
     right_passes = both_pass + right_only
-    return {
+    result = {
         "left": left_name,
         "right": right_name,
         "task_count": task_count,
@@ -134,18 +136,48 @@ def _compare(
         "neither_pass": neither,
         "mcnemar_exact_two_sided_p_value": _exact_mcnemar_p_value(left_only, right_only),
     }
+    if left_removed_channels is not None and right_removed_channels is not None:
+        shared = len(left_removed_channels & right_removed_channels)
+        union = len(left_removed_channels | right_removed_channels)
+        result["removed_channel_selection"] = {
+            "left_count": len(left_removed_channels),
+            "right_count": len(right_removed_channels),
+            "overlap_count": shared,
+            "jaccard_similarity": shared / union if union else 1.0,
+        }
+    return result
 
 
-def build_report(run_paths: dict[str, Path], *, bootstrap_samples: int = 20_000) -> dict[str, Any]:
+def _removed_channels(report: dict[str, Any], name: str) -> frozenset[int] | None:
+    values = report.get("method", {}).get("removed_channels")
+    if values is None:
+        return None
+    if (
+        not isinstance(values, list)
+        or any(not isinstance(value, int) or isinstance(value, bool) for value in values)
+        or len(values) != len(set(values))
+    ):
+        raise ValueError(f"run {name!r} has malformed removed-channel indices")
+    return frozenset(values)
+
+
+def build_report(
+    run_paths: dict[str, Path],
+    *,
+    reference_name: str = "magnitude",
+    bootstrap_samples: int = 20_000,
+) -> dict[str, Any]:
     if len(run_paths) < 2:
         raise ValueError("at least two candidate run reports are required")
     if "source" in run_paths:
         raise ValueError("'source' is reserved for each run's unpruned baseline arm")
-    if "magnitude" not in run_paths:
-        raise ValueError("named reports must include 'magnitude'")
+    if reference_name == "source":
+        raise ValueError("'source' is reserved for each run's unpruned baseline arm")
+    if reference_name not in run_paths:
+        raise ValueError(f"named reports must include reference {reference_name!r}")
 
     reports = {name: _load_json(path) for name, path in run_paths.items()}
-    reference = reports["magnitude"]
+    reference = reports[reference_name]
     reference_model = reference.get("model", {}).get("revision")
     reference_dataset = reference.get("dataset", {}).get("sha256")
     reference_evalplus = reference.get("arms", {}).get("source", {}).get("task_quality", {})
@@ -161,7 +193,10 @@ def build_report(run_paths: dict[str, Path], *, bootstrap_samples: int = 20_000)
         )
 
     task_maps: dict[str, dict[str, str]] = {
-        "source": _task_statuses(reports["magnitude"], "source", "magnitude")
+        "source": _task_statuses(reports[reference_name], "source", reference_name)
+    }
+    removed_channels_by_run = {
+        name: _removed_channels(report, name) for name, report in reports.items()
     }
     for name, report in reports.items():
         run_controls = (
@@ -186,20 +221,21 @@ def build_report(run_paths: dict[str, Path], *, bootstrap_samples: int = 20_000)
             raise ValueError(f"run {name!r} has different source-arm task outcomes")
         task_maps[name] = candidate_tasks
 
-    if task_maps["source"].keys() != task_maps["magnitude"].keys():
+    if task_maps["source"].keys() != task_maps[reference_name].keys():
         raise ValueError("source and candidate runs must contain the same task IDs")
 
     comparisons = [
         _compare(
             "source",
             task_maps["source"],
-            "magnitude",
-            task_maps["magnitude"],
+            reference_name,
+            task_maps[reference_name],
             bootstrap_samples=bootstrap_samples,
+            right_removed_channels=removed_channels_by_run[reference_name],
         )
     ]
     for name in run_paths:
-        if name != "magnitude":
+        if name != reference_name:
             comparisons.append(
                 _compare(
                     "source",
@@ -207,21 +243,24 @@ def build_report(run_paths: dict[str, Path], *, bootstrap_samples: int = 20_000)
                     name,
                     task_maps[name],
                     bootstrap_samples=bootstrap_samples,
+                    right_removed_channels=removed_channels_by_run[name],
                 )
             )
             comparisons.append(
                 _compare(
-                    "magnitude",
-                    task_maps["magnitude"],
+                    reference_name,
+                    task_maps[reference_name],
                     name,
                     task_maps[name],
                     bootstrap_samples=bootstrap_samples,
+                    left_removed_channels=removed_channels_by_run[reference_name],
+                    right_removed_channels=removed_channels_by_run[name],
                 )
             )
 
     return {
-        "schema_version": 1,
-        "protocol": "paired-evalplus-task-outcome-inference-v1",
+        "schema_version": 2,
+        "protocol": "paired-evalplus-task-outcome-inference-v2",
         "controls": {
             "model_revision": reference_model,
             "dataset_sha256": reference_dataset,
@@ -235,6 +274,39 @@ def build_report(run_paths: dict[str, Path], *, bootstrap_samples: int = 20_000)
             "bootstrap_samples": bootstrap_samples,
             "bootstrap_seed": BOOTSTRAP_SEED,
             "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
+        },
+        "run_metadata": {
+            name: {
+                "channel_scorer": report.get("run_parameters", {}).get("channel_scorer"),
+                "calibration_tokens": report.get("run_parameters", {}).get("calibration_tokens"),
+                "calibration_token_ids_sha256": (
+                    report.get("method", {}).get("calibration") or {}
+                ).get("token_ids_sha256"),
+                "candidate_plus_passes": report.get("arms", {})
+                .get("pruned", {})
+                .get("task_quality", {})
+                .get("plus_passes"),
+                "candidate_artifact_bytes": report.get("arms", {})
+                .get("pruned", {})
+                .get("artifact", {})
+                .get("file_bytes"),
+                "candidate_generated_tokens_per_second": report.get("arms", {})
+                .get("pruned", {})
+                .get("generation", {})
+                .get("runtime", {})
+                .get("generated_tokens_per_second"),
+                "candidate_median_generation_latency_seconds": report.get("arms", {})
+                .get("pruned", {})
+                .get("generation", {})
+                .get("runtime", {})
+                .get("median_generation_latency_seconds"),
+                "candidate_p95_generation_latency_seconds": report.get("arms", {})
+                .get("pruned", {})
+                .get("generation", {})
+                .get("runtime", {})
+                .get("p95_generation_latency_seconds"),
+            }
+            for name, report in reports.items()
         },
         "interpretation_limits": [
             "Intervals describe task-sample variation on this fixed benchmark; they do not capture "
@@ -263,12 +335,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="append", type=_parse_run, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference", default="magnitude")
     parser.add_argument("--bootstrap-samples", type=int, default=20_000)
     args = parser.parse_args()
     run_paths = dict(args.run)
     if len(run_paths) != len(args.run):
         parser.error("run names must be unique")
-    report = build_report(run_paths, bootstrap_samples=args.bootstrap_samples)
+    report = build_report(
+        run_paths, reference_name=args.reference, bootstrap_samples=args.bootstrap_samples
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({"output": str(args.output), "comparisons": len(report["comparisons"])}))

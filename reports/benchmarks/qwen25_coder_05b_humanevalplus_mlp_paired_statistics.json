@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "protocol": "paired-evalplus-task-outcome-inference-v1",
+  "schema_version": 2,
+  "protocol": "paired-evalplus-task-outcome-inference-v2",
   "controls": {
     "model_revision": "ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
     "dataset_sha256": "b6ed6a3a7e560bad75038eb9e72029ace2d26592e04b3f0596b4b75a55529465",
@@ -14,6 +14,38 @@
     "bootstrap_samples": 20000,
     "bootstrap_seed": 20261026,
     "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+  },
+  "run_metadata": {
+    "magnitude": {
+      "channel_scorer": "magnitude",
+      "calibration_tokens": null,
+      "calibration_token_ids_sha256": null,
+      "candidate_plus_passes": 50,
+      "candidate_artifact_bytes": 966494163,
+      "candidate_generated_tokens_per_second": 44.063502,
+      "candidate_median_generation_latency_seconds": 1.436094,
+      "candidate_p95_generation_latency_seconds": 5.683109
+    },
+    "activation_weighted": {
+      "channel_scorer": "activation_weighted",
+      "calibration_tokens": 2048,
+      "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+      "candidate_plus_passes": 47,
+      "candidate_artifact_bytes": 966494163,
+      "candidate_generated_tokens_per_second": 45.075994,
+      "candidate_median_generation_latency_seconds": 1.39051,
+      "candidate_p95_generation_latency_seconds": 5.297026
+    },
+    "activation_output_energy": {
+      "channel_scorer": "activation_output_energy",
+      "calibration_tokens": 2048,
+      "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+      "candidate_plus_passes": 50,
+      "candidate_artifact_bytes": 966494163,
+      "candidate_generated_tokens_per_second": 39.396848,
+      "candidate_median_generation_latency_seconds": 1.484035,
+      "candidate_p95_generation_latency_seconds": 4.959954
+    }
   },
   "interpretation_limits": [
     "Intervals describe task-sample variation on this fixed benchmark; they do not capture generation-seed, model, or benchmark contamination uncertainty.",
@@ -123,7 +155,13 @@
       },
       "both_pass": 33,
       "neither_pass": 100,
-      "mcnemar_exact_two_sided_p_value": 0.720100131817162
+      "mcnemar_exact_two_sided_p_value": 0.720100131817162,
+      "removed_channel_selection": {
+        "left_count": 256,
+        "right_count": 256,
+        "overlap_count": 11,
+        "jaccard_similarity": 0.021956087824351298
+      }
     },
     {
       "left": "source",
@@ -181,7 +219,13 @@
       },
       "both_pass": 33,
       "neither_pass": 97,
-      "mcnemar_exact_two_sided_p_value": 1.0
+      "mcnemar_exact_two_sided_p_value": 1.0,
+      "removed_channel_selection": {
+        "left_count": 256,
+        "right_count": 256,
+        "overlap_count": 12,
+        "jaccard_similarity": 0.024
+      }
     }
   ]
 }

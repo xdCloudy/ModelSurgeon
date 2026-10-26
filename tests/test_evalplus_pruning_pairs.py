@@ -31,6 +31,7 @@ def _run_report(candidate: list[str], *, source_hash: str = "same-source") -> di
     return {
         "model": {"revision": "model-revision"},
         "dataset": {"sha256": "dataset-sha256"},
+        "method": {"removed_channels": [0, 1]},
         "arms": {
             "source": {
                 "generation": {"sample_file_sha256": source_hash},
@@ -103,3 +104,29 @@ def test_build_report_rejects_runs_with_different_source_samples(tmp_path: Path)
 
     with pytest.raises(ValueError, match="different source-arm sample set"):
         build_report({"magnitude": magnitude, "activation": activation}, bootstrap_samples=100)
+
+
+def test_build_report_supports_a_non_magnitude_reference(tmp_path: Path) -> None:
+    magnitude = tmp_path / "magnitude.json"
+    activation = tmp_path / "activation.json"
+    magnitude.write_text(
+        json.dumps(_run_report(["pass", "fail", "pass", "fail"])), encoding="utf-8"
+    )
+    activation.write_text(
+        json.dumps(_run_report(["pass", "pass", "fail", "fail"])), encoding="utf-8"
+    )
+
+    report = build_report(
+        {"magnitude": magnitude, "activation": activation},
+        reference_name="activation",
+        bootstrap_samples=100,
+    )
+
+    assert report["comparisons"][0]["right"] == "activation"
+    assert report["comparisons"][2]["left"] == "activation"
+    assert report["comparisons"][2]["removed_channel_selection"] == {
+        "left_count": 2,
+        "right_count": 2,
+        "overlap_count": 2,
+        "jaccard_similarity": 1.0,
+    }

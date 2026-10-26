@@ -121,8 +121,7 @@ def test_evalplus_docker_command_uses_numeric_default_task_timeout(
     dataset.write_text("{}\n", encoding="utf-8")
     (samples.parent / dataset.name).write_bytes(dataset.read_bytes())
     per_task = {
-        f"HumanEval/{index}": {"base_status": "pass", "plus_status": "pass"}
-        for index in range(164)
+        f"HumanEval/{index}": {"base_status": "pass", "plus_status": "pass"} for index in range(164)
     }
     report = {
         "schema_version": 1,
@@ -141,9 +140,7 @@ def test_evalplus_docker_command_uses_numeric_default_task_timeout(
     def _run(command: list[str], *_args: object, **_kwargs: object) -> SimpleNamespace:
         observed["command"] = command
         return SimpleNamespace(
-            stdout=(
-                "MODELSURGEON_EVALPLUS_REPORT=" + json.dumps(report) + "\n"
-            ).encode(),
+            stdout=("MODELSURGEON_EVALPLUS_REPORT=" + json.dumps(report) + "\n").encode(),
             stderr=b"",
             returncode=0,
             timed_out=False,
@@ -340,9 +337,7 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
     assert report["results"]["magnitude"]["plus_passes"] == 50
     assert report["results"]["activation_output_energy_minus_magnitude"]["plus_passes"] == 0
     assert (
-        report["results"]["activation_output_energy_minus_magnitude"][
-            "removed_channel_overlap"
-        ]
+        report["results"]["activation_output_energy_minus_magnitude"]["removed_channel_overlap"]
         == 12
     )
     assert (
@@ -358,9 +353,23 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
     assert paired["comparisons"][4]["left_minus_right_percentage_points"] == 0.0
     paired_report = root / paired["report_path"]
     normalized_paired_report = paired_report.read_bytes().replace(b"\r\n", b"\n")
-    assert hashlib.sha256(normalized_paired_report).hexdigest() == paired[
-        "report_sha256_lf_normalized"
-    ]
+    assert (
+        hashlib.sha256(normalized_paired_report).hexdigest()
+        == paired["report_sha256_lf_normalized"]
+    )
+    sensitivity = report["calibration_sensitivity"]
+    assert sensitivity["run_metadata"]["output_energy_2048"]["candidate_plus_passes"] == 50
+    assert sensitivity["run_metadata"]["output_energy_8192"]["candidate_plus_passes"] == 50
+    sensitivity_comparison = sensitivity["comparisons"][2]
+    assert sensitivity_comparison["left_minus_right_percentage_points"] == 0.0
+    assert sensitivity_comparison["mcnemar_exact_two_sided_p_value"] == 1.0
+    assert sensitivity_comparison["removed_channel_selection"]["overlap_count"] == 164
+    sensitivity_report = root / sensitivity["report_path"]
+    normalized_sensitivity_report = sensitivity_report.read_bytes().replace(b"\r\n", b"\n")
+    assert (
+        hashlib.sha256(normalized_sensitivity_report).hexdigest()
+        == sensitivity["report_sha256_lf_normalized"]
+    )
     assert "No third-party source code copied" in report["method_provenance"]["reuse"]
     for item in report["source_reports"]:
         source = root / item["path"]

@@ -107,12 +107,44 @@
   ],
   "paired_inference": {
     "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_paired_statistics.json",
-    "report_sha256_lf_normalized": "b3669010c207c7414485c971c848c77bab759e290e3f33b79aeeea7c3ec5b3fe",
+    "report_sha256_lf_normalized": "4a5c96b1ddac2ecf3d5eaf49ab675d0133e337435fe4ab3059ac09fb8ce75659",
     "method": {
       "bootstrap": "paired percentile bootstrap over benchmark tasks",
       "bootstrap_samples": 20000,
       "bootstrap_seed": 20261026,
       "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    },
+    "run_metadata": {
+      "magnitude": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 44.063502,
+        "candidate_median_generation_latency_seconds": 1.436094,
+        "candidate_p95_generation_latency_seconds": 5.683109
+      },
+      "activation_weighted": {
+        "channel_scorer": "activation_weighted",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 47,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 45.075994,
+        "candidate_median_generation_latency_seconds": 1.39051,
+        "candidate_p95_generation_latency_seconds": 5.297026
+      },
+      "activation_output_energy": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 39.396848,
+        "candidate_median_generation_latency_seconds": 1.484035,
+        "candidate_p95_generation_latency_seconds": 4.959954
+      }
     },
     "comparisons": [
       {
@@ -200,7 +232,13 @@
         },
         "both_pass": 33,
         "neither_pass": 100,
-        "mcnemar_exact_two_sided_p_value": 0.720100131817162
+        "mcnemar_exact_two_sided_p_value": 0.720100131817162,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 11,
+          "jaccard_similarity": 0.021956087824351298
+        }
       },
       {
         "left": "source",
@@ -258,8 +296,142 @@
         },
         "both_pass": 33,
         "neither_pass": 97,
-        "mcnemar_exact_two_sided_p_value": 1.0
+        "mcnemar_exact_two_sided_p_value": 1.0,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 12,
+          "jaccard_similarity": 0.024
+        }
       }
     ]
+  },
+  "calibration_sensitivity": {
+    "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_calibration_sensitivity.json",
+    "report_sha256_lf_normalized": "0cd6bd8e935fe76e32083bf08fe3d48cd8f011d8de24b53a781c9847ee5efea7",
+    "method": {
+      "bootstrap": "paired percentile bootstrap over benchmark tasks",
+      "bootstrap_samples": 20000,
+      "bootstrap_seed": 20261026,
+      "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    },
+    "run_metadata": {
+      "output_energy_2048": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 39.396848,
+        "candidate_median_generation_latency_seconds": 1.484035,
+        "candidate_p95_generation_latency_seconds": 4.959954
+      },
+      "output_energy_8192": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 8192,
+        "calibration_token_ids_sha256": "52765211c4e14b32bb7fe44f5790c77370764454de7dc6c735f759538e5cd472",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 43.334448,
+        "candidate_median_generation_latency_seconds": 1.536729,
+        "candidate_p95_generation_latency_seconds": 4.229107
+      }
+    },
+    "comparisons": [
+      {
+        "left": "source",
+        "right": "output_energy_2048",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.878048780487805,
+          18.29268292682927
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 27,
+          "right_only_pass": 8
+        },
+        "both_pass": 42,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.001878225477412343
+      },
+      {
+        "left": "source",
+        "right": "output_energy_8192",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          3.048780487804878,
+          20.121951219512194
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 36,
+          "right_only_pass": 17
+        },
+        "both_pass": 33,
+        "neither_pass": 78,
+        "mcnemar_exact_two_sided_p_value": 0.012660335802414213
+      },
+      {
+        "left": "output_energy_2048",
+        "right": "output_energy_8192",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 0.0,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -6.7073170731707314,
+          6.097560975609756
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 15,
+          "right_only_pass": 15
+        },
+        "both_pass": 35,
+        "neither_pass": 99,
+        "mcnemar_exact_two_sided_p_value": 1.0,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 164,
+          "jaccard_similarity": 0.47126436781609193
+        }
+      }
+    ],
+    "finding": "Fourfold calibration-token increase changed the selected channel set substantially but did not change observed pass count or artifact size."
   }
 }

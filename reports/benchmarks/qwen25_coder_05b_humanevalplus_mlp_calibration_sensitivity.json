@@ -1,0 +1,152 @@
+{
+  "schema_version": 2,
+  "protocol": "paired-evalplus-task-outcome-inference-v2",
+  "controls": {
+    "model_revision": "ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
+    "dataset_sha256": "b6ed6a3a7e560bad75038eb9e72029ace2d26592e04b3f0596b4b75a55529465",
+    "evalplus_source_revision": "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2",
+    "evalplus_docker_image_id": "sha256:fbebe3a482ae3220fa4ba5ac3054f6f5391a58c9ca220916e50e59398b953a9a",
+    "source_generated_samples_sha256": "b1948e606c8746e6ce66e38aa5db8bf798cd838c7f09a1a525aacbbcf1d74d87",
+    "task_count": 164
+  },
+  "method": {
+    "bootstrap": "paired percentile bootstrap over benchmark tasks",
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20261026,
+    "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+  },
+  "run_metadata": {
+    "output_energy_2048": {
+      "channel_scorer": "activation_output_energy",
+      "calibration_tokens": 2048,
+      "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+      "candidate_plus_passes": 50,
+      "candidate_artifact_bytes": 966494163,
+      "candidate_generated_tokens_per_second": 39.396848,
+      "candidate_median_generation_latency_seconds": 1.484035,
+      "candidate_p95_generation_latency_seconds": 4.959954
+    },
+    "output_energy_8192": {
+      "channel_scorer": "activation_output_energy",
+      "calibration_tokens": 8192,
+      "calibration_token_ids_sha256": "52765211c4e14b32bb7fe44f5790c77370764454de7dc6c735f759538e5cd472",
+      "candidate_plus_passes": 50,
+      "candidate_artifact_bytes": 966494163,
+      "candidate_generated_tokens_per_second": 43.334448,
+      "candidate_median_generation_latency_seconds": 1.536729,
+      "candidate_p95_generation_latency_seconds": 4.229107
+    }
+  },
+  "interpretation_limits": [
+    "Intervals describe task-sample variation on this fixed benchmark; they do not capture generation-seed, model, or benchmark contamination uncertainty.",
+    "Exact McNemar p-values compare observed paired task outcomes and do not establish generalization to other models or task distributions.",
+    "Each arm uses one greedy completion per task, so the analysis does not estimate pass@k or decode variability."
+  ],
+  "source_reports": [
+    {
+      "name": "output_energy_2048",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_output_energy.json",
+      "sha256_lf_normalized": "157d847fbe83265b6716b8b2be8f35bded3ad5f395835ddb65cebcfc175a8a7a"
+    },
+    {
+      "name": "output_energy_8192",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_output_energy_8192.json",
+      "sha256_lf_normalized": "28c7c824c8b450164bc08be692afc161e3fbd38e0e1917c9b8e5c2a2d0725d4d"
+    }
+  ],
+  "comparisons": [
+    {
+      "left": "source",
+      "right": "output_energy_2048",
+      "task_count": 164,
+      "left_plus_passes": 69,
+      "right_plus_passes": 50,
+      "left_plus_status_counts": {
+        "fail": 95,
+        "pass": 69
+      },
+      "right_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "left_minus_right_percentage_points": 11.585365853658537,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        4.878048780487805,
+        18.29268292682927
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 27,
+        "right_only_pass": 8
+      },
+      "both_pass": 42,
+      "neither_pass": 87,
+      "mcnemar_exact_two_sided_p_value": 0.001878225477412343
+    },
+    {
+      "left": "source",
+      "right": "output_energy_8192",
+      "task_count": 164,
+      "left_plus_passes": 69,
+      "right_plus_passes": 50,
+      "left_plus_status_counts": {
+        "fail": 95,
+        "pass": 69
+      },
+      "right_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "left_minus_right_percentage_points": 11.585365853658537,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        3.048780487804878,
+        20.121951219512194
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 36,
+        "right_only_pass": 17
+      },
+      "both_pass": 33,
+      "neither_pass": 78,
+      "mcnemar_exact_two_sided_p_value": 0.012660335802414213
+    },
+    {
+      "left": "output_energy_2048",
+      "right": "output_energy_8192",
+      "task_count": 164,
+      "left_plus_passes": 50,
+      "right_plus_passes": 50,
+      "left_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "right_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "left_minus_right_percentage_points": 0.0,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -6.7073170731707314,
+        6.097560975609756
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 15,
+        "right_only_pass": 15
+      },
+      "both_pass": 35,
+      "neither_pass": 99,
+      "mcnemar_exact_two_sided_p_value": 1.0,
+      "removed_channel_selection": {
+        "left_count": 256,
+        "right_count": 256,
+        "overlap_count": 164,
+        "jaccard_similarity": 0.47126436781609193
+      }
+    }
+  ]
+}
