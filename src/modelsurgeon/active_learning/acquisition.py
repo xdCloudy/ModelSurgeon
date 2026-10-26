@@ -68,8 +68,12 @@ class AcquisitionPolicyConfig:
             raise AcquisitionPolicyError("acquisition fractions must be finite and non-negative")
         if not math.isclose(math.fsum(fractions), 1.0, rel_tol=0.0, abs_tol=1e-12):
             raise AcquisitionPolicyError("acquisition fractions must sum to one")
-        if isinstance(self.seed, bool) or not 0 <= self.seed < 1 << 64:
-            raise AcquisitionPolicyError("acquisition seed must be unsigned 64-bit")
+        if (
+            isinstance(self.seed, bool)
+            or not isinstance(self.seed, int)
+            or not 0 <= self.seed < 1 << 64
+        ):
+            raise AcquisitionPolicyError("acquisition seed must be unsigned 64-bit integer")
 
 
 DEFAULT_ACQUISITION_POLICY_CONFIG: Final[AcquisitionPolicyConfig] = AcquisitionPolicyConfig()
@@ -139,6 +143,8 @@ def acquire_candidates(
 ) -> AcquisitionReport:
     """Allocate exact quotas, optionally using feature-space diversity for its lane."""
 
+    if isinstance(budget, bool) or not isinstance(budget, int):
+        raise AcquisitionPolicyError("acquisition budget must be an integer")
     if budget < 0:
         raise AcquisitionPolicyError("acquisition budget cannot be negative")
     ids = tuple(item.candidate_id for item in candidates)
