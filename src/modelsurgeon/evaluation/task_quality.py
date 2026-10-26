@@ -127,7 +127,7 @@ class CodeExactMatchDataset:
                         continue
                     try:
                         raw = json.loads(line)
-                    except json.JSONDecodeError as error:
+                    except (json.JSONDecodeError, RecursionError) as error:
                         raise TaskQualityEvaluationError(
                             f"task-quality dataset line {line_number} is not valid JSON"
                         ) from error

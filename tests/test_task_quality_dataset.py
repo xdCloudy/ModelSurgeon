@@ -47,3 +47,15 @@ def test_task_quality_dataset_validates_rows_after_sample_limit(
 
     with pytest.raises(TaskQualityEvaluationError, match=message):
         CodeExactMatchDataset.load(path, max_samples=1)
+
+
+def test_task_quality_dataset_normalizes_json_recursion_after_sample_limit(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "deeply-nested-tail.jsonl"
+    valid_row = '{"id":"case-1","prompt":"first","reference":"return 1"}\n'
+    deeply_nested_row = "[" * 100_000 + "0" + "]" * 100_000 + "\n"
+    path.write_text(valid_row + deeply_nested_row, encoding="utf-8")
+
+    with pytest.raises(TaskQualityEvaluationError, match="line 2 is not valid JSON"):
+        CodeExactMatchDataset.load(path, max_samples=1)
