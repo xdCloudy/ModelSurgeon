@@ -126,30 +126,43 @@ def _bounded_json_copy(value: object, budget: list[int], depth: int = 0) -> obje
     elif isinstance(value, Mapping):
         if len(value) > _MAX_PLUGIN_REQUEST_ITEMS // 2:
             raise PluginError("plugin request exceeds the JSON item limit")
-        size = 2 + max(0, len(value) - 1)
+        size = 2
+        item_count = 0
         copied: dict[str, object] = {}
         try:
-            entries = tuple(value.items())
-        except (RuntimeError, ValueError) as error:
+            for key in value:
+                if not isinstance(key, str) or not key:
+                    raise PluginError("plugin request objects require non-empty string keys")
+                budget[1] += 1
+                if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
+                    raise PluginError("plugin request exceeds the JSON item limit")
+                if item_count:
+                    size += 1
+                size += _json_string_bytes(key) + 1
+                copied[key] = _bounded_json_copy(value[key], budget, depth + 1)
+                item_count += 1
+        except PluginError:
+            raise
+        except (KeyError, RuntimeError, ValueError) as error:
             raise PluginError("plugin request changed while being validated") from error
-        for key, item in entries:
-            if not isinstance(key, str) or not key:
-                raise PluginError("plugin request objects require non-empty string keys")
-            budget[1] += 1
-            if budget[1] > _MAX_PLUGIN_REQUEST_ITEMS:
-                raise PluginError("plugin request exceeds the JSON item limit")
-            size += _json_string_bytes(key) + 1
-            copied[key] = _bounded_json_copy(item, budget, depth + 1)
         result = copied
     elif isinstance(value, (list, tuple)):
         if len(value) > _MAX_PLUGIN_REQUEST_ITEMS:
             raise PluginError("plugin request exceeds the JSON item limit")
-        size = 2 + max(0, len(value) - 1)
+        size = 2
+        item_count = 0
+        copied_list: list[object] = []
         try:
-            entries = tuple(value)
+            for item in value:
+                if item_count:
+                    size += 1
+                copied_list.append(_bounded_json_copy(item, budget, depth + 1))
+                item_count += 1
+        except PluginError:
+            raise
         except (RuntimeError, ValueError) as error:
             raise PluginError("plugin request changed while being validated") from error
-        result = [_bounded_json_copy(item, budget, depth + 1) for item in entries]
+        result = copied_list
     else:
         raise PluginError(
             f"plugin request value type {type(value).__name__} is not JSON-compatible"
