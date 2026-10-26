@@ -101,6 +101,7 @@ def test_surrogate_fit_is_calibrated_bounded_and_persistable() -> None:
     assert fit.calibration_feasibility_brier is not None
     record = fit.to_record()
     assert record["model"] is not None
+    assert len(fit.measured_examples) == len(fit.measured_candidate_ids)
     assert record["retained_outcome_ids"] == []
     assert fit.from_record(record).to_record() == record
 
@@ -298,7 +299,7 @@ def test_hypervolume_reference_is_recorded_in_objective_space() -> None:
         (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), fit
     )
     assert fit.model is not None
-    observed = tuple(example.objectives[0].estimate for example in fit.model.examples)
+    observed = tuple(example.objectives[0].estimate for example in fit.measured_examples)
     expected_reference = min(observed) - 0.1 * (max(observed) - min(observed))
     assert selection.acquisition_reference_point == pytest.approx((expected_reference,))
     assert selection.to_record()["acquisition_reference_point"] == pytest.approx(
@@ -323,6 +324,42 @@ def test_hypervolume_reference_is_recorded_in_objective_space() -> None:
         (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), polluted_fit
     )
     assert polluted.acquisition_reference_point == pytest.approx((expected_reference,))
+
+
+def test_hypervolume_frontier_includes_held_out_measured_examples(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+        exploration_weight=0.0,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    assert fit.model is not None
+    training_ids = {example.candidate_id for example in fit.model.examples}
+    held_out = tuple(
+        example for example in fit.measured_examples if example.candidate_id not in training_ids
+    )
+    assert len(held_out) == fit.held_out_count
+    assert max(example.objectives[0].estimate for example in held_out) == pytest.approx(0.9)
+
+    def predict_dominated_point(
+        self: SurrogateModel, candidate_id: str, features: tuple[float, ...]
+    ) -> SurrogatePrediction:
+        del self, features
+        return SurrogatePrediction(
+            candidate_id,
+            (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.88),),
+            1.0,
+            0.0,
+            0.0,
+        )
+
+    monkeypatch.setattr(SurrogateModel, "predict", predict_dominated_point)
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), fit
+    )
+    assert selection.selected[0].acquisition == 0.0
 
 
 def test_hypervolume_batch_recomputes_marginal_gain_after_each_selection(
@@ -360,7 +397,7 @@ def test_hypervolume_batch_recomputes_marginal_gain_after_each_selection(
     assert len(chosen) == 2
     assert fit.model is not None
     best_measured = max(
-        example.objectives[0].estimate for example in fit.model.examples if example.feasible
+        example.objectives[0].estimate for example in fit.measured_examples if example.feasible
     )
     assert sorted(decision.acquisition for decision in chosen) == pytest.approx(
         [0.0, 0.95 - best_measured]

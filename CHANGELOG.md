@@ -5,11 +5,12 @@
   - Corrected the surrogate's hypervolume-improvement acquisition to calculate
     exact one- or two-objective mean hypervolume gain against an explicit or
     deterministically inferred reference point. Infeasible observations no
-    longer distort the measured Pareto baseline, and the effective reference
-    point is recorded in objective units. This is deterministic mean HVI, not
-    expected hypervolume improvement; dimensions above two fail closed. Batch
-    candidates are selected greedily, recomputing marginal gain against earlier
-    predictions in the same batch.
+    longer distort the measured Pareto baseline, while all feasible measured
+    examples, including the calibration holdout, contribute to the frontier.
+    The effective reference point is recorded in objective units. This is
+    deterministic mean HVI, not expected hypervolume improvement; dimensions
+    above two fail closed. Batch candidates are selected greedily, recomputing
+    marginal gain against earlier predictions in the same batch.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

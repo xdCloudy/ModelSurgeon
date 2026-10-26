@@ -23,7 +23,7 @@ from modelsurgeon.search.pareto import (
 )
 
 SURROGATE_SCHEMA_VERSION = 1
-SURROGATE_ACQUISITION_PROTOCOL_REVISION = "surrogate-acquisition-v2"
+SURROGATE_ACQUISITION_PROTOCOL_REVISION = "surrogate-acquisition-v3"
 
 
 class SurrogateError(ValueError):
@@ -182,6 +182,64 @@ class SurrogateTrainingExample:
             "objectives": [item.to_record() for item in self.objectives],
             "feasible": self.feasible,
         }
+
+    @classmethod
+    def from_record(cls, record: object) -> SurrogateTrainingExample:
+        if not isinstance(record, dict) or set(record) != {
+            "candidate_id",
+            "features",
+            "objectives",
+            "feasible",
+        }:
+            raise SurrogateError("surrogate example is malformed")
+        features = record["features"]
+        objectives = record["objectives"]
+        if (
+            not isinstance(record["candidate_id"], str)
+            or not isinstance(features, list)
+            or not all(
+                isinstance(item, (int, float)) and not isinstance(item, bool) for item in features
+            )
+            or not isinstance(objectives, list)
+            or not isinstance(record["feasible"], bool)
+        ):
+            raise SurrogateError("surrogate example fields have invalid types")
+        values: list[ParetoObjectiveValue] = []
+        for objective in objectives:
+            if not isinstance(objective, dict) or set(objective) != {
+                "metric",
+                "estimate",
+                "confidence_low",
+                "confidence_high",
+            }:
+                raise SurrogateError("surrogate objective record is malformed")
+            estimate = objective["estimate"]
+            confidence_low = objective["confidence_low"]
+            confidence_high = objective["confidence_high"]
+            if (
+                not isinstance(objective["metric"], str)
+                or not isinstance(estimate, (int, float))
+                or isinstance(estimate, bool)
+                or (confidence_low is not None and not isinstance(confidence_low, (int, float)))
+                or isinstance(confidence_low, bool)
+                or (confidence_high is not None and not isinstance(confidence_high, (int, float)))
+                or isinstance(confidence_high, bool)
+            ):
+                raise SurrogateError("surrogate objective record has invalid types")
+            values.append(
+                ParetoObjectiveValue(
+                    OptimizeMetric(objective["metric"]),
+                    float(estimate),
+                    None if confidence_low is None else float(confidence_low),
+                    None if confidence_high is None else float(confidence_high),
+                )
+            )
+        return cls(
+            record["candidate_id"],
+            tuple(float(item) for item in features),
+            tuple(values),
+            record["feasible"],
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -428,6 +486,7 @@ class SurrogateFit:
     calibration_coverage: float | None
     calibration_feasibility_brier: float | None
     reason: str | None
+    measured_examples: tuple[SurrogateTrainingExample, ...] = ()
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -441,6 +500,7 @@ class SurrogateFit:
             "calibration_coverage": self.calibration_coverage,
             "calibration_feasibility_brier": self.calibration_feasibility_brier,
             "reason": self.reason,
+            "measured_examples": [item.to_record() for item in self.measured_examples],
         }
 
     @classmethod
@@ -459,7 +519,12 @@ class SurrogateFit:
             "calibration_feasibility_brier",
             "reason",
         }
-        if set(record) != required or record["schema_version"] != SURROGATE_SCHEMA_VERSION:
+        record_keys = set(record)
+        if (
+            frozenset(record_keys)
+            not in {frozenset(required), frozenset(required | {"measured_examples"})}
+            or record["schema_version"] != SURROGATE_SCHEMA_VERSION
+        ):
             raise SurrogateError("unsupported or malformed surrogate fit")
         measured = record["measured_candidate_ids"]
         retained = record["retained_outcome_ids"]
@@ -484,6 +549,12 @@ class SurrogateFit:
         reason = record["reason"]
         if reason is not None and not isinstance(reason, str):
             raise SurrogateError("surrogate fit reason must be text or null")
+        raw_measured_examples = record.get("measured_examples", [])
+        if not isinstance(raw_measured_examples, list):
+            raise SurrogateError("surrogate measured examples must be a list")
+        measured_examples = tuple(
+            SurrogateTrainingExample.from_record(item) for item in raw_measured_examples
+        )
         return cls(
             SurrogateFitStatus(record["status"]),
             model,
@@ -494,6 +565,7 @@ class SurrogateFit:
             optional_numbers[1],
             optional_numbers[2],
             reason,
+            measured_examples,
         )
 
 
@@ -555,6 +627,15 @@ def fit_surrogate(
     for state in measured:
         if not set(metrics) <= {item.metric for item in state.objectives}:
             raise SurrogateError("surrogate measured state is missing an objective")
+    measured_examples = tuple(
+        SurrogateTrainingExample(
+            state.candidate_id,
+            features[state.candidate_id],
+            state.objectives,
+            constraints.evaluate(state.constraints).passed,
+        )
+        for state in measured
+    )
     if len(measured) < config.minimum_training_examples:
         return SurrogateFit(
             SurrogateFitStatus.INSUFFICIENT_DATA,
@@ -566,6 +647,7 @@ def fit_surrogate(
             None,
             None,
             "minimum measured training examples not met",
+            measured_examples,
         )
     ordered = measured
     held_out_count = max(1, math.floor(len(ordered) * config.calibration_fraction))
@@ -582,6 +664,7 @@ def fit_surrogate(
             None,
             None,
             "calibration split leaves too few training examples",
+            measured_examples,
         )
     width = len(feature_schema)
     if len(training) * width > config.budget.max_fit_operations:
@@ -595,6 +678,7 @@ def fit_surrogate(
             None,
             None,
             "fit operation budget exceeded",
+            measured_examples,
         )
     estimated_bytes = len(training) * width * 8 + len(training) * 64
     if estimated_bytes > config.budget.max_model_bytes:
@@ -608,6 +692,7 @@ def fit_surrogate(
             None,
             None,
             "fit memory budget exceeded",
+            measured_examples,
         )
     started = time.perf_counter()
     raw_features = tuple(features[state.candidate_id] for state in training)
@@ -665,6 +750,7 @@ def fit_surrogate(
                 None,
                 None,
                 "fit time budget exceeded",
+                measured_examples,
             )
         prediction = model.predict(state.candidate_id, features[state.candidate_id])
         actual = {item.metric: item.estimate for item in state.objectives}
@@ -705,6 +791,7 @@ def fit_surrogate(
         covered / held_out_count,
         math.fsum(feasibility_errors) / held_out_count,
         None,
+        measured_examples,
     )
 
 
@@ -1015,13 +1102,14 @@ class SurrogateArchitecturePolicy:
             and current.fit_id != fit.model.model_id
         ):
             raise SurrogateError("surrogate resume state does not match fitted model")
-        frontier = _feasible_frontier(() if fit.model is None else fit.model.examples)
+        observed_examples = fit.measured_examples or (
+            () if fit.model is None else fit.model.examples
+        )
+        frontier = _feasible_frontier(observed_examples)
         acquisition_reference_point: tuple[float, ...] | None = None
         if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
-            feasible_observations = (
-                tuple(example.objectives for example in fit.model.examples if example.feasible)
-                if fit.model is not None
-                else ()
+            feasible_observations = tuple(
+                example.objectives for example in observed_examples if example.feasible
             )
             reference_observations = feasible_observations or tuple(
                 candidate.objectives
