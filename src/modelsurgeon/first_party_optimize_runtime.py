@@ -1516,6 +1516,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 evaluation_source=evaluation_source,
             )
             repair_record = lora_result.to_record()
+            repair_algorithm_accepted = (
+                lora_result.validation_improved is True and lora_result.selected_step > 0
+            )
         else:
             parameter_names = tuple(
                 sorted(
