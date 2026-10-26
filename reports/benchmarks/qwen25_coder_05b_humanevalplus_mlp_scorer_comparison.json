@@ -2,14 +2,14 @@
   "limitations": [
     "One model revision, pruning severity, calibration sample budget, and greedy generation per HumanEval+ task.",
     "HumanEval+ may be present in model training data; contamination is not ruled out.",
-    "Runtime results are one generation pass per arm, include prompt prefill, and are not repeated decode-only measurements.",
-    "Task-quality difference is a small held-out benchmark result and needs replication on other tasks and models.",
-    "No conclusion of a general runtime improvement is supported by one sweep."
+    "Runtime is one generation pass per arm, includes prompt prefill, and is not repeated decode-only timing.",
+    "Output-energy scoring matched magnitude quality here but had lower one-pass throughput; no general ranking claim follows from this single model and setting.",
+    "Task-quality differences need replication on more models, tasks, pruning severities, and seeds."
   ],
   "method_provenance": {
     "calibration_dataset_license": "CC-BY-SA-4.0",
-    "competitive_reference": "ModelSurgeon PR #735; WANDA-inspired activation-weighted channel ranking",
-    "reuse": "No third-party source code copied; this is a group-level structural adaptation, not the per-weight WANDA algorithm.",
+    "competitive_reference": "ModelSurgeon PR #735; WANDA (MIT) informed activation calibration; output-energy ranking is an independent structural adaptation.",
+    "reuse": "No third-party source code copied. Output-energy score ranks calibrated post-gated activation RMS squared times matching down-projection column L2 norm squared, summed across layers.",
     "wanda_license": "MIT",
     "wanda_repository": "https://github.com/locuslab/wanda",
     "wanda_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6"
@@ -29,29 +29,8 @@
     "task_count": 164,
     "torch_version": "2.11.0+cu128"
   },
-  "protocol": "paired-qwen-humanevalplus-mlp-scorer-comparison-v1",
+  "protocol": "paired-qwen-humanevalplus-mlp-scorer-comparison-v2",
   "results": {
-    "activation_minus_magnitude": {
-      "artifact_bytes": 0,
-      "generated_tokens_per_second": 1.0124920000000017,
-      "generated_tokens_per_second_relative_percent": 2.2978019314034537,
-      "median_generation_latency_seconds": -0.04558400000000007,
-      "p95_generation_latency_seconds": -0.3860830000000002,
-      "plus_passes": -3,
-      "quality_delta_percentage_points": -1.8292682926829285,
-      "removed_channel_overlap": 11
-    },
-    "activation_weighted": {
-      "artifact_bytes": 966494163,
-      "artifact_reduction_bytes": 33110070,
-      "generated_tokens_per_second": 45.075994,
-      "median_generation_latency_seconds": 1.39051,
-      "p95_generation_latency_seconds": 5.297026,
-      "plus_pass_at_1": 0.2865853658536585,
-      "plus_passes": 47,
-      "quality_delta_percentage_points": -13.414634146341465,
-      "removed_channel_count": 256
-    },
     "magnitude": {
       "artifact_bytes": 966494163,
       "artifact_reduction_bytes": 33110070,
@@ -63,19 +42,67 @@
       "quality_delta_percentage_points": -11.585365853658535,
       "removed_channel_count": 256
     },
-    "source_plus_passes": 69
+    "activation_weighted": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 45.075994,
+      "median_generation_latency_seconds": 1.39051,
+      "p95_generation_latency_seconds": 5.297026,
+      "plus_pass_at_1": 0.2865853658536585,
+      "plus_passes": 47,
+      "quality_delta_percentage_points": -13.414634146341465,
+      "removed_channel_count": 256,
+      "removed_channel_overlap_with_magnitude": 11
+    },
+    "activation_output_energy": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 39.396848,
+      "median_generation_latency_seconds": 1.484035,
+      "p95_generation_latency_seconds": 4.959954,
+      "plus_pass_at_1": 0.3048780487804878,
+      "plus_passes": 50,
+      "quality_delta_percentage_points": -11.585365853658535,
+      "removed_channel_count": 256,
+      "removed_channel_overlap_with_magnitude": 12
+    },
+    "activation_weighted_minus_magnitude": {
+      "artifact_bytes": 0,
+      "generated_tokens_per_second": 1.0124920000000017,
+      "generated_tokens_per_second_relative_percent": 2.297801931403459,
+      "median_generation_latency_delta_seconds": -0.04558400000000007,
+      "p95_generation_latency_delta_seconds": -0.3860830000000002,
+      "plus_passes": -3,
+      "quality_delta_percentage_points": -1.8292682926829293,
+      "removed_channel_overlap": 11
+    },
+    "activation_output_energy_minus_magnitude": {
+      "artifact_bytes": 0,
+      "generated_tokens_per_second": -4.666654000000001,
+      "generated_tokens_per_second_relative_percent": -10.590746963325795,
+      "median_generation_latency_delta_seconds": 0.04794100000000001,
+      "p95_generation_latency_delta_seconds": -0.7231550000000002,
+      "plus_passes": 0,
+      "quality_delta_percentage_points": 0.0,
+      "removed_channel_overlap": 12
+    }
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "source_reports": [
+    {
+      "method": "magnitude",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
+      "sha256_lf_normalized": "17f6dc0a17b50619b8bc971bacdf71d80e9b3da7f89736c561e9df826d23335c"
+    },
     {
       "method": "activation_weighted",
       "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_weighted.json",
       "sha256_lf_normalized": "b80b6a7c422c1059c470899a5fc3d18e250ea673ae6f768ad5e0710caeb932ae"
     },
     {
-      "method": "magnitude",
-      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
-      "sha256_lf_normalized": "17f6dc0a17b50619b8bc971bacdf71d80e9b3da7f89736c561e9df826d23335c"
+      "method": "activation_output_energy",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_output_energy.json",
+      "sha256_lf_normalized": "157d847fbe83265b6716b8b2be8f35bded3ad5f395835ddb65cebcfc175a8a7a"
     }
   ]
 }

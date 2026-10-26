@@ -47,6 +47,7 @@ WIKITEXT_SHA256 = "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435
 WIKITEXT_MEMBER = "wikitext-2-raw/wiki.train.raw"
 WIKITEXT_ARCHIVE_MAX_BYTES = 5_000_000
 WIKITEXT_TRAIN_MAX_BYTES = 12_000_000
+ACTIVATION_SCORERS = frozenset({"activation_weighted", "activation_output_energy"})
 
 
 def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
@@ -66,7 +67,7 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
         "channel_scorer": channel_scorer,
         "calibration_tokens": calibration_tokens,
         "calibration_dataset_sha256": (
-            WIKITEXT_SHA256 if channel_scorer == "activation_weighted" else None
+            WIKITEXT_SHA256 if channel_scorer in ACTIVATION_SCORERS else None
         ),
     }
 
@@ -190,6 +191,44 @@ def _activation_weighted_channels(
     scores = weights.mean(dim=0) * activation.mean(dim=0)
     if not torch.isfinite(scores).all():
         raise ValueError("activation-weighted channel scores are non-finite")
+    selected = sorted(range(width), key=lambda index: (float(scores[index]), index))[:count]
+    return tuple(sorted(selected))
+
+
+def _activation_output_energy_channels(
+    model: Any,
+    count: int,
+    activation_rms_by_layer: tuple[Any, ...],
+) -> tuple[int, ...]:
+    """Rank channels by calibrated energy entering their outgoing down-projection columns."""
+    import torch
+
+    config = model.config
+    width = int(config.intermediate_size)
+    layers = int(config.num_hidden_layers)
+    if not 0 < count < width:
+        raise ValueError(f"channels must be between 1 and {width - 1}")
+    if len(activation_rms_by_layer) != layers:
+        raise ValueError("activation calibration must provide one RMS vector per layer")
+    modules = dict(model.named_modules())
+    per_layer_energy: list[Any] = []
+    for layer in range(layers):
+        mlp = modules.get(f"model.layers.{layer}.mlp")
+        if mlp is None:
+            raise RuntimeError(f"unsupported MLP path at layer {layer}")
+        down = mlp.down_proj.weight.detach().float().cpu()
+        if down.shape[1] != width:
+            raise RuntimeError(f"unsupported MLP down projection shape at layer {layer}")
+        activation = torch.as_tensor(
+            activation_rms_by_layer[layer], dtype=torch.float64
+        ).cpu()
+        if activation.shape != (width,) or not torch.isfinite(activation).all():
+            raise ValueError("activation RMS calibration has an invalid shape or non-finite values")
+        down_norm = down.norm(dim=0).to(torch.float64)
+        per_layer_energy.append(activation.square() * down_norm.square())
+    scores = torch.stack(per_layer_energy).sum(dim=0)
+    if not torch.isfinite(scores).all():
+        raise ValueError("activation output-energy scores are non-finite")
     selected = sorted(range(width), key=lambda index: (float(scores[index]), index))[:count]
     return tuple(sorted(selected))
 
@@ -562,8 +601,12 @@ def _build_pruned_candidate(
         removed = _low_magnitude_channels(model, remove_channels)
     elif channel_scorer == "activation_weighted" and activation_rms_by_layer is not None:
         removed = _activation_weighted_channels(model, remove_channels, activation_rms_by_layer)
+    elif channel_scorer == "activation_output_energy" and activation_rms_by_layer is not None:
+        removed = _activation_output_energy_channels(
+            model, remove_channels, activation_rms_by_layer
+        )
     else:
-        raise ValueError("activation-weighted scoring requires calibrated layer RMS vectors")
+        raise ValueError("activation scoring requires calibrated layer RMS vectors")
     surgery = remove_huggingface_mlp_channels(model, removed)
     model.to(device="cpu", dtype=torch.float16)
     model.save_pretrained(destination, safe_serialization=True, max_shard_size="1GB")
@@ -657,7 +700,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         root = Path(workspace_path)
         calibration_record: dict[str, object] | None = None
         activation_rms_by_layer = None
-        if args.channel_scorer == "activation_weighted":
+        if args.channel_scorer in ACTIVATION_SCORERS:
             train_path, dataset_identity = _ensure_wikitext_train(root / "calibration")
             activation_rms_by_layer, calibration_record = _calibrate_down_projection_rms(
                 snapshot,
@@ -726,15 +769,26 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "dataset": dataset_record,
         "method": {
             "name": (
-                "activation-weighted-global-gated-MLP-channel-removal"
-                if args.channel_scorer == "activation_weighted"
-                else "global-lowest-magnitude-gated-MLP-channel-removal"
+                {
+                    "activation_weighted": "activation-weighted-global-gated-MLP-channel-removal",
+                    "activation_output_energy": (
+                        "calibrated-output-energy-global-gated-MLP-channel-removal"
+                    ),
+                    "magnitude": "global-lowest-magnitude-gated-MLP-channel-removal",
+                }[args.channel_scorer]
             ),
             "score": (
-                "mean across layers of combined gate/up/down channel L2 norm times "
-                "mean across layers of post-gated MLP activation RMS"
-                if args.channel_scorer == "activation_weighted"
-                else "sum across layers of gate-row L2 x up-row L2 x down-column L2"
+                {
+                    "activation_weighted": (
+                        "mean across layers of combined gate/up/down channel L2 norm times "
+                        "mean across layers of post-gated MLP activation RMS"
+                    ),
+                    "activation_output_energy": (
+                        "sum across layers of squared post-gated activation RMS times "
+                        "squared down-projection column L2 norm"
+                    ),
+                    "magnitude": "sum across layers of gate-row L2 x up-row L2 x down-column L2",
+                }[args.channel_scorer]
             ),
             "scorer": args.channel_scorer,
             "calibration": calibration_record,
@@ -754,11 +808,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "run_parameters": {
             "channel_scorer": args.channel_scorer,
-            "calibration_tokens": (
-                args.calibration_tokens if args.channel_scorer == "activation_weighted" else None
-            ),
+            "calibration_tokens": args.calibration_tokens
+            if args.channel_scorer in ACTIVATION_SCORERS
+            else None,
             "calibration_corpus": "WikiText-2 raw v1 train split"
-            if args.channel_scorer == "activation_weighted"
+            if args.channel_scorer in ACTIVATION_SCORERS
             else None,
             "remove_channels": args.remove_channels,
             "max_new_tokens": args.max_new_tokens,
@@ -817,7 +871,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "limitations": [
             (
-                "One code-specialized model revision, one magnitude-based MLP pruning severity, "
+                "One code-specialized model revision, one MLP pruning severity, "
                 "and one greedy sample per task."
             ),
             (
@@ -1068,9 +1122,9 @@ def main() -> None:
     parser.add_argument("--remove-channels", type=int, default=256)
     parser.add_argument(
         "--channel-scorer",
-        choices=("magnitude", "activation_weighted"),
+        choices=("magnitude", "activation_weighted", "activation_output_energy"),
         default="magnitude",
-        help="candidate-only scorer; activation calibration uses pinned WikiText-2 train text",
+        help="candidate scorer; activation methods calibrate on pinned WikiText-2 train text",
     )
     parser.add_argument("--calibration-tokens", type=int, default=2048)
     parser.add_argument("--max-new-tokens", type=int, default=256)

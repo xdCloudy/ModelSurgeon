@@ -8,6 +8,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 from tools.run_evalplus_hf_pruning_study import (
+    _activation_output_energy_channels,
     _activation_weighted_channels,
     _decoder_with_task_local_stopping_criteria,
     _docker_wrapper,
@@ -71,6 +72,19 @@ def test_activation_weighted_selection_ranks_coupled_channels_by_calibration_rms
     model = _toy_model(identity, identity, identity)
 
     assert _activation_weighted_channels(model, 1, (torch.tensor([0.1, 0.2, 1.0]),)) == (0,)
+
+
+def test_activation_output_energy_scores_the_post_gated_down_projection_contribution() -> None:
+    torch = pytest.importorskip("torch")
+    model = _toy_model(
+        [[100.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        [[100.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        [[0.1, 0.0, 0.0], [0.0, 100.0, 0.0], [0.0, 0.0, 1.0]],
+    )
+    activation_rms = (torch.tensor([0.01, 0.01, 0.02]),)
+
+    assert _activation_weighted_channels(model, 1, activation_rms) == (2,)
+    assert _activation_output_energy_channels(model, 1, activation_rms) == (0,)
 
 
 @pytest.mark.parametrize("count", [0, 3])
@@ -322,7 +336,19 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
     assert report["paired_controls"]["source_samples_identical"] is True
     assert report["paired_controls"]["torch_version"] == "2.11.0+cu128"
     assert report["results"]["activation_weighted"]["plus_passes"] == 47
+    assert report["results"]["activation_output_energy"]["plus_passes"] == 50
     assert report["results"]["magnitude"]["plus_passes"] == 50
+    assert report["results"]["activation_output_energy_minus_magnitude"]["plus_passes"] == 0
+    assert (
+        report["results"]["activation_output_energy_minus_magnitude"][
+            "removed_channel_overlap"
+        ]
+        == 12
+    )
+    assert (
+        report["results"]["activation_output_energy"]["generated_tokens_per_second"]
+        < report["results"]["magnitude"]["generated_tokens_per_second"]
+    )
     assert (
         report["results"]["activation_weighted"]["artifact_bytes"]
         == report["results"]["magnitude"]["artifact_bytes"]
