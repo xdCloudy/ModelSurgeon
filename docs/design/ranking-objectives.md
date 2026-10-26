@@ -36,6 +36,18 @@ on the same list identities, with deterministic tie breaking by candidate ID.
 The schema and protocol revisions identify the change from outcome-based
 sequence ranking to prediction-only ranking.
 
+## Protocol history
+
+[`v1.5-ranking-objectives-v1.json`](../research/v1.5-ranking-objectives-v1.json)
+is retained as the descriptor for the superseded v1 protocol. It is not a
+study result or evidence that any objective performed better. The current
+protocol descriptor is
+[`v1.5-ranking-objectives-v5.json`](../research/v1.5-ranking-objectives-v5.json);
+it records prediction-only ranking, lineage-cluster uncertainty, paired
+recommendation tests, and explicit-only resource costs. Keeping both files
+preserves the old contract for audit and reproduction without presenting it as
+current methodology.
+
 ## Metrics and cost controls
 
 The result reports NDCG, regret, precision@k, violation rate@k, Brier
