@@ -2,7 +2,11 @@ import json
 from pathlib import Path
 
 import pytest
-from tools.run_lora_post_surgery_study import _measure_task_quality, _ordered_test_rows
+from tools.run_lora_post_surgery_study import (
+    _measure_task_quality,
+    _ordered_test_rows,
+    _test_sampling_run_parameters,
+)
 
 from modelsurgeon.evaluation.task_quality import CodeExactMatchDataset
 
@@ -22,6 +26,17 @@ def test_test_row_shuffle_is_deterministic_and_preserves_every_row() -> None:
     assert first == repeated
     assert first != rows
     assert set(first) == set(rows)
+
+
+def test_legacy_test_sampling_does_not_change_v1_run_parameters() -> None:
+    assert _test_sampling_run_parameters(64, None, extended=False) == {}
+
+
+def test_extended_test_sampling_records_its_parameters() -> None:
+    assert _test_sampling_run_parameters(128, 2026, extended=True) == {
+        "test_examples_per_split": 128,
+        "test_sample_seed": 2026,
+    }
 
 
 def test_study_can_measure_task_quality_for_an_arm(tmp_path: Path) -> None:

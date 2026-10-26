@@ -102,6 +102,17 @@ def _ordered_test_rows(
     return tuple(shuffled)
 
 
+def _test_sampling_run_parameters(
+    test_example_count: int, sample_seed: int | None, extended: bool
+) -> dict[str, int | None]:
+    if not extended:
+        return {}
+    return {
+        "test_examples_per_split": test_example_count,
+        "test_sample_seed": sample_seed,
+    }
+
+
 def _examples(
     texts: tuple[tuple[int, str], ...], tokenizer: Any, count: int, max_length: int
 ) -> tuple[tuple[dict[str, Any], ...], tuple[dict[str, object], ...]]:
@@ -482,21 +493,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "output_dtype": "float16",
             "remove_channels": args.remove_channels,
             "examples_per_split": args.examples_per_split,
-            "test_examples_per_split": test_example_count,
-            "test_sample_seed": args.test_sample_seed,
             "max_length": args.max_length,
             "rank": args.rank,
             "alpha": 2 * args.rank,
             "steps": args.steps,
             "learning_rate": args.learning_rate,
             "seed": args.seed,
-            **(
-                {
-                    "test_examples_per_split": test_example_count,
-                    "test_sample_seed": args.test_sample_seed,
-                }
-                if extended_test_sampling
-                else {}
+            **_test_sampling_run_parameters(
+                test_example_count, args.test_sample_seed, extended_test_sampling
             ),
             **(
                 {"task_quality_max_new_tokens": args.task_quality_max_new_tokens}
