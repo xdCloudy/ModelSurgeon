@@ -383,6 +383,7 @@ class LogisticSurgeonModel:
             "not_safe_mutation_target",
             "skipped_nonuniform_validation_weights",
             "skipped_insufficient_validation_classes",
+            "skipped_insufficient_validation_groups",
             "fitted",
         }
         if (
@@ -604,10 +605,32 @@ def train_logistic(
             if min(class_counts) < 2:
                 calibration_status = "skipped_insufficient_validation_classes"
             else:
-                calibration_selection = fit_probability_calibrator(
-                    raw_validation_probabilities, val_labels
+                validation_group_ids = tuple(
+                    group_id
+                    for group_id, mask in zip(
+                        validation.group_ids, validation.target_mask, strict=True
+                    )
+                    if mask
                 )
-                calibration_status = "fitted"
+                class_group_counts = tuple(
+                    len(
+                        {
+                            group_id
+                            for group_id, label in zip(
+                                validation_group_ids, val_labels, strict=True
+                            )
+                            if label == target
+                        }
+                    )
+                    for target in (0, 1)
+                )
+                if min(class_group_counts) < 2:
+                    calibration_status = "skipped_insufficient_validation_groups"
+                else:
+                    calibration_selection = fit_probability_calibrator(
+                        raw_validation_probabilities, val_labels, group_ids=validation_group_ids
+                    )
+                    calibration_status = "fitted"
     return LogisticSurgeonModel(
         train.feature_names,
         train.target_name,

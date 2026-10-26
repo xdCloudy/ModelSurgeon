@@ -238,6 +238,7 @@ class CalibrationSelection:
     reliability_bins: int
     selection_rule: str = "minimum_brier_then_ece_then_method"
     cross_validation_folds: int = 0
+    group_aware_folds: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -246,6 +247,8 @@ class CalibrationSelection:
             or self.cross_validation_folds < 0
         ):
             raise ProbabilityCalibrationError("cross-validation fold count cannot be negative")
+        if self.group_aware_folds and self.cross_validation_folds < 2:
+            raise ProbabilityCalibrationError("group-aware folds require cross-validation")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -261,7 +264,11 @@ class CalibrationSelection:
                 "validation_out_of_fold" if self.cross_validation_folds >= 2 else "unspecified"
             ),
             "fold_assignment": (
-                "stratified_round_robin_v1" if self.cross_validation_folds >= 2 else "unspecified"
+                "stratified_group_greedy_v1"
+                if self.group_aware_folds
+                else "stratified_round_robin_v1"
+                if self.cross_validation_folds >= 2
+                else "unspecified"
             ),
         }
 
@@ -280,10 +287,7 @@ class CalibrationSelection:
             "fold_assignment",
         }
         value = _record_mapping(record, "calibration selection", required)
-        if (
-            _record_int(value, "schema_version", minimum=1)
-            != CALIBRATION_SELECTION_SCHEMA_VERSION
-        ):
+        if _record_int(value, "schema_version", minimum=1) != CALIBRATION_SELECTION_SCHEMA_VERSION:
             raise ProbabilityCalibrationError("unsupported calibration selection schema version")
         raw_calibrator = value["calibrator"]
         if not isinstance(raw_calibrator, Mapping):
@@ -315,9 +319,11 @@ class CalibrationSelection:
         ):
             raise ProbabilityCalibrationError("calibration cross-validation evidence is invalid")
         for candidate in candidates:
-            if len(candidate.metrics.reliability_curve) != reliability_bins or sum(
-                item.count for item in candidate.metrics.reliability_curve
-            ) != observation_count:
+            if (
+                len(candidate.metrics.reliability_curve) != reliability_bins
+                or sum(item.count for item in candidate.metrics.reliability_curve)
+                != observation_count
+            ):
                 raise ProbabilityCalibrationError(
                     "candidate reliability evidence does not match the selection dimensions"
                 )
@@ -333,8 +339,14 @@ class CalibrationSelection:
         expected_evaluation = (
             "validation_out_of_fold" if cross_validation_folds >= 2 else "unspecified"
         )
+        raw_assignment = value["fold_assignment"]
+        group_aware_folds = raw_assignment == "stratified_group_greedy_v1"
         expected_assignment = (
-            "stratified_round_robin_v1" if cross_validation_folds >= 2 else "unspecified"
+            "stratified_group_greedy_v1"
+            if group_aware_folds
+            else "stratified_round_robin_v1"
+            if cross_validation_folds >= 2
+            else "unspecified"
         )
         if (
             value["evaluation_partition"] != expected_evaluation
@@ -348,6 +360,7 @@ class CalibrationSelection:
             reliability_bins,
             selection_rule,
             cross_validation_folds,
+            group_aware_folds,
         )
 
 
@@ -484,6 +497,7 @@ def fit_probability_calibrator(
     validation_labels: Sequence[int],
     *,
     reliability_bins: int = 10,
+    group_ids: Sequence[str] | None = None,
 ) -> CalibrationSelection:
     """Fit and select a calibrator using validation observations only.
 
@@ -495,17 +509,33 @@ def fit_probability_calibrator(
     if reliability_bins <= 0:
         raise ProbabilityCalibrationError("reliability bin count must be positive")
     class_counts = (validation_labels.count(0), validation_labels.count(1))
-    folds = min(5, *class_counts)
+    if group_ids is not None:
+        if len(group_ids) != count or any(
+            not isinstance(group, str) or not group for group in group_ids
+        ):
+            raise ProbabilityCalibrationError(
+                "group IDs must be non-empty strings aligned with calibration rows"
+            )
+        group_indices: dict[str, list[int]] = {}
+        group_class_counts: dict[str, list[int]] = {}
+        for index, (label, group) in enumerate(zip(validation_labels, group_ids, strict=True)):
+            group_indices.setdefault(group, []).append(index)
+            counts = group_class_counts.setdefault(group, [0, 0])
+            counts[label] += 1
+        class_group_counts = tuple(
+            sum(counts[label] > 0 for counts in group_class_counts.values()) for label in (0, 1)
+        )
+        folds = min(5, *class_group_counts)
+        fold_indices = _stratified_group_fold_indices(
+            group_indices, group_class_counts, class_counts, folds
+        )
+    else:
+        folds = min(5, *class_counts)
+        fold_indices = _stratified_row_fold_indices(validation_labels, folds)
     if folds < 2:
         raise ProbabilityCalibrationError(
-            "cross-fitted calibration selection requires at least two examples per class"
+            "cross-fitted calibration selection requires at least two examples or groups per class"
         )
-    fold_indices: list[list[int]] = [[] for _ in range(folds)]
-    class_positions = [0, 0]
-    for index, label in enumerate(validation_labels):
-        fold = class_positions[label] % folds
-        fold_indices[fold].append(index)
-        class_positions[label] += 1
 
     cross_fitted: dict[CalibrationMethod, list[float | None]] = {
         CalibrationMethod.PLATT: [None] * count,
@@ -568,7 +598,70 @@ def fit_probability_calibrator(
         reliability_bins,
         selection_rule="minimum_cross_fitted_brier_then_ece_then_method",
         cross_validation_folds=folds,
+        group_aware_folds=group_ids is not None,
     )
+
+
+def _stratified_row_fold_indices(labels: Sequence[int], folds: int) -> list[list[int]]:
+    fold_indices: list[list[int]] = [[] for _ in range(folds)]
+    class_positions = [0, 0]
+    for index, label in enumerate(labels):
+        fold = class_positions[label] % folds
+        fold_indices[fold].append(index)
+        class_positions[label] += 1
+    return fold_indices
+
+
+def _stratified_group_fold_indices(
+    group_indices: Mapping[str, list[int]],
+    group_class_counts: Mapping[str, list[int]],
+    class_counts: tuple[int, int],
+    folds: int,
+) -> list[list[int]]:
+    if folds < 2:
+        return []
+    group_order = sorted(
+        group_indices,
+        key=lambda group: (
+            -abs(
+                group_class_counts[group][0] / class_counts[0]
+                - group_class_counts[group][1] / class_counts[1]
+            ),
+            -len(group_indices[group]),
+            group,
+        ),
+    )
+    fold_counts = [[0, 0] for _ in range(folds)]
+    fold_sizes = [0] * folds
+    assigned: list[list[str]] = [[] for _ in range(folds)]
+    for group in group_order:
+        counts = group_class_counts[group]
+        size = len(group_indices[group])
+        options: list[tuple[float, int, int]] = []
+        for fold in range(folds):
+            imbalance = 0.0
+            for label in (0, 1):
+                distribution = [
+                    (fold_counts[index][label] + (counts[label] if index == fold else 0))
+                    / class_counts[label]
+                    for index in range(folds)
+                ]
+                mean = math.fsum(distribution) / folds
+                imbalance += math.fsum((value - mean) ** 2 for value in distribution) / folds
+            options.append((imbalance, fold_sizes[fold] + size, fold))
+        selected_fold = min(options)[2]
+        assigned[selected_fold].append(group)
+        fold_sizes[selected_fold] += size
+        for label in (0, 1):
+            fold_counts[selected_fold][label] += counts[label]
+    if any(sum(fold_counts[fold][label] > 0 for fold in range(folds)) < 2 for label in (0, 1)):
+        raise ProbabilityCalibrationError(
+            "group-aware calibration folds cannot retain both classes in every training split"
+        )
+    result = [[index for group in fold for index in group_indices[group]] for fold in assigned]
+    if any(not fold for fold in result):
+        raise ProbabilityCalibrationError("group-aware calibration produced an empty fold")
+    return result
 
 
 def calibrator_from_record(record: Mapping[str, object]) -> PlattCalibrator | IsotonicCalibrator:
@@ -643,26 +736,20 @@ def _record_float_tuple(record: Mapping[str, object], key: str) -> tuple[float, 
     return tuple(_record_float({key: item}, key) for item in value)
 
 
-def _record_mapping(
-    value: object, label: str, required: set[str]
-) -> Mapping[str, object]:
+def _record_mapping(value: object, label: str, required: set[str]) -> Mapping[str, object]:
     if not isinstance(value, Mapping) or set(value) != required:
         raise ProbabilityCalibrationError(f"serialized {label} fields are malformed")
     return cast(Mapping[str, object], value)
 
 
-def _record_int(
-    record: Mapping[str, object], key: str, *, minimum: int
-) -> int:
+def _record_int(record: Mapping[str, object], key: str, *, minimum: int) -> int:
     value = record.get(key)
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise ProbabilityCalibrationError(f"serialized {key} must be an integer >= {minimum}")
     return value
 
 
-def _record_optional_probability(
-    record: Mapping[str, object], key: str
-) -> float | None:
+def _record_optional_probability(record: Mapping[str, object], key: str) -> float | None:
     value = record.get(key)
     if value is None:
         return None

@@ -11,6 +11,7 @@ from modelsurgeon.surgeon.calibration import (
     IsotonicCalibrator,
     PlattCalibrator,
     ProbabilityCalibrationError,
+    _stratified_group_fold_indices,
     calibration_metrics,
     calibrator_from_record,
     fit_isotonic_calibrator,
@@ -72,6 +73,43 @@ def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> N
         if candidate.method is selection.calibrator.method
     )
     assert selected_metrics.brier_score != pytest.approx(fitted_metrics.brier_score)
+
+
+def test_grouped_crossfit_keeps_group_rows_together_and_records_protocol() -> None:
+    labels = LABELS
+    groups = tuple(f"group-{index // 2}" for index in range(len(labels)))
+    group_indices: dict[str, list[int]] = {}
+    group_class_counts: dict[str, list[int]] = {}
+    class_counts = (labels.count(0), labels.count(1))
+    for index, (label, group) in enumerate(zip(labels, groups, strict=True)):
+        group_indices.setdefault(group, []).append(index)
+        counts = group_class_counts.setdefault(group, [0, 0])
+        counts[label] += 1
+    class_group_counts = tuple(
+        sum(counts[label] > 0 for counts in group_class_counts.values()) for label in (0, 1)
+    )
+    folds = min(5, *class_group_counts)
+    assigned_folds = _stratified_group_fold_indices(
+        group_indices, group_class_counts, class_counts, folds
+    )
+    fold_by_row = {index: fold for fold, indices in enumerate(assigned_folds) for index in indices}
+    for group, indices in group_indices.items():
+        assert len({fold_by_row[index] for index in indices}) == 1, group
+
+    selection = fit_probability_calibrator(PROBABILITIES, labels, group_ids=groups)
+    assert selection.group_aware_folds
+    assert selection.cross_validation_folds == folds
+    assert selection.to_record()["fold_assignment"] == "stratified_group_greedy_v1"
+    assert CalibrationSelection.from_record(selection.to_record()) == selection
+
+
+def test_grouped_crossfit_fails_closed_without_two_groups_per_class() -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="two examples or groups per class"):
+        fit_probability_calibrator(
+            (0.1, 0.2, 0.8, 0.9),
+            (0, 0, 1, 1),
+            group_ids=("one-negative-group", "one-negative-group", "positive-a", "positive-b"),
+        )
 
 
 def test_manually_constructed_selection_does_not_claim_fold_provenance() -> None:

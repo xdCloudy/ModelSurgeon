@@ -5,11 +5,16 @@ probabilities. Calibration never consumes the held-out test partition: the fitti
 accepts parameters named `validation_probabilities` and `validation_labels`, and the
 serialized selection evidence records `fit_partition: validation`.
 
-Two deterministic methods are compared with stratified, round-robin out-of-fold
-predictions on the validation observations. The fold count is capped at five and
-at the minority-class count; at least two examples per class are required. Each
-held-out fold is calibrated only from the other folds. After method selection,
-the winning method is refit on the complete validation partition for inference.
+Two deterministic methods are compared with out-of-fold predictions on the
+validation observations. When the training matrix supplies split group IDs, all
+rows from each group remain together and a deterministic greedy stratifier
+balances the class proportions across folds. The fold count is capped at five
+and at the number of distinct groups containing each class; at least two groups
+per class are required so every held-out fold's training complement retains
+both classes. Calibration is skipped when that group support is insufficient.
+Direct calls without group IDs use the row-wise stratified round-robin protocol.
+After method selection, the winning method is refit on the complete validation
+partition for inference.
 
 - Platt scaling applies a two-parameter logistic transform to clipped probability logits.
 - Isotonic regression uses pair-adjacent violators after deterministically grouping equal
@@ -17,7 +22,9 @@ the winning method is refit on the complete validation partition for inference.
 
 Selection minimizes cross-fitted Brier score, then expected calibration error, then the
 method name as a stable final tie-break. The artifact records the fold count and assignment
-protocol and both candidates rather than only the winner. Each candidate carries
+protocol and both candidates rather than only the winner. Group-aware training records
+`stratified_group_greedy_v1`; row-wise direct calls record `stratified_round_robin_v1`.
+Each candidate carries
 out-of-fold Brier score, fixed-bin ECE, and a complete reliability curve whose empty bins
 remain explicit. These scores compare calibration methods without evaluating each fitted
 transform on the same rows used to fit it; they are still validation-based and are not a

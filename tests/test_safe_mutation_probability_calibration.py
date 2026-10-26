@@ -62,6 +62,37 @@ def test_safe_mutation_logistic_fits_and_persists_validation_calibration(
     assert legacy.predict_proba(validation.values) == raw
 
 
+def test_safe_mutation_calibration_uses_validation_group_ids(
+    training_matrices: tuple[SurgeonMatrix, SurgeonMatrix],
+) -> None:
+    train, validation = training_matrices
+    grouped_validation = replace(
+        validation,
+        group_ids=tuple(f"related-{index // 2}" for index in range(len(validation.group_ids))),
+    )
+
+    model = train_logistic(train, validation=grouped_validation)
+
+    assert model.calibration_selection is not None
+    assert model.calibration_selection.group_aware_folds
+    record = model.calibration_selection.to_record()
+    assert record["fold_assignment"] == "stratified_group_greedy_v1"
+
+
+def test_safe_mutation_calibration_skips_when_one_group_carries_a_class(
+    training_matrices: tuple[SurgeonMatrix, SurgeonMatrix],
+) -> None:
+    train, validation = training_matrices
+    grouped_validation = replace(validation, group_ids=("one-group",) * len(validation.group_ids))
+
+    model = train_logistic(train, validation=grouped_validation)
+
+    assert model.calibration_status == "skipped_insufficient_validation_groups"
+    assert model.calibration_selection is None
+    raw_model = replace(model, calibration_status="not_requested")
+    assert model.predict_proba(validation.values) == raw_model.predict_proba(validation.values)
+
+
 @pytest.mark.parametrize(
     ("labels", "weights", "expected_status"),
     [
