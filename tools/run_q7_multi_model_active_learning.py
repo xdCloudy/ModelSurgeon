@@ -27,6 +27,13 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
 def _tool_provenance(root: Path) -> dict[str, object]:
     try:
         revision = subprocess.run(
@@ -59,9 +66,9 @@ def _tool_provenance(root: Path) -> dict[str, object]:
         "worktree_dirty": dirty,
         "runtime": {
             "python": platform.python_version(),
-            "lightgbm": importlib.metadata.version("lightgbm"),
-            "numpy": importlib.metadata.version("numpy"),
-            "scikit_learn": importlib.metadata.version("scikit-learn"),
+            "lightgbm": _package_version("lightgbm"),
+            "numpy": _package_version("numpy"),
+            "scikit_learn": _package_version("scikit-learn"),
             "platform": platform.platform(),
         },
         "source_sha256": {
