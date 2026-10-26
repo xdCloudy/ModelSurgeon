@@ -85,21 +85,37 @@ def test_runtime_combines_task_quality_with_perplexity_gate() -> None:
     accepted = runtime._quality_gate_for_measurements(
         {
             "perplexity": 100.0,
-            "task_quality": {"exact_match_accuracy": 1.0},
+            "task_quality": {
+                "metric": "code_exact_match",
+                "measurement_authority": "physical_model_evaluation",
+                "exact_match_accuracy": 1.0,
+            },
         },
         {
             "perplexity": 100.0,
-            "task_quality": {"exact_match_accuracy": 1.0},
+            "task_quality": {
+                "metric": "code_exact_match",
+                "measurement_authority": "physical_model_evaluation",
+                "exact_match_accuracy": 1.0,
+            },
         },
     )
     rejected = runtime._quality_gate_for_measurements(
         {
             "perplexity": 100.0,
-            "task_quality": {"exact_match_accuracy": 1.0},
+            "task_quality": {
+                "metric": "code_exact_match",
+                "measurement_authority": "physical_model_evaluation",
+                "exact_match_accuracy": 1.0,
+            },
         },
         {
             "perplexity": 100.0,
-            "task_quality": {"exact_match_accuracy": 0.98},
+            "task_quality": {
+                "metric": "code_exact_match",
+                "measurement_authority": "physical_model_evaluation",
+                "exact_match_accuracy": 0.98,
+            },
         },
     )
 
@@ -107,6 +123,72 @@ def test_runtime_combines_task_quality_with_perplexity_gate() -> None:
     assert accepted["task_quality_gate"]["accepted"] is True
     assert rejected["accepted"] is False
     assert rejected["task_quality_gate"]["accepted"] is False
+
+
+def test_runtime_combines_multiple_choice_accuracy_with_perplexity_gate() -> None:
+    runtime = object.__new__(HuggingFaceOptimizeRuntime)
+    runtime.plan = SimpleNamespace(
+        resolved_config={"constraints": {"min_quality_retention_ratio": 0.99}},
+        quality_profile=SimpleNamespace(max_perplexity_delta=10.0),
+    )
+    baseline = {
+        "perplexity": 100.0,
+        "task_quality": {
+            "metric": "multiple_choice_accuracy",
+            "measurement_authority": "physical_model_evaluation",
+            "accuracy": 0.8,
+        },
+    }
+    retained = {
+        "perplexity": 100.0,
+        "task_quality": {
+            "metric": "multiple_choice_accuracy",
+            "measurement_authority": "physical_model_evaluation",
+            "accuracy": 0.8,
+        },
+    }
+    regressed = {
+        "perplexity": 100.0,
+        "task_quality": {
+            "metric": "multiple_choice_accuracy",
+            "measurement_authority": "physical_model_evaluation",
+            "accuracy": 0.7,
+        },
+    }
+
+    accepted = runtime._quality_gate_for_measurements(baseline, retained)
+    rejected = runtime._quality_gate_for_measurements(baseline, regressed)
+
+    assert accepted["task_quality_gate"]["metric"] == "multiple_choice_accuracy"
+    assert accepted["accepted"] is True
+    assert rejected["accepted"] is False
+
+
+def test_runtime_rejects_mismatched_or_nonphysical_task_quality_records() -> None:
+    runtime = object.__new__(HuggingFaceOptimizeRuntime)
+    runtime.plan = SimpleNamespace(
+        resolved_config={"constraints": {"min_quality_retention_ratio": 0.99}},
+        quality_profile=SimpleNamespace(max_perplexity_delta=10.0),
+    )
+    baseline = {
+        "perplexity": 100.0,
+        "task_quality": {
+            "metric": "multiple_choice_accuracy",
+            "measurement_authority": "physical_model_evaluation",
+            "accuracy": 0.8,
+        },
+    }
+    candidate = {
+        "perplexity": 100.0,
+        "task_quality": {
+            "metric": "code_exact_match",
+            "measurement_authority": "physical_model_evaluation",
+            "exact_match_accuracy": 0.8,
+        },
+    }
+
+    with pytest.raises(FirstPartyOptimizeRuntimeError, match="different or unknown metrics"):
+        runtime._quality_gate_for_measurements(baseline, candidate)
 
 
 @pytest.mark.parametrize(

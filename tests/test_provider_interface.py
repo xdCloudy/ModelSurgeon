@@ -40,6 +40,7 @@ from modelsurgeon.conversation import (
     request_digest,
     result_from_raw_output,
 )
+from modelsurgeon.conversation.isolation import redact_untrusted_value
 
 REQUEST = "reduce latency while retaining at least 0.98 quality"
 IDENTITY = ProviderModelIdentity("fixture-provider", "fixture-model", "revision-1")
@@ -334,3 +335,9 @@ def test_provider_output_and_diagnostics_redact_secret_forms() -> None:
     assert result.output is not None
     assert "Bearer-secret-token" not in result.output.text
     assert "<redacted>" in result.output.text
+
+
+def test_provider_redaction_preserves_task_quality_input_token_limit() -> None:
+    assert redact_untrusted_value(
+        {"max_input_tokens": 4096, "access_token": "private-value"}
+    ) == {"max_input_tokens": 4096, "access_token": "<redacted>"}

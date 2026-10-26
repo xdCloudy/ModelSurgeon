@@ -837,7 +837,11 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 ) from error
 
         try:
-            measurement = evaluate_code_exact_match_with_generator(dataset, generate)
+            measurement = evaluate_code_exact_match_with_generator(
+                dataset,
+                generate,
+                max_new_tokens=max_new_tokens,
+            )
         except TaskQualityEvaluationError as error:
             raise NativeGGUFOptimizeRuntimeError(str(error)) from error
         return measurement.to_record()

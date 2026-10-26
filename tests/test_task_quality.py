@@ -7,9 +7,12 @@ import pytest
 
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
+    MultipleChoiceDataset,
     TaskQualityEvaluationError,
     evaluate_code_exact_match,
     evaluate_code_quality_gate,
+    evaluate_multiple_choice_accuracy,
+    evaluate_task_quality_gate,
 )
 
 torch = pytest.importorskip("torch")
@@ -39,6 +42,30 @@ class _Model(torch.nn.Module):
         prompt_id = int(input_ids[0, 0])
         token = {1: 3, 2: (4 if self.correct else 3)}[prompt_id]
         return torch.cat((input_ids, torch.tensor([[token]])), dim=1)
+
+
+class _ChoiceTokenizer:
+    bos_token_id = 1
+    eos_token_id = 2
+
+    def __call__(self, text: str, **_: object) -> dict[str, list[int]]:
+        tokens = {"Prompt": [10], "Prompt A": [10, 11], "Prompt B": [10, 12]}
+        return {"input_ids": tokens.get(text, [])}
+
+
+class _ChoiceModel(torch.nn.Module):
+    def __init__(self, *, correct: bool) -> None:
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.ones(1))
+        self.correct = correct
+        self.forward_calls = 0
+
+    def forward(self, *, input_ids: torch.Tensor) -> object:
+        self.forward_calls += 1
+        logits = torch.zeros((1, input_ids.shape[1], 16), device=input_ids.device)
+        logits[0, 0, 11 if self.correct else 12] = 2.0
+        logits[0, 0, 12 if self.correct else 11] = 1.0
+        return type("Output", (), {"logits": logits})()
 
 
 def _dataset(tmp_path: Path) -> CodeExactMatchDataset:
@@ -96,3 +123,88 @@ def test_task_quality_rejects_zero_baseline_and_duplicate_ids(tmp_path: Path) ->
     )
     with pytest.raises(TaskQualityEvaluationError, match="duplicate"):
         CodeExactMatchDataset.load(path)
+
+
+def test_multiple_choice_uses_teacher_forced_log_likelihood_and_retains_scores(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "choices.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "case-1",
+                "prompt": "Prompt",
+                "choices": [" A", " B"],
+                "answer_index": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dataset = MultipleChoiceDataset.load(path, revision="bench-r1", split="validation")
+
+    baseline = evaluate_multiple_choice_accuracy(
+        _ChoiceModel(correct=True), _ChoiceTokenizer(), torch, dataset
+    )
+    damaged = evaluate_multiple_choice_accuracy(
+        _ChoiceModel(correct=False), _ChoiceTokenizer(), torch, dataset
+    )
+
+    assert baseline.score == 1.0
+    assert damaged.score == 0.0
+    row = baseline.to_record()
+    assert row["metric"] == "multiple_choice_accuracy"
+    assert row["measurement_authority"] == "physical_model_evaluation"
+    assert row["predictions"][0]["answer_index"] == 0
+    scores = row["predictions"][0]["choice_log_likelihoods"]
+    assert scores[0] > scores[1]
+    assert row["dataset"]["digest"].startswith("sha256:")
+
+
+def test_multiple_choice_dataset_rejects_invalid_choices_and_gates_zero_baseline(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "invalid.jsonl"
+    path.write_text(
+        '{"id":"bad","prompt":"q","choices":["a","a"],"answer_index":0}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(TaskQualityEvaluationError, match="duplicate choices"):
+        MultipleChoiceDataset.load(path)
+
+    zero = evaluate_task_quality_gate(
+        0.0,
+        0.25,
+        metric="multiple_choice_accuracy",
+        min_quality_retention_ratio=0.99,
+    )
+    assert zero["accepted"] is False
+    assert zero["inconclusive"] is True
+
+
+def test_multiple_choice_budget_is_checked_before_any_model_forward(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "choices.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "case-1",
+                "prompt": "Prompt",
+                "choices": [" A", " B"],
+                "answer_index": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dataset = MultipleChoiceDataset.load(path)
+    model = _ChoiceModel(correct=True)
+    monkeypatch.setattr(
+        "modelsurgeon.evaluation.task_quality.MAX_MULTIPLE_CHOICE_FORWARD_EVALUATIONS", 1
+    )
+
+    with pytest.raises(TaskQualityEvaluationError, match="forward-evaluation budget"):
+        evaluate_multiple_choice_accuracy(model, _ChoiceTokenizer(), torch, dataset)
+
+    assert model.forward_calls == 0

@@ -621,6 +621,7 @@ def _parse_field(
                 "dataset_revision",
                 "split",
                 "max_new_tokens",
+                "max_input_tokens",
                 "max_samples",
             }
             if kind == "task_quality"

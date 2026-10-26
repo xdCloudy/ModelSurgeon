@@ -144,7 +144,7 @@ campaign record](docs/research/first-party-hf-chat-task-quality-acceptance-evide
 | Area | State | Current capability |
 | --- | --- | --- |
 | Inspection and component graph | **Implemented** | HF loading, revision provenance, architecture detection, stable component IDs, coupling, and mutation constraints. |
-| Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, runtime telemetry, and an explicit local JSONL code exact-match evaluator for configured HF task-quality preservation. |
+| Instrumentation and evaluation | **Implemented** | Static, spectral, activation, gradient, redundancy, perplexity, latency, memory, runtime telemetry, and local JSONL code exact-match plus multiple-choice accuracy evaluators for configured HF task-quality preservation. Multiple-choice support has unit-level numerical checks but is not yet backed by a retained real-model campaign. |
 | Mutation lab and datasets | **Implemented** | Transactional masks/bypasses, rollback, tiered evaluation, resumable campaigns, grouped splits, and leakage audits. |
 | First-party optimize execution | **Experimental** | Direct `optimize --execute`, the `execute_first_party_optimize` Python API, and confirmed chat plans share a real Hugging Face path with configurable gated-MLP-channel, attention-head, transformer-layer, and rank-bounded Linear low-rank scopes. The same orchestrator routes an explicit native-GGUF contract for Llama/dense-Qwen MLP-channel candidates to physical streaming surgery and pinned external llama.cpp validation; HF remains the broader and independently accepted path. Measured baselines, seeded candidates, resource preflight, physical reload, rollback, lineage, Pareto selection, and evidence publication remain authoritative. A real Python API campaign is retained in [evidence](docs/research/first-party-hf-python-api-acceptance-evidence-v1.json). |
 | Learned surgeons | **Validated baseline** | Heuristic, linear/logistic, LightGBM, and MLP bundles with held-out evidence and honest negative results. A signed Meta-Surgeon bundle may guide the narrow first-party search when explicitly configured, but transfer improvement is not yet claimed. |
@@ -495,11 +495,27 @@ output, extracts only the single-turn assistant response, disables reasoning,
 and applies both gates at candidate, cumulative-child, and deployment
 boundaries. Exact-match evaluator v2 normalizes line endings and surrounding
 whitespace and removes one complete enclosing Markdown code fence; it does not
-parse or execute the generated code. Conversational coding requests without a declared
-benchmark remain clarification-required. When the request explicitly names an existing
-local JSONL benchmark, for example `coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
+parse or execute the generated code. Each measurement caps generation at 4,096 new
+tokens per example and one million total new tokens across the dataset; larger
+workloads are rejected before generation starts. A measurement can include at
+most 4,096 examples, which also bounds per-example native runtime launches.
+Conversational coding requests
+without a declared benchmark remain clarification-required. When the request
+explicitly names an existing local JSONL benchmark, for example
+`coding benchmark: "C:\\benchmarks\\coding.jsonl"`,
 the typed `code_exact_match` configuration is carried through the exact preview
 into the first-party engine; the text model cannot invent the path or threshold.
+
+For a finite-choice benchmark, configure
+`task_quality.method: multiple_choice_accuracy` and use JSONL rows with
+`id`, `prompt`, a `choices` string array, and integer `answer_index`. The HF
+evaluator scores each option's conditional log-likelihood under the physical
+model, selects the highest summed token log-likelihood, and retains each score
+with the prediction. It does not generate an answer. It bounds datasets to 16
+MiB and 4,096 examples, choices to 16 per example, forward evaluations to
+16,384, scored input to one million tokens, and each prompt-plus-choice to
+4,096 tokens by default (8,192 hard maximum). No real-model acceptance campaign
+has validated this new metric yet; treat current support as experimental.
 
 Each measured search candidate and physical child also receives an immutable
 optimization-evidence record containing the model, dataset, hardware,

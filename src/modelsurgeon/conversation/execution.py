@@ -386,6 +386,7 @@ def _settings_for_contract(
                     "dataset_revision": None,
                     "split": "test",
                     "max_new_tokens": 128,
+                    "max_input_tokens": 4096,
                     "max_samples": None,
                 }
                 for key, default in defaults.items():
