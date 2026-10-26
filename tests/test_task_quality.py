@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from modelsurgeon.evaluation import task_quality
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
     MultipleChoiceDataset,
@@ -71,9 +72,7 @@ class _ChoiceModel(torch.nn.Module):
 
     def forward(self, *, input_ids: torch.Tensor) -> object:
         self.forward_calls += 1
-        logits = self.dropout(
-            torch.zeros((1, input_ids.shape[1], 16), device=input_ids.device)
-        )
+        logits = self.dropout(torch.zeros((1, input_ids.shape[1], 16), device=input_ids.device))
         logits[0, 0, 11 if self.correct else 12] = 2.0
         logits[0, 0, 12 if self.correct else 11] = 1.0
         return type("Output", (), {"logits": logits})()
@@ -149,11 +148,52 @@ def test_task_quality_rejects_zero_baseline_and_duplicate_ids(tmp_path: Path) ->
 
     path = tmp_path / "duplicate.jsonl"
     path.write_text(
-        '{"id":"same","prompt":"a","reference":"b"}\n'
-        '{"id":"same","prompt":"c","reference":"d"}\n',
+        '{"id":"same","prompt":"a","reference":"b"}\n{"id":"same","prompt":"c","reference":"d"}\n',
         encoding="utf-8",
     )
     with pytest.raises(TaskQualityEvaluationError, match="duplicate"):
+        CodeExactMatchDataset.load(path)
+
+
+def test_code_dataset_read_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "oversized.jsonl"
+    path.write_bytes(b"{" * 33)
+    monkeypatch.setattr(task_quality, "MAX_CODE_EXACT_MATCH_DATASET_BYTES", 32)
+
+    with pytest.raises(TaskQualityEvaluationError, match="exceeds 32 bytes"):
+        CodeExactMatchDataset.load(path)
+
+
+def test_code_dataset_sample_limit_bounds_retained_rows(tmp_path: Path) -> None:
+    path = tmp_path / "many.jsonl"
+    path.write_text(
+        "\n".join(
+            json.dumps({"id": f"case-{index}", "prompt": "p", "reference": "r"})
+            for index in range(3)
+        ),
+        encoding="utf-8",
+    )
+
+    dataset = CodeExactMatchDataset.load(path, max_samples=1)
+
+    assert [example.example_id for example in dataset.examples] == ["case-0"]
+    assert dataset.digest.startswith("sha256:")
+
+
+def test_code_dataset_rejects_excess_rows_without_sample_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "too-many.jsonl"
+    path.write_text(
+        "\n".join(
+            json.dumps({"id": f"case-{index}", "prompt": "p", "reference": "r"})
+            for index in range(3)
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(task_quality, "MAX_TASK_QUALITY_EXAMPLES", 2)
+
+    with pytest.raises(TaskQualityEvaluationError, match="exceeds 2 examples"):
         CodeExactMatchDataset.load(path)
 
 
@@ -178,9 +218,7 @@ def test_multiple_choice_uses_teacher_forced_log_likelihood_and_retains_scores(
     baseline_model.dropout.eval()
     original_modes = tuple(module.training for module in baseline_model.modules())
 
-    baseline = evaluate_multiple_choice_accuracy(
-        baseline_model, _ChoiceTokenizer(), torch, dataset
-    )
+    baseline = evaluate_multiple_choice_accuracy(baseline_model, _ChoiceTokenizer(), torch, dataset)
     damaged = evaluate_multiple_choice_accuracy(
         _ChoiceModel(correct=False), _ChoiceTokenizer(), torch, dataset
     )

@@ -15,6 +15,10 @@ uv run modelsurgeon --help
 
 Keep downloaded models, generated checkpoints, logs, and reports below an ignored work/ or artifacts/ directory. Never use the source model directory as an output directory. The source checkpoint is an immutable input and every published artifact must have a different path.
 
+## Optional code exact-match task-quality guard
+
+For a local JSONL coding benchmark, configure `task_quality.method: code_exact_match` and set `task_quality.dataset` to the file path. Each row contains `id`, `prompt`, and `reference` string fields. Dataset ingestion is bounded to 16 MiB and 4,096 evaluated examples. Set `task_quality.max_samples` to retain only the first N examples for evaluation; the recorded digest still covers the complete file so any dataset change updates its provenance.
+
 ## Optional multiple-choice task-quality guard
 
 For a local finite-choice benchmark, add this block to the resolved optimize configuration:

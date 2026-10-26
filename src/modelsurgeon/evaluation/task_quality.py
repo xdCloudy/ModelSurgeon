@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 from collections.abc import Callable, Mapping
@@ -15,6 +16,7 @@ TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v2"
 MAX_TASK_QUALITY_EXAMPLES = 4096
 MAX_TASK_QUALITY_NEW_TOKENS = 4096
 MAX_TASK_QUALITY_TOTAL_NEW_TOKENS = 1_000_000
+MAX_CODE_EXACT_MATCH_DATASET_BYTES = 16 * 1024 * 1024
 MULTIPLE_CHOICE_EVALUATOR_VERSION = "multiple_choice_loglikelihood_v1"
 MAX_MULTIPLE_CHOICE_DATASET_BYTES = 16 * 1024 * 1024
 MAX_MULTIPLE_CHOICE_OPTIONS = 16
@@ -56,8 +58,7 @@ def validate_task_quality_generation_budget(
         raise TaskQualityEvaluationError("task-quality max_new_tokens must be an integer")
     if not 1 <= max_new_tokens <= MAX_TASK_QUALITY_NEW_TOKENS:
         raise TaskQualityEvaluationError(
-            "task-quality max_new_tokens must be between 1 and "
-            f"{MAX_TASK_QUALITY_NEW_TOKENS}"
+            f"task-quality max_new_tokens must be between 1 and {MAX_TASK_QUALITY_NEW_TOKENS}"
         )
     if sample_count is None:
         return
@@ -136,8 +137,21 @@ class CodeExactMatchDataset:
             raise TaskQualityEvaluationError(f"task-quality dataset does not exist: {resolved}")
         if not split.strip():
             raise TaskQualityEvaluationError("task-quality dataset split cannot be blank")
+        if max_samples is not None and (
+            isinstance(max_samples, bool)
+            or not isinstance(max_samples, int)
+            or not 1 <= max_samples <= MAX_TASK_QUALITY_EXAMPLES
+        ):
+            raise TaskQualityEvaluationError(
+                f"code exact-match max_samples must be within 1..{MAX_TASK_QUALITY_EXAMPLES}"
+            )
         try:
-            payload = resolved.read_bytes()
+            with resolved.open("rb") as stream:
+                payload = stream.read(MAX_CODE_EXACT_MATCH_DATASET_BYTES + 1)
+            if len(payload) > MAX_CODE_EXACT_MATCH_DATASET_BYTES:
+                raise TaskQualityEvaluationError(
+                    f"code exact-match dataset exceeds {MAX_CODE_EXACT_MATCH_DATASET_BYTES} bytes"
+                )
             text = payload.decode("utf-8")
         except OSError as error:
             raise TaskQualityEvaluationError(
@@ -147,9 +161,16 @@ class CodeExactMatchDataset:
             raise TaskQualityEvaluationError("task-quality dataset must be UTF-8") from error
         examples: list[CodeExactMatchExample] = []
         seen: set[str] = set()
-        for line_number, line in enumerate(text.splitlines(), start=1):
+        sample_limit = max_samples or MAX_TASK_QUALITY_EXAMPLES
+        for line_number, line in enumerate(io.StringIO(text), start=1):
             if not line.strip():
                 continue
+            if len(examples) >= sample_limit:
+                if max_samples is None:
+                    raise TaskQualityEvaluationError(
+                        f"task-quality dataset exceeds {MAX_TASK_QUALITY_EXAMPLES} examples"
+                    )
+                break
             try:
                 raw = json.loads(line)
             except json.JSONDecodeError as error:
@@ -174,10 +195,6 @@ class CodeExactMatchDataset:
                     ),
                 )
             )
-        if max_samples is not None:
-            if max_samples <= 0:
-                raise TaskQualityEvaluationError("task-quality max_samples must be positive")
-            examples = examples[:max_samples]
         if not examples:
             raise TaskQualityEvaluationError(
                 "task-quality dataset must contain at least one example"
@@ -264,8 +281,7 @@ class MultipleChoiceExample:
                 f"multiple-choice example {self.example_id} has an invalid answer index"
             )
         if any(
-            len(value) > MAX_MULTIPLE_CHOICE_TEXT_CHARS
-            for value in (self.prompt, *self.choices)
+            len(value) > MAX_MULTIPLE_CHOICE_TEXT_CHARS for value in (self.prompt, *self.choices)
         ):
             raise TaskQualityEvaluationError(
                 f"multiple-choice example {self.example_id} exceeds the text-size limit"
@@ -341,9 +357,7 @@ class MultipleChoiceDataset:
                 )
             example_id = _text(raw.get("id"), f"task-quality dataset line {line_number}.id")
             if example_id in seen:
-                raise TaskQualityEvaluationError(
-                    f"duplicate task-quality example id: {example_id}"
-                )
+                raise TaskQualityEvaluationError(f"duplicate task-quality example id: {example_id}")
             seen.add(example_id)
             choices_value = raw.get("choices")
             if not isinstance(choices_value, list) or any(
@@ -601,8 +615,7 @@ def evaluate_multiple_choice_accuracy(
             )
         total_evaluations += len(options)
         total_scored_tokens += sum(
-            len(context_ids) + len(continuation_ids)
-            for context_ids, continuation_ids in options
+            len(context_ids) + len(continuation_ids) for context_ids, continuation_ids in options
         )
         if total_evaluations > MAX_MULTIPLE_CHOICE_FORWARD_EVALUATIONS:
             raise TaskQualityEvaluationError(
@@ -644,9 +657,7 @@ def evaluate_code_exact_match(
 ) -> CodeExactMatchMeasurement:
     """Run deterministic greedy generation and compare normalized completions."""
 
-    validate_task_quality_generation_budget(
-        max_new_tokens, sample_count=len(dataset.examples)
-    )
+    validate_task_quality_generation_budget(max_new_tokens, sample_count=len(dataset.examples))
     try:
         input_device = next(iter(model.parameters())).device
     except (AttributeError, StopIteration) as error:
@@ -718,9 +729,7 @@ def evaluate_code_exact_match_with_generator(
 ) -> CodeExactMatchMeasurement:
     """Measure exact-match quality through a runtime-specific text generator."""
 
-    validate_task_quality_generation_budget(
-        max_new_tokens, sample_count=len(dataset.examples)
-    )
+    validate_task_quality_generation_budget(max_new_tokens, sample_count=len(dataset.examples))
     matches = 0
     output_digests: list[tuple[str, str]] = []
     for example in dataset.examples:
