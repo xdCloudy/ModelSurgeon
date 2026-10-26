@@ -19,6 +19,7 @@ class _TinyCausalModel(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.table = torch.nn.Parameter(torch.zeros(3, 3))
+        self.dropout = torch.nn.Dropout(p=0.0)
 
     def forward(
         self,
@@ -27,7 +28,7 @@ class _TinyCausalModel(torch.nn.Module):
         labels: object | None = None,
     ) -> object:
         del attention_mask
-        logits = self.table[input_ids]
+        logits = self.dropout(self.table[input_ids])
         loss = None
         if labels is not None:
             loss = torch.nn.functional.cross_entropy(
@@ -85,6 +86,9 @@ def _run(
 
 def test_precomputed_logits_are_immutable_and_selected_repair_is_recorded() -> None:
     candidate = _TinyCausalModel()
+    candidate.train()
+    candidate.dropout.eval()
+    original_modes = tuple(module.training for module in candidate.modules())
     immutable_before = TEACHER_LOGITS[0].clone()
     result = _run(
         candidate,
@@ -98,6 +102,7 @@ def test_precomputed_logits_are_immutable_and_selected_repair_is_recorded() -> N
     assert result.config.temperature == 2.0
     assert result.config.distillation_weight == 0.75
     assert result.config.supervised_weight == 0.25
+    assert tuple(module.training for module in candidate.modules()) == original_modes
     assert result.resource_use.token_rows == 2
     assert result.resource_use.teacher_logit_bytes == TEACHER_LOGITS[0].numel() * 4
     assert torch.equal(TEACHER_LOGITS[0], immutable_before)
@@ -130,6 +135,8 @@ def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
     with torch.no_grad():
         teacher.table[:2].copy_(TEACHER_LOGITS[0][0])
     teacher.train()
+    teacher.dropout.eval()
+    original_modes = tuple(module.training for module in teacher.modules())
     before = teacher.table.detach().clone()
     result = _run(
         candidate,
@@ -139,7 +146,7 @@ def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
     )
 
     assert result.teacher_source is TeacherLogitSource.TEACHER_INFERENCE
-    assert teacher.training is True
+    assert tuple(module.training for module in teacher.modules()) == original_modes
     assert teacher.table.requires_grad is True
     assert torch.equal(teacher.table, before)
 

@@ -18,9 +18,10 @@ class _TinyLM(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.proj = torch.nn.Linear(4, 4, bias=False)
+        self.dropout = torch.nn.Dropout(p=0.0)
 
     def forward(self, input_ids: object, labels: object) -> object:
-        prediction = self.proj(input_ids.float())
+        prediction = self.proj(self.dropout(input_ids.float()))
         loss = torch.nn.functional.mse_loss(prediction, labels.float())
         return SimpleNamespace(loss=loss)
 
@@ -107,6 +108,19 @@ def test_merged_lora_updates_only_candidate_and_removes_adapter_wrapper() -> Non
     assert not torch.equal(model.proj.weight, source_weight)
     with pytest.raises(LoRARepairError, match="does not retain"):
         lora_adapter_state_dict(model, ("proj",))
+
+
+def test_lora_repair_restores_mixed_training_modes_after_wrapping_target() -> None:
+    model = _TinyLM().train()
+    model.dropout.eval()
+    model.proj.eval()
+
+    _run(model, LoRAOutputMode.SEPARATE)
+
+    assert model.training is True
+    assert model.dropout.training is False
+    assert model.proj.training is False
+    assert model.proj.lora_dropout["default"].training is False
 
 
 def test_heldout_selection_restores_best_adapter_checkpoint() -> None:
@@ -300,9 +314,7 @@ def test_training_failure_restores_original_module_and_grad_state() -> None:
 
     assert model.proj is original
     assert model.training is original_training
-    restored_requires_grad = tuple(
-        parameter.requires_grad for parameter in model.parameters()
-    )
+    restored_requires_grad = tuple(parameter.requires_grad for parameter in model.parameters())
     assert restored_requires_grad == original_requires_grad
 
 

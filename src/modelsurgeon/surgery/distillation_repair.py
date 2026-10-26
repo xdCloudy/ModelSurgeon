@@ -17,6 +17,10 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     TorchCudaMemoryProvider,
     collect_memory_telemetry,
 )
+from modelsurgeon.surgery.module_training import (
+    restore_module_training_modes,
+    snapshot_module_training_modes,
+)
 
 DISTILLATION_REPAIR_SCHEMA_VERSION = 3
 
@@ -316,7 +320,7 @@ def _capture_teacher_logits(
         raise DistillationRepairError("provide exactly one teacher model or baseline-logit set")
     captured: list[Any] = []
     if teacher_model is not None:
-        original_training = bool(teacher_model.training)
+        original_training_modes = snapshot_module_training_modes(teacher_model)
         teacher_device = next(teacher_model.parameters()).device
         try:
             teacher_model.eval()
@@ -328,7 +332,7 @@ def _capture_teacher_logits(
                         raise DistillationRepairError("teacher inference did not return logits")
                     captured.append(logits.detach().float().cpu().contiguous().clone())
         finally:
-            teacher_model.train(original_training)
+            restore_module_training_modes(teacher_model, original_training_modes)
         source = TeacherLogitSource.TEACHER_INFERENCE
     else:
         if baseline_logits is None or len(baseline_logits) != len(examples):
@@ -407,7 +411,7 @@ def _evaluate(
     config: DistillationRepairConfig,
     device: Any,
 ) -> float:
-    original_training = bool(model.training)
+    original_training_modes = snapshot_module_training_modes(model)
     values: list[float] = []
     try:
         model.eval()
@@ -416,7 +420,7 @@ def _evaluate(
                 value = _objective(torch, model, example, logits, config, device)
                 values.append(float(value.detach().item()))
     finally:
-        model.train(original_training)
+        restore_module_training_modes(model, original_training_modes)
     return math.fsum(values) / len(values)
 
 
@@ -461,11 +465,14 @@ def run_distillation_repair(
             raise DistillationRepairError("validation dataset digest must be SHA-256") from error
         validation_dataset_sha256 = validation_dataset_sha256.lower()
     source = (
-        "training_fallback" if validation_examples is None else "provided_validation"
-    ) if evaluation_source is None else evaluation_source
+        ("training_fallback" if validation_examples is None else "provided_validation")
+        if evaluation_source is None
+        else evaluation_source
+    )
     if not source.strip():
         raise DistillationRepairError("evaluation source cannot be blank")
     if validation_examples is not None:
+
         def example_key(example: dict[str, Any]) -> bytes:
             input_ids = example.get("input_ids")
             if input_ids is None or not hasattr(input_ids, "detach"):
@@ -534,7 +541,7 @@ def run_distillation_repair(
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
-    original_training = bool(candidate_model.training)
+    original_training_modes = snapshot_module_training_modes(candidate_model)
     original_requires_grad = {
         id(parameter): bool(parameter.requires_grad) for _, parameter in named
     }
@@ -685,4 +692,4 @@ def run_distillation_repair(
                     parameter.copy_(snapshots[name])
         for _, parameter in named:
             parameter.requires_grad_(original_requires_grad[id(parameter)])
-        candidate_model.train(original_training)
+        restore_module_training_modes(candidate_model, original_training_modes)

@@ -16,6 +16,10 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     TorchCudaMemoryProvider,
     collect_memory_telemetry,
 )
+from modelsurgeon.surgery.module_training import (
+    restore_module_training_modes,
+    snapshot_module_training_modes,
+)
 
 LORA_REPAIR_SCHEMA_VERSION = 5
 VALIDATION_LOSS_AGGREGATION = "token_weighted_causal_targets"
@@ -249,8 +253,10 @@ def run_bounded_lora_repair(
             raise LoRARepairError("validation dataset digest must be SHA-256") from error
         validation_dataset_sha256 = validation_dataset_sha256.lower()
     selected_evaluation_source = (
-        "training_fallback" if validation_examples is None else "provided_validation"
-    ) if evaluation_source is None else evaluation_source
+        ("training_fallback" if validation_examples is None else "provided_validation")
+        if evaluation_source is None
+        else evaluation_source
+    )
     if not selected_evaluation_source.strip():
         raise LoRARepairError("evaluation source cannot be blank")
     training_examples_sha256 = _examples_sha256(repair_examples)
@@ -268,7 +274,7 @@ def run_bounded_lora_repair(
         peft = import_module("peft")
     except ImportError as error:
         raise LoRARepairError("install the modelsurgeon HF extra with PEFT support") from error
-    original_training = bool(model.training)
+    original_training_modes = snapshot_module_training_modes(model)
     original_requires_grad = {
         id(parameter): bool(parameter.requires_grad) for parameter in model.parameters()
     }
@@ -311,9 +317,7 @@ def run_bounded_lora_repair(
             task_type=None,
         )
         peft_model = peft.get_peft_model(model, peft_config)
-        wrappers = [
-            (name, _resolve_parent(model, name)[2]) for name in target_modules
-        ]
+        wrappers = [(name, _resolve_parent(model, name)[2]) for name in target_modules]
         adapter_parameters = tuple(
             parameter for parameter in peft_model.parameters() if parameter.requires_grad
         )
@@ -341,9 +345,7 @@ def run_bounded_lora_repair(
                     validation_output = peft_model(**validation_inputs)
                     validation_loss = getattr(validation_output, "loss", None)
                     if validation_loss is None or not bool(torch.isfinite(validation_loss).item()):
-                        raise LoRARepairError(
-                            "validation forward did not return a finite loss"
-                        )
+                        raise LoRARepairError("validation forward did not return a finite loss")
                     labels = validation_inputs["labels"]
                     if labels.ndim == 0 or labels.shape[-1] < 2:
                         raise LoRARepairError(
@@ -469,4 +471,8 @@ def run_bounded_lora_repair(
             previous = original_requires_grad.get(id(parameter))
             if previous is not None:
                 parameter.requires_grad_(previous)
-        model.train(original_training)
+        restore_module_training_modes(
+            model,
+            original_training_modes,
+            subtree_roots=target_modules,
+        )
