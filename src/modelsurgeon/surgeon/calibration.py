@@ -623,6 +623,7 @@ def _stratified_group_fold_indices(
     group_order = sorted(
         group_indices,
         key=lambda group: (
+            -int(group_class_counts[group][0] > 0 and group_class_counts[group][1] > 0),
             -abs(
                 group_class_counts[group][0] / class_counts[0]
                 - group_class_counts[group][1] / class_counts[1]
@@ -634,11 +635,27 @@ def _stratified_group_fold_indices(
     fold_counts = [[0, 0] for _ in range(folds)]
     fold_sizes = [0] * folds
     assigned: list[list[str]] = [[] for _ in range(folds)]
-    for group in group_order:
+    remaining_support = [[0, 0] for _ in range(len(group_order) + 1)]
+    for position in range(len(group_order) - 1, -1, -1):
+        group = group_order[position]
+        remaining_support[position] = remaining_support[position + 1].copy()
+        for label in (0, 1):
+            remaining_support[position][label] += int(group_class_counts[group][label] > 0)
+    for group_position, group in enumerate(group_order):
         counts = group_class_counts[group]
         size = len(group_indices[group])
         options: list[tuple[float, int, int]] = []
         for fold in range(folds):
+            preserves_training_classes = True
+            for label in (0, 1):
+                assigned_support = sum(fold_counts[index][label] > 0 for index in range(folds))
+                if counts[label] > 0 and fold_counts[fold][label] == 0:
+                    assigned_support += 1
+                if assigned_support + remaining_support[group_position + 1][label] < 2:
+                    preserves_training_classes = False
+                    break
+            if not preserves_training_classes:
+                continue
             imbalance = 0.0
             for label in (0, 1):
                 distribution = [
@@ -649,6 +666,10 @@ def _stratified_group_fold_indices(
                 mean = math.fsum(distribution) / folds
                 imbalance += math.fsum((value - mean) ** 2 for value in distribution) / folds
             options.append((imbalance, fold_sizes[fold] + size, fold))
+        if not options:
+            raise ProbabilityCalibrationError(
+                "group-aware calibration folds cannot retain both classes in every training split"
+            )
         selected_fold = min(options)[2]
         assigned[selected_fold].append(group)
         fold_sizes[selected_fold] += size

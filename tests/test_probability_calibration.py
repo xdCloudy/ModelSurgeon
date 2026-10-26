@@ -112,6 +112,17 @@ def test_grouped_crossfit_fails_closed_without_two_groups_per_class() -> None:
         )
 
 
+def test_grouped_crossfit_preserves_class_support_for_mixed_and_pure_groups() -> None:
+    selection = fit_probability_calibrator(
+        (0.05, 0.15, 0.25, 0.35, 0.65, 0.75, 0.85),
+        (0, 0, 0, 0, 1, 0, 1),
+        group_ids=("mixed", "mixed", "mixed", "mixed", "mixed", "negative", "positive"),
+    )
+
+    assert selection.group_aware_folds
+    assert selection.cross_validation_folds == 2
+
+
 def test_manually_constructed_selection_does_not_claim_fold_provenance() -> None:
     selection = CalibrationSelection(
         fit_platt_calibrator(PROBABILITIES, LABELS),
