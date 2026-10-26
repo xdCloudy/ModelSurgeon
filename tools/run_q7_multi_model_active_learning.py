@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from modelsurgeon.cli.proof_evidence import load_grouped_proof_split
@@ -24,6 +25,42 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _tool_provenance(root: Path) -> dict[str, object]:
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        revision = "unavailable"
+        dirty = True
+    source_files = (
+        Path(__file__).resolve(),
+        root / "src/modelsurgeon/evaluation/multi_model_active_learning.py",
+        root / "src/modelsurgeon/active_learning/acquisition.py",
+        root / "src/modelsurgeon/active_learning/diversity.py",
+    )
+    return {
+        "git_revision": revision,
+        "worktree_dirty": dirty,
+        "source_sha256": {
+            path.relative_to(root).as_posix(): _sha256(path) for path in source_files
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", action="append", type=Path, required=True)
@@ -41,6 +78,7 @@ def main() -> None:
         safe_perplexity_delta=args.safe_perplexity_delta,
         feature_diversity_fraction=args.feature_diversity_fraction,
     )
+    repo_root = Path(__file__).resolve().parents[1]
     results: list[dict[str, object]] = []
     sources: list[dict[str, str]] = []
     identifiers: set[str] = set()
@@ -90,6 +128,7 @@ def main() -> None:
             "test_metric": "roc_auc",
             "gpu_hour_accounting": "sum_selected_cuda_evaluation_wall_seconds",
         },
+        "tool_provenance": _tool_provenance(repo_root),
         "sources": sources,
         "results": results,
     }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Added a Q7 v2 replay arm for uncertainty plus feature-space diversity, paired against
+    uncertainty-only and seeded-random acquisition. The protocol fixes the diversity budget,
+    seeds coverage from already labeled candidates, and records hashed selections per budget.
+
   - Normalize each numeric feature across the candidate pool and selected centers
     before computing active-learning diversity distances. This prevents unit-scale
     differences from dominating farthest-first selection and lets acquisition measure

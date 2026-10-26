@@ -432,6 +432,16 @@ def test_q7_replays_paired_active_and_random_acquisition() -> None:
     assert all(
         point.cumulative_gpu_hours > 0.0 for curve in result.curves for point in curve.points
     )
+    assert all(
+        all(item.startswith("cand_") for item in point.newly_selected_candidate_digests)
+        for curve in result.curves
+        for point in curve.points
+    )
+    assert all(
+        sum(len(point.newly_selected_candidate_digests) for point in curve.points)
+        == curve.points[-1].experiments
+        for curve in result.curves
+    )
     assert set(result.comparison) == {
         "active_mean_aulc",
         "random_mean_aulc",
@@ -445,6 +455,10 @@ def test_q7_replays_paired_active_and_random_acquisition() -> None:
         "paired_diversity_target_reaches",
         "mean_diversity_experiment_reduction",
         "mean_diversity_gpu_hour_reduction",
+        "diversity_vs_uncertainty_mean_aulc_delta",
+        "paired_diversity_vs_uncertainty_target_reaches",
+        "mean_diversity_vs_uncertainty_experiment_reduction",
+        "mean_diversity_vs_uncertainty_gpu_hour_reduction",
     }
     assert sum(curve.strategy.value == "uncertainty_diversity" for curve in result.curves) == 2
 

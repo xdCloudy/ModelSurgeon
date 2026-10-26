@@ -55,6 +55,7 @@ class AcquisitionPoint:
     experiments: int
     test_auc: float
     cumulative_gpu_hours: float
+    newly_selected_candidate_digests: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +89,9 @@ class AcquisitionCurve:
                     "experiments": point.experiments,
                     "test_auc": point.test_auc,
                     "cumulative_gpu_hours": point.cumulative_gpu_hours,
+                    "newly_selected_candidate_digests": list(
+                        point.newly_selected_candidate_digests
+                    ),
                 }
                 for point in self.points
             ],
@@ -317,6 +321,7 @@ def run_model_active_learning_study(
         base_order = _initial_order(train_ids, labels, seed, resolved.budgets[0])
         for strategy in AcquisitionStrategy:
             selected = set(base_order[: resolved.budgets[0]])
+            newly_selected = tuple(sorted(_candidate_id(item) for item in selected))
             random_order = tuple(base_order)
             points: list[AcquisitionPoint] = []
             experiments_to_target: int | None = None
@@ -326,7 +331,14 @@ def run_model_active_learning_study(
                     selected, by_id, validation_ids, test_ids, target_schema, resolved
                 )
                 gpu_hours = math.fsum(timings[item] for item in selected) / 3600.0
-                points.append(AcquisitionPoint(budget, auc, gpu_hours))
+                points.append(
+                    AcquisitionPoint(
+                        budget,
+                        auc,
+                        gpu_hours,
+                        newly_selected,
+                    )
+                )
                 if experiments_to_target is None and auc >= resolved.target_auc:
                     experiments_to_target = budget
                     gpu_hours_to_target = gpu_hours
@@ -370,6 +382,7 @@ def run_model_active_learning_study(
                             resolved.feature_diversity_fraction,
                         )
                 selected.update(additions)
+                newly_selected = tuple(sorted(_candidate_id(item) for item in additions))
             curves.append(
                 AcquisitionCurve(
                     strategy,
@@ -441,6 +454,22 @@ def run_model_active_learning_study(
         and diverse.gpu_hours_to_target is not None
         and random_curve.gpu_hours_to_target is not None
     )
+    uncertainty_paired = tuple(
+        (diverse, active)
+        for diverse in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+        for active in grouped[AcquisitionStrategy.ACTIVE_UNCERTAINTY]
+        if diverse.seed == active.seed
+        and diverse.experiments_to_target is not None
+        and active.experiments_to_target is not None
+        and diverse.gpu_hours_to_target is not None
+        and active.gpu_hours_to_target is not None
+    )
+    uncertainty_aulc_deltas = tuple(
+        diverse.area_under_learning_curve - active.area_under_learning_curve
+        for diverse in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+        for active in grouped[AcquisitionStrategy.ACTIVE_UNCERTAINTY]
+        if diverse.seed == active.seed
+    )
     comparison.update(
         {
             "diversity_mean_aulc": math.fsum(
@@ -474,6 +503,32 @@ def run_model_active_learning_study(
                     and random_curve.gpu_hours_to_target is not None
                 )
                 / len(diverse_paired)
+            ),
+            "diversity_vs_uncertainty_mean_aulc_delta": (
+                math.fsum(uncertainty_aulc_deltas) / len(uncertainty_aulc_deltas)
+            ),
+            "paired_diversity_vs_uncertainty_target_reaches": len(uncertainty_paired),
+            "mean_diversity_vs_uncertainty_experiment_reduction": (
+                None
+                if not uncertainty_paired
+                else math.fsum(
+                    float(active.experiments_to_target - diverse.experiments_to_target)
+                    for diverse, active in uncertainty_paired
+                    if diverse.experiments_to_target is not None
+                    and active.experiments_to_target is not None
+                )
+                / len(uncertainty_paired)
+            ),
+            "mean_diversity_vs_uncertainty_gpu_hour_reduction": (
+                None
+                if not uncertainty_paired
+                else math.fsum(
+                    active.gpu_hours_to_target - diverse.gpu_hours_to_target
+                    for diverse, active in uncertainty_paired
+                    if diverse.gpu_hours_to_target is not None
+                    and active.gpu_hours_to_target is not None
+                )
+                / len(uncertainty_paired)
             ),
         }
     )

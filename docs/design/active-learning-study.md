@@ -18,6 +18,11 @@ The hybrid policy fixes its acquisition split at 75% Bernoulli predictive uncert
 25% diversity for the preregistered run. Diversity uses the current source-only trained
 preprocessor output plus pre-mutation categorical and mutation-topology metadata; all
 currently labeled examples seed the k-center set. Validation and test examples never enter
-the acquisition pool. The Q7 v2 runner records the policy split and evaluates AULC, target
-reaches, and measured candidate evaluation time. The existing v1 result is retained; no new
-model-level result is claimed until the raw proof datasets are available for reproduction.
+the acquisition pool. Each budget point records the newly selected sorted, hashed candidate
+IDs so the chosen sets can be reconstructed without exposing raw example identifiers. The Q7 v2 runner records the
+policy split and evaluates AULC, paired target-reaching experiments, and measured candidate
+evaluation time against both uncertainty-only and random controls. The v1 result is retained;
+the three-model v2 replay and its negative generalization result are documented in
+`docs/research/v0.8-q7-feature-diversity-evidence.md`. This remains an offline label-replay
+study, not evidence that the acquisition policy improves physical model compression or
+downstream task quality.
