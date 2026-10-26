@@ -13,6 +13,8 @@ import shutil
 import statistics
 import tempfile
 import time
+import urllib.request
+import zipfile
 from collections import Counter
 from contextlib import nullcontext
 from pathlib import Path
@@ -37,11 +39,21 @@ HUMANEVAL_PLUS_RELEASE_COMMIT = "200defce9e3429d28ca215b6dd061c0f7f31c18b"
 EVALPLUS_IMAGE_DEFAULT = f"modelsurgeon-evalplus:{EVALPLUS_REVISION[:7]}"
 REPORT_MARKER = "MODELSURGEON_EVALPLUS_REPORT="
 WORKSPACE_MANIFEST = ".modelsurgeon-evalplus-study.json"
+WIKITEXT_URL = (
+    "https://huggingface.co/datasets/ggml-org/ci/resolve/"
+    "927b3642933080f1b0e811e2f916e14c292992f9/wikitext-2-raw-v1.zip"
+)
+WIKITEXT_SHA256 = "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11"
+WIKITEXT_MEMBER = "wikitext-2-raw/wiki.train.raw"
+WIKITEXT_ARCHIVE_MAX_BYTES = 5_000_000
+WIKITEXT_TRAIN_MAX_BYTES = 12_000_000
 
 
 def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
+    channel_scorer = getattr(args, "channel_scorer", "magnitude")
+    calibration_tokens = getattr(args, "calibration_tokens", 2048)
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "model": args.model,
         "model_revision": args.model_revision,
         "remove_channels": args.remove_channels,
@@ -51,6 +63,11 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
         "dataset_version": HUMANEVAL_PLUS_VERSION,
         "stop_criteria_policy": "restore-after-each-task-v1",
         "runtime_measurement_policy": "cuda-synchronized-generate-wall-time-v1",
+        "channel_scorer": channel_scorer,
+        "calibration_tokens": calibration_tokens,
+        "calibration_dataset_sha256": (
+            WIKITEXT_SHA256 if channel_scorer == "activation_weighted" else None
+        ),
     }
 
 
@@ -133,6 +150,184 @@ def _low_magnitude_channels(model: Any, count: int) -> tuple[int, ...]:
         scores += (gate_norm * up_norm * down_norm).double()
     selected = sorted(range(width), key=lambda index: (float(scores[index]), index))[:count]
     return tuple(sorted(selected))
+
+
+def _activation_weighted_channels(
+    model: Any,
+    count: int,
+    activation_rms_by_layer: tuple[Any, ...],
+) -> tuple[int, ...]:
+    """Rank coupled MLP channels using layer-mean weight and activation scales."""
+    import torch
+
+    config = model.config
+    width = int(config.intermediate_size)
+    layers = int(config.num_hidden_layers)
+    if not 0 < count < width:
+        raise ValueError(f"channels must be between 1 and {width - 1}")
+    if len(activation_rms_by_layer) != layers:
+        raise ValueError("activation calibration must provide one RMS vector per layer")
+    modules = dict(model.named_modules())
+    layer_weight_norms: list[Any] = []
+    for layer in range(layers):
+        mlp = modules.get(f"model.layers.{layer}.mlp")
+        if mlp is None:
+            raise RuntimeError(f"unsupported MLP path at layer {layer}")
+        gate = mlp.gate_proj.weight.detach().float().cpu()
+        up = mlp.up_proj.weight.detach().float().cpu()
+        down = mlp.down_proj.weight.detach().float().cpu()
+        if gate.shape[0] != width or up.shape[0] != width or down.shape[1] != width:
+            raise RuntimeError(f"unsupported MLP projection shape at layer {layer}")
+        layer_weight_norms.append(
+            (gate.square().sum(dim=1) + up.square().sum(dim=1) + down.square().sum(dim=0)).sqrt()
+        )
+    activation = torch.stack(
+        [torch.as_tensor(value, dtype=torch.float64).cpu() for value in activation_rms_by_layer]
+    )
+    weights = torch.stack([value.to(torch.float64) for value in layer_weight_norms])
+    if activation.shape != (layers, width) or not torch.isfinite(activation).all():
+        raise ValueError("activation RMS calibration has an invalid shape or non-finite values")
+    scores = weights.mean(dim=0) * activation.mean(dim=0)
+    if not torch.isfinite(scores).all():
+        raise ValueError("activation-weighted channel scores are non-finite")
+    selected = sorted(range(width), key=lambda index: (float(scores[index]), index))[:count]
+    return tuple(sorted(selected))
+
+
+def _ensure_wikitext_train(root: Path) -> tuple[Path, dict[str, object]]:
+    """Fetch the pinned WikiText-2 train split with bounded, hash-checked extraction."""
+    root.mkdir(parents=True, exist_ok=True)
+    archive_path = root / "wikitext-2-raw-v1.zip"
+    train_path = root / "wiki.train.raw"
+    if not archive_path.exists():
+        request = urllib.request.Request(WIKITEXT_URL, headers={"User-Agent": "ModelSurgeon/1"})
+        descriptor, temporary_name = tempfile.mkstemp(prefix=".wikitext-", suffix=".zip", dir=root)
+        try:
+            with (
+                os.fdopen(descriptor, "wb") as target,
+                urllib.request.urlopen(request, timeout=60) as response,
+            ):
+                total = 0
+                while chunk := response.read(64 * 1024):
+                    total += len(chunk)
+                    if total > WIKITEXT_ARCHIVE_MAX_BYTES:
+                        raise RuntimeError("WikiText calibration archive exceeds its size limit")
+                    target.write(chunk)
+                target.flush()
+                os.fsync(target.fileno())
+            if _sha256_file(Path(temporary_name)) != WIKITEXT_SHA256:
+                raise RuntimeError("WikiText calibration archive digest does not match its pin")
+            os.replace(temporary_name, archive_path)
+        except BaseException:
+            Path(temporary_name).unlink(missing_ok=True)
+            raise
+    if _sha256_file(archive_path) != WIKITEXT_SHA256:
+        raise RuntimeError("cached WikiText calibration archive digest does not match its pin")
+    with zipfile.ZipFile(archive_path) as archive:
+        matches = [entry for entry in archive.infolist() if entry.filename == WIKITEXT_MEMBER]
+        if len(matches) != 1 or matches[0].file_size > WIKITEXT_TRAIN_MAX_BYTES:
+            raise RuntimeError("WikiText archive has an invalid train member")
+        if not train_path.exists():
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=".wiki-train-", suffix=".tmp", dir=root
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as target, archive.open(matches[0]) as source:
+                    total = 0
+                    while chunk := source.read(64 * 1024):
+                        total += len(chunk)
+                        if total > WIKITEXT_TRAIN_MAX_BYTES:
+                            raise RuntimeError("WikiText train member exceeds its size limit")
+                        target.write(chunk)
+                    target.flush()
+                    os.fsync(target.fileno())
+                os.replace(temporary_name, train_path)
+            except BaseException:
+                Path(temporary_name).unlink(missing_ok=True)
+                raise
+    return train_path, {
+        "identifier": "WikiText-2 raw v1 train split",
+        "url": WIKITEXT_URL,
+        "archive_sha256": WIKITEXT_SHA256,
+        "member": WIKITEXT_MEMBER,
+        "member_sha256": _sha256_file(train_path),
+        "license": "CC-BY-SA-4.0",
+        "archive_revision": "ggml-org/ci@927b3642933080f1b0e811e2f916e14c292992f9",
+    }
+
+
+def _calibrate_down_projection_rms(
+    snapshot: Path,
+    train_path: Path,
+    *,
+    revision: str,
+    token_budget: int,
+) -> tuple[tuple[Any, ...], dict[str, object]]:
+    """Measure gated-MLP intermediate RMS on a pinned, non-evaluation text split."""
+    import torch
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(snapshot, local_files_only=True)
+    text = train_path.read_text(encoding="utf-8")
+    token_ids = tokenizer.encode(text, add_special_tokens=False)[:token_budget]
+    if len(token_ids) < token_budget:
+        raise RuntimeError("WikiText calibration split contains fewer tokens than requested")
+    model = load_causal_lm(
+        HuggingFaceLoadRequest(
+            str(snapshot),
+            revision=revision,
+            device_map="cpu",
+            dtype=HuggingFaceDType.FLOAT16,
+            local_files_only=True,
+        )
+    ).model
+    model.to(device="cuda")
+    model.eval()
+    layers = int(model.config.num_hidden_layers)
+    width = int(model.config.intermediate_size)
+    sums = [torch.zeros(width, dtype=torch.float64, device="cpu") for _ in range(layers)]
+    counts = [0 for _ in range(layers)]
+    handles = []
+    modules = dict(model.named_modules())
+    for layer in range(layers):
+        module = modules.get(f"model.layers.{layer}.mlp.down_proj")
+        if module is None:
+            raise RuntimeError(f"unsupported MLP down projection at layer {layer}")
+
+        def collect(_module: Any, inputs: tuple[Any, ...], *, layer_index: int = layer) -> None:
+            if not inputs:
+                raise RuntimeError("down projection hook received no activation tensor")
+            activation = inputs[0].detach().float().reshape(-1, width).cpu().double()
+            sums[layer_index].add_(activation.square().sum(dim=0))
+            counts[layer_index] += int(activation.shape[0])
+
+        handles.append(module.register_forward_pre_hook(collect))
+    try:
+        with torch.inference_mode():
+            for start in range(0, token_budget, 128):
+                chunk = token_ids[start : start + 128]
+                input_ids = torch.tensor([chunk], dtype=torch.long, device="cuda")
+                model(input_ids=input_ids)
+        if any(count == 0 for count in counts):
+            raise RuntimeError("WikiText calibration did not reach every MLP layer")
+        rms = tuple((total / count).sqrt() for total, count in zip(sums, counts, strict=True))
+    finally:
+        for handle in handles:
+            handle.remove()
+        model.to(device="cpu")
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+    return rms, {
+        "tokens": len(token_ids),
+        "token_ids_sha256": hashlib.sha256(
+            b"".join(int(token).to_bytes(8, "little", signed=False) for token in token_ids)
+        ).hexdigest(),
+        "sequence_length": 128,
+        "activation_measure": "post-gated-MLP down-projection input RMS per channel",
+        "activation_samples_per_layer": counts,
+        "model_revision": revision,
+    }
 
 
 def _docker_wrapper(sample_filename: str) -> bytes:
@@ -345,6 +540,8 @@ def _build_pruned_candidate(
     *,
     revision: str,
     remove_channels: int,
+    channel_scorer: str = "magnitude",
+    activation_rms_by_layer: tuple[Any, ...] | None = None,
 ) -> dict[str, object]:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -361,7 +558,12 @@ def _build_pruned_candidate(
     model = loaded.model
     old_width = int(model.config.intermediate_size)
     original_parameters = _parameter_metrics(model)
-    removed = _low_magnitude_channels(model, remove_channels)
+    if channel_scorer == "magnitude":
+        removed = _low_magnitude_channels(model, remove_channels)
+    elif channel_scorer == "activation_weighted" and activation_rms_by_layer is not None:
+        removed = _activation_weighted_channels(model, remove_channels, activation_rms_by_layer)
+    else:
+        raise ValueError("activation-weighted scoring requires calibrated layer RMS vectors")
     surgery = remove_huggingface_mlp_channels(model, removed)
     model.to(device="cpu", dtype=torch.float16)
     model.save_pretrained(destination, safe_serialization=True, max_shard_size="1GB")
@@ -453,6 +655,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         workspace = nullcontext(_prepare_workspace(args.work_dir, args))
     with workspace as workspace_path:
         root = Path(workspace_path)
+        calibration_record: dict[str, object] | None = None
+        activation_rms_by_layer = None
+        if args.channel_scorer == "activation_weighted":
+            train_path, dataset_identity = _ensure_wikitext_train(root / "calibration")
+            activation_rms_by_layer, calibration_record = _calibrate_down_projection_rms(
+                snapshot,
+                train_path,
+                revision=args.model_revision,
+                token_budget=args.calibration_tokens,
+            )
+            calibration_record = {**dataset_identity, **calibration_record}
         candidate_path = root / "pruned-candidate"
         candidate_path.mkdir(exist_ok=True)
         candidate_record = _build_pruned_candidate(
@@ -460,6 +673,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             candidate_path,
             revision=args.model_revision,
             remove_channels=args.remove_channels,
+            channel_scorer=args.channel_scorer,
+            activation_rms_by_layer=activation_rms_by_layer,
         )
         dataset_input = root / "HumanEvalPlus.jsonl"
         shutil.copyfile(dataset_path, dataset_input)
@@ -500,8 +715,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     source_score = float(source_eval["plus_pass_at_1"])
     candidate_score = float(candidate_eval["plus_pass_at_1"])
     return {
-        "schema_version": 2,
-        "protocol": "physical-mlp-pruning-humanevalplus-pass-at-1-v2",
+        "schema_version": 3,
+        "protocol": "physical-mlp-pruning-humanevalplus-pass-at-1-v3",
         "model": {
             "identifier": args.model,
             "revision": args.model_revision,
@@ -510,8 +725,19 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "dataset": dataset_record,
         "method": {
-            "name": "global-lowest-magnitude-gated-MLP-channel-removal",
-            "score": "sum across layers of gate-row L2 x up-row L2 x down-column L2",
+            "name": (
+                "activation-weighted-global-gated-MLP-channel-removal"
+                if args.channel_scorer == "activation_weighted"
+                else "global-lowest-magnitude-gated-MLP-channel-removal"
+            ),
+            "score": (
+                "mean across layers of combined gate/up/down channel L2 norm times "
+                "mean across layers of post-gated MLP activation RMS"
+                if args.channel_scorer == "activation_weighted"
+                else "sum across layers of gate-row L2 x up-row L2 x down-column L2"
+            ),
+            "scorer": args.channel_scorer,
+            "calibration": calibration_record,
             **candidate_record,
         },
         "environment": {
@@ -527,6 +753,13 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "device": torch.cuda.get_device_name(0),
         },
         "run_parameters": {
+            "channel_scorer": args.channel_scorer,
+            "calibration_tokens": (
+                args.calibration_tokens if args.channel_scorer == "activation_weighted" else None
+            ),
+            "calibration_corpus": "WikiText-2 raw v1 train split"
+            if args.channel_scorer == "activation_weighted"
+            else None,
             "remove_channels": args.remove_channels,
             "max_new_tokens": args.max_new_tokens,
             "prompt_mode": "EvalPlus base-prompt function completion",
@@ -833,12 +1066,19 @@ def main() -> None:
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--remove-channels", type=int, default=256)
+    parser.add_argument(
+        "--channel-scorer",
+        choices=("magnitude", "activation_weighted"),
+        default="magnitude",
+        help="candidate-only scorer; activation calibration uses pinned WikiText-2 train text",
+    )
+    parser.add_argument("--calibration-tokens", type=int, default=2048)
     parser.add_argument("--max-new-tokens", type=int, default=256)
     parser.add_argument("--evalplus-image", default=EVALPLUS_IMAGE_DEFAULT)
     parser.add_argument("--evalplus-timeout-seconds", type=float, default=1800.0)
     args = parser.parse_args()
-    if args.remove_channels <= 0 or args.max_new_tokens <= 0:
-        parser.error("remove-channels and max-new-tokens must be positive")
+    if args.remove_channels <= 0 or args.max_new_tokens <= 0 or args.calibration_tokens <= 0:
+        parser.error("remove-channels, max-new-tokens, and calibration-tokens must be positive")
     if not math.isfinite(args.evalplus_timeout_seconds) or args.evalplus_timeout_seconds <= 0:
         parser.error("evalplus-timeout-seconds must be finite and positive")
     if args.output.exists():

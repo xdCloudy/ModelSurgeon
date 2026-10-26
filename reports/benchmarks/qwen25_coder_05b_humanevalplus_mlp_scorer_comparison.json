@@ -1,0 +1,81 @@
+{
+  "limitations": [
+    "One model revision, pruning severity, calibration sample budget, and greedy generation per HumanEval+ task.",
+    "HumanEval+ may be present in model training data; contamination is not ruled out.",
+    "Runtime results are one generation pass per arm, include prompt prefill, and are not repeated decode-only measurements.",
+    "Task-quality difference is a small held-out benchmark result and needs replication on other tasks and models.",
+    "No conclusion of a general runtime improvement is supported by one sweep."
+  ],
+  "method_provenance": {
+    "calibration_dataset_license": "CC-BY-SA-4.0",
+    "competitive_reference": "ModelSurgeon PR #735; WANDA-inspired activation-weighted channel ranking",
+    "reuse": "No third-party source code copied; this is a group-level structural adaptation, not the per-weight WANDA algorithm.",
+    "wanda_license": "MIT",
+    "wanda_repository": "https://github.com/locuslab/wanda",
+    "wanda_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6"
+  },
+  "paired_controls": {
+    "channels_removed_per_layer": 256,
+    "cuda_runtime_version": "12.8",
+    "dataset_sha256": "b6ed6a3a7e560bad75038eb9e72029ace2d26592e04b3f0596b4b75a55529465",
+    "device": "NVIDIA GeForce RTX 3060",
+    "evalplus_docker_image_id": "sha256:fbebe3a482ae3220fa4ba5ac3054f6f5391a58c9ca220916e50e59398b953a9a",
+    "evalplus_source_revision": "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2",
+    "layer_count": 24,
+    "model_revision": "ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
+    "python_version": "3.12.14",
+    "source_generated_samples_sha256": "b1948e606c8746e6ce66e38aa5db8bf798cd838c7f09a1a525aacbbcf1d74d87",
+    "source_samples_identical": true,
+    "task_count": 164,
+    "torch_version": "2.11.0+cu128"
+  },
+  "protocol": "paired-qwen-humanevalplus-mlp-scorer-comparison-v1",
+  "results": {
+    "activation_minus_magnitude": {
+      "artifact_bytes": 0,
+      "generated_tokens_per_second": 1.0124920000000017,
+      "generated_tokens_per_second_relative_percent": 2.2978019314034537,
+      "median_generation_latency_seconds": -0.04558400000000007,
+      "p95_generation_latency_seconds": -0.3860830000000002,
+      "plus_passes": -3,
+      "quality_delta_percentage_points": -1.8292682926829285,
+      "removed_channel_overlap": 11
+    },
+    "activation_weighted": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 45.075994,
+      "median_generation_latency_seconds": 1.39051,
+      "p95_generation_latency_seconds": 5.297026,
+      "plus_pass_at_1": 0.2865853658536585,
+      "plus_passes": 47,
+      "quality_delta_percentage_points": -13.414634146341465,
+      "removed_channel_count": 256
+    },
+    "magnitude": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 44.063502,
+      "median_generation_latency_seconds": 1.436094,
+      "p95_generation_latency_seconds": 5.683109,
+      "plus_pass_at_1": 0.3048780487804878,
+      "plus_passes": 50,
+      "quality_delta_percentage_points": -11.585365853658535,
+      "removed_channel_count": 256
+    },
+    "source_plus_passes": 69
+  },
+  "schema_version": 1,
+  "source_reports": [
+    {
+      "method": "activation_weighted",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_weighted.json",
+      "sha256": "4dd639c0a8198799db8818f4293581ff0efa7807a9ba23b37401e077c9daf0ca"
+    },
+    {
+      "method": "magnitude",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
+      "sha256": "92ee9d968b712a1d49fb9fa1f68150a73d8c61da83cc1c2c05267f785b56ac75"
+    }
+  ]
+}

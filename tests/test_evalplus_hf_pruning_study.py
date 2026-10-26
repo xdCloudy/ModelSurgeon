@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
 from tools.run_evalplus_hf_pruning_study import (
+    _activation_weighted_channels,
     _decoder_with_task_local_stopping_criteria,
     _docker_wrapper,
     _evaluate_in_docker,
@@ -60,6 +63,14 @@ def test_channel_selection_breaks_equal_scores_by_index() -> None:
     model = _toy_model(identity, identity, identity)
 
     assert _low_magnitude_channels(model, 2) == (0, 1)
+
+
+def test_activation_weighted_selection_ranks_coupled_channels_by_calibration_rms() -> None:
+    torch = pytest.importorskip("torch")
+    identity = torch.eye(3).tolist()
+    model = _toy_model(identity, identity, identity)
+
+    assert _activation_weighted_channels(model, 1, (torch.tensor([0.1, 0.2, 1.0]),)) == (0,)
 
 
 @pytest.mark.parametrize("count", [0, 3])
@@ -267,13 +278,15 @@ def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> N
         remove_channels=256,
         max_new_tokens=256,
         evalplus_image="modelsurgeon-evalplus:test",
+        channel_scorer="magnitude",
+        calibration_tokens=2048,
     )
 
     workspace = _prepare_workspace(tmp_path / "study", args)
 
     assert workspace == tmp_path / "study"
     manifest = json.loads((workspace / ".modelsurgeon-evalplus-study.json").read_text())
-    assert manifest["schema_version"] == 3
+    assert manifest["schema_version"] == 4
     assert manifest["stop_criteria_policy"] == "restore-after-each-task-v1"
     assert manifest["runtime_measurement_policy"] == "cuda-synchronized-generate-wall-time-v1"
     assert _prepare_workspace(workspace, args) == workspace
@@ -296,6 +309,29 @@ def test_workspace_refuses_unmarked_nonempty_directory(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="without a study manifest"):
         _prepare_workspace(workspace, args)
+
+
+def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> None:
+    root = Path(__file__).resolve().parents[1]
+    report = json.loads(
+        (
+            root / "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_scorer_comparison.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert report["paired_controls"]["source_samples_identical"] is True
+    assert report["paired_controls"]["torch_version"] == "2.11.0+cu128"
+    assert report["results"]["activation_weighted"]["plus_passes"] == 47
+    assert report["results"]["magnitude"]["plus_passes"] == 50
+    assert (
+        report["results"]["activation_weighted"]["artifact_bytes"]
+        == report["results"]["magnitude"]["artifact_bytes"]
+    )
+    assert "No third-party source code copied" in report["method_provenance"]["reuse"]
+    for item in report["source_reports"]:
+        source = root / item["path"]
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        assert digest == item["sha256"]
 
 
 def test_checkpoint_recovery_discards_only_an_incomplete_final_record(tmp_path) -> None:
