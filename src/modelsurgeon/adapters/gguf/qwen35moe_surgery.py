@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from math import prod
 from pathlib import Path
@@ -260,6 +260,78 @@ def rank_qwen35moe_experts_by_router_norm(
             )
         )
     return tuple(rankings)
+
+
+def select_qwen35moe_experts_by_scores(
+    layout: Qwen35MoeGGUFLayout,
+    scores_by_layer: Sequence[Sequence[float | None]],
+    retained_count: int,
+) -> dict[int, tuple[int, ...]]:
+    """Select each layer's highest-scoring experts for the uniform GGUF layout.
+
+    ``None`` denotes an expert not observed during calibration. Such experts are
+    retained conservatively; if that leaves too few slots to meet the requested
+    uniform count, selection fails rather than treating missing evidence as low
+    importance. Scores are expected to be finite, nonnegative saliency values.
+    """
+
+    if (
+        isinstance(retained_count, bool)
+        or not isinstance(retained_count, int)
+        or retained_count < layout.expert_used_count
+        or retained_count >= layout.expert_count
+    ):
+        raise Qwen35MoeSurgeryError(
+            "retained_count must be at least expert_used_count and smaller than source"
+        )
+    if len(scores_by_layer) != layout.block_count:
+        raise Qwen35MoeSurgeryError("saliency scores must be supplied for every block")
+
+    selected_by_layer: dict[int, tuple[int, ...]] = {}
+    for layer, scores in enumerate(scores_by_layer):
+        if len(scores) != layout.expert_count:
+            raise Qwen35MoeSurgeryError(
+                f"saliency scores for block {layer} must match expert_count"
+            )
+
+        unseen = [expert for expert, score in enumerate(scores) if score is None]
+        if len(unseen) > retained_count:
+            raise Qwen35MoeSurgeryError(
+                f"block {layer} has more unseen experts than the retained expert budget"
+            )
+
+        observed: list[tuple[float, int]] = []
+        for expert, score in enumerate(scores):
+            if score is None:
+                continue
+            if isinstance(score, bool) or not isinstance(score, (int, float)):
+                raise Qwen35MoeSurgeryError(
+                    f"saliency score for block {layer}, expert {expert} must be numeric or None"
+                )
+            try:
+                value = float(score)
+            except OverflowError as error:
+                raise Qwen35MoeSurgeryError(
+                    f"saliency score for block {layer}, expert {expert} must be finite"
+                ) from error
+            if not math.isfinite(value) or value < 0:
+                raise Qwen35MoeSurgeryError(
+                    f"saliency score for block {layer}, expert {expert} must be "
+                    "finite and nonnegative"
+                )
+            observed.append((value, expert))
+
+        slots = retained_count - len(unseen)
+        selected = set(unseen)
+        selected.update(
+            expert
+            for _score, expert in sorted(observed, key=lambda item: (-item[0], item[1]))[:slots]
+        )
+        if len(selected) != retained_count:
+            raise Qwen35MoeSurgeryError(f"block {layer} has insufficient observed experts")
+        selected_by_layer[layer] = tuple(sorted(selected))
+
+    return selected_by_layer
 
 
 def _metadata(source: MemoryMappedGGUF, retained_count: int) -> tuple[GGUFWriteMetadata, ...]:
