@@ -13,6 +13,20 @@ uv sync --extra dev --extra hf --locked
 uv run modelsurgeon --help
 ~~~
 
+The `hf` extra selects PyTorch's CPU-only index. For an NVIDIA CUDA workstation
+on Windows or Linux, use the alternative opt-in `hf-cuda` extra, which selects
+PyTorch's CUDA 13.0 index. The extras are mutually exclusive.
+
+~~~bash
+uv sync --extra dev --extra hf-cuda --locked
+uv run python -c 'import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())'
+~~~
+
+Use `hf-cuda` only when the installed NVIDIA driver and GPU support the selected
+CUDA wheel. A `True` CUDA availability result confirms the runtime can see a
+device; it does not establish enough free VRAM for a particular model. Check
+current VRAM headroom before starting a model-scale run.
+
 Keep downloaded models, generated checkpoints, logs, and reports below an ignored work/ or artifacts/ directory. Never use the source model directory as an output directory. The source checkpoint is an immutable input and every published artifact must have a different path.
 
 ## 2. Pin and inspect a model
