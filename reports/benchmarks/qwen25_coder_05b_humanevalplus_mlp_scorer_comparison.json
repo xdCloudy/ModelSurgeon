@@ -104,5 +104,162 @@
       "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_output_energy.json",
       "sha256_lf_normalized": "157d847fbe83265b6716b8b2be8f35bded3ad5f395835ddb65cebcfc175a8a7a"
     }
-  ]
+  ],
+  "paired_inference": {
+    "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_paired_statistics.json",
+    "report_sha256_lf_normalized": "b3669010c207c7414485c971c848c77bab759e290e3f33b79aeeea7c3ec5b3fe",
+    "method": {
+      "bootstrap": "paired percentile bootstrap over benchmark tasks",
+      "bootstrap_samples": 20000,
+      "bootstrap_seed": 20261026,
+      "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    },
+    "comparisons": [
+      {
+        "left": "source",
+        "right": "magnitude",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.2682926829268295,
+          18.902439024390244
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 29,
+          "right_only_pass": 10
+        },
+        "both_pass": 40,
+        "neither_pass": 85,
+        "mcnemar_exact_two_sided_p_value": 0.0033778479119064286
+      },
+      {
+        "left": "source",
+        "right": "activation_weighted",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 47,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 117,
+          "pass": 47
+        },
+        "left_minus_right_percentage_points": 13.414634146341463,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          6.097560975609756,
+          21.341463414634145
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 33,
+          "right_only_pass": 11
+        },
+        "both_pass": 36,
+        "neither_pass": 84,
+        "mcnemar_exact_two_sided_p_value": 0.0012600338162656044
+      },
+      {
+        "left": "magnitude",
+        "right": "activation_weighted",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 47,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 117,
+          "pass": 47
+        },
+        "left_minus_right_percentage_points": 1.829268292682927,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -4.878048780487805,
+          8.536585365853659
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 14
+        },
+        "both_pass": 33,
+        "neither_pass": 100,
+        "mcnemar_exact_two_sided_p_value": 0.720100131817162
+      },
+      {
+        "left": "source",
+        "right": "activation_output_energy",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.878048780487805,
+          18.29268292682927
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 27,
+          "right_only_pass": 8
+        },
+        "both_pass": 42,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.001878225477412343
+      },
+      {
+        "left": "magnitude",
+        "right": "activation_output_energy",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 0.0,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -6.7073170731707314,
+          6.7073170731707314
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 17
+        },
+        "both_pass": 33,
+        "neither_pass": 97,
+        "mcnemar_exact_two_sided_p_value": 1.0
+      }
+    ]
+  }
 }

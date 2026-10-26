@@ -353,6 +353,14 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
         report["results"]["activation_weighted"]["artifact_bytes"]
         == report["results"]["magnitude"]["artifact_bytes"]
     )
+    paired = report["paired_inference"]
+    assert paired["comparisons"][4]["mcnemar_exact_two_sided_p_value"] == 1.0
+    assert paired["comparisons"][4]["left_minus_right_percentage_points"] == 0.0
+    paired_report = root / paired["report_path"]
+    normalized_paired_report = paired_report.read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(normalized_paired_report).hexdigest() == paired[
+        "report_sha256_lf_normalized"
+    ]
     assert "No third-party source code copied" in report["method_provenance"]["reuse"]
     for item in report["source_reports"]:
         source = root / item["path"]
