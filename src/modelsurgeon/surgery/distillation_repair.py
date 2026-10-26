@@ -18,7 +18,7 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     collect_memory_telemetry,
 )
 
-DISTILLATION_REPAIR_SCHEMA_VERSION = 2
+DISTILLATION_REPAIR_SCHEMA_VERSION = 3
 
 
 class DistillationRepairError(RuntimeError):
@@ -201,6 +201,10 @@ class DistillationRepairResult:
     teacher_source: TeacherLogitSource
     teacher_logits_sha256: str
     evaluation_split: str
+    evaluation_source: str
+    training_examples_sha256: str
+    evaluation_examples_sha256: str
+    validation_dataset_sha256: str | None
     tokenizer_signature: TokenizerSignature
     trainable_parameters: int
     completed_steps: int
@@ -221,6 +225,10 @@ class DistillationRepairResult:
             "teacher_source": self.teacher_source.value,
             "teacher_logits_sha256": self.teacher_logits_sha256,
             "evaluation_split": self.evaluation_split,
+            "evaluation_source": self.evaluation_source,
+            "training_examples_sha256": self.training_examples_sha256,
+            "evaluation_examples_sha256": self.evaluation_examples_sha256,
+            "validation_dataset_sha256": self.validation_dataset_sha256,
             "tokenizer_signature": self.tokenizer_signature.to_record(),
             "trainable_parameters": self.trainable_parameters,
             "completed_steps": self.completed_steps,
@@ -255,6 +263,32 @@ def _logit_digest(logits: tuple[Any, ...]) -> str:
     for tensor in logits:
         digest.update(str(tuple(tensor.shape)).encode())
         digest.update(tensor.numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _example_digest(examples: tuple[dict[str, Any], ...]) -> str:
+    digest = hashlib.sha256()
+    for example in examples:
+        digest.update(b"example\0")
+        for name, value in sorted(example.items()):
+            digest.update(name.encode())
+            digest.update(b"\0")
+            if hasattr(value, "detach"):
+                tensor = value.detach().cpu().contiguous()
+                digest.update(str(tuple(tensor.shape)).encode())
+                digest.update(str(tensor.dtype).encode())
+                digest.update(tensor.numpy().tobytes())
+            else:
+                digest.update(
+                    json.dumps(
+                        value,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                )
+            digest.update(b"\0")
     return digest.hexdigest()
 
 
@@ -399,6 +433,8 @@ def run_distillation_repair(
     baseline_logits: tuple[Any, ...] | None = None,
     validation_examples: tuple[dict[str, Any], ...] | None = None,
     baseline_validation_logits: tuple[Any, ...] | None = None,
+    evaluation_source: str | None = None,
+    validation_dataset_sha256: str | None = None,
 ) -> DistillationRepairResult:
     """Repair selected candidate parameters and select weights on held-out teacher logits."""
 
@@ -416,6 +452,19 @@ def run_distillation_repair(
         raise DistillationRepairError("validation examples must be non-empty when supplied")
     if validation_examples is None and baseline_validation_logits is not None:
         raise DistillationRepairError("validation logits require validation examples")
+    if validation_dataset_sha256 is not None:
+        if validation_examples is None or len(validation_dataset_sha256) != 64:
+            raise DistillationRepairError("validation dataset digest requires validation examples")
+        try:
+            int(validation_dataset_sha256, 16)
+        except ValueError as error:
+            raise DistillationRepairError("validation dataset digest must be SHA-256") from error
+        validation_dataset_sha256 = validation_dataset_sha256.lower()
+    source = (
+        "training_fallback" if validation_examples is None else "provided_validation"
+    ) if evaluation_source is None else evaluation_source
+    if not source.strip():
+        raise DistillationRepairError("evaluation source cannot be blank")
     if validation_examples is not None:
         def example_key(example: dict[str, Any]) -> bytes:
             input_ids = example.get("input_ids")
@@ -470,6 +519,8 @@ def run_distillation_repair(
         teacher_logit_bytes += validation_logit_bytes
     teacher_capture_seconds = time.perf_counter() - teacher_started
     teacher_logits_sha256 = _logit_digest(immutable_logits + evaluation_logits)
+    training_examples_sha256 = _example_digest(examples)
+    evaluation_examples_sha256 = _example_digest(evaluation_examples)
     device = next(candidate_model.parameters()).device
     baseline_loss = _evaluate(
         torch, candidate_model, evaluation_examples, evaluation_logits, config, device
@@ -561,6 +612,10 @@ def run_distillation_repair(
                     "source_checkpoint_id": source_checkpoint_id,
                     "parent_checkpoint_id": candidate_parent_checkpoint_id,
                     "teacher_logits_sha256": teacher_logits_sha256,
+                    "training_examples_sha256": training_examples_sha256,
+                    "evaluation_examples_sha256": evaluation_examples_sha256,
+                    "validation_dataset_sha256": validation_dataset_sha256,
+                    "evaluation_source": source,
                     "config": config.to_record(),
                     "parameter_sha256": _parameter_digest(selected),
                 }
@@ -598,6 +653,10 @@ def run_distillation_repair(
             teacher_source=teacher_source,
             teacher_logits_sha256=teacher_logits_sha256,
             evaluation_split="validation" if validation_examples is not None else "training",
+            evaluation_source=source,
+            training_examples_sha256=training_examples_sha256,
+            evaluation_examples_sha256=evaluation_examples_sha256,
+            validation_dataset_sha256=validation_dataset_sha256,
             tokenizer_signature=candidate_tokenizer,
             trainable_parameters=trainable_parameters,
             completed_steps=len(state.training_losses),

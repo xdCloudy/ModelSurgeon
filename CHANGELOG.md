@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Added held-out checkpoint selection to PEFT-backed LoRA repair. The optimizer
+    trains on calibration chunks excluding the default held-out chunk, or on the
+    existing external repair corpus, rejects token overlap, and retains the adapter
+    checkpoint with the lowest validation loss plus data digests and selected-step
+    evidence.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

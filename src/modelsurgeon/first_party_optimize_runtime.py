@@ -118,6 +118,10 @@ class FirstPartyOptimizeRuntimeError(RuntimeError):
     """Raised when the verified first-party optimize cell cannot run safely."""
 
 
+REPAIR_VALIDATION_MAX_BYTES = 16 * 1024 * 1024
+REPAIR_VALIDATION_MAX_CHUNKS = 8
+
+
 def _mapping(value: object, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise FirstPartyOptimizeRuntimeError(f"{label} must be a mapping")
@@ -1221,7 +1225,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         proof = self._ensure_loaded()
         if exclude_validation and len(proof._chunks) < 2:
             raise FirstPartyOptimizeRuntimeError(
-                "distillation requires at least two calibration chunks for held-out selection"
+                "repair requires at least two calibration chunks for held-out selection"
             )
         torch = proof._torch
         examples: list[dict[str, Any]] = []
@@ -1241,20 +1245,90 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             )
         return tuple(examples)
 
-    def _repair_validation_examples(self) -> tuple[dict[str, Any], ...]:
+    def _repair_validation_examples(
+        self, dataset: Path | None = None
+    ) -> tuple[tuple[dict[str, Any], ...], str | None]:
         proof = self._ensure_loaded()
+        if dataset is not None:
+            try:
+                with dataset.expanduser().open("rb") as source:
+                    payload = source.read(REPAIR_VALIDATION_MAX_BYTES + 1)
+            except OSError as error:
+                raise FirstPartyOptimizeRuntimeError(
+                    f"cannot read repair.validation_dataset: {error}"
+                ) from error
+            if not payload:
+                raise FirstPartyOptimizeRuntimeError(
+                    "repair.validation_dataset cannot be empty"
+                )
+            if len(payload) > REPAIR_VALIDATION_MAX_BYTES:
+                raise FirstPartyOptimizeRuntimeError(
+                    "repair.validation_dataset exceeds the 16 MiB input limit"
+                )
+            try:
+                text = payload.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise FirstPartyOptimizeRuntimeError(
+                    "repair.validation_dataset must be UTF-8 text"
+                ) from error
+            sequence_length = proof.config.sequence_length
+            token_limit = min(
+                proof.config.max_tokens,
+                sequence_length * REPAIR_VALIDATION_MAX_CHUNKS,
+            )
+            encoded = proof._tokenizer(
+                text,
+                add_special_tokens=False,
+                return_attention_mask=False,
+                truncation=True,
+                max_length=token_limit,
+            )
+            token_ids = encoded.get("input_ids") if isinstance(encoded, Mapping) else None
+            if not isinstance(token_ids, list) or not all(
+                isinstance(token, int)
+                and not isinstance(token, bool)
+                and token >= 0
+                for token in token_ids
+            ):
+                raise FirstPartyOptimizeRuntimeError(
+                    "repair.validation_dataset tokenizer returned invalid input_ids"
+                )
+            chunks = tuple(
+                tuple(token_ids[offset : offset + sequence_length])
+                for offset in range(0, len(token_ids), sequence_length)
+                if len(token_ids[offset : offset + sequence_length]) >= 2
+            )
+            if not chunks:
+                raise FirstPartyOptimizeRuntimeError(
+                    "repair.validation_dataset produced fewer than two usable tokens"
+                )
+            torch = proof._torch
+            examples = []
+            for chunk in chunks:
+                input_ids = torch.tensor((chunk,), dtype=torch.long)
+                examples.append(
+                    {
+                        "input_ids": input_ids,
+                        "attention_mask": torch.ones_like(input_ids),
+                        "labels": input_ids.clone(),
+                    }
+                )
+            return tuple(examples), hashlib.sha256(payload).hexdigest()
         if len(proof._chunks) < 2:
             raise FirstPartyOptimizeRuntimeError(
-                "distillation requires at least two calibration chunks for held-out selection"
+                "repair requires at least two calibration chunks for held-out selection"
             )
         torch = proof._torch
         input_ids = torch.tensor((proof._chunks[-1],), dtype=torch.long)
         return (
-            {
-                "input_ids": input_ids,
-                "attention_mask": torch.ones_like(input_ids),
-                "labels": input_ids.clone(),
-            },
+            (
+                {
+                    "input_ids": input_ids,
+                    "attention_mask": torch.ones_like(input_ids),
+                    "labels": input_ids.clone(),
+                },
+            ),
+            None,
         )
 
     def _repair_targets(self, model: Any) -> tuple[str, ...]:
@@ -1396,7 +1470,21 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             else _integer(max_steps_value, 1, "repair.max_steps")
         )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
-        examples = self._repair_examples(exclude_validation=method == "distillation")
+        validation_dataset_value = settings.get("validation_dataset")
+        validation_dataset = (
+            None
+            if validation_dataset_value is None
+            else Path(_text(validation_dataset_value, "repair.validation_dataset")).expanduser()
+        )
+        examples = self._repair_examples(
+            exclude_validation=method in {"lora", "distillation"} and validation_dataset is None
+        )
+        validation_examples, validation_dataset_sha256 = self._repair_validation_examples(
+            validation_dataset
+        )
+        evaluation_source = (
+            "external_text" if validation_dataset is not None else "calibration_holdout"
+        )
         if method == "lora":
             lora_config = LoRARepairConfig(
                 rank=_integer(settings.get("rank"), 4, "repair.rank"),
@@ -1406,6 +1494,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     settings.get("learning_rate", 1e-3), "repair.learning_rate"
                 ),
                 max_steps=min(max_steps, self.plan.budget.repair_steps),
+                max_trainable_parameters=_integer(
+                    settings.get("max_trainable_parameters", 10_000_000),
+                    1,
+                    "repair.max_trainable_parameters",
+                ),
                 seed=seed,
                 output_mode=LoRAOutputMode.MERGED,
             )
@@ -1416,6 +1509,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 lora_config,
                 source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
                 candidate_checkpoint_id=self._checkpoint_id(self.artifact_digest),
+                validation_examples=validation_examples,
+                validation_dataset_sha256=validation_dataset_sha256,
+                evaluation_source=evaluation_source,
             )
             repair_record = lora_result.to_record()
         else:
@@ -1433,7 +1529,6 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "distillation targets expose no trainable weight or bias parameters",
                 )
             tokenizer_signature = TokenizerSignature.from_tokenizer(proof._tokenizer)
-            validation_examples = self._repair_validation_examples()
             # Distillation must recover the immutable source behavior. Using
             # the surgically modified parent here would make the student match
             # its own damaged logits and the default KL-only objective could
@@ -1447,6 +1542,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     settings.get("learning_rate", 1e-3), "repair.learning_rate"
                 ),
                 max_steps=min(max_steps, self.plan.budget.repair_steps),
+                max_trainable_parameters=_integer(
+                    settings.get("max_trainable_parameters", 10_000_000),
+                    1,
+                    "repair.max_trainable_parameters",
+                ),
                 seed=seed,
             )
             distillation_result = run_distillation_repair(
@@ -1459,6 +1559,8 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 candidate_parent_checkpoint_id=self._checkpoint_id(self.artifact_digest),
                 teacher_model=teacher_model,
                 validation_examples=validation_examples,
+                evaluation_source=evaluation_source,
+                validation_dataset_sha256=validation_dataset_sha256,
             )
             repair_record = distillation_result.to_record()
         repaired_measurement = proof.measure_model(
