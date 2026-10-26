@@ -175,7 +175,7 @@ def _load_shard_index(path: Path) -> dict[str, str]:
         value = json.loads(raw_index.decode("utf-8"))
     except SafetensorsIndexError:
         raise
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, RecursionError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetensorsIndexError(f"invalid safetensors shard index {path}") from exc
     if not isinstance(value, Mapping) or not isinstance(value.get("weight_map"), Mapping):
         raise SafetensorsIndexError(f"{path} must contain a weight_map object")
