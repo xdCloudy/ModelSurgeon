@@ -11,6 +11,7 @@ import pytest
 
 from modelsurgeon.config import (
     CalibrationConfig,
+    ComputeDType,
     ConstraintConfig,
     ModelConfig,
     QuantizationConfig,
@@ -475,6 +476,69 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     assert teacher_observation["differs_from_damaged_candidate"] is True
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
+
+
+def test_first_party_runtime_rejects_distillation_without_an_accepted_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from modelsurgeon import first_party_optimize_runtime as runtime_module
+    from modelsurgeon.surgery.distillation_repair import DistillationStatus
+
+    monkeypatch.setattr(
+        runtime_module,
+        "run_distillation_repair",
+        lambda *args, **kwargs: SimpleNamespace(
+            status=DistillationStatus.REJECTED_NO_IMPROVEMENT,
+            output_checkpoint_id=None,
+            to_record=lambda: {
+                "status": DistillationStatus.REJECTED_NO_IMPROVEMENT.value,
+                "output_checkpoint_id": None,
+                "completed_steps": 1,
+            },
+        ),
+    )
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(
+            path=str(model_path), revision="test-revision", dtype=ComputeDType.FP32
+        ),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        repair=RepairConfig(
+            method="distillation",
+            target_modules=("model.layers.0.mlp.down_proj",),
+            max_steps=1,
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=1, repair_steps=1),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    repair = run.stages[6].result
+    assert repair is not None
+    detail = json.loads(repair.detail)
+    assert detail["repair"]["status"] == DistillationStatus.REJECTED_NO_IMPROVEMENT.value
+    assert detail["status"] == "rejected"
+    assert detail["rejection_reason"] == "repair algorithm did not produce an accepted update"
+    assert repair.artifact_digest == detail["artifact_digest"]
+    assert repair.lineage["child"] is None
 
 
 def test_first_party_runtime_executes_real_dynamic_int8_quantization_when_requested(
