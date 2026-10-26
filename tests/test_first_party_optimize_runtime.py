@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -549,6 +550,44 @@ def test_shortgpt_layer_ranking_spends_budget_on_lowest_influence_layer(
     assert detail["candidate_id"] == selection["evaluated_candidate_ids"][0]
     assert detail["candidate_scope"] == "layer"
     assert ranked_layers[0]["token_count"] > 0
+    comparison = detail["search_comparison"]
+    no_guidance = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["no_guidance_policy"] == "first_candidate_by_canonical_id"
+    assert comparison["candidate_pool_size"] >= 1
+    assert no_guidance["candidate_id"] is not None
+    assert no_guidance["measured"] is (
+        no_guidance["candidate_id"] == detail["candidate_id"]
+    )
+
+
+def test_no_guidance_baseline_keeps_unmeasured_candidate_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        model=ModelConfig(path=str(tmp_path / "model"), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(dataset=str(tmp_path / "calibration.txt"), seed=7),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    runtime = build_first_party_optimize_runtime(plan)
+    runtime.actual_measurements = {"cand_b": {"perplexity_delta": 0.1}}
+    monkeypatch.setattr(
+        runtime, "_quality_gate_for_candidate_record", lambda _measurement: {"accepted": True}
+    )
+
+    candidate_a = SimpleNamespace(candidate_id="cand_a")
+    candidate_b = SimpleNamespace(candidate_id="cand_b")
+    measured = {"perplexity_delta": 0.1}
+    runtime._build_search_comparison(
+        (candidate_b, candidate_a),
+        [(0.1, 0.0, "mutation_b", candidate_b, measured)],
+    )
+
+    comparison = runtime.search_comparison
+    assert comparison is not None
+    baseline = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["measured_best"] == "cand_b"
+    assert baseline["candidate_id"] == "cand_a"
+    assert baseline["measured"] is False
 
 
 def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) -> None:
@@ -675,6 +714,14 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     detail = json.loads(active.detail)
     assert detail["meta_guidance"]["status"] == "verified_bundle"
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
+    evaluation_selection = detail["search_comparison"]["evaluation_selection"]
+    assert evaluation_selection["policy"] == "meta_surgeon"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] > 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
+    assert evaluation_selection["evaluated_candidate_ids"] == detail["meta_guidance"][
+        "ordered_candidates"
+    ][:2]
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
         "magnitude",
@@ -688,15 +735,21 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         for item in detail["search_comparison"]["baselines"]
         if item["method"] == "activation_magnitude"
     )
-    assert activation_baseline["measured"] is True
     assert activation_baseline["candidate_id"] is not None
+    assert activation_baseline["measured"] is (
+        activation_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
     activation_weighted_baseline = next(
         item
         for item in detail["search_comparison"]["baselines"]
         if item["method"] == "activation_weighted_magnitude"
     )
-    assert activation_weighted_baseline["measured"] is True
     assert activation_weighted_baseline["candidate_id"] is not None
+    assert activation_weighted_baseline["measured"] is (
+        activation_weighted_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
 
 
 def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
@@ -756,6 +809,11 @@ def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
     assert active_search is not None
     detail = json.loads(active_search.detail)
     comparison = detail["search_comparison"]
+    evaluation_selection = comparison["evaluation_selection"]
+    assert evaluation_selection["policy"] == "canonical_id"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] == 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
     assert comparison["measured_best"] is not None
     assert comparison["measured_best_constraints_passed"] is False
     assert len(comparison["baselines"]) == 6
