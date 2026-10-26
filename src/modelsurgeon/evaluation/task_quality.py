@@ -7,8 +7,9 @@ import json
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Concatenate, cast
 
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v2"
 MAX_TASK_QUALITY_EXAMPLES = 4096
@@ -25,6 +26,23 @@ MAX_MULTIPLE_CHOICE_TOTAL_SCORED_TOKENS = 1_000_000
 
 class TaskQualityEvaluationError(ValueError):
     """Raised when task-quality evidence cannot be measured safely."""
+
+
+def _preserve_model_training_modes[**P, Measurement](
+    function: Callable[Concatenate[Any, P], Measurement],
+) -> Callable[Concatenate[Any, P], Measurement]:
+    """Restore every module's mode after evaluation, including when it fails."""
+
+    @wraps(function)
+    def wrapped(model: Any, *args: P.args, **kwargs: P.kwargs) -> Measurement:
+        original_modes = tuple((module, bool(module.training)) for module in model.modules())
+        try:
+            return function(model, *args, **kwargs)
+        finally:
+            for module, was_training in original_modes:
+                module.training = was_training
+
+    return cast(Callable[Concatenate[Any, P], Measurement], wrapped)
 
 
 def validate_task_quality_generation_budget(
@@ -535,6 +553,7 @@ def _choice_log_likelihood(
     return value
 
 
+@_preserve_model_training_modes
 def evaluate_multiple_choice_accuracy(
     model: Any,
     tokenizer: Any,
@@ -614,6 +633,7 @@ def evaluate_multiple_choice_accuracy(
     return MultipleChoiceMeasurement(dataset, correct, len(dataset.examples), tuple(predictions))
 
 
+@_preserve_model_training_modes
 def evaluate_code_exact_match(
     model: Any,
     tokenizer: Any,

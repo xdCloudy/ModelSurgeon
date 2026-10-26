@@ -36,12 +36,20 @@ class _Model(torch.nn.Module):
     def __init__(self, *, correct: bool) -> None:
         super().__init__()
         self.weight = torch.nn.Parameter(torch.ones(1))
+        self.dropout = torch.nn.Dropout(p=0.0)
         self.correct = correct
 
     def generate(self, *, input_ids: torch.Tensor, **_: object) -> torch.Tensor:
+        self.dropout(torch.ones(1))
         prompt_id = int(input_ids[0, 0])
         token = {1: 3, 2: (4 if self.correct else 3)}[prompt_id]
         return torch.cat((input_ids, torch.tensor([[token]])), dim=1)
+
+
+class _FailingModel(_Model):
+    def generate(self, *, input_ids: torch.Tensor, **_: object) -> torch.Tensor:
+        del input_ids
+        raise RuntimeError("generation failed")
 
 
 class _ChoiceTokenizer:
@@ -57,12 +65,15 @@ class _ChoiceModel(torch.nn.Module):
     def __init__(self, *, correct: bool) -> None:
         super().__init__()
         self.weight = torch.nn.Parameter(torch.ones(1))
+        self.dropout = torch.nn.Dropout(p=0.0)
         self.correct = correct
         self.forward_calls = 0
 
     def forward(self, *, input_ids: torch.Tensor) -> object:
         self.forward_calls += 1
-        logits = torch.zeros((1, input_ids.shape[1], 16), device=input_ids.device)
+        logits = self.dropout(
+            torch.zeros((1, input_ids.shape[1], 16), device=input_ids.device)
+        )
         logits[0, 0, 11 if self.correct else 12] = 2.0
         logits[0, 0, 12 if self.correct else 11] = 1.0
         return type("Output", (), {"logits": logits})()
@@ -86,18 +97,39 @@ def _dataset(tmp_path: Path) -> CodeExactMatchDataset:
 
 def test_code_exact_match_is_physical_and_content_addressed(tmp_path: Path) -> None:
     dataset = _dataset(tmp_path)
+    baseline_model = _Model(correct=True).train()
+    baseline_model.dropout.eval()
+    original_modes = tuple(module.training for module in baseline_model.modules())
 
     baseline = evaluate_code_exact_match(
-        _Model(correct=True), _Tokenizer(), torch, dataset, max_new_tokens=4
+        baseline_model, _Tokenizer(), torch, dataset, max_new_tokens=4
     )
     candidate = evaluate_code_exact_match(
         _Model(correct=False), _Tokenizer(), torch, dataset, max_new_tokens=4
     )
 
     assert baseline.score == 1.0
+    assert tuple(module.training for module in baseline_model.modules()) == original_modes
     assert candidate.score == 0.5
     assert baseline.to_record()["measurement_authority"] == "physical_model_evaluation"
     assert dataset.to_record()["digest"].startswith("sha256:")
+
+
+def test_task_quality_restores_mixed_modes_when_generation_fails(tmp_path: Path) -> None:
+    model = _FailingModel(correct=True).train()
+    model.dropout.eval()
+    original_modes = tuple(module.training for module in model.modules())
+
+    with pytest.raises(TaskQualityEvaluationError, match="generation failed"):
+        evaluate_code_exact_match(
+            model,
+            _Tokenizer(),
+            torch,
+            _dataset(tmp_path),
+            max_new_tokens=4,
+        )
+
+    assert tuple(module.training for module in model.modules()) == original_modes
 
 
 def test_task_quality_gate_enforces_retention() -> None:
@@ -142,15 +174,19 @@ def test_multiple_choice_uses_teacher_forced_log_likelihood_and_retains_scores(
         encoding="utf-8",
     )
     dataset = MultipleChoiceDataset.load(path, revision="bench-r1", split="validation")
+    baseline_model = _ChoiceModel(correct=True).train()
+    baseline_model.dropout.eval()
+    original_modes = tuple(module.training for module in baseline_model.modules())
 
     baseline = evaluate_multiple_choice_accuracy(
-        _ChoiceModel(correct=True), _ChoiceTokenizer(), torch, dataset
+        baseline_model, _ChoiceTokenizer(), torch, dataset
     )
     damaged = evaluate_multiple_choice_accuracy(
         _ChoiceModel(correct=False), _ChoiceTokenizer(), torch, dataset
     )
 
     assert baseline.score == 1.0
+    assert tuple(module.training for module in baseline_model.modules()) == original_modes
     assert damaged.score == 0.0
     row = baseline.to_record()
     assert row["metric"] == "multiple_choice_accuracy"
