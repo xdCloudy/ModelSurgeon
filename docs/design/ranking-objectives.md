@@ -39,8 +39,10 @@ sequence ranking to prediction-only ranking.
 ## Metrics and cost controls
 
 The result reports NDCG, regret, precision@k, violation rate@k, Brier
-calibration error, and cumulative frontier utility. Bootstrap intervals use a
-seeded list-level resampling procedure. Training-step and inference-cost
+calibration error, and cumulative frontier utility. Confidence intervals use a
+seeded cluster bootstrap over `lineage_group_id`; each lineage group receives
+equal weight regardless of how many lists it contains. This keeps related
+lists from being counted as independent replicates. Training-step and inference-cost
 fields are `null` unless supplied by the caller; resource costs are not
 estimated by this evaluator. These fields document the caller's evidence, but
 the evaluator cannot verify training logs or benchmark methodology. Rankings

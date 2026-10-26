@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Final
 
 RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 3
-RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v3"
+RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v4"
 
 
 class RankingObjectiveError(ValueError):
@@ -384,14 +384,26 @@ def _list_metrics(
 
 
 def _bootstrap_interval(
-    values: Sequence[float], config: RankingObjectiveConfig, seed_offset: int
+    values: Sequence[float],
+    lineage_group_ids: Sequence[str],
+    config: RankingObjectiveConfig,
+    seed_offset: int,
 ) -> tuple[float, float, float]:
     if not values:
         raise RankingObjectiveError("ranking metrics require measured held-out lists")
+    if len(values) != len(lineage_group_ids):
+        raise RankingObjectiveError("ranking metric values must align with lineage groups")
+    values_by_group: dict[str, list[float]] = {}
+    for value, group_id in zip(values, lineage_group_ids, strict=True):
+        values_by_group.setdefault(_text(group_id, "lineage group ID"), []).append(value)
+    groups = tuple(sorted(values_by_group))
+    group_means = tuple(
+        math.fsum(values_by_group[group_id]) / len(values_by_group[group_id]) for group_id in groups
+    )
     rng = random.Random(config.seed + seed_offset)
-    estimates = [math.fsum(values) / len(values)]
+    estimates = [math.fsum(group_means) / len(group_means)]
     for _ in range(config.bootstrap_repetitions):
-        sample = [values[rng.randrange(len(values))] for _ in values]
+        sample = [group_means[rng.randrange(len(group_means))] for _ in groups]
         estimates.append(math.fsum(sample) / len(sample))
     estimates.sort()
     low_index = int((1.0 - config.confidence) / 2.0 * len(estimates))
@@ -417,6 +429,7 @@ def evaluate_ranking_objectives(
     for objective in RankingObjective:
         ranked_lists: list[tuple[str, tuple[str, ...]]] = []
         metric_rows: list[tuple[float, float, float, float, float]] = []
+        metric_group_ids: list[str] = []
         for candidate_list in candidate_lists:
             ranked = _rank_candidates(candidate_list, objective)
             if not ranked:
@@ -425,14 +438,18 @@ def evaluate_ranking_objectives(
                 (candidate_list.list_id, tuple(item.candidate_id for item in ranked))
             )
             metric_rows.append(_list_metrics(ranked, min(resolved.top_k, len(ranked))))
+            metric_group_ids.append(candidate_list.lineage_group_id)
         if not metric_rows:
             raise RankingObjectiveError(
                 f"objective {objective.value} has no measured held-out lists"
             )
-        ndcg_values = [
-            _ndcg(_rank_candidates(candidate_list, objective), resolved.top_k)
+        ndcg_lists = tuple(
+            (candidate_list, _rank_candidates(candidate_list, objective))
             for candidate_list in candidate_lists
-            if _rank_candidates(candidate_list, objective)
+        )
+        ndcg_values = [_ndcg(ranked, resolved.top_k) for _, ranked in ndcg_lists if ranked]
+        ndcg_group_ids = [
+            candidate_list.lineage_group_id for candidate_list, ranked in ndcg_lists if ranked
         ]
         names = (
             "ndcg",
@@ -443,16 +460,18 @@ def evaluate_ranking_objectives(
             "cumulative_frontier_utility",
         )
         columns = (
-            ndcg_values,
-            [row[0] for row in metric_rows],
-            [row[1] for row in metric_rows],
-            [row[2] for row in metric_rows],
-            [row[3] for row in metric_rows],
-            [row[4] for row in metric_rows],
+            (ndcg_values, ndcg_group_ids),
+            ([row[0] for row in metric_rows], metric_group_ids),
+            ([row[1] for row in metric_rows], metric_group_ids),
+            ([row[2] for row in metric_rows], metric_group_ids),
+            ([row[3] for row in metric_rows], metric_group_ids),
+            ([row[4] for row in metric_rows], metric_group_ids),
         )
         metrics: list[RankingMetric] = []
-        for index, (name, values) in enumerate(zip(names, columns, strict=True), start=1):
-            mean, low, high = _bootstrap_interval(values, resolved, index * 100)
+        for index, (name, (values, group_ids)) in enumerate(
+            zip(names, columns, strict=True), start=1
+        ):
+            mean, low, high = _bootstrap_interval(values, group_ids, resolved, index * 100)
             metrics.append(RankingMetric(name, mean, low, high))
         results.append(
             RankingObjectiveResult(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from modelsurgeon.surgeon import (
@@ -173,6 +175,26 @@ def test_objective_specific_predictions_drive_each_ranking() -> None:
         ranking = study.result_for(objective).rankings[0]
         assert ranking[0] == "list-objective-scores"
         assert ranking[1][0] == candidate_id
+
+
+def test_bootstrap_resamples_lineage_groups_as_independent_units() -> None:
+    first = _list(1)
+    second = replace(
+        _list(2),
+        lineage_group_id=first.lineage_group_id,
+        candidates=tuple(
+            replace(candidate, utility=0.2) if candidate.candidate_id == "risky" else candidate
+            for candidate in _list(2).candidates
+        ),
+    )
+    study = evaluate_ranking_objectives(
+        (first, second), RankingObjectiveConfig(top_k=1, bootstrap_repetitions=50)
+    )
+    regret = study.result_for(RankingObjective.POINTWISE).metric("regret")
+
+    assert regret.value == pytest.approx(0.4)
+    assert regret.interval_low == pytest.approx(regret.value)
+    assert regret.interval_high == pytest.approx(regret.value)
 
 
 def test_invalid_objective_inputs_fail_closed() -> None:

@@ -8,7 +8,9 @@
     study protocol; legacy scalar predictions now apply uniformly and cannot
     make any objective appear superior through outcome leakage. Removed
     assumed training-step and inference-cost defaults; absent resource
-    measurements remain `null` in the study record.
+    measurements remain `null` in the study record. Confidence intervals now
+    resample lineage groups so correlated candidate lists do not count as
+    independent samples.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
