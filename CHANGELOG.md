@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Keep Hugging Face per-layer config metadata aligned when physically removing
+    transformer blocks, so Qwen configs with `layer_types` remain serializable.
+    A pinned Qwen2.5-0.5B WikiText-2 comparison also records a negative result:
+    ShortGPT selection underperformed weight-magnitude and all three sampled
+    random removals on the held-out perplexity slice.
+
   - Meta-Surgeon guided Hugging Face MLP search now ranks a bounded candidate
     pool before spending the configured physical-evaluation budget. The pool
     multiplier defaults to four and is capped at 32; deterministic canonical

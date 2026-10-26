@@ -1,0 +1,271 @@
+{
+  "calibration": {
+    "bytes": 11012046,
+    "name": "train.txt",
+    "sha256": "6929d7c17de108ee68800c120da694fbced4a0bf6affcb8c6fb9e3a9de4ea0f6",
+    "split": "train",
+    "tokens": 2048
+  },
+  "candidates": {
+    "random": [
+      {
+        "candidate_parameters": 479120384,
+        "mean_loss": 3.540764230442798,
+        "parameter_delta": -14912384,
+        "perplexity": 34.493269927507555,
+        "perplexity_delta": 5.511774795658834,
+        "removed_layer": 14,
+        "seed": 11,
+        "token_count": 2032,
+        "wall_seconds": 57.54332559998147
+      },
+      {
+        "candidate_parameters": 479120384,
+        "mean_loss": 3.4430294036865234,
+        "parameter_delta": -14912384,
+        "perplexity": 31.281579304802083,
+        "perplexity_delta": 2.300084172953362,
+        "removed_layer": 9,
+        "seed": 23,
+        "token_count": 2032,
+        "wall_seconds": 51.313926900038496
+      },
+      {
+        "candidate_parameters": 479120384,
+        "mean_loss": 3.446768407746563,
+        "parameter_delta": -14912384,
+        "perplexity": 31.39876019021316,
+        "perplexity_delta": 2.417265058364439,
+        "removed_layer": 11,
+        "seed": 47,
+        "token_count": 2032,
+        "wall_seconds": 49.23186549998354
+      }
+    ],
+    "shortgpt_block_influence": {
+      "artifact_reload": {
+        "disk_bytes": 969698404,
+        "finite_logits": true,
+        "parameter_count": 479120384,
+        "perplexity": 34.998522328094815,
+        "perplexity_delta": 6.017027196246094
+      },
+      "candidate_parameters": 479120384,
+      "mean_loss": 3.5553058414008674,
+      "parameter_delta": -14912384,
+      "perplexity": 34.998522328094815,
+      "perplexity_delta": 6.017027196246094,
+      "removed_layer": 18,
+      "token_count": 2032,
+      "wall_seconds": 48.96782079996774
+    },
+    "weight_magnitude": {
+      "candidate_parameters": 479120384,
+      "mean_loss": 3.446768407746563,
+      "parameter_delta": -14912384,
+      "perplexity": 31.39876019021316,
+      "perplexity_delta": 2.417265058364439,
+      "removed_layer": 11,
+      "token_count": 2032,
+      "wall_seconds": 49.6003218999831
+    }
+  },
+  "environment": {
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "device": "cpu",
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.7",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4,
+    "transformers": "5.10.1"
+  },
+  "evaluation": {
+    "baseline": {
+      "mean_loss": 3.366657527412955,
+      "perplexity": 28.98149513184872,
+      "token_count": 2032,
+      "wall_seconds": 48.45948750001844
+    },
+    "bytes": 1299261,
+    "name": "test.txt",
+    "sha256": "a6f23df4148d59ae891819f5b155171aed6295bbd97a77216418155696f83c9a",
+    "split": "test",
+    "tokens": 2032
+  },
+  "limitations": [
+    "One pinned model and one removed layer; cross-model generalization is untested.",
+    "3 predeclared random seeds give descriptive, not powered, uncertainty estimates.",
+    "CPU latency is environment-sensitive and is not evidence of acceleration.",
+    "Scores use WikiText-2 train tokens; quality uses its held-out test split."
+  ],
+  "model": {
+    "identifier": "Qwen/Qwen2.5-0.5B",
+    "parameters": 494032768,
+    "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "source_disk_bytes": 999586188,
+    "weight_file_sha256": "88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342"
+  },
+  "record_type": "shortgpt_depth_pruning_physical_comparison",
+  "schema_version": 1,
+  "selection": {
+    "metric": "mean(1 - cosine(block_input, block_output))",
+    "random_seeds": [
+      11,
+      23,
+      47
+    ],
+    "random_selected_layers": [
+      14,
+      9,
+      11
+    ],
+    "shortgpt_layer_order": [
+      {
+        "layer_index": 18,
+        "score": 0.03697287663817406,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 13,
+        "score": 0.0451204776763916,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 10,
+        "score": 0.04800241068005562,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 12,
+        "score": 0.049481768161058426,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 11,
+        "score": 0.05110177770256996,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 9,
+        "score": 0.05324990302324295,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 21,
+        "score": 0.054532743990421295,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 19,
+        "score": 0.0563465915620327,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 17,
+        "score": 0.05801444500684738,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 22,
+        "score": 0.059398215264081955,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 14,
+        "score": 0.06384482979774475,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 20,
+        "score": 0.06385182589292526,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 15,
+        "score": 0.06938605010509491,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 16,
+        "score": 0.07505807280540466,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 8,
+        "score": 0.08319307863712311,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 7,
+        "score": 0.0885731503367424,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 6,
+        "score": 0.10079651325941086,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 5,
+        "score": 0.11166880279779434,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 4,
+        "score": 0.13079982995986938,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 2,
+        "score": 0.13236664235591888,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 3,
+        "score": 0.13250383734703064,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 1,
+        "score": 0.1984098255634308,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 23,
+        "score": 0.4008595943450928,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 0,
+        "score": 0.9594411253929138,
+        "tokens": 2048
+      }
+    ],
+    "weight_magnitude_layer_order": [
+      11,
+      13,
+      9,
+      10,
+      12,
+      14,
+      15,
+      3,
+      16,
+      7,
+      4,
+      5,
+      6,
+      2,
+      8,
+      1,
+      17,
+      23,
+      19,
+      18,
+      20,
+      21,
+      22,
+      0
+    ]
+  }
+}
