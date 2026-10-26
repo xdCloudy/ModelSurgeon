@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-  - Normalize each numeric feature over the candidate pool before computing
-    active-learning diversity distances. This prevents unit-scale differences
-    from dominating farthest-first selection; the report schema now identifies
-    the normalization method.
+  - Normalize each numeric feature across the candidate pool and selected centers
+    before computing active-learning diversity distances. This prevents unit-scale
+    differences from dominating farthest-first selection and lets acquisition measure
+    coverage from candidates already selected in earlier policy phases.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

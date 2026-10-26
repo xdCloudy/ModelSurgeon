@@ -117,6 +117,28 @@ def test_large_finite_weights_do_not_overflow_distance() -> None:
     )
 
 
+def test_existing_selected_candidates_are_fixed_farthest_first_centers() -> None:
+    center = DiversityCandidate("cand_center", (0.0,), (), frozenset({"layer:0"}))
+    candidates = (
+        DiversityCandidate("cand_near", (0.1,), (), frozenset({"layer:0"})),
+        DiversityCandidate("cand_mid", (5.0,), (), frozenset({"layer:1"})),
+        DiversityCandidate("cand_far", (10.0,), (), frozenset({"layer:2"})),
+    )
+
+    report = select_diverse_candidates(
+        candidates,
+        2,
+        config=DiversitySelectionConfig(seed=19),
+        initial_centers=(center,),
+    )
+
+    assert report.selections[0].candidate_id == "cand_far"
+    assert report.selections[0].minimum_distance is not None
+    assert report.selections[1].candidate_id == "cand_mid"
+    assert report.initial_center_count == 1
+    assert report.to_record()["initial_center_count"] == 1
+
+
 def test_zero_selection_is_deterministic() -> None:
     report = select_diverse_candidates(
         (_candidate("a", 0.0, "a", "layer:0"),),
