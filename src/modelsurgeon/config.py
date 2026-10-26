@@ -276,7 +276,42 @@ class RepairConfig(StrictConfigModel):
 class QuantizationConfig(StrictConfigModel):
     """Optional first-party quantization selected by the optimize runtime."""
 
-    method: Literal["none", "dynamic_int8"] = "none"
+    method: Literal["none", "dynamic_int8", "gguf_byte_budget"] = "none"
+    target_file_bytes: int | None = Field(default=None, gt=0)
+    target_type: Literal["F16", "F32", "Q2_K", "Q3_K", "Q4_K", "Q5_0", "Q5_K", "Q6_K", "Q8_0"] = (
+        "Q3_K"
+    )
+    candidate_types: tuple[
+        Literal["F16", "F32", "Q2_K", "Q3_K", "Q4_K", "Q5_0", "Q5_K", "Q6_K", "Q8_0"],
+        ...,
+    ] | None = None
+    max_working_mib: int = Field(default=16, ge=1, le=512)
+    loss_metric: Literal["weight_mse", "activation_weighted_mse"] = "weight_mse"
+    activation_moments_path: Path | None = None
+
+    @model_validator(mode="after")
+    def validate_gguf_byte_budget(self) -> QuantizationConfig:
+        if self.method == "gguf_byte_budget" and self.target_file_bytes is None:
+            raise ValueError("quantization.target_file_bytes is required for gguf_byte_budget")
+        if self.method != "gguf_byte_budget" and self.target_file_bytes is not None:
+            raise ValueError("quantization.target_file_bytes requires gguf_byte_budget")
+        if self.candidate_types is not None:
+            if not self.candidate_types or len(set(self.candidate_types)) != len(
+                self.candidate_types
+            ):
+                raise ValueError("quantization.candidate_types must be non-empty and unique")
+            if self.target_type != "Q3_K":
+                raise ValueError(
+                    "candidate_types cannot be combined with a non-default target_type"
+                )
+        if self.loss_metric == "activation_weighted_mse":
+            if self.method != "gguf_byte_budget":
+                raise ValueError("activation-weighted loss requires gguf_byte_budget")
+            if self.activation_moments_path is None:
+                raise ValueError("activation_moments_path is required for activation-weighted loss")
+        elif self.activation_moments_path is not None:
+            raise ValueError("activation_moments_path requires activation-weighted loss")
+        return self
 
 
 class RuntimeConfig(StrictConfigModel):

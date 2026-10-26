@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen2-activation-weighted-transfer-full-wikitext2-test",
+  "model": {
+    "architecture": "qwen2",
+    "gguf_repository": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+    "gguf_repository_revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+    "transformers_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "transformers_model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "source_bytes": 491400032,
+    "source_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "license": "Apache-2.0"
+  },
+  "evaluation": {
+    "dataset": "Salesforce/wikitext:wikitext-2-raw-v1",
+    "split": "test",
+    "text_sha256": "a1ac9f35d8d3014f89b8d5cb4cfd5e55516c0126b3a8de75447b7d3084fc5011",
+    "transformers_tokenizer_tokens": 260573,
+    "chunks_requested": -1,
+    "chunk_semantics": "maximum number of 512-token contexts; -1 processes all available contexts",
+    "chunks_processed": 508,
+    "context_size": 512,
+    "tokens_scored": 260096,
+    "tokens_not_in_complete_context": 477,
+    "runtime": "llama.cpp llama-perplexity",
+    "runtime_version": "0.7.0-dev (build 11804, commit c7fc50941)",
+    "device": "CPU",
+    "threads": 8,
+    "batch_size": 512,
+    "microbatch_size": 512,
+    "gpu_layers": 0,
+    "warmup": false,
+    "ppl_output_type": 1,
+    "command_template": [
+      "llama-perplexity.exe",
+      "-m",
+      "<artifact.gguf>",
+      "-f",
+      "wiki.test.raw.txt",
+      "-c",
+      "512",
+      "-b",
+      "512",
+      "-ub",
+      "512",
+      "-t",
+      "8",
+      "-ngl",
+      "0",
+      "--chunks",
+      "-1",
+      "--no-warmup",
+      "--ppl-output-type",
+      "1",
+      "--log-colors",
+      "off"
+    ],
+    "hardware": {
+      "cpu": "Intel Core i5-14600K",
+      "gpu_present_but_unused": "NVIDIA GeForce RTX 3060 12 GB",
+      "ram_bytes": 68719476736
+    }
+  },
+  "uncertainty": {
+    "reported_as": "mean PPL +/- propagated uncertainty",
+    "method": "llama.cpp assumes a Gaussian distribution of correct logits and applies error propagation",
+    "source": "https://github.com/ggml-org/llama.cpp/blob/c7fc50941/tools/perplexity/README.md",
+    "is_formal_confidence_interval": false,
+    "independent_seed_repeats": 0
+  },
+  "results": [
+    {
+      "artifact": "source-q4_k_m",
+      "file_bytes": 491400032,
+      "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "perplexity": 16.1229,
+      "reported_uncertainty": 0.13134,
+      "delta_from_source": 0.0,
+      "elapsed_seconds": 53.072,
+      "return_code": 0,
+      "progress_rows": 508,
+      "local_log_sha256": "267e34a165af936d766233653fa0b0dfd7ed5cdf442bdf94d43cbffbe9b6ede5"
+    },
+    {
+      "artifact": "weight-mse-mixed-q2_k-q3_k-q4_k",
+      "file_bytes": 466613120,
+      "sha256": "8fc607dc6d1e7ca18f336b03b43acb08af213bb91418670e1a38c46a58e9b462",
+      "size_reduction_percent": 5.0441,
+      "perplexity": 17.4498,
+      "reported_uncertainty": 0.14221,
+      "delta_from_source": 1.3269,
+      "elapsed_seconds": 54.003,
+      "return_code": 0,
+      "progress_rows": 508,
+      "local_log_sha256": "3d3b87f2b41a2007385d9f06ecbd4b1dfe695e5798e1a7934a4794bb66b63edf"
+    },
+    {
+      "artifact": "weight-mse-q3_k-only",
+      "file_bytes": 466340736,
+      "sha256": "7139c945462516f65ba7d95c0ff63537921ef4c16665011b2b2578c2bd6821a4",
+      "size_reduction_percent": 5.0996,
+      "perplexity": 17.3874,
+      "reported_uncertainty": 0.14194,
+      "delta_from_source": 1.2645,
+      "elapsed_seconds": 53.339,
+      "return_code": 0,
+      "progress_rows": 508,
+      "local_log_sha256": "44efe9d2a48d81d9bd41a67b0ffdeba9c05c8ba61f2f01cf864130d7d92264b2"
+    },
+    {
+      "artifact": "activation-weighted-mixed-q2_k-q3_k-q4_k",
+      "file_bytes": 466749312,
+      "sha256": "e05d8aa78e1d480fa65351eebceefda44d34d52a91add59d933c4e57ee6381b1",
+      "size_reduction_percent": 5.0154,
+      "perplexity": 17.7475,
+      "reported_uncertainty": 0.14537,
+      "delta_from_source": 1.6246,
+      "elapsed_seconds": 53.555,
+      "return_code": 0,
+      "progress_rows": 508,
+      "local_log_sha256": "31ac5989142d566e9f52557d59e6fb347ebdadcc47240299984f7d6af80fdb42"
+    }
+  ],
+  "interpretation": {
+    "all_candidates_have_higher_mean_ppl_than_source": true,
+    "reported_uncertainty_bands_overlap_source": false,
+    "activation_candidate_has_highest_mean_ppl": true,
+    "task_accuracy_measured": false,
+    "throughput_measured": false,
+    "quality_gate_passed": false,
+    "claim": "On this full WikiText-2 test evaluation, all three smaller artifacts have higher measured mean PPL than the source. The activation-weighted artifact has the highest mean PPL. The reported +/- values are not confidence intervals, this is one model/corpus/runtime cell, and there were no independent-seed repeats; do not make a statistical-significance or generalization claim."
+  }
+}

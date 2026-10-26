@@ -490,10 +490,25 @@ def build_optimize_plan(
                 "native GGUF optimization does not support "
                 f"repair.method={settings.repair.method!r}"
             )
-        if settings.quantization.method != "none":
+        if settings.quantization.method not in {"none", "gguf_byte_budget"}:
             unsupported.append(
                 "native GGUF optimization does not support an additional quantization stage"
             )
+        if (
+            settings.quantization.method == "gguf_byte_budget"
+            and constraints.max_disk_bytes is not None
+            and settings.quantization.target_file_bytes is not None
+            and settings.quantization.target_file_bytes > constraints.max_disk_bytes
+        ):
+            failures.append("quantization.target_file_bytes exceeds constraints.max_disk_bytes")
+        if (
+            settings.quantization.method == "gguf_byte_budget"
+            and constraints.max_ram_bytes is not None
+            and settings.quantization.max_working_mib * 1024 * 1024 > constraints.max_ram_bytes
+        ):
+            failures.append("quantization.max_working_mib exceeds constraints.max_ram_bytes")
+    elif settings.quantization.method == "gguf_byte_budget":
+        unsupported.append("quantization.method=gguf_byte_budget requires a GGUF model")
     if constraints.max_ram_bytes is not None and constraints.max_ram_bytes < 4 * 1024**3:
         failures.append(
             "max_ram_bytes is below the 4 GiB minimum planning envelope; choose a larger limit"
@@ -516,6 +531,12 @@ def build_optimize_plan(
         limitations.append("remote model code is enabled and requires explicit source review")
 
     budget = _preset_budget(resolved_preset, quality, hardware)
+    if settings.quantization.method == "gguf_byte_budget":
+        target_bytes = settings.quantization.target_file_bytes
+        if target_bytes is not None and target_bytes > budget.max_artifact_bytes:
+            failures.append("quantization.target_file_bytes exceeds the preset artifact budget")
+        if target_bytes is not None and target_bytes > budget.max_disk_bytes:
+            failures.append("quantization.target_file_bytes exceeds the preset disk budget")
     cost = _estimate_cost(
         preset=resolved_preset,
         quality=quality,
