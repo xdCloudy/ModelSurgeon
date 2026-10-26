@@ -77,3 +77,46 @@ def test_subprocess_runner_has_timeout_and_no_shell() -> None:
         [sys.executable, "-c", "import time; time.sleep(1)"],
     )
     assert result.outcome is HostileOutcome.TIMEOUT
+
+
+def test_subprocess_runner_terminates_after_output_limit() -> None:
+    case = make_hostile_fuzz_corpus(
+        limits=HostileFuzzLimits(
+            timeout_seconds=2.0,
+            max_output_bytes=32,
+            max_disk_bytes=1024,
+        )
+    ).cases[-1]
+
+    result = run_subprocess_case(
+        case,
+        [sys.executable, "-c", "import os; os.write(1, b'x' * 1000000)"],
+    )
+
+    assert result.outcome is HostileOutcome.RESOURCE_LIMIT
+    assert result.output_bytes == 33
+    assert result.detail == "output exceeded byte budget; child process terminated"
+
+
+def test_subprocess_runner_terminates_after_temporary_disk_limit() -> None:
+    case = make_hostile_fuzz_corpus(
+        limits=HostileFuzzLimits(
+            timeout_seconds=3.0,
+            max_output_bytes=1024,
+            max_disk_bytes=128,
+        )
+    ).cases[-1]
+
+    result = run_subprocess_case(
+        case,
+        [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; import time; "
+            "Path('payload.bin').write_bytes(b'x' * 4096); time.sleep(5)",
+        ],
+    )
+
+    assert result.outcome is HostileOutcome.RESOURCE_LIMIT
+    assert "temporary-directory bytes exceeded budget" in result.detail
+    assert "observed 4096 bytes; limit 128 bytes" in result.detail
