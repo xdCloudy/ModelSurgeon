@@ -19,6 +19,7 @@ class _TinyCausalModel(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.table = torch.nn.Parameter(torch.zeros(3, 3))
+        self.dropout = torch.nn.Dropout(p=0.0)
 
     def forward(
         self,
@@ -27,7 +28,7 @@ class _TinyCausalModel(torch.nn.Module):
         labels: object | None = None,
     ) -> object:
         del attention_mask
-        logits = self.table[input_ids]
+        logits = self.dropout(self.table[input_ids])
         loss = None
         if labels is not None:
             loss = torch.nn.functional.cross_entropy(
@@ -45,6 +46,13 @@ EXAMPLES = (
     },
 )
 TEACHER_LOGITS = (torch.tensor([[[0.0, 4.0, -1.0], [-1.0, 0.0, 4.0]]]),)
+VALIDATION_EXAMPLES = (
+    {
+        "input_ids": torch.tensor([[2, 0]]),
+        "attention_mask": torch.tensor([[1, 1]]),
+        "labels": torch.tensor([[2, 0]]),
+    },
+)
 
 
 def _config(**overrides: object) -> DistillationRepairConfig:
@@ -78,6 +86,9 @@ def _run(
 
 def test_precomputed_logits_are_immutable_and_selected_repair_is_recorded() -> None:
     candidate = _TinyCausalModel()
+    candidate.train()
+    candidate.dropout.eval()
+    original_modes = tuple(module.training for module in candidate.modules())
     immutable_before = TEACHER_LOGITS[0].clone()
     result = _run(
         candidate,
@@ -91,9 +102,31 @@ def test_precomputed_logits_are_immutable_and_selected_repair_is_recorded() -> N
     assert result.config.temperature == 2.0
     assert result.config.distillation_weight == 0.75
     assert result.config.supervised_weight == 0.25
+    assert tuple(module.training for module in candidate.modules()) == original_modes
     assert result.resource_use.token_rows == 2
     assert result.resource_use.teacher_logit_bytes == TEACHER_LOGITS[0].numel() * 4
     assert torch.equal(TEACHER_LOGITS[0], immutable_before)
+
+
+def test_checkpoint_selection_uses_disjoint_validation_examples() -> None:
+    candidate = _TinyCausalModel()
+    result = _run(
+        candidate,
+        _config(max_steps=1),
+        validation_examples=VALIDATION_EXAMPLES,
+        baseline_validation_logits=(torch.zeros(1, 2, 3),),
+    )
+
+    assert result.evaluation_split == "validation"
+    assert result.baseline_loss == pytest.approx(0.0)
+    assert result.resource_use.token_rows == 4
+    assert result.resource_use.teacher_logit_bytes == 2 * TEACHER_LOGITS[0].numel() * 4
+    assert result.to_record()["evaluation_split"] == "validation"
+
+
+def test_distillation_rejects_overlapping_training_and_validation_examples() -> None:
+    with pytest.raises(DistillationRepairError, match="must be disjoint"):
+        _run(_TinyCausalModel(), _config(), validation_examples=EXAMPLES)
 
 
 def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
@@ -102,6 +135,8 @@ def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
     with torch.no_grad():
         teacher.table[:2].copy_(TEACHER_LOGITS[0][0])
     teacher.train()
+    teacher.dropout.eval()
+    original_modes = tuple(module.training for module in teacher.modules())
     before = teacher.table.detach().clone()
     result = _run(
         candidate,
@@ -111,7 +146,7 @@ def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
     )
 
     assert result.teacher_source is TeacherLogitSource.TEACHER_INFERENCE
-    assert teacher.training is True
+    assert tuple(module.training for module in teacher.modules()) == original_modes
     assert teacher.table.requires_grad is True
     assert torch.equal(teacher.table, before)
 

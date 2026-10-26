@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -315,12 +316,17 @@ def test_first_party_runtime_rehydrates_published_sequence_on_resume(tmp_path: P
     assert resumed.accepted_artifact_digest == surgery.artifact_digest
 
 
-def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: Path) -> None:
+@pytest.mark.parametrize("external_validation", (False, True))
+def test_first_party_runtime_executes_real_lora_repair_when_requested(
+    external_validation: bool, tmp_path: Path
+) -> None:
     model_path = tmp_path / "model"
     model_path.mkdir()
     _write_tiny_llama(model_path)
     calibration = tmp_path / "calibration.txt"
     calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    validation = tmp_path / "repair-validation.txt"
+    validation.write_text("f g h i j k l m n o f g h i j", encoding="utf-8")
     settings = Settings(
         artifact_dir=tmp_path / "artifacts",
         model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
@@ -329,8 +335,10 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
         ),
         repair=RepairConfig(
             method="lora",
+            validation_dataset=validation if external_validation else None,
             target_modules=("model.layers.0.mlp.down_proj",),
             max_steps=1,
+            max_trainable_parameters=2_000,
         ),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
     )
@@ -353,6 +361,24 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
     assert detail["method"] == "lora"
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
+    assert 0 <= detail["repair"]["selected_step"] <= 1
+    assert detail["repair"]["baseline_validation_loss"] is not None
+    assert detail["repair"]["selected_validation_loss"] is not None
+    assert detail["repair"]["validation_improved"] is (
+        detail["repair"]["selected_step"] > 0
+    )
+    assert len(detail["repair"]["training_examples_sha256"]) == 64
+    assert len(detail["repair"]["validation_examples_sha256"]) == 64
+    assert detail["repair"]["evaluation_source"] == (
+        "external_text" if external_validation else "calibration_holdout"
+    )
+    assert (
+        len(detail["repair"]["validation_dataset_sha256"]) == 64
+        if external_validation
+        else detail["repair"]["validation_dataset_sha256"] is None
+    )
+    assert detail["repair"]["validation_losses"]
+    assert detail["repair"]["max_trainable_parameters"] == 2_000
     assert detail["repair"]["resource_use"]["wall_seconds"] >= 0
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
@@ -361,14 +387,45 @@ def test_first_party_runtime_executes_real_lora_repair_when_requested(tmp_path: 
     assert repair.lineage["parent"]["manifest"]
 
 
+@pytest.mark.parametrize("external_validation", (False, True))
 def test_first_party_runtime_executes_real_distillation_repair_when_requested(
-    tmp_path: Path,
+    external_validation: bool,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from modelsurgeon import first_party_optimize_runtime as runtime_module
+
+    original_distillation = runtime_module.run_distillation_repair
+    teacher_observation: dict[str, bool] = {}
+
+    def observe_teacher(
+        candidate_model: Any,
+        examples: Any,
+        config: Any,
+        **kwargs: Any,
+    ) -> Any:
+        teacher_model = kwargs["teacher_model"]
+        candidate_parameters = dict(candidate_model.named_parameters())
+        teacher_parameters = dict(teacher_model.named_parameters())
+        target = config.parameter_names[0]
+        teacher_observation["differs_from_damaged_candidate"] = not torch.equal(
+            candidate_parameters[target], teacher_parameters[target]
+        )
+        validation_examples = kwargs["validation_examples"]
+        teacher_observation["has_disjoint_validation"] = all(
+            not torch.equal(train["input_ids"], validation["input_ids"])
+            for train in examples
+            for validation in validation_examples
+        )
+        return original_distillation(candidate_model, examples, config, **kwargs)
+
+    monkeypatch.setattr(runtime_module, "run_distillation_repair", observe_teacher)
     model_path = tmp_path / "model"
     model_path.mkdir()
     _write_tiny_llama(model_path)
     calibration = tmp_path / "calibration.txt"
     calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    validation = tmp_path / "repair-validation.txt"
+    validation.write_text("f g h i j k l m n o f g h i j", encoding="utf-8")
     settings = Settings(
         artifact_dir=tmp_path / "artifacts",
         model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
@@ -377,8 +434,10 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
         ),
         repair=RepairConfig(
             method="distillation",
+            validation_dataset=validation if external_validation else None,
             target_modules=("model.layers.0.mlp.down_proj",),
             max_steps=1,
+            max_trainable_parameters=2_000,
         ),
         constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
     )
@@ -398,9 +457,23 @@ def test_first_party_runtime_executes_real_distillation_repair_when_requested(
     assert repair is not None
     detail = json.loads(repair.detail)
     assert detail["method"] == "distillation"
+    assert detail["repair"]["evaluation_split"] == "validation"
+    assert detail["repair"]["config"]["max_trainable_parameters"] == 2_000
+    assert detail["repair"]["evaluation_source"] == (
+        "external_text" if external_validation else "calibration_holdout"
+    )
+    assert len(detail["repair"]["training_examples_sha256"]) == 64
+    assert len(detail["repair"]["evaluation_examples_sha256"]) == 64
+    assert (
+        len(detail["repair"]["validation_dataset_sha256"]) == 64
+        if external_validation
+        else detail["repair"]["validation_dataset_sha256"] is None
+    )
+    assert teacher_observation["has_disjoint_validation"]
     assert detail["status"] in {"accepted", "rejected"}
     assert detail["repair"]["completed_steps"] == 1
     assert detail["repair"]["teacher_source"] == "teacher_inference"
+    assert teacher_observation["differs_from_damaged_candidate"] is True
     assert detail["parent_measurement"]["perplexity"] > 0
     assert detail["repaired_measurement"]["perplexity"] > 0
 
@@ -465,6 +538,70 @@ def test_first_party_runtime_rejects_distillation_without_an_accepted_update(
     assert detail["status"] == "rejected"
     assert detail["rejection_reason"] == "repair algorithm did not produce an accepted update"
     assert repair.artifact_digest == detail["artifact_digest"]
+    assert repair.lineage["child"] is None
+
+
+def test_first_party_runtime_rejects_lora_without_validation_improvement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from modelsurgeon import first_party_optimize_runtime as runtime_module
+
+    monkeypatch.setattr(
+        runtime_module,
+        "run_bounded_lora_repair",
+        lambda *args, **kwargs: SimpleNamespace(
+            validation_improved=False,
+            selected_step=0,
+            to_record=lambda: {
+                "validation_improved": False,
+                "selected_step": 0,
+                "completed_steps": 1,
+            },
+        ),
+    )
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(
+            path=str(model_path), revision="test-revision", dtype=ComputeDType.FP32
+        ),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        repair=RepairConfig(
+            method="lora",
+            target_modules=("model.layers.0.mlp.down_proj",),
+            max_steps=1,
+            max_trainable_parameters=2_000,
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=1, repair_steps=1),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    surgery = run.stages[5].result
+    repair = run.stages[6].result
+    assert surgery is not None and repair is not None
+    detail = json.loads(repair.detail)
+    assert detail["repair"]["validation_improved"] is False
+    assert detail["status"] == "rejected"
+    assert detail["rejection_reason"] == "repair algorithm did not produce an accepted update"
+    assert repair.artifact_digest == surgery.artifact_digest
     assert repair.lineage["child"] is None
 
 

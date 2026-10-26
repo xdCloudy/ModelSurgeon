@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
-from typing import Any
+from typing import Any, cast
 
 from modelsurgeon.instrumentation.memory_telemetry import (
     MemoryTelemetryConfig,
@@ -17,8 +17,12 @@ from modelsurgeon.instrumentation.memory_telemetry import (
     TorchCudaMemoryProvider,
     collect_memory_telemetry,
 )
+from modelsurgeon.surgery.module_training import (
+    restore_module_training_modes,
+    snapshot_module_training_modes,
+)
 
-DISTILLATION_REPAIR_SCHEMA_VERSION = 1
+DISTILLATION_REPAIR_SCHEMA_VERSION = 3
 
 
 class DistillationRepairError(RuntimeError):
@@ -200,6 +204,11 @@ class DistillationRepairResult:
     output_checkpoint_id: str | None
     teacher_source: TeacherLogitSource
     teacher_logits_sha256: str
+    evaluation_split: str
+    evaluation_source: str
+    training_examples_sha256: str
+    evaluation_examples_sha256: str
+    validation_dataset_sha256: str | None
     tokenizer_signature: TokenizerSignature
     trainable_parameters: int
     completed_steps: int
@@ -219,6 +228,11 @@ class DistillationRepairResult:
             "output_checkpoint_id": self.output_checkpoint_id,
             "teacher_source": self.teacher_source.value,
             "teacher_logits_sha256": self.teacher_logits_sha256,
+            "evaluation_split": self.evaluation_split,
+            "evaluation_source": self.evaluation_source,
+            "training_examples_sha256": self.training_examples_sha256,
+            "evaluation_examples_sha256": self.evaluation_examples_sha256,
+            "validation_dataset_sha256": self.validation_dataset_sha256,
             "tokenizer_signature": self.tokenizer_signature.to_record(),
             "trainable_parameters": self.trainable_parameters,
             "completed_steps": self.completed_steps,
@@ -256,6 +270,32 @@ def _logit_digest(logits: tuple[Any, ...]) -> str:
     return digest.hexdigest()
 
 
+def _example_digest(examples: tuple[dict[str, Any], ...]) -> str:
+    digest = hashlib.sha256()
+    for example in examples:
+        digest.update(b"example\0")
+        for name, value in sorted(example.items()):
+            digest.update(name.encode())
+            digest.update(b"\0")
+            if hasattr(value, "detach"):
+                tensor = value.detach().cpu().contiguous()
+                digest.update(str(tuple(tensor.shape)).encode())
+                digest.update(str(tensor.dtype).encode())
+                digest.update(tensor.numpy().tobytes())
+            else:
+                digest.update(
+                    json.dumps(
+                        value,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                )
+            digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _parameter_digest(parameters: tuple[tuple[str, Any], ...]) -> str:
     digest = hashlib.sha256()
     for name, parameter in parameters:
@@ -274,12 +314,13 @@ def _capture_teacher_logits(
     *,
     teacher_model: Any | None,
     baseline_logits: tuple[Any, ...] | None,
+    max_bytes: int | None = None,
 ) -> tuple[TeacherLogitSource, tuple[Any, ...], int]:
     if (teacher_model is None) == (baseline_logits is None):
         raise DistillationRepairError("provide exactly one teacher model or baseline-logit set")
     captured: list[Any] = []
     if teacher_model is not None:
-        original_training = bool(teacher_model.training)
+        original_training_modes = snapshot_module_training_modes(teacher_model)
         teacher_device = next(teacher_model.parameters()).device
         try:
             teacher_model.eval()
@@ -291,7 +332,7 @@ def _capture_teacher_logits(
                         raise DistillationRepairError("teacher inference did not return logits")
                     captured.append(logits.detach().float().cpu().contiguous().clone())
         finally:
-            teacher_model.train(original_training)
+            restore_module_training_modes(teacher_model, original_training_modes)
         source = TeacherLogitSource.TEACHER_INFERENCE
     else:
         if baseline_logits is None or len(baseline_logits) != len(examples):
@@ -313,7 +354,8 @@ def _capture_teacher_logits(
         if not bool(torch.isfinite(logits).all().item()):
             raise DistillationRepairError("teacher logits must be finite")
         total_bytes += int(logits.numel() * logits.element_size())
-        if total_bytes > config.max_teacher_logit_bytes:
+        byte_limit = config.max_teacher_logit_bytes if max_bytes is None else max_bytes
+        if total_bytes > byte_limit:
             raise DistillationRepairError("teacher-logit byte budget exceeded")
     return source, tuple(captured), total_bytes
 
@@ -369,7 +411,7 @@ def _evaluate(
     config: DistillationRepairConfig,
     device: Any,
 ) -> float:
-    original_training = bool(model.training)
+    original_training_modes = snapshot_module_training_modes(model)
     values: list[float] = []
     try:
         model.eval()
@@ -378,7 +420,7 @@ def _evaluate(
                 value = _objective(torch, model, example, logits, config, device)
                 values.append(float(value.detach().item()))
     finally:
-        model.train(original_training)
+        restore_module_training_modes(model, original_training_modes)
     return math.fsum(values) / len(values)
 
 
@@ -393,8 +435,12 @@ def run_distillation_repair(
     candidate_parent_checkpoint_id: str,
     teacher_model: Any | None = None,
     baseline_logits: tuple[Any, ...] | None = None,
+    validation_examples: tuple[dict[str, Any], ...] | None = None,
+    baseline_validation_logits: tuple[Any, ...] | None = None,
+    evaluation_source: str | None = None,
+    validation_dataset_sha256: str | None = None,
 ) -> DistillationRepairResult:
-    """Repair selected candidate parameters toward immutable teacher logits."""
+    """Repair selected candidate parameters and select weights on held-out teacher logits."""
 
     if teacher_tokenizer != candidate_tokenizer:
         raise DistillationRepairError("teacher and candidate tokenizers are incompatible")
@@ -406,6 +452,36 @@ def run_distillation_repair(
         raise DistillationRepairError("candidate parent must not alias the immutable source")
     if not examples:
         raise DistillationRepairError("distillation requires a non-empty example set")
+    if validation_examples is not None and not validation_examples:
+        raise DistillationRepairError("validation examples must be non-empty when supplied")
+    if validation_examples is None and baseline_validation_logits is not None:
+        raise DistillationRepairError("validation logits require validation examples")
+    if validation_dataset_sha256 is not None:
+        if validation_examples is None or len(validation_dataset_sha256) != 64:
+            raise DistillationRepairError("validation dataset digest requires validation examples")
+        try:
+            int(validation_dataset_sha256, 16)
+        except ValueError as error:
+            raise DistillationRepairError("validation dataset digest must be SHA-256") from error
+        validation_dataset_sha256 = validation_dataset_sha256.lower()
+    source = (
+        ("training_fallback" if validation_examples is None else "provided_validation")
+        if evaluation_source is None
+        else evaluation_source
+    )
+    if not source.strip():
+        raise DistillationRepairError("evaluation source cannot be blank")
+    if validation_examples is not None:
+
+        def example_key(example: dict[str, Any]) -> bytes:
+            input_ids = example.get("input_ids")
+            if input_ids is None or not hasattr(input_ids, "detach"):
+                raise DistillationRepairError("distillation examples require tensor input_ids")
+            return cast(bytes, input_ids.detach().cpu().contiguous().numpy().tobytes())
+
+        training_keys = {example_key(example) for example in examples}
+        if any(example_key(example) in training_keys for example in validation_examples):
+            raise DistillationRepairError("training and validation examples must be disjoint")
     if teacher_model is candidate_model:
         raise DistillationRepairError("teacher and candidate models must be distinct")
     torch = import_module("torch")
@@ -429,20 +505,43 @@ def run_distillation_repair(
         teacher_model=teacher_model,
         baseline_logits=baseline_logits,
     )
+    evaluation_examples = examples if validation_examples is None else validation_examples
+    if validation_examples is None:
+        evaluation_logits = immutable_logits
+    else:
+        remaining_logit_budget = config.max_teacher_logit_bytes - teacher_logit_bytes
+        if remaining_logit_budget <= 0:
+            raise DistillationRepairError("teacher-logit byte budget exceeded")
+        validation_source, evaluation_logits, validation_logit_bytes = _capture_teacher_logits(
+            torch,
+            validation_examples,
+            config,
+            teacher_tokenizer,
+            teacher_model=teacher_model,
+            baseline_logits=baseline_validation_logits,
+            max_bytes=remaining_logit_budget,
+        )
+        if validation_source is not teacher_source:
+            raise DistillationRepairError("training and validation teacher sources differ")
+        teacher_logit_bytes += validation_logit_bytes
     teacher_capture_seconds = time.perf_counter() - teacher_started
-    teacher_logits_sha256 = _logit_digest(immutable_logits)
+    teacher_logits_sha256 = _logit_digest(immutable_logits + evaluation_logits)
+    training_examples_sha256 = _example_digest(examples)
+    evaluation_examples_sha256 = _example_digest(evaluation_examples)
     device = next(candidate_model.parameters()).device
-    baseline_loss = _evaluate(torch, candidate_model, examples, immutable_logits, config, device)
+    baseline_loss = _evaluate(
+        torch, candidate_model, evaluation_examples, evaluation_logits, config, device
+    )
     token_rows = sum(
         int(example["attention_mask"].sum().item())
         if "attention_mask" in example
         else int(example["input_ids"].numel())
-        for example in examples
+        for example in examples + (() if evaluation_examples is examples else evaluation_examples)
     )
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
-    original_training = bool(candidate_model.training)
+    original_training_modes = snapshot_module_training_modes(candidate_model)
     original_requires_grad = {
         id(parameter): bool(parameter.requires_grad) for _, parameter in named
     }
@@ -486,7 +585,7 @@ def run_distillation_repair(
             optimizer.step()
             training_losses.append(float(loss.detach().item()))
             evaluated = _evaluate(
-                torch, candidate_model, examples, immutable_logits, config, device
+                torch, candidate_model, evaluation_examples, evaluation_logits, config, device
             )
             evaluation_losses.append(evaluated)
             if evaluated < best_loss:
@@ -520,6 +619,10 @@ def run_distillation_repair(
                     "source_checkpoint_id": source_checkpoint_id,
                     "parent_checkpoint_id": candidate_parent_checkpoint_id,
                     "teacher_logits_sha256": teacher_logits_sha256,
+                    "training_examples_sha256": training_examples_sha256,
+                    "evaluation_examples_sha256": evaluation_examples_sha256,
+                    "validation_dataset_sha256": validation_dataset_sha256,
+                    "evaluation_source": source,
                     "config": config.to_record(),
                     "parameter_sha256": _parameter_digest(selected),
                 }
@@ -550,21 +653,26 @@ def run_distillation_repair(
         state = result_box[0]
         report = report_box[0]
         result = DistillationRepairResult(
-            state.status,
-            source_checkpoint_id,
-            candidate_parent_checkpoint_id,
-            state.output_checkpoint_id,
-            teacher_source,
-            teacher_logits_sha256,
-            candidate_tokenizer,
-            trainable_parameters,
-            len(state.training_losses),
-            baseline_loss,
-            state.repaired_loss,
-            state.training_losses,
-            state.evaluation_losses,
-            config,
-            DistillationResourceUse(
+            status=state.status,
+            source_checkpoint_id=source_checkpoint_id,
+            candidate_parent_checkpoint_id=candidate_parent_checkpoint_id,
+            output_checkpoint_id=state.output_checkpoint_id,
+            teacher_source=teacher_source,
+            teacher_logits_sha256=teacher_logits_sha256,
+            evaluation_split="validation" if validation_examples is not None else "training",
+            evaluation_source=source,
+            training_examples_sha256=training_examples_sha256,
+            evaluation_examples_sha256=evaluation_examples_sha256,
+            validation_dataset_sha256=validation_dataset_sha256,
+            tokenizer_signature=candidate_tokenizer,
+            trainable_parameters=trainable_parameters,
+            completed_steps=len(state.training_losses),
+            baseline_loss=baseline_loss,
+            repaired_loss=state.repaired_loss,
+            training_losses=state.training_losses,
+            evaluation_losses=state.evaluation_losses,
+            config=config,
+            resource_use=DistillationResourceUse(
                 time.perf_counter() - started,
                 teacher_capture_seconds,
                 training_seconds,
@@ -584,4 +692,4 @@ def run_distillation_repair(
                     parameter.copy_(snapshots[name])
         for _, parameter in named:
             parameter.requires_grad_(original_requires_grad[id(parameter)])
-        candidate_model.train(original_training)
+        restore_module_training_modes(candidate_model, original_training_modes)

@@ -26,6 +26,19 @@ def _tensor_sha256(tensor: object) -> str:
     return hashlib.sha256(host.numpy().tobytes()).hexdigest()
 
 
+def _token_ids_sha256(tensor: object) -> str:
+    host = tensor.detach().cpu().contiguous()  # type: ignore[attr-defined]
+    return hashlib.sha256(host.numpy().tobytes()).hexdigest()
+
+
+TRAINING_TEXT = (
+    "A bounded repair should preserve the useful behavior of a surgically edited model."
+)
+VALIDATION_TEXT = (
+    "Measured recovery should generalize to text that the adapter never trained on."
+)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
@@ -36,7 +49,9 @@ def main() -> None:
     parser.add_argument("--rank", type=int, default=2)
     args = parser.parse_args()
 
+    import peft
     import torch
+    import transformers
     from safetensors.torch import save
     from transformers import AutoTokenizer
 
@@ -55,13 +70,22 @@ def main() -> None:
         local_files_only=True,
     )
     encoded = tokenizer(
-        "A bounded repair should preserve the useful behavior of a surgically edited model.",
+        TRAINING_TEXT,
         return_tensors="pt",
         truncation=True,
         max_length=32,
     )
-    labels = encoded["input_ids"].clone()
-    example = {**encoded, "labels": labels}
+    validation_encoded = tokenizer(
+        VALIDATION_TEXT,
+        return_tensors="pt",
+        truncation=True,
+        max_length=32,
+    )
+    example = {**encoded, "labels": encoded["input_ids"].clone()}
+    validation_example = {
+        **validation_encoded,
+        "labels": validation_encoded["input_ids"].clone(),
+    }
     module = loaded.model.get_submodule(args.target)
     before = _tensor_sha256(module.weight)
     result = run_bounded_lora_repair(
@@ -78,20 +102,34 @@ def main() -> None:
         ),
         source_checkpoint_id=f"checkpoint_{args.revision}",
         candidate_checkpoint_id="checkpoint_real_lora_smoke_candidate",
+        validation_examples=(validation_example,),
+        validation_dataset_sha256=hashlib.sha256(VALIDATION_TEXT.encode("utf-8")).hexdigest(),
+        evaluation_source="external_text",
     )
     wrapper = loaded.model.get_submodule(args.target)
-    after = _tensor_sha256(wrapper.base.weight)
+    after = _tensor_sha256(wrapper.base_layer.weight)
     adapter_bytes = save(lora_adapter_state_dict(loaded.model, (args.target,)))
     record = {
         "record_type": "v0.9_lora_repair_smoke",
-        "version": "1",
+        "version": "4",
         "model": {
             "identifier": args.model,
             "requested_revision": args.revision,
             "resolved_revision": loaded.provenance.resolved_revision,
         },
+        "runtime": {
+            "python_version": __import__("sys").version.split()[0],
+            "torch_version": torch.__version__,
+            "peft_version": peft.__version__,
+            "transformers_version": transformers.__version__,
+        },
         "target": args.target,
         "tokens": int(encoded["input_ids"].numel()),
+        "token_ids_sha256": _token_ids_sha256(encoded["input_ids"]),
+        "validation_tokens": int(validation_encoded["input_ids"].numel()),
+        "validation_token_ids_sha256": _token_ids_sha256(
+            validation_encoded["input_ids"]
+        ),
         "base_weight_sha256_before": before,
         "base_weight_sha256_after": after,
         "base_weight_preserved": before == after,
