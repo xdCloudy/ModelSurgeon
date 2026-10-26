@@ -74,3 +74,14 @@ This single-model, single-severity experiment tests executable correctness and p
 parameter reduction. It does not establish generalization, contamination-free coding
 ability, latency improvement, or broad quality retention. A zero source pass@1 makes a
 retention ratio inconclusive; the runner reports that explicitly.
+
+## Recorded result
+
+The RTX 3060 run recorded in
+[`reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning.json`](../../reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning.json)
+removed 256 of 4,864 gated-MLP channels per layer across 24 layers. The reloaded model
+had 16,515,072 fewer parameters (3.34%) and a 33,110,070-byte smaller checkpoint
+(3.31%). Source pass@1 was 69/164 (42.07%); candidate pass@1 was 50/164 (30.49%), a
+11.59 percentage-point decrease and 72.46% relative retention. This magnitude-based
+pruning result is a negative quality-efficiency outcome at this severity; the study did
+not measure inference latency or throughput.
