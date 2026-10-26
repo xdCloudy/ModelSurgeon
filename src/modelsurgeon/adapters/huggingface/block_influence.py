@@ -58,6 +58,7 @@ def measure_huggingface_block_influence(
 
     cosine_sums: list[Any | None] = [None] * configured_layers
     token_counts: list[Any | None] = [None] * configured_layers
+    nonfinite_activations: list[Any | None] = [None] * configured_layers
 
     def capture(layer_index: int) -> Any:
         def hook(_module: Any, inputs: tuple[Any, ...], output: Any) -> None:
@@ -79,6 +80,13 @@ def measure_huggingface_block_influence(
 
             source = hidden_in.detach().float()
             target = hidden_out.detach().float()
+            nonfinite = (~torch.isfinite(source)).any() | (~torch.isfinite(target)).any()
+            if nonfinite_activations[layer_index] is None:
+                nonfinite_activations[layer_index] = nonfinite
+            else:
+                nonfinite_activations[layer_index] = (
+                    nonfinite_activations[layer_index] | nonfinite
+                )
             source_norm = torch.linalg.vector_norm(source, dim=-1, keepdim=True)
             target_norm = torch.linalg.vector_norm(target, dim=-1, keepdim=True)
             similarity = (source * target).sum(dim=-1) / (
@@ -111,6 +119,12 @@ def measure_huggingface_block_influence(
             handle.remove()
         for module, was_training in module_training_states:
             module.training = was_training
+
+    for layer_index, nonfinite in enumerate(nonfinite_activations):
+        if nonfinite is not None and bool(nonfinite.detach().cpu().item()):
+            raise HuggingFaceBlockInfluenceError(
+                f"decoder block {layer_index} produced non-finite hidden states"
+            )
 
     scores: list[BlockInfluenceScore] = []
     for layer_index, (score_sum, token_count) in enumerate(

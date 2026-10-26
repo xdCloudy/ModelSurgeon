@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from modelsurgeon.adapters.huggingface.block_influence import (
+    HuggingFaceBlockInfluenceError,
     measure_huggingface_block_influence,
 )
 
@@ -27,6 +28,17 @@ class _ZeroFirstRowBlock(torch.nn.Module):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         output = hidden_states.clone()
         output[:, 0, :] = 0
+        return output
+
+
+class _NonFiniteBlock(torch.nn.Module):
+    def __init__(self, value: float) -> None:
+        super().__init__()
+        self.value = value
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        output = hidden_states.clone()
+        output[:, 0, 0] = self.value
         return output
 
 
@@ -96,3 +108,19 @@ def test_block_influence_uses_shortgpt_fallback_when_every_hidden_pair_is_zero()
 
     assert tuple(score.score for score in scores) == pytest.approx((0.5, 0.5))
     assert tuple(score.token_count for score in scores) == (2, 2)
+
+
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), float("-inf")))
+def test_block_influence_rejects_nonfinite_hidden_activations(value: float) -> None:
+    model = _TinyModel()
+    model.model.layers = torch.nn.ModuleList((_NonFiniteBlock(value),))
+    model.config.num_hidden_layers = 1
+
+    with pytest.raises(HuggingFaceBlockInfluenceError, match="non-finite hidden states"):
+        measure_huggingface_block_influence(
+            model,
+            ((1, 2),),
+            input_device=torch.device("cpu"),
+        )
+
+    assert all(not block._forward_hooks for block in model.model.layers)
