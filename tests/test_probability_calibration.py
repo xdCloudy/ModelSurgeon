@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from copy import deepcopy
 
 import pytest
 
@@ -60,6 +61,7 @@ def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> N
     assert record["cross_validation_folds"] == 4
     assert record["selection_rule"] == "minimum_cross_fitted_brier_then_ece_then_method"
     assert "test_labels" not in inspect.signature(fit_probability_calibrator).parameters
+    assert CalibrationSelection.from_record(record) == selection
 
     fitted_metrics = calibration_metrics(
         LABELS, selection.calibrator.calibrate(PROBABILITIES), bins=4
@@ -84,6 +86,33 @@ def test_manually_constructed_selection_does_not_claim_fold_provenance() -> None
     assert record["cross_validation_folds"] == 0
     assert record["evaluation_partition"] == "unspecified"
     assert record["fold_assignment"] == "unspecified"
+    assert CalibrationSelection.from_record(record) == selection
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("schema_version",), 2.0),
+        (("fit_partition",), "test"),
+        (("fold_assignment",), "random"),
+        (("cross_validation_folds",), 1),
+        (("candidates", 0, "metrics", "expected_calibration_error"), 0.9),
+        (("candidates", 0, "metrics", "reliability_curve", 0, "count"), -1),
+        (("calibrator", "method"), "unknown"),
+    ],
+)
+def test_selection_record_rejects_inconsistent_or_malformed_evidence(
+    path: tuple[str | int, ...], value: object
+) -> None:
+    record = fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4).to_record()
+    malformed = deepcopy(record)
+    target: object = malformed
+    for key in path[:-1]:
+        target = target[key]  # type: ignore[index]
+    target[path[-1]] = value  # type: ignore[index]
+
+    with pytest.raises(ProbabilityCalibrationError):
+        CalibrationSelection.from_record(malformed)
 
 
 def test_calibration_metrics_keep_empty_bins_explicit() -> None:

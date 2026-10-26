@@ -7,7 +7,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Protocol, Self
+from typing import Final, Protocol, Self, cast
 
 CALIBRATION_SCHEMA_VERSION: Final[int] = 1
 CALIBRATION_SELECTION_SCHEMA_VERSION: Final[int] = 2
@@ -40,6 +40,27 @@ class ReliabilityBin:
             "observed_frequency": self.observed_frequency,
         }
 
+    @classmethod
+    def from_record(cls, record: object) -> Self:
+        value = _record_mapping(
+            record,
+            "reliability bin",
+            {"lower", "upper", "count", "mean_probability", "observed_frequency"},
+        )
+        lower = _record_float(value, "lower")
+        upper = _record_float(value, "upper")
+        count = _record_int(value, "count", minimum=0)
+        mean_probability = _record_optional_probability(value, "mean_probability")
+        observed_frequency = _record_optional_probability(value, "observed_frequency")
+        if not 0.0 <= lower < upper <= 1.0:
+            raise ProbabilityCalibrationError("reliability bin bounds are invalid")
+        if count == 0:
+            if mean_probability is not None or observed_frequency is not None:
+                raise ProbabilityCalibrationError("empty reliability bins cannot have means")
+        elif mean_probability is None or observed_frequency is None:
+            raise ProbabilityCalibrationError("populated reliability bins require both means")
+        return cls(lower, upper, count, mean_probability, observed_frequency)
+
 
 @dataclass(frozen=True, slots=True)
 class CalibrationMetrics:
@@ -53,6 +74,45 @@ class CalibrationMetrics:
             "expected_calibration_error": self.expected_calibration_error,
             "reliability_curve": [item.to_record() for item in self.reliability_curve],
         }
+
+    @classmethod
+    def from_record(cls, record: object) -> Self:
+        value = _record_mapping(
+            record,
+            "calibration metrics",
+            {"brier_score", "expected_calibration_error", "reliability_curve"},
+        )
+        brier = _record_float(value, "brier_score")
+        ece = _record_float(value, "expected_calibration_error")
+        raw_curve = value["reliability_curve"]
+        if (
+            not 0.0 <= brier <= 1.0
+            or not 0.0 <= ece <= 1.0
+            or not isinstance(raw_curve, list)
+            or not raw_curve
+        ):
+            raise ProbabilityCalibrationError("calibration metrics are outside their valid range")
+        curve = tuple(ReliabilityBin.from_record(item) for item in raw_curve)
+        count = sum(item.count for item in curve)
+        if count <= 0:
+            raise ProbabilityCalibrationError("reliability curve must contain observations")
+        for index, item in enumerate(curve):
+            expected_lower = index / len(curve)
+            expected_upper = (index + 1) / len(curve)
+            if not math.isclose(item.lower, expected_lower, abs_tol=1e-12) or not math.isclose(
+                item.upper, expected_upper, abs_tol=1e-12
+            ):
+                raise ProbabilityCalibrationError("reliability bins must form a fixed partition")
+        computed_ece = math.fsum(
+            item.count / count * abs(item.observed_frequency - item.mean_probability)
+            for item in curve
+            if item.count > 0
+            and item.mean_probability is not None
+            and item.observed_frequency is not None
+        )
+        if not math.isclose(ece, computed_ece, rel_tol=1e-9, abs_tol=1e-12):
+            raise ProbabilityCalibrationError("ECE does not match the reliability curve")
+        return cls(brier, ece, curve)
 
 
 class ProbabilityCalibrator(Protocol):
@@ -157,6 +217,18 @@ class CalibrationCandidate:
     def to_record(self) -> dict[str, object]:
         return {"method": self.method.value, "metrics": self.metrics.to_record()}
 
+    @classmethod
+    def from_record(cls, record: object) -> Self:
+        value = _record_mapping(record, "calibration candidate", {"method", "metrics"})
+        raw_method = value["method"]
+        if not isinstance(raw_method, str):
+            raise ProbabilityCalibrationError("calibration candidate method is invalid")
+        try:
+            method = CalibrationMethod(raw_method)
+        except (TypeError, ValueError) as error:
+            raise ProbabilityCalibrationError("calibration candidate method is invalid") from error
+        return cls(method, CalibrationMetrics.from_record(value["metrics"]))
+
 
 @dataclass(frozen=True, slots=True)
 class CalibrationSelection:
@@ -192,6 +264,91 @@ class CalibrationSelection:
                 "stratified_round_robin_v1" if self.cross_validation_folds >= 2 else "unspecified"
             ),
         }
+
+    @classmethod
+    def from_record(cls, record: object) -> Self:
+        required = {
+            "schema_version",
+            "calibrator",
+            "candidates",
+            "observation_count",
+            "reliability_bins",
+            "cross_validation_folds",
+            "selection_rule",
+            "fit_partition",
+            "evaluation_partition",
+            "fold_assignment",
+        }
+        value = _record_mapping(record, "calibration selection", required)
+        if (
+            _record_int(value, "schema_version", minimum=1)
+            != CALIBRATION_SELECTION_SCHEMA_VERSION
+        ):
+            raise ProbabilityCalibrationError("unsupported calibration selection schema version")
+        raw_calibrator = value["calibrator"]
+        if not isinstance(raw_calibrator, Mapping):
+            raise ProbabilityCalibrationError("selected calibrator must be an object")
+        calibrator_record = cast(Mapping[str, object], raw_calibrator)
+        method = calibrator_record.get("method")
+        calibrator_fields = (
+            {"schema_version", "method", "slope", "intercept"}
+            if method == CalibrationMethod.PLATT.value
+            else {"schema_version", "method", "thresholds", "values"}
+            if method == CalibrationMethod.ISOTONIC.value
+            else set()
+        )
+        if not calibrator_fields or set(calibrator_record) != calibrator_fields:
+            raise ProbabilityCalibrationError("selected calibrator fields are malformed")
+        selected = calibrator_from_record(calibrator_record)
+        raw_candidates = value["candidates"]
+        if not isinstance(raw_candidates, list):
+            raise ProbabilityCalibrationError("calibration candidates must be an array")
+        candidates = tuple(CalibrationCandidate.from_record(item) for item in raw_candidates)
+        methods = tuple(item.method for item in candidates)
+        if len(set(methods)) != len(methods):
+            raise ProbabilityCalibrationError("calibration candidate methods must be unique")
+        observation_count = _record_int(value, "observation_count", minimum=1)
+        reliability_bins = _record_int(value, "reliability_bins", minimum=1)
+        cross_validation_folds = _record_int(value, "cross_validation_folds", minimum=0)
+        if cross_validation_folds == 1 or (
+            cross_validation_folds >= 2 and observation_count < 2 * cross_validation_folds
+        ):
+            raise ProbabilityCalibrationError("calibration cross-validation evidence is invalid")
+        for candidate in candidates:
+            if len(candidate.metrics.reliability_curve) != reliability_bins or sum(
+                item.count for item in candidate.metrics.reliability_curve
+            ) != observation_count:
+                raise ProbabilityCalibrationError(
+                    "candidate reliability evidence does not match the selection dimensions"
+                )
+        if candidates and selected.method not in methods:
+            raise ProbabilityCalibrationError("selected calibrator has no candidate evidence")
+        if cross_validation_folds >= 2 and set(methods) != set(CalibrationMethod):
+            raise ProbabilityCalibrationError("cross-fitted selection requires both candidates")
+        selection_rule = value["selection_rule"]
+        if not isinstance(selection_rule, str) or not selection_rule.strip():
+            raise ProbabilityCalibrationError("selection rule must be a non-empty string")
+        if value["fit_partition"] != "validation":
+            raise ProbabilityCalibrationError("calibration fit partition must be validation")
+        expected_evaluation = (
+            "validation_out_of_fold" if cross_validation_folds >= 2 else "unspecified"
+        )
+        expected_assignment = (
+            "stratified_round_robin_v1" if cross_validation_folds >= 2 else "unspecified"
+        )
+        if (
+            value["evaluation_partition"] != expected_evaluation
+            or value["fold_assignment"] != expected_assignment
+        ):
+            raise ProbabilityCalibrationError("calibration evaluation provenance is inconsistent")
+        return cls(
+            selected,
+            candidates,
+            observation_count,
+            reliability_bins,
+            selection_rule,
+            cross_validation_folds,
+        )
 
 
 def calibration_metrics(
@@ -455,7 +612,12 @@ def _sigmoid(value: float) -> float:
 
 
 def _validate_record_header(record: Mapping[str, object], method: CalibrationMethod) -> None:
-    if record.get("schema_version") != CALIBRATION_SCHEMA_VERSION:
+    schema_version = record.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != CALIBRATION_SCHEMA_VERSION
+    ):
         raise ProbabilityCalibrationError("unsupported calibration schema version")
     if record.get("method") != method.value:
         raise ProbabilityCalibrationError(f"serialized calibrator is not {method.value}")
@@ -465,7 +627,10 @@ def _record_float(record: Mapping[str, object], key: str) -> float:
     value = record.get(key)
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise ProbabilityCalibrationError(f"serialized {key} must be numeric")
-    converted = float(value)
+    try:
+        converted = float(value)
+    except OverflowError as error:
+        raise ProbabilityCalibrationError(f"serialized {key} must be finite") from error
     if not math.isfinite(converted):
         raise ProbabilityCalibrationError(f"serialized {key} must be finite")
     return converted
@@ -476,3 +641,32 @@ def _record_float_tuple(record: Mapping[str, object], key: str) -> tuple[float, 
     if not isinstance(value, list):
         raise ProbabilityCalibrationError(f"serialized {key} must be an array")
     return tuple(_record_float({key: item}, key) for item in value)
+
+
+def _record_mapping(
+    value: object, label: str, required: set[str]
+) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or set(value) != required:
+        raise ProbabilityCalibrationError(f"serialized {label} fields are malformed")
+    return cast(Mapping[str, object], value)
+
+
+def _record_int(
+    record: Mapping[str, object], key: str, *, minimum: int
+) -> int:
+    value = record.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ProbabilityCalibrationError(f"serialized {key} must be an integer >= {minimum}")
+    return value
+
+
+def _record_optional_probability(
+    record: Mapping[str, object], key: str
+) -> float | None:
+    value = record.get(key)
+    if value is None:
+        return None
+    probability = _record_float({key: value}, key)
+    if not 0.0 <= probability <= 1.0:
+        raise ProbabilityCalibrationError(f"serialized {key} must be within [0, 1]")
+    return probability
