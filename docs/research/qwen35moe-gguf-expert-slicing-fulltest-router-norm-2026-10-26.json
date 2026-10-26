@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "record_type": "qwen35moe_gguf_expert_slicing_full_test_router_norm_recheck",
+  "date": "2026-10-26",
+  "status": "completed_source_and_router_norm_full_split",
+  "interpretation": {
+    "claim": "The source and router-norm 252-expert artifacts were evaluated on the complete pinned WikiText-2 raw test split with matching CPU settings.",
+    "quality_gate_applied": false,
+    "point_estimate_retention_floor_passed": true,
+    "inference_speed_measured": false,
+    "ranking_conclusion": null,
+    "random_full_split_comparison_pending": true,
+    "limitations": [
+      "The llama.cpp propagated uncertainty values are not formal confidence intervals; the reported source and candidate uncertainty bands overlap.",
+      "This is one model, one corpus, and one router-norm selection. It does not establish autonomous-ranking superiority or task-quality retention.",
+      "No inference throughput, latency, load-time, or deployment-memory comparison was measured."
+    ]
+  },
+  "model": {
+    "identifier": "Endy-Qwen3.6-CyberSec-35B-A3B-Q4_K_M",
+    "architecture": "qwen35moe",
+    "source_repository": "endystrike/Endy-Qwen3.6-CyberSec-35B-A3B",
+    "source_revision": "eed558458ca9ff6972063c486c7f1ab9e0b0c93e",
+    "license": "AGPL-3.0; model weights remain local and are not redistributed",
+    "source_artifact": {
+      "bytes": 21713462496,
+      "sha256": "ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1",
+      "perplexity": 6.709,
+      "reported_uncertainty": 0.04243,
+      "result_manifest": "qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json"
+    },
+    "router_norm_candidate": {
+      "retained_experts_per_block": 252,
+      "bytes": 21399217408,
+      "sha256": "06969df1ce0505ad2f7d506497c9f5f9731c3a3887d07351ccafbd3edd7d3fe3",
+      "perplexity": 6.8094,
+      "reported_uncertainty": 0.04317,
+      "delta_perplexity_vs_source": 0.1004,
+      "point_estimate_perplexity_retention": 0.985255675977325,
+      "bytes_removed": 314245088,
+      "disk_reduction_fraction": 0.014472361930203
+    }
+  },
+  "dataset": {
+    "name": "WikiText-2 raw",
+    "repository": "ggml-org/ci mirror of Salesforce/wikitext:wikitext-2-raw-v1",
+    "split": "test",
+    "archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+    "text_sha256": "173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08",
+    "text_bytes": 1290590,
+    "license": "CC BY-SA / GFDL as reported by dataset card; text not redistributed"
+  },
+  "runtime": {
+    "name": "llama.cpp llama-perplexity",
+    "version": "0.7.0-dev",
+    "build": 11804,
+    "commit": "c7fc50941",
+    "device": "CPU",
+    "hardware": {
+      "cpu": "Intel Core i5-14600K",
+      "system_ram_bytes": 68719476736,
+      "gpu_used": false
+    },
+    "settings": {
+      "context": 512,
+      "batch": 512,
+      "microbatch": 256,
+      "threads": 12,
+      "gpu_layers": 0,
+      "warmup": false,
+      "ppl_output_type": 1,
+      "chunks": -1
+    },
+    "command_template": [
+      "llama-perplexity.exe",
+      "-m",
+      "<artifact.gguf>",
+      "-f",
+      "wiki.test.raw",
+      "-c",
+      "512",
+      "-b",
+      "512",
+      "-ub",
+      "256",
+      "-t",
+      "12",
+      "-ngl",
+      "0",
+      "--chunks",
+      "-1",
+      "--no-warmup",
+      "--ppl-output-type",
+      "1",
+      "--log-colors",
+      "off"
+    ]
+  },
+  "results": [
+    {
+      "artifact": "source",
+      "status": "completed_reused_exact_pinned_baseline",
+      "return_code": 0,
+      "chunks_processed": 580,
+      "tokens_scored": 296960,
+      "perplexity": 6.709,
+      "reported_uncertainty": 0.04243,
+      "source_manifest": "qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json"
+    },
+    {
+      "artifact": "router_norm_252",
+      "status": "completed",
+      "return_code": 0,
+      "elapsed_seconds": 1955.77,
+      "chunks_processed": 580,
+      "output_rows": 580,
+      "tokens_scored": 296960,
+      "perplexity": 6.8094,
+      "reported_uncertainty": 0.04317,
+      "stdout_sha256": "03455f01483cd2c4f8b12b03a942f935a47eef5d4017359f081d0be4f3bc2526",
+      "stderr_sha256": "6a61827aa93df26bdfad3ccc465cbb1db2a826cc467b6c51076f83ce7e1cb3bb"
+    },
+    {
+      "artifact": "random_252_seed_20261025",
+      "status": "full_split_comparison_not_included_in_this_record",
+      "return_code": null,
+      "perplexity": null
+    }
+  ],
+  "provenance": {
+    "repository": "https://github.com/xdCloudy/ModelSurgeon",
+    "source_revision": "8fce2183681351264d5973591cf39b6e0dbb6eed",
+    "research_report": "qwen35moe-gguf-expert-slicing-v1.md",
+    "raw_logs": "local-only evaluation output; no model weights or dataset text redistributed"
+  }
+}

@@ -217,6 +217,33 @@ generic Python function prompts, and existing acceptance evidence documents
 that this tiny set establishes neither broad coding ability nor security
 behavior.
 
+## Pinned full-test router-norm recheck (2026-10-26)
+
+The earlier source-only full-test baseline and resource-limited candidate
+attempt are retained in the [2026-10-25 full-test manifest](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json).
+The router-norm 252-expert candidate was re-evaluated on 2026-10-26 using the
+same complete WikiText-2 test split, source artifact, llama.cpp build, and CPU
+settings. The local ZIP archive SHA-256 matched the pinned archive, and a fresh
+extraction matched the recorded test-text SHA-256 before inference. The
+candidate artifact SHA-256 also matched the previously recorded artifact.
+
+| Artifact | GGUF bytes | Full-test contexts / tokens | PPL ± propagated uncertainty | Delta vs source | Point-estimate PPL retention |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Source | 21,713,462,496 | 580 / 296,960 | 6.7090 ± 0.04243 | — | 100% |
+| Router norm, 252 experts | 21,399,217,408 | 580 / 296,960 | 6.8094 ± 0.04317 | +0.1004 | 98.53% |
+
+This candidate is 314,245,088 bytes (1.45%) smaller. The full-split point
+estimate clears the configured 98% PPL-retention floor, but the uncertainty
+bands overlap and llama.cpp's propagated uncertainty is not a formal
+confidence interval. This is not a formal first-party optimizer quality-gate
+pass, a task-quality result, or evidence of router-norm superiority. The
+equal-size seeded-random full-split control is still being evaluated; until it
+completes, this run does not establish a ranking advantage. No inference
+speed, latency, load-time, or deployment-memory benefit was measured.
+
+The exact hashes, command, settings, runtime, metrics, raw-log digests, and
+limitations are in the [full-test router-norm recheck manifest](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json).
+
 As a limited follow-up, on 2026-10-25 the source and the 252-expert
 router-norm candidate each received the same four manually screened benign
 defensive prompts (MITRE FRR dataset indices 0, 1, 7, and 10). Both models had
