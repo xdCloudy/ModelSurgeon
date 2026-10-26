@@ -12,6 +12,7 @@ import shutil
 import statistics
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -61,14 +62,14 @@ def _artifact_manifest(path: Path) -> dict[str, object]:
     manifest_json = canonical_identity_json(manifest)
     return {
         "file_count": len(files),
-        "file_bytes": sum(int(item["size_bytes"]) for item in manifest),
+        "file_bytes": sum(item.stat().st_size for item in files),
         "manifest_sha256": hashlib.sha256(manifest_json.encode("utf-8")).hexdigest(),
     }
 
 
 def _load_dataset_rows(split: str) -> tuple[tuple[tuple[int, str], ...], Path]:
     os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
-    import pyarrow.parquet as parquet
+    import pyarrow.parquet as parquet  # type: ignore[import-untyped]
     from huggingface_hub import hf_hub_download
 
     relative_path = f"{DATASET_CONFIG}/{split}-00000-of-00001.parquet"
@@ -247,7 +248,10 @@ def _measure_task_quality(
         max_new_tokens=max_new_tokens,
     )
     record = measurement.to_record()
-    dataset_record = dict(record["dataset"])
+    raw_dataset = record.get("dataset")
+    if not isinstance(raw_dataset, Mapping):
+        raise RuntimeError("task-quality measurement did not return dataset provenance")
+    dataset_record = dict(raw_dataset)
     dataset_record["path"] = _portable_dataset_path(dataset.path)
     record["dataset"] = dataset_record
     return record
@@ -332,9 +336,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "size_bytes": path.stat().st_size,
             "sha256": _sha256_file(path),
         }
-    tokenizer = AutoTokenizer.from_pretrained(
-        MODEL, revision=MODEL_REVISION, local_files_only=True
-    )
+    tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=MODEL_REVISION, local_files_only=True)
     training_examples, training_rows = _examples(
         dataset_rows["train"], tokenizer, args.examples_per_split, args.max_length
     )
@@ -350,9 +352,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     extended_test_sampling = (
         args.test_examples_per_split is not None or args.test_sample_seed is not None
     )
-    test_examples, test_rows = _examples(
-        test_texts, tokenizer, test_example_count, args.max_length
-    )
+    test_examples, test_rows = _examples(test_texts, tokenizer, test_example_count, args.max_length)
     input_hashes = {
         split: {
             hashlib.sha256(
@@ -438,6 +438,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         if len(target_modules) != int(no_repair_model.config.num_hidden_layers):
             raise RuntimeError("could not identify exactly one down_proj per transformer layer")
         no_repair_model.to(device)
+        validation_digest = dataset_files["validation"].get("sha256")
+        if not isinstance(validation_digest, str):
+            raise RuntimeError("validation dataset SHA-256 was not recorded")
         repair = run_bounded_lora_repair(
             no_repair_model,
             training_examples,
@@ -453,7 +456,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             source_checkpoint_id=f"checkpoint_{MODEL_REVISION}",
             candidate_checkpoint_id="checkpoint_wikitext_pruned_candidate",
             validation_examples=validation_examples,
-            validation_dataset_sha256=dataset_files["validation"]["sha256"],
+            validation_dataset_sha256=validation_digest,
             evaluation_source="wikitext_validation_split",
         )
         repaired_model, repaired_manifest = _save_and_reload(
