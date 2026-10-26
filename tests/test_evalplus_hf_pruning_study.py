@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import importlib
 import json
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 
 import pytest
 import torch
@@ -73,8 +73,12 @@ def test_docker_wrapper_accepts_only_plain_jsonl_filename() -> None:
 def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    codegen_module = importlib.import_module("evalplus.codegen")
-    hf_module = importlib.import_module("evalplus.provider.hf")
+    evalplus_module = ModuleType("evalplus")
+    evalplus_module.__path__ = []
+    provider_module = ModuleType("evalplus.provider")
+    provider_module.__path__ = []
+    codegen_module = ModuleType("evalplus.codegen")
+    hf_module = ModuleType("evalplus.provider.hf")
     observed: dict[str, object] = {}
     target = tmp_path / "predictions.jsonl"
     tasks = {"HumanEval/0": {"prompt": "def f():"}}
@@ -91,8 +95,12 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
         )
         target.with_name("predictions.raw.jsonl").write_text("raw output", encoding="utf-8")
 
-    monkeypatch.setattr(codegen_module, "codegen", _codegen)
-    monkeypatch.setattr(hf_module, "HuggingFaceDecoder", _Decoder)
+    codegen_module.codegen = _codegen
+    hf_module.HuggingFaceDecoder = _Decoder
+    monkeypatch.setitem(sys.modules, "evalplus", evalplus_module)
+    monkeypatch.setitem(sys.modules, "evalplus.provider", provider_module)
+    monkeypatch.setitem(sys.modules, "evalplus.codegen", codegen_module)
+    monkeypatch.setitem(sys.modules, "evalplus.provider.hf", hf_module)
 
     result = _generate_predictions(tmp_path, target, tasks, max_new_tokens=8)
 
