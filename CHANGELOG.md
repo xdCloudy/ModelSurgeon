@@ -6,10 +6,10 @@
     acceptance runner. CPU remains the default; GPU campaigns now carry the
     selected resource envelope in the reproducibility record.
 
-  - Changed the first-party HF acceptance runner to preserve the checkpoint
+  - Changed the first-party HF acceptance runner to use the checkpoint-declared
     dtype by default (`--dtype auto`) and record any explicit dtype override.
-    This avoids silently widening BF16/FP16 source artifacts to FP32 during
-    physical surgery.
+    This avoids unintentionally widening BF16/FP16 sources to FP32 during
+    physical surgery when the checkpoint metadata declares its stored dtype.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
