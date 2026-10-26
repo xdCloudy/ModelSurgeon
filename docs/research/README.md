@@ -46,6 +46,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.3 hardware-specific alignment rules](v1.3-alignment-rules-v1.json)
 - [v1.3 hardware cost training dataset](v1.3-hardware-cost-dataset-v1.json)
 - [v1.8 post-surgery LoRA WikiText smoke](v1.8-lora-post-surgery-smoke.md)
+- [v1.8 post-surgery LoRA token-weighted selector recheck](v1.8-lora-post-surgery-token-weighted-recheck.md)
 - [v1.8 post-surgery LoRA 64-row, three-seed follow-up](v1.8-lora-post-surgery-64row.md)
 - [v1.8 one-epoch post-surgery LoRA study](v1.8-lora-post-surgery-one-epoch.md)
 - [v1.8 two-epoch post-surgery LoRA study](v1.8-lora-post-surgery-two-epoch.md)
