@@ -2,17 +2,17 @@
   "schema_version": 1,
   "record_type": "qwen35moe_gguf_expert_slicing_224_expert_full_test_comparison",
   "date": "2026-10-26",
-  "status": "completed_source_router_norm_and_seeded_random_full_splits",
+  "status": "completed_source_router_norm_and_two_seeded_random_full_splits",
   "interpretation": {
-    "claim": "Two 224-of-256 expert-per-layer Qwen3.5-family GGUF candidates were evaluated on the complete pinned WikiText-2 raw test split using the same CPU runtime settings. Both failed the configured 98% point-estimate PPL-retention floor.",
+    "claim": "Three 224-of-256 expert-per-layer Qwen3.5-family GGUF candidates (router norm and two predeclared random seeds) were evaluated on the complete pinned WikiText-2 raw test split using the same CPU runtime settings. All failed the configured 98% point-estimate PPL-retention floor.",
     "quality_gate_applied": false,
     "promotion_recommended": false,
     "inference_speed_measured": false,
-    "ranking_conclusion": "The random seed 20261026 candidate has a 1.2113 lower PPL point estimate than router-norm selection on this one model and corpus. The llama.cpp propagated uncertainty bands do not overlap, but are not formal confidence intervals; this single comparison does not establish that random selection is generally better.",
+    "ranking_conclusion": "The two random candidates have PPL point estimates 1.2113 and 1.1955 below router-norm selection on this one model and corpus; their PPLs differ by 0.0158. The llama.cpp propagated uncertainty bands for these candidates do not overlap, but are not formal confidence intervals. Two seeds on one model and corpus do not establish general ranking superiority.",
     "limitations": [
-      "The configured point-estimate PPL retention floor is 0.98; both 224-expert candidates fall below it.",
+      "The configured point-estimate PPL retention floor is 0.98; all three 224-expert candidates fall below it.",
       "The reported plus/minus values are llama.cpp propagated uncertainties, not formal confidence intervals or a significance test.",
-      "This is one model, one dataset, one router-norm selection, and one random seed. It does not establish task-quality retention or general ranking superiority.",
+      "This is one model, one dataset, one router-norm selection, and two random seeds. It does not establish task-quality retention or general ranking superiority.",
       "No throughput, latency, model load time, peak RAM/VRAM, or energy measurement was made for these 224-expert artifacts.",
       "llama.cpp reports some model tensors as unused while evaluating this architecture. Runs completed with return code 0, but runtime and task compatibility beyond this PPL evaluation remain unverified."
     ]
@@ -62,6 +62,20 @@
         "point_estimate_perplexity_retention": 0.8846371919460964,
         "retention_floor_passed": false,
         "generation_script_sha256": "909108bbbbfc072f6b36112d3004146b0ab0e11b1665fe5db2640630b253607f"
+      },
+      {
+        "selection": "random_seed_20261027",
+        "seed": 20261027,
+        "retained_experts_per_block": 224,
+        "blocks": 41,
+        "selection_protocol": "One random.Random(seed) instance; for each layer in ascending order sample 224 distinct IDs from range(256), then sort retained IDs.",
+        "bytes": 19199501568,
+        "sha256": "afd48dc46cf7e3146349d872d2212e1f0040a0623609b5d24ce92b47631f3d61",
+        "perplexity": 7.5997,
+        "reported_uncertainty": 0.04912,
+        "point_estimate_perplexity_retention": 0.8827980051844151,
+        "retention_floor_passed": false,
+        "generation_script_sha256": "fdac5a2e38edf5443ddd16d9846864afaa2aec63dd2ee851f1257884319a0a81"
       }
     ],
     "size_comparison": {
@@ -142,13 +156,31 @@
       "ppl_point_estimate_difference_vs_router_norm_224": -1.2113,
       "stdout_sha256": "abc0b7625ec190b8f0066d7ebb2c70a72809884c3b7bc0701b8cd7990076d8e1",
       "stderr_sha256": "4a6e6a450f6afd7c1887384a5ad93bd36c2e534c59f9bcd805c9a659bfd27c7a"
+    },
+    {
+      "artifact": "random_224_seed_20261027",
+      "status": "completed",
+      "return_code": 0,
+      "chunks_processed": 580,
+      "output_rows": 580,
+      "tokens_scored": 296960,
+      "perplexity": 7.5997,
+      "reported_uncertainty": 0.04912,
+      "ppl_point_estimate_difference_vs_router_norm_224": -1.1955,
+      "ppl_point_estimate_difference_vs_random_224_seed_20261026": 0.0158,
+      "stdout_sha256": "c4dd321870526dadcf9e2b8f977030c93d0e9af1091d4cd1f5efdf9549258167",
+      "stderr_sha256": "b63174de3d18e9c167b1465393c79e14319479687feae789574b83dc49c42668"
     }
   ],
   "provenance": {
     "repository": "https://github.com/xdCloudy/ModelSurgeon",
-    "tested_revision": "16df3fc0266e817989f3078f65696b4d30a3bf50",
+    "tested_revisions": [
+      "16df3fc0266e817989f3078f65696b4d30a3bf50",
+      "9d08cca6f3bb0b0e3fa91268169662a04389bf31"
+    ],
     "pr": 736,
     "source_code": "ModelSurgeon's in-tree native GGUF expert-pruning implementation; no third-party source code was incorporated by this experiment.",
+    "random_20261027_generation": "The second random artifact used PR #736's in-tree GGUF pruning code at 9d08cca6f3bb0b0e3fa91268169662a04389bf31; the first two artifacts were generated at 16df3fc0266e817989f3078f65696b4d30a3bf50. The pruning implementation was unchanged between these revisions.",
     "raw_logs": "local-only evaluation output; model weights, generated GGUF artifacts, and dataset text are not redistributed"
   }
 }
