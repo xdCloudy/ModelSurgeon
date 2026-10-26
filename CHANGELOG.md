@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+  - Align Meta-Surgeon MLP training evidence and inference features with
+    physical surgery: proof datasets now use one canonical candidate per shared
+    intermediate channel, aggregate features across every transformer layer,
+    and mask that channel in every layer when measuring the training label.
+    Legacy or precision-incompatible Meta bundles abstain from learned ordering
+    while physical evaluation continues. This adaptation follows the grouped
+    importance principle documented by Torch-Pruning; its reviewed revision,
+    licence, and this implementation's provenance are recorded in
+    `docs/research/torch-pruning-grouped-importance-integration.md`.
+
   - Meta-Surgeon candidate ordering now follows the metric direction recorded in
     the verified bundle's target schema. Unknown or malformed target directions
     make optional guidance abstain instead of silently assuming minimization.

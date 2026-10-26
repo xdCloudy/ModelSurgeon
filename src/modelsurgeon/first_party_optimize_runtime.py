@@ -723,6 +723,35 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             }
             return ()
 
+        required_group_features = {
+            "coupled_group_weight_l1_norm",
+            "coupled_group_weight_l2_norm",
+        }
+        has_mlp_channel_candidates = any(
+            candidate.scope is CandidateScope.MLP_CHANNEL for candidate in candidates
+        )
+        if has_mlp_channel_candidates and (
+            card.compatibility.get("candidate_grouping")
+            != "mlp_channel_index_all_layers"
+            or not required_group_features.issubset(
+                {item.name for item in bundle.preprocessor.numeric}
+            )
+        ):
+            self.meta_guidance = {
+                "status": "unsupported_candidate_grouping",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_grouping": "mlp_channel_index_all_layers",
+                "declared_grouping": card.compatibility.get("candidate_grouping"),
+                "required_group_features": sorted(required_group_features),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed Meta-Surgeon card and feature model must declare the same "
+                    "cross-layer MLP channel grouping used by physical surgery"
+                ),
+            }
+            return ()
+
         target_hardware = proof._hardware.cuda
         hardware_labels: set[str] = set()
         if target_hardware.available:
@@ -760,6 +789,26 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 raise FirstPartyOptimizeRuntimeError(
                     "Meta-Surgeon inference is missing candidate feature evidence"
                 )
+            if candidate.scope is CandidateScope.MLP_CHANNEL:
+                available_features = {
+                    feature.get("name")
+                    for feature in raw_features
+                    if isinstance(feature.get("name"), str)
+                }
+                if not required_group_features.issubset(available_features):
+                    self.meta_guidance = {
+                        "status": "abstained_group_features_unavailable",
+                        "card_digest": card_digest,
+                        "bundle_digest": card.bundle_digest,
+                        "candidate_id": candidate.candidate_id,
+                        "required_group_features": sorted(required_group_features),
+                        "measurement_authority": "physical_evaluation",
+                        "reason": (
+                            "source feature precision could not support a faithful "
+                            "cross-layer group importance summary"
+                        ),
+                    }
+                    return ()
             candidate_features[candidate.candidate_id] = raw_features
             for feature in raw_features:
                 precision = feature.get("precision")
@@ -2314,7 +2363,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 proof.run_id,
                 CandidateEnumeratorConfig(
                     seed=seed,
-                    filters=CandidateFilter(scopes=base_scopes),
+                    filters=CandidateFilter(
+                        scopes=base_scopes,
+                        layer_indices=(0,)
+                        if base_scopes == (CandidateScope.MLP_CHANNEL,)
+                        else (),
+                    ),
                     max_candidates=maximum,
                 ),
             )
@@ -2529,12 +2583,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
     ) -> None:
         if candidate.scope is CandidateScope.MLP_CHANNEL:
-            partitions = proof.pre_mutation_feature_partitions(candidate)
-            if len(partitions) != 1:
-                raise FirstPartyOptimizeRuntimeError(
-                    "HF feature extraction must produce one candidate partition"
-                )
-            partition = partitions[0]
+            partition = proof.pre_mutation_group_feature_partition(candidate)
         else:
             partition = self._structural_feature_partition(proof, candidate)
         self.feature_cache_entries[candidate.candidate_id] = self._publish_feature_partition(
