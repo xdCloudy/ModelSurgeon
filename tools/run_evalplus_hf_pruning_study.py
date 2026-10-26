@@ -39,7 +39,7 @@ WORKSPACE_MANIFEST = ".modelsurgeon-evalplus-study.json"
 
 def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "model": args.model,
         "model_revision": args.model_revision,
         "remove_channels": args.remove_channels,
@@ -47,6 +47,7 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
         "evalplus_image": args.evalplus_image,
         "evalplus_revision": EVALPLUS_REVISION,
         "dataset_version": HUMANEVAL_PLUS_VERSION,
+        "stop_criteria_policy": "restore-after-each-task-v1",
     }
 
 
@@ -642,6 +643,35 @@ def _repair_prediction_checkpoint(path: Path) -> None:
         raise
 
 
+def _decoder_with_task_local_stopping_criteria(decoder_type: type) -> type:
+    """Keep EvalPlus's stop-sequence wrapper local to each generated task.
+
+    The pinned EvalPlus HF decoder installs a StopSequencer wrapper on the
+    model's private Transformers hook and does not restore it. EvalPlus reuses
+    the decoder across tasks, so without this adapter the wrappers accumulate.
+    """
+
+    class TaskLocalStoppingCriteriaDecoder(decoder_type):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            self._modelsurgeon_base_get_stopping_criteria = (
+                self.model._get_stopping_criteria
+            )
+
+        def codegen(self, *args: object, **kwargs: object) -> object:
+            self.model._get_stopping_criteria = (
+                self._modelsurgeon_base_get_stopping_criteria
+            )
+            try:
+                return super().codegen(*args, **kwargs)
+            finally:
+                self.model._get_stopping_criteria = (
+                    self._modelsurgeon_base_get_stopping_criteria
+                )
+
+    return TaskLocalStoppingCriteriaDecoder
+
+
 def _generate_predictions(
     model_path: Path,
     target_path: Path,
@@ -653,7 +683,9 @@ def _generate_predictions(
     from evalplus.codegen import codegen
     from evalplus.provider.hf import HuggingFaceDecoder
 
-    decoder = HuggingFaceDecoder(
+    TaskLocalDecoder = _decoder_with_task_local_stopping_criteria(HuggingFaceDecoder)
+
+    decoder = TaskLocalDecoder(
         name=str(model_path),
         dataset="humaneval",
         force_base_prompt=True,

@@ -6,6 +6,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 from tools.run_evalplus_hf_pruning_study import (
+    _decoder_with_task_local_stopping_criteria,
     _docker_wrapper,
     _generate_predictions,
     _low_magnitude_channels,
@@ -95,6 +96,7 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     class _Decoder:
         def __init__(self, **kwargs: object) -> None:
             observed["decoder_kwargs"] = kwargs
+            self.model = SimpleNamespace(_get_stopping_criteria=lambda: [])
 
     def _codegen(**kwargs: object) -> None:
         observed["dataset"] = kwargs["dataset"]
@@ -122,6 +124,39 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     assert not target.with_name("predictions.raw.jsonl").exists()
 
 
+def test_decoder_restores_stopping_criteria_after_each_task() -> None:
+    class _Model:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def _get_stopping_criteria(self) -> list[object]:
+            self.calls += 1
+            return []
+
+    class _Decoder:
+        def __init__(self) -> None:
+            self.model = _Model()
+
+        def codegen(self) -> list[object]:
+            original = self.model._get_stopping_criteria
+
+            def wrapped() -> list[object]:
+                return original()
+
+            self.model._get_stopping_criteria = wrapped
+            return self.model._get_stopping_criteria()
+
+    decoder_type = _decoder_with_task_local_stopping_criteria(_Decoder)
+    decoder = decoder_type()
+    original = decoder.model._get_stopping_criteria
+
+    decoder.codegen()
+    assert decoder.model._get_stopping_criteria == original
+    decoder.codegen()
+    assert decoder.model._get_stopping_criteria == original
+    assert decoder.model.calls == 2
+
+
 def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> None:
     args = SimpleNamespace(
         model="Qwen/Qwen2.5-Coder-0.5B-Instruct",
@@ -134,6 +169,9 @@ def test_workspace_records_settings_and_rejects_mismatched_resume(tmp_path) -> N
     workspace = _prepare_workspace(tmp_path / "study", args)
 
     assert workspace == tmp_path / "study"
+    manifest = json.loads((workspace / ".modelsurgeon-evalplus-study.json").read_text())
+    assert manifest["schema_version"] == 2
+    assert manifest["stop_criteria_policy"] == "restore-after-each-task-v1"
     assert _prepare_workspace(workspace, args) == workspace
     args.remove_channels = 128
     with pytest.raises(RuntimeError, match="settings do not match"):

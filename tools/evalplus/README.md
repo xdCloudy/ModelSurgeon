@@ -63,7 +63,11 @@ removed when the study uses its default temporary workspace.
 EvalPlus's HF decoder is explicitly put in base-prompt mode because HumanEval is a
 function-completion task and the pinned EvalPlus revision does not provide an instruction
 prefix for this Qwen chat template. Decoding is greedy, one sample per task, capped at 256
-new tokens. The upstream decoder currently emits a Transformers attention-mask warning
+new tokens. A small ModelSurgeon adapter restores the Transformers stopping-criteria hook
+after every task: the pinned EvalPlus `StopSequencer` wraps that hook and does not restore
+it, so leaving the decoder untouched would accumulate wrappers across tasks. The persistent
+workspace protocol records this policy and refuses to resume samples produced under the
+older behavior. The upstream decoder currently emits a Transformers attention-mask warning
 for its single-prompt path; treat that as a protocol limitation when interpreting scores.
 
 This single-model, single-severity experiment tests executable correctness and physical
