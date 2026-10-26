@@ -25,6 +25,20 @@ class _TinyLM(torch.nn.Module):
         return SimpleNamespace(loss=loss)
 
 
+class _CausalTokenLossLM(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.proj = torch.nn.Linear(4, 4, bias=False)
+
+    def forward(self, input_ids: object, labels: object) -> object:
+        predictions = self.proj(input_ids.float())
+        shifted_labels = labels[:, 1:].float()
+        shifted_predictions = predictions[:, 1:]
+        valid = shifted_labels != -100
+        loss = torch.nn.functional.mse_loss(shifted_predictions[valid], shifted_labels[valid])
+        return SimpleNamespace(loss=loss)
+
+
 EXAMPLES = (
     {
         "input_ids": torch.tensor([[1.0, 0.0, 0.5, -0.5]]),
@@ -69,6 +83,7 @@ def test_separate_lora_is_bounded_deterministic_and_preserves_base_weights() -> 
     assert result.completed_steps == 3
     assert result.selected_step == 3
     assert result.validation_losses == ()
+    assert result.validation_loss_aggregation is None
     assert len(result.training_examples_sha256) == 64
     assert result.trainable_parameters == 16
     assert result.max_trainable_parameters == 10_000_000
@@ -132,10 +147,46 @@ def test_heldout_selection_restores_best_adapter_checkpoint() -> None:
     assert selected.completed_steps == 8
     assert selected.selected_step == 1
     assert selected.validation_losses[0] == min(selected.validation_losses)
+    assert selected.validation_loss_aggregation == "token_weighted_causal_targets"
     assert selected.adapter_sha256 == one_step.adapter_sha256
     assert selected.training_examples_sha256 != selected.validation_examples_sha256
     assert selected.validation_dataset_sha256 == "a" * 64
     assert selected.to_record()["evaluation_source"] == "external_text"
+
+
+def test_heldout_selection_weights_variable_length_examples_by_valid_tokens() -> None:
+    torch.manual_seed(13)
+    original = _CausalTokenLossLM()
+    validation_examples = (
+        {
+            "input_ids": torch.tensor([[0.2, 0.4, -0.1, 0.7]]),
+            "labels": torch.tensor([[0.0, 0.3, -0.2, 0.5]]),
+        },
+        {
+            "input_ids": torch.tensor([[-0.5, 0.6, 0.3, 0.1]]),
+            "labels": torch.tensor([[0.0, -0.4, -100.0, -100.0]]),
+        },
+    )
+    with torch.inference_mode():
+        per_example_losses = tuple(
+            float(original(**example).loss.item()) for example in validation_examples
+        )
+    expected_token_weighted_loss = (per_example_losses[0] * 3 + per_example_losses[1]) / 4
+    unweighted_example_mean = sum(per_example_losses) / len(per_example_losses)
+
+    result = run_bounded_lora_repair(
+        deepcopy(original),
+        EXAMPLES,
+        ("proj",),
+        LoRARepairConfig(rank=2, alpha=4, max_steps=1, seed=13),
+        source_checkpoint_id="checkpoint_source",
+        candidate_checkpoint_id="checkpoint_candidate",
+        validation_examples=validation_examples,
+    )
+
+    assert result.baseline_validation_loss == pytest.approx(expected_token_weighted_loss)
+    assert result.baseline_validation_loss != pytest.approx(unweighted_example_mean)
+    assert result.to_record()["validation_loss_aggregation"] == "token_weighted_causal_targets"
 
 
 def test_heldout_selection_keeps_zero_update_when_all_steps_are_worse() -> None:

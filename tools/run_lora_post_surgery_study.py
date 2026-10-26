@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import shutil
 import statistics
 import tempfile
@@ -20,6 +21,10 @@ from modelsurgeon.adapters.huggingface.loader import (
     load_causal_lm,
 )
 from modelsurgeon.adapters.huggingface.physical_mlp import remove_huggingface_mlp_channels
+from modelsurgeon.evaluation.task_quality import (
+    CodeExactMatchDataset,
+    evaluate_code_exact_match,
+)
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.surgery.lora_repair import (
     LoRAOutputMode,
@@ -85,6 +90,27 @@ def _load_dataset_rows(split: str) -> tuple[tuple[tuple[int, str], ...], Path]:
             continue
         rows.append((index, text))
     return tuple(rows), path
+
+
+def _ordered_test_rows(
+    rows: tuple[tuple[int, str], ...], sample_seed: int | None
+) -> tuple[tuple[int, str], ...]:
+    if sample_seed is None:
+        return rows
+    shuffled = list(rows)
+    random.Random(sample_seed).shuffle(shuffled)
+    return tuple(shuffled)
+
+
+def _test_sampling_run_parameters(
+    test_example_count: int, sample_seed: int | None, extended: bool
+) -> dict[str, int | None]:
+    if not extended:
+        return {}
+    return {
+        "test_examples_per_split": test_example_count,
+        "test_sample_seed": sample_seed,
+    }
 
 
 def _examples(
@@ -203,6 +229,38 @@ def _measure(
     return record
 
 
+def _measure_task_quality(
+    model: Any,
+    tokenizer: Any,
+    torch: Any,
+    dataset: CodeExactMatchDataset | None,
+    *,
+    max_new_tokens: int,
+) -> dict[str, object] | None:
+    if dataset is None:
+        return None
+    measurement = evaluate_code_exact_match(
+        model,
+        tokenizer,
+        torch,
+        dataset,
+        max_new_tokens=max_new_tokens,
+    )
+    record = measurement.to_record()
+    dataset_record = dict(record["dataset"])
+    dataset_record["path"] = _portable_dataset_path(dataset.path)
+    record["dataset"] = dataset_record
+    return record
+
+
+def _portable_dataset_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
 def _save_and_reload(
     model: Any,
     output: Path,
@@ -251,6 +309,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     from huggingface_hub import snapshot_download
     from transformers import AutoTokenizer
 
+    task_quality_dataset = (
+        None
+        if args.task_quality_dataset is None
+        else CodeExactMatchDataset.load(
+            args.task_quality_dataset,
+            revision=args.task_quality_dataset_revision,
+            split="test",
+        )
+    )
+
     if not torch.cuda.is_available():
         raise RuntimeError("this consumer-hardware study requires CUDA")
     device = torch.device("cuda:0")
@@ -273,8 +341,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     validation_examples, validation_rows = _examples(
         dataset_rows["validation"], tokenizer, args.examples_per_split, args.max_length
     )
+    test_texts = _ordered_test_rows(dataset_rows["test"], args.test_sample_seed)
+    test_example_count = (
+        args.examples_per_split
+        if args.test_examples_per_split is None
+        else args.test_examples_per_split
+    )
+    extended_test_sampling = (
+        args.test_examples_per_split is not None or args.test_sample_seed is not None
+    )
     test_examples, test_rows = _examples(
-        dataset_rows["test"], tokenizer, args.examples_per_split, args.max_length
+        test_texts, tokenizer, test_example_count, args.max_length
     )
     input_hashes = {
         split: {
@@ -312,6 +389,13 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     baseline_model = baseline_loaded.model
     baseline_parameters = _parameter_metrics(baseline_model)
     baseline_quality = _measure(baseline_model, test_examples, device)
+    baseline_task_quality = _measure_task_quality(
+        baseline_model,
+        tokenizer,
+        torch,
+        task_quality_dataset,
+        max_new_tokens=args.task_quality_max_new_tokens,
+    )
     del baseline_model, baseline_loaded
     torch.cuda.empty_cache()
 
@@ -335,6 +419,13 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
         pruned_parameters = _parameter_metrics(no_repair_model)
         no_repair_quality = _measure(no_repair_model, test_examples, device)
+        no_repair_task_quality = _measure_task_quality(
+            no_repair_model,
+            tokenizer,
+            torch,
+            task_quality_dataset,
+            max_new_tokens=args.task_quality_max_new_tokens,
+        )
         no_repair_model.to(device="cpu", dtype=torch.float32)
 
         target_modules = tuple(
@@ -369,12 +460,27 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             no_repair_model, root / "repaired", MODEL_REVISION, snapshot, tokenizer
         )
         repaired_quality = _measure(repaired_model, test_examples, device)
+        repaired_task_quality = _measure_task_quality(
+            repaired_model,
+            tokenizer,
+            torch,
+            task_quality_dataset,
+            max_new_tokens=args.task_quality_max_new_tokens,
+        )
         del no_repair_model, repaired_model
         torch.cuda.empty_cache()
 
     return {
-        "schema_version": 1,
-        "protocol": "lora-post-surgery-wikitext-smoke-v1",
+        "schema_version": (
+            3 if task_quality_dataset is not None else 2 if extended_test_sampling else 1
+        ),
+        "protocol": (
+            "lora-post-surgery-wikitext-task-quality-v1"
+            if task_quality_dataset is not None
+            else "lora-post-surgery-wikitext-smoke-v2"
+            if extended_test_sampling
+            else "lora-post-surgery-wikitext-smoke-v1"
+        ),
         "model": {
             "identifier": MODEL,
             "revision": MODEL_REVISION,
@@ -393,6 +499,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "steps": args.steps,
             "learning_rate": args.learning_rate,
             "seed": args.seed,
+            **_test_sampling_run_parameters(
+                test_example_count, args.test_sample_seed, extended_test_sampling
+            ),
+            **(
+                {"task_quality_max_new_tokens": args.task_quality_max_new_tokens}
+                if task_quality_dataset is not None
+                else {}
+            ),
         },
         "dataset": {
             "identifier": DATASET,
@@ -408,6 +522,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "selected_token_sequences_disjoint": True,
             "raw_text_included": False,
         },
+        **(
+            {
+                "task_quality_dataset": {
+                    **task_quality_dataset.to_record(),
+                    "path": _portable_dataset_path(task_quality_dataset.path),
+                }
+            }
+            if task_quality_dataset is not None
+            else {}
+        ),
         "runtime": {
             "python_version": __import__("sys").version.split()[0],
             "torch_version": torch.__version__,
@@ -431,16 +555,31 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "source": {
                 **baseline_parameters,
                 "test": baseline_quality,
+                **(
+                    {"task_quality": baseline_task_quality}
+                    if baseline_task_quality is not None
+                    else {}
+                ),
             },
             "pruned_no_repair": {
                 **pruned_parameters,
                 "artifact": no_repair_manifest,
                 "test": no_repair_quality,
+                **(
+                    {"task_quality": no_repair_task_quality}
+                    if no_repair_task_quality is not None
+                    else {}
+                ),
             },
             "pruned_lora_selected": {
                 **pruned_parameters,
                 "artifact": repaired_manifest,
                 "test": repaired_quality,
+                **(
+                    {"task_quality": repaired_task_quality}
+                    if repaired_task_quality is not None
+                    else {}
+                ),
             },
         },
         "limitations": [
@@ -457,6 +596,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 "a decode-throughput or deployment benchmark."
             ),
             "No distillation, multiple-precision, or CPU-offload arm is included.",
+            *(
+                [
+                    (
+                        "Task-quality uses a four-example exact-match smoke set and is "
+                        "exploratory; it does not establish broad coding ability or a "
+                        "statistically reliable quality-retention bound."
+                    )
+                ]
+                if task_quality_dataset is not None
+                else []
+            ),
             (
                 "Temporary candidate artifacts were reloaded for verification and are not "
                 "retained by this script."
@@ -470,14 +620,30 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--remove-channels", type=int, default=64)
     parser.add_argument("--examples-per-split", type=int, default=4)
+    parser.add_argument("--test-examples-per-split", type=int)
+    parser.add_argument("--test-sample-seed", type=int)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--rank", type=int, default=2)
     parser.add_argument("--steps", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--task-quality-dataset", type=Path)
+    parser.add_argument("--task-quality-dataset-revision")
+    parser.add_argument("--task-quality-max-new-tokens", type=int, default=64)
     args = parser.parse_args()
-    if args.examples_per_split <= 0 or args.max_length < 16:
-        parser.error("examples-per-split must be positive and max-length at least 16")
+    if (
+        args.examples_per_split <= 0
+        or args.max_length < 16
+        or (args.test_examples_per_split is not None and args.test_examples_per_split <= 0)
+        or (args.test_sample_seed is not None and args.test_sample_seed < 0)
+        or args.task_quality_max_new_tokens <= 0
+    ):
+        parser.error(
+            "example counts must be positive, test-sample-seed non-negative, "
+            "task-quality max-new-tokens positive, and max-length at least 16"
+        )
+    if args.task_quality_dataset_revision is not None and args.task_quality_dataset is None:
+        parser.error("--task-quality-dataset-revision requires --task-quality-dataset")
     result = run(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     serialized = canonical_identity_json(result) + "\n"
