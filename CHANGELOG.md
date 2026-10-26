@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Meta-Surgeon guided Hugging Face MLP search now ranks a bounded candidate
+    pool before spending the configured physical-evaluation budget. The pool
+    multiplier defaults to four and is capped at 32; deterministic canonical
+    ordering remains the fallback when verified Meta-Surgeon guidance is
+    unavailable, and measured quality gates remain authoritative.
+
   - Corrected the first-party search `no_guidance` comparator to use the first
     candidate in canonical ID order instead of the best physically measured
     candidate. Comparison evidence now preserves the selected ID when that

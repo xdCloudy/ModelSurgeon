@@ -714,6 +714,14 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     detail = json.loads(active.detail)
     assert detail["meta_guidance"]["status"] == "verified_bundle"
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
+    evaluation_selection = detail["search_comparison"]["evaluation_selection"]
+    assert evaluation_selection["policy"] == "meta_surgeon"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] > 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
+    assert evaluation_selection["evaluated_candidate_ids"] == detail["meta_guidance"][
+        "ordered_candidates"
+    ][:2]
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
         "magnitude",
@@ -727,15 +735,21 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         for item in detail["search_comparison"]["baselines"]
         if item["method"] == "activation_magnitude"
     )
-    assert activation_baseline["measured"] is True
     assert activation_baseline["candidate_id"] is not None
+    assert activation_baseline["measured"] is (
+        activation_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
     activation_weighted_baseline = next(
         item
         for item in detail["search_comparison"]["baselines"]
         if item["method"] == "activation_weighted_magnitude"
     )
-    assert activation_weighted_baseline["measured"] is True
     assert activation_weighted_baseline["candidate_id"] is not None
+    assert activation_weighted_baseline["measured"] is (
+        activation_weighted_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
 
 
 def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
@@ -795,6 +809,11 @@ def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
     assert active_search is not None
     detail = json.loads(active_search.detail)
     comparison = detail["search_comparison"]
+    evaluation_selection = comparison["evaluation_selection"]
+    assert evaluation_selection["policy"] == "canonical_id"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] == 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
     assert comparison["measured_best"] is not None
     assert comparison["measured_best_constraints_passed"] is False
     assert len(comparison["baselines"]) == 6
