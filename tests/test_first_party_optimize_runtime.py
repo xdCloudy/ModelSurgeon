@@ -28,6 +28,7 @@ from modelsurgeon.experiments.hardware import (
 )
 from modelsurgeon.first_party_optimize_runtime import (
     FirstPartyOptimizeRuntimeError,
+    HuggingFaceOptimizeRuntime,
     build_first_party_optimize_runtime,
 )
 from modelsurgeon.optimization import build_optimize_plan
@@ -51,6 +52,30 @@ from modelsurgeon.surgeon.matrix import NumericPreprocessor, SurgeonPreprocessor
 torch = pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
 transformers = pytest.importorskip("transformers")
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        ("no measured candidate met the declared quality-retention floor", "inconclusive"),
+        ("no measured feasible artifact is available for Pareto publication", "inconclusive"),
+        (
+            "deployment measurements did not satisfy every declared hard constraint",
+            "inconclusive",
+        ),
+        ("declared Pareto objectives were not fully measured", "unknown"),
+        ("no measured candidate has complete declared Pareto objectives", "unknown"),
+        ("no physical artifact is available", "unknown"),
+        ("LoRA repair requires a published reloaded physical artifact", "unknown"),
+        ("optional latency measurement is unavailable", "unknown"),
+        ("distillation targets expose no trainable weight or bias parameters", "unsupported"),
+        ("CUDA out of memory", "oom"),
+        ("evaluation timed out", "timeout"),
+        ("tensor shape mismatch", "runtime_failure"),
+    ],
+)
+def test_first_party_boundary_failure_classification(detail: str, expected: str) -> None:
+    assert HuggingFaceOptimizeRuntime._failure_classification(detail) == expected
 
 
 def _write_tiny_llama(path: Path) -> None:
