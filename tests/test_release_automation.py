@@ -75,7 +75,7 @@ def test_release_workflow_has_build_attest_and_approval_gates() -> None:
         "verify_release_artifacts.py",
         "generate_release_notes.py",
         "uv venv .release-venv --python 3.12",
-        "actions/attest-build-provenance@v2",
+        "actions/attest-build-provenance@v4",
         "attestations: write",
         "pypa/gh-action-pypi-publish@release/v1",
         "name: pypi",
