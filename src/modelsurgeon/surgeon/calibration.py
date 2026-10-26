@@ -188,7 +188,9 @@ class CalibrationSelection:
             "evaluation_partition": (
                 "validation_out_of_fold" if self.cross_validation_folds >= 2 else "unspecified"
             ),
-            "fold_assignment": "stratified_round_robin_v1",
+            "fold_assignment": (
+                "stratified_round_robin_v1" if self.cross_validation_folds >= 2 else "unspecified"
+            ),
         }
 
 
@@ -398,7 +400,7 @@ def fit_probability_calibrator(
     )
     calibrator = (
         fit_platt_calibrator(validation_probabilities, validation_labels)
-        if selected[0] is CalibrationMethod.PLATT
+        if selected is CalibrationMethod.PLATT
         else fit_isotonic_calibrator(validation_probabilities, validation_labels)
     )
     candidates = tuple(CalibrationCandidate(method, metrics) for method, metrics in evaluated)

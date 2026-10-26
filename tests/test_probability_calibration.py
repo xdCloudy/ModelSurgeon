@@ -6,6 +6,7 @@ import pytest
 
 from modelsurgeon.surgeon.calibration import (
     CalibrationMethod,
+    CalibrationSelection,
     IsotonicCalibrator,
     PlattCalibrator,
     ProbabilityCalibrationError,
@@ -46,6 +47,7 @@ def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> N
     record = selection.to_record()
 
     assert selection.calibrator.method in {CalibrationMethod.PLATT, CalibrationMethod.ISOTONIC}
+    assert selection.calibrator.method is CalibrationMethod.PLATT
     assert {candidate.method for candidate in selection.candidates} == {
         CalibrationMethod.PLATT,
         CalibrationMethod.ISOTONIC,
@@ -68,6 +70,20 @@ def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> N
         if candidate.method is selection.calibrator.method
     )
     assert selected_metrics.brier_score != pytest.approx(fitted_metrics.brier_score)
+
+
+def test_manually_constructed_selection_does_not_claim_fold_provenance() -> None:
+    selection = CalibrationSelection(
+        fit_platt_calibrator(PROBABILITIES, LABELS),
+        (),
+        len(PROBABILITIES),
+        reliability_bins=4,
+    )
+
+    record = selection.to_record()
+    assert record["cross_validation_folds"] == 0
+    assert record["evaluation_partition"] == "unspecified"
+    assert record["fold_assignment"] == "unspecified"
 
 
 def test_calibration_metrics_keep_empty_bins_explicit() -> None:
