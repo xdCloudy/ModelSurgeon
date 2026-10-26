@@ -1,0 +1,91 @@
+{
+  "calibration_text_sha256": "b056198b9e830ab226e1f7254d316c76b8d9d3a2ba83009b4733360323f7cc16",
+  "causal_target_tokens": 1016,
+  "chunks": 8,
+  "device": "NVIDIA GeForce RTX 3060",
+  "dtype": "float16",
+  "first_order_score_spearman_min": 0.9999999403953552,
+  "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+  "first_order_scores_max_abs_value": 0.014039210975170135,
+  "first_order_top_1_percent_overlap_min": 1.0,
+  "first_order_top_5_percent_overlap_min": 1.0,
+  "git_revision": "ba602c8724ea164be8c007ef8a7d01a89d6ff127",
+  "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+  "layer": 0,
+  "max_abs_first_order_difference": 2.1192245185375214e-06,
+  "max_abs_gradient_difference": 6.103515625e-05,
+  "max_relative_first_order_difference": 1.1376187801361084,
+  "max_relative_gradient_difference": 2.0,
+  "max_tokens": 1024,
+  "model": "Qwen/Qwen2.5-0.5B",
+  "record_type": "hf_gradient_graph_memory_comparison",
+  "repeat_count": 3,
+  "retained_graphs": {
+    "median_peak_allocated_bytes": 2922599424,
+    "median_peak_incremental_bytes": 1917462528,
+    "median_peak_reserved_bytes": 2973761536,
+    "median_wall_seconds": 0.4508518000366166,
+    "runs": [
+      {
+        "baseline_allocated_bytes": 988097536,
+        "mode": "retained_graphs",
+        "peak_allocated_bytes": 2915128320,
+        "peak_incremental_bytes": 1927030784,
+        "peak_reserved_bytes": 2973761536,
+        "wall_seconds": 0.9691754999803379
+      },
+      {
+        "baseline_allocated_bytes": 1005136896,
+        "mode": "retained_graphs",
+        "peak_allocated_bytes": 2922599424,
+        "peak_incremental_bytes": 1917462528,
+        "peak_reserved_bytes": 2973761536,
+        "wall_seconds": 0.4508518000366166
+      },
+      {
+        "baseline_allocated_bytes": 1005136896,
+        "mode": "retained_graphs",
+        "peak_allocated_bytes": 2922599424,
+        "peak_incremental_bytes": 1917462528,
+        "peak_reserved_bytes": 2973761536,
+        "wall_seconds": 0.4498297999962233
+      }
+    ]
+  },
+  "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "schema_version": 1,
+  "sequence_length": 128,
+  "streamed_backward": {
+    "median_peak_allocated_bytes": 1509749760,
+    "median_peak_incremental_bytes": 504612864,
+    "median_peak_reserved_bytes": 1570766848,
+    "median_wall_seconds": 0.4321549999876879,
+    "runs": [
+      {
+        "baseline_allocated_bytes": 1005136896,
+        "mode": "streamed_backward",
+        "peak_allocated_bytes": 1509749760,
+        "peak_incremental_bytes": 504612864,
+        "peak_reserved_bytes": 1570766848,
+        "wall_seconds": 0.44805210002232343
+      },
+      {
+        "baseline_allocated_bytes": 1005136896,
+        "mode": "streamed_backward",
+        "peak_allocated_bytes": 1509749760,
+        "peak_incremental_bytes": 504612864,
+        "peak_reserved_bytes": 1570766848,
+        "wall_seconds": 0.4321549999876879
+      },
+      {
+        "baseline_allocated_bytes": 1005136896,
+        "mode": "streamed_backward",
+        "peak_allocated_bytes": 1509749760,
+        "peak_incremental_bytes": 504612864,
+        "peak_reserved_bytes": 1570766848,
+        "wall_seconds": 0.39062960003502667
+      }
+    ]
+  },
+  "torch_version": "2.14.1+cu130"
+}
