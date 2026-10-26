@@ -107,15 +107,17 @@ def measure_huggingface_block_influence(
         return hook
 
     module_training_states = tuple((module, module.training) for module in model.modules())
-    handles = [block.register_forward_hook(capture(index)) for index, block in enumerate(blocks)]
+    handles: list[Any] = []
     try:
+        for layer_index, block in enumerate(blocks):
+            handles.append(block.register_forward_hook(capture(layer_index)))
         model.eval()
         with torch.inference_mode():
             for chunk in chunks:
                 input_ids = torch.tensor((chunk,), dtype=torch.long, device=input_device)
                 model(input_ids=input_ids, use_cache=False)
     finally:
-        for handle in handles:
+        for handle in reversed(handles):
             handle.remove()
         for module, was_training in module_training_states:
             module.training = was_training

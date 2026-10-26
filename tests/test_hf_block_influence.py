@@ -42,6 +42,15 @@ class _NonFiniteBlock(torch.nn.Module):
         return output
 
 
+class _FailingHookBlock(torch.nn.Module):
+    def register_forward_hook(self, hook, *args: object, **kwargs: object) -> object:
+        del hook, args, kwargs
+        raise RuntimeError("hook registration failed")
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        return hidden_states
+
+
 class _TinyModel(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -124,3 +133,21 @@ def test_block_influence_rejects_nonfinite_hidden_activations(value: float) -> N
         )
 
     assert all(not block._forward_hooks for block in model.model.layers)
+
+
+def test_block_influence_rolls_back_partial_hook_registration() -> None:
+    model = _TinyModel().train()
+    first = _IdentityBlock()
+    failing = _FailingHookBlock()
+    model.model.layers = torch.nn.ModuleList((first, failing))
+    module_training_states = tuple(module.training for module in model.modules())
+
+    with pytest.raises(RuntimeError, match="hook registration failed"):
+        measure_huggingface_block_influence(
+            model,
+            ((1, 2),),
+            input_device=torch.device("cpu"),
+        )
+
+    assert not first._forward_hooks
+    assert tuple(module.training for module in model.modules()) == module_training_states
