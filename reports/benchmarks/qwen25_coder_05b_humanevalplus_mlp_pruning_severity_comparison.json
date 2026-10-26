@@ -13,7 +13,8 @@
     "bootstrap": "paired percentile bootstrap over benchmark tasks",
     "bootstrap_samples": 20000,
     "bootstrap_seed": 20261026,
-    "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
+    "comparison_scope": "all candidate pairs"
   },
   "run_metadata": {
     "magnitude_64": {
@@ -35,6 +36,16 @@
       "candidate_generated_tokens_per_second": 38.513639,
       "candidate_median_generation_latency_seconds": 1.449293,
       "candidate_p95_generation_latency_seconds": 5.915379
+    },
+    "magnitude_192": {
+      "channel_scorer": "magnitude",
+      "calibration_tokens": null,
+      "calibration_token_ids_sha256": null,
+      "candidate_plus_passes": 56,
+      "candidate_artifact_bytes": 974751699,
+      "candidate_generated_tokens_per_second": 43.066286,
+      "candidate_median_generation_latency_seconds": 1.297447,
+      "candidate_p95_generation_latency_seconds": 4.322913
     },
     "magnitude_256": {
       "channel_scorer": "magnitude",
@@ -64,12 +75,46 @@
       "sha256_lf_normalized": "c673a90cff95482d8ab4eb6c7fd99bd9ac3121c66251591f7f15005faca362a7"
     },
     {
+      "name": "magnitude_192",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_192.json",
+      "sha256_lf_normalized": "55bb29e80a44fd70c6e46391100df3f0a9f75e12b22ca0bad3b107b68c54f954"
+    },
+    {
       "name": "magnitude_256",
       "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
       "sha256_lf_normalized": "17f6dc0a17b50619b8bc971bacdf71d80e9b3da7f89736c561e9df826d23335c"
     }
   ],
   "comparisons": [
+    {
+      "left": "source",
+      "right": "magnitude_64",
+      "task_count": 164,
+      "left_plus_passes": 69,
+      "right_plus_passes": 60,
+      "left_plus_status_counts": {
+        "fail": 95,
+        "pass": 69
+      },
+      "right_plus_status_counts": {
+        "fail": 104,
+        "pass": 60
+      },
+      "left_minus_right_percentage_points": 5.487804878048781,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        0.0,
+        11.585365853658537
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 17,
+        "right_only_pass": 8
+      },
+      "both_pass": 52,
+      "neither_pass": 87,
+      "mcnemar_exact_two_sided_p_value": 0.10775214433670044
+    },
     {
       "left": "source",
       "right": "magnitude_128",
@@ -101,67 +146,32 @@
     },
     {
       "left": "source",
-      "right": "magnitude_64",
+      "right": "magnitude_192",
       "task_count": 164,
       "left_plus_passes": 69,
-      "right_plus_passes": 60,
+      "right_plus_passes": 56,
       "left_plus_status_counts": {
         "fail": 95,
         "pass": 69
       },
       "right_plus_status_counts": {
-        "fail": 104,
-        "pass": 60
+        "fail": 108,
+        "pass": 56
       },
-      "left_minus_right_percentage_points": 5.487804878048781,
+      "left_minus_right_percentage_points": 7.926829268292683,
       "paired_bootstrap_95_percent_interval_percentage_points": [
-        0.0,
-        11.585365853658537
+        1.829268292682927,
+        14.634146341463415
       ],
       "paired_bootstrap_samples": 20000,
       "paired_bootstrap_seed": 20261026,
       "discordant_tasks": {
-        "left_only_pass": 17,
-        "right_only_pass": 8
+        "left_only_pass": 22,
+        "right_only_pass": 9
       },
-      "both_pass": 52,
-      "neither_pass": 87,
-      "mcnemar_exact_two_sided_p_value": 0.10775214433670044
-    },
-    {
-      "left": "magnitude_128",
-      "right": "magnitude_64",
-      "task_count": 164,
-      "left_plus_passes": 63,
-      "right_plus_passes": 60,
-      "left_plus_status_counts": {
-        "fail": 101,
-        "pass": 63
-      },
-      "right_plus_status_counts": {
-        "fail": 104,
-        "pass": 60
-      },
-      "left_minus_right_percentage_points": 1.829268292682927,
-      "paired_bootstrap_95_percent_interval_percentage_points": [
-        -3.658536585365854,
-        7.317073170731708
-      ],
-      "paired_bootstrap_samples": 20000,
-      "paired_bootstrap_seed": 20261026,
-      "discordant_tasks": {
-        "left_only_pass": 13,
-        "right_only_pass": 10
-      },
-      "both_pass": 50,
-      "neither_pass": 91,
-      "mcnemar_exact_two_sided_p_value": 0.6776394844055176,
-      "removed_channel_selection": {
-        "left_count": 128,
-        "right_count": 64,
-        "overlap_count": 64,
-        "jaccard_similarity": 0.5
-      }
+      "both_pass": 47,
+      "neither_pass": 86,
+      "mcnemar_exact_two_sided_p_value": 0.029449373483657837
     },
     {
       "left": "source",
@@ -191,6 +201,146 @@
       "both_pass": 40,
       "neither_pass": 85,
       "mcnemar_exact_two_sided_p_value": 0.0033778479119064286
+    },
+    {
+      "left": "magnitude_64",
+      "right": "magnitude_128",
+      "task_count": 164,
+      "left_plus_passes": 60,
+      "right_plus_passes": 63,
+      "left_plus_status_counts": {
+        "fail": 104,
+        "pass": 60
+      },
+      "right_plus_status_counts": {
+        "fail": 101,
+        "pass": 63
+      },
+      "left_minus_right_percentage_points": -1.829268292682927,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -7.317073170731708,
+        3.658536585365854
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 10,
+        "right_only_pass": 13
+      },
+      "both_pass": 50,
+      "neither_pass": 91,
+      "mcnemar_exact_two_sided_p_value": 0.6776394844055176,
+      "removed_channel_selection": {
+        "left_count": 64,
+        "right_count": 128,
+        "overlap_count": 64,
+        "jaccard_similarity": 0.5
+      }
+    },
+    {
+      "left": "magnitude_64",
+      "right": "magnitude_192",
+      "task_count": 164,
+      "left_plus_passes": 60,
+      "right_plus_passes": 56,
+      "left_plus_status_counts": {
+        "fail": 104,
+        "pass": 60
+      },
+      "right_plus_status_counts": {
+        "fail": 108,
+        "pass": 56
+      },
+      "left_minus_right_percentage_points": 2.4390243902439024,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -3.658536585365854,
+        8.536585365853659
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 16,
+        "right_only_pass": 12
+      },
+      "both_pass": 44,
+      "neither_pass": 92,
+      "mcnemar_exact_two_sided_p_value": 0.5715881884098053,
+      "removed_channel_selection": {
+        "left_count": 64,
+        "right_count": 192,
+        "overlap_count": 64,
+        "jaccard_similarity": 0.3333333333333333
+      }
+    },
+    {
+      "left": "magnitude_64",
+      "right": "magnitude_256",
+      "task_count": 164,
+      "left_plus_passes": 60,
+      "right_plus_passes": 50,
+      "left_plus_status_counts": {
+        "fail": 104,
+        "pass": 60
+      },
+      "right_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "left_minus_right_percentage_points": 6.097560975609756,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -0.6097560975609756,
+        12.804878048780488
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 21,
+        "right_only_pass": 11
+      },
+      "both_pass": 39,
+      "neither_pass": 93,
+      "mcnemar_exact_two_sided_p_value": 0.11018416518345475,
+      "removed_channel_selection": {
+        "left_count": 64,
+        "right_count": 256,
+        "overlap_count": 64,
+        "jaccard_similarity": 0.25
+      }
+    },
+    {
+      "left": "magnitude_128",
+      "right": "magnitude_192",
+      "task_count": 164,
+      "left_plus_passes": 63,
+      "right_plus_passes": 56,
+      "left_plus_status_counts": {
+        "fail": 101,
+        "pass": 63
+      },
+      "right_plus_status_counts": {
+        "fail": 108,
+        "pass": 56
+      },
+      "left_minus_right_percentage_points": 4.2682926829268295,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -1.829268292682927,
+        10.975609756097562
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 18,
+        "right_only_pass": 11
+      },
+      "both_pass": 45,
+      "neither_pass": 90,
+      "mcnemar_exact_two_sided_p_value": 0.26493089646101,
+      "removed_channel_selection": {
+        "left_count": 128,
+        "right_count": 192,
+        "overlap_count": 128,
+        "jaccard_similarity": 0.6666666666666666
+      }
     },
     {
       "left": "magnitude_128",
@@ -225,6 +375,41 @@
         "right_count": 256,
         "overlap_count": 128,
         "jaccard_similarity": 0.5
+      }
+    },
+    {
+      "left": "magnitude_192",
+      "right": "magnitude_256",
+      "task_count": 164,
+      "left_plus_passes": 56,
+      "right_plus_passes": 50,
+      "left_plus_status_counts": {
+        "fail": 108,
+        "pass": 56
+      },
+      "right_plus_status_counts": {
+        "fail": 114,
+        "pass": 50
+      },
+      "left_minus_right_percentage_points": 3.658536585365854,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        -2.4390243902439024,
+        9.75609756097561
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 16,
+        "right_only_pass": 10
+      },
+      "both_pass": 40,
+      "neither_pass": 98,
+      "mcnemar_exact_two_sided_p_value": 0.32693958282470703,
+      "removed_channel_selection": {
+        "left_count": 192,
+        "right_count": 256,
+        "overlap_count": 192,
+        "jaccard_similarity": 0.75
       }
     }
   ]

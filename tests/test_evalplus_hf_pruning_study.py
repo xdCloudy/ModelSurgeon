@@ -371,8 +371,10 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
         == sensitivity["report_sha256_lf_normalized"]
     )
     severity = report["pruning_severity"]
+    assert severity["method"]["comparison_scope"] == "all candidate pairs"
     assert severity["run_metadata"]["magnitude_64"]["candidate_plus_passes"] == 60
     assert severity["run_metadata"]["magnitude_128"]["candidate_plus_passes"] == 63
+    assert severity["run_metadata"]["magnitude_192"]["candidate_plus_passes"] == 56
     assert severity["run_metadata"]["magnitude_256"]["candidate_plus_passes"] == 50
     severity_comparison = next(
         comparison
@@ -384,14 +386,26 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
         100.0 * 13 / 164
     )
     assert severity_comparison["removed_channel_selection"]["overlap_count"] == 128
-    mild_severity_comparison = next(
+    middle_severity_comparison = next(
         comparison
         for comparison in severity["comparisons"]
         if comparison["left"] == "magnitude_128"
-        and comparison["right"] == "magnitude_64"
+        and comparison["right"] == "magnitude_192"
+    )
+    assert middle_severity_comparison["left_minus_right_percentage_points"] == pytest.approx(
+        100.0 * 7 / 164
+    )
+    assert middle_severity_comparison["mcnemar_exact_two_sided_p_value"] == pytest.approx(
+        0.26493089646101
+    )
+    mild_severity_comparison = next(
+        comparison
+        for comparison in severity["comparisons"]
+        if comparison["left"] == "magnitude_64"
+        and comparison["right"] == "magnitude_128"
     )
     assert mild_severity_comparison["left_minus_right_percentage_points"] == pytest.approx(
-        100.0 * 3 / 164
+        -100.0 * 3 / 164
     )
     assert mild_severity_comparison["removed_channel_selection"]["overlap_count"] == 64
     severity_report = root / severity["report_path"]
@@ -399,6 +413,11 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
     assert hashlib.sha256(normalized_severity_report).hexdigest() == severity[
         "report_sha256_lf_normalized"
     ]
+    severity_payload = json.loads(severity_report.read_text(encoding="utf-8"))
+    for item in severity_payload["source_reports"]:
+        source = root / item["path"]
+        normalized = source.read_bytes().replace(b"\r\n", b"\n")
+        assert hashlib.sha256(normalized).hexdigest() == item["sha256_lf_normalized"]
     assert "No third-party source code copied" in report["method_provenance"]["reuse"]
     for item in report["source_reports"]:
         source = root / item["path"]

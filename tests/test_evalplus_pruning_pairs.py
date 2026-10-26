@@ -77,6 +77,7 @@ def test_build_report_checks_controls_and_hashes_sources(tmp_path: Path) -> None
     report = build_report(paths, bootstrap_samples=100)
 
     assert report["controls"]["task_count"] == 4
+    assert report["method"]["comparison_scope"] == "reference candidate pairs"
     assert [item["left"] + "-" + item["right"] for item in report["comparisons"]] == [
         "source-magnitude",
         "source-activation",
@@ -130,3 +131,30 @@ def test_build_report_supports_a_non_magnitude_reference(tmp_path: Path) -> None
         "overlap_count": 2,
         "jaccard_similarity": 1.0,
     }
+
+
+def test_build_report_can_compare_every_candidate_pair(tmp_path: Path) -> None:
+    paths = {
+        "magnitude": tmp_path / "magnitude.json",
+        "activation": tmp_path / "activation.json",
+        "energy": tmp_path / "energy.json",
+    }
+    outcomes = {
+        "magnitude": ["pass", "fail", "pass", "fail"],
+        "activation": ["pass", "pass", "fail", "fail"],
+        "energy": ["fail", "pass", "pass", "fail"],
+    }
+    for name, path in paths.items():
+        path.write_text(json.dumps(_run_report(outcomes[name])), encoding="utf-8")
+
+    report = build_report(paths, all_pairs=True, bootstrap_samples=100)
+
+    assert report["method"]["comparison_scope"] == "all candidate pairs"
+    assert [item["left"] + "-" + item["right"] for item in report["comparisons"]] == [
+        "source-magnitude",
+        "source-activation",
+        "source-energy",
+        "magnitude-activation",
+        "magnitude-energy",
+        "activation-energy",
+    ]

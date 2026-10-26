@@ -166,6 +166,7 @@ def build_report(
     *,
     reference_name: str = "magnitude",
     bootstrap_samples: int = 20_000,
+    all_pairs: bool = False,
 ) -> dict[str, Any]:
     if len(run_paths) < 2:
         raise ValueError("at least two candidate run reports are required")
@@ -224,39 +225,66 @@ def build_report(
     if task_maps["source"].keys() != task_maps[reference_name].keys():
         raise ValueError("source and candidate runs must contain the same task IDs")
 
-    comparisons = [
-        _compare(
-            "source",
-            task_maps["source"],
-            reference_name,
-            task_maps[reference_name],
-            bootstrap_samples=bootstrap_samples,
-            right_removed_channels=removed_channels_by_run[reference_name],
-        )
-    ]
-    for name in run_paths:
-        if name != reference_name:
-            comparisons.append(
-                _compare(
-                    "source",
-                    task_maps["source"],
-                    name,
-                    task_maps[name],
-                    bootstrap_samples=bootstrap_samples,
-                    right_removed_channels=removed_channels_by_run[name],
-                )
+    if all_pairs:
+        comparisons = [
+            _compare(
+                "source",
+                task_maps["source"],
+                name,
+                task_maps[name],
+                bootstrap_samples=bootstrap_samples,
+                right_removed_channels=removed_channels_by_run[name],
             )
-            comparisons.append(
-                _compare(
-                    reference_name,
-                    task_maps[reference_name],
-                    name,
-                    task_maps[name],
-                    bootstrap_samples=bootstrap_samples,
-                    left_removed_channels=removed_channels_by_run[reference_name],
-                    right_removed_channels=removed_channels_by_run[name],
+            for name in run_paths
+        ]
+        names = list(run_paths)
+        for left_index, left in enumerate(names):
+            for right in names[left_index + 1 :]:
+                comparisons.append(
+                    _compare(
+                        left,
+                        task_maps[left],
+                        right,
+                        task_maps[right],
+                        bootstrap_samples=bootstrap_samples,
+                        left_removed_channels=removed_channels_by_run[left],
+                        right_removed_channels=removed_channels_by_run[right],
+                    )
                 )
+    else:
+        comparisons = [
+            _compare(
+                "source",
+                task_maps["source"],
+                reference_name,
+                task_maps[reference_name],
+                bootstrap_samples=bootstrap_samples,
+                right_removed_channels=removed_channels_by_run[reference_name],
             )
+        ]
+        for name in run_paths:
+            if name != reference_name:
+                comparisons.append(
+                    _compare(
+                        "source",
+                        task_maps["source"],
+                        name,
+                        task_maps[name],
+                        bootstrap_samples=bootstrap_samples,
+                        right_removed_channels=removed_channels_by_run[name],
+                    )
+                )
+                comparisons.append(
+                    _compare(
+                        reference_name,
+                        task_maps[reference_name],
+                        name,
+                        task_maps[name],
+                        bootstrap_samples=bootstrap_samples,
+                        left_removed_channels=removed_channels_by_run[reference_name],
+                        right_removed_channels=removed_channels_by_run[name],
+                    )
+                )
 
     return {
         "schema_version": 2,
@@ -274,6 +302,7 @@ def build_report(
             "bootstrap_samples": bootstrap_samples,
             "bootstrap_seed": BOOTSTRAP_SEED,
             "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
+            "comparison_scope": "all candidate pairs" if all_pairs else "reference candidate pairs",
         },
         "run_metadata": {
             name: {
@@ -337,12 +366,20 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--reference", default="magnitude")
     parser.add_argument("--bootstrap-samples", type=int, default=20_000)
+    parser.add_argument(
+        "--all-pairs",
+        action="store_true",
+        help="compare every candidate run with every other candidate run",
+    )
     args = parser.parse_args()
     run_paths = dict(args.run)
     if len(run_paths) != len(args.run):
         parser.error("run names must be unique")
     report = build_report(
-        run_paths, reference_name=args.reference, bootstrap_samples=args.bootstrap_samples
+        run_paths,
+        reference_name=args.reference,
+        bootstrap_samples=args.bootstrap_samples,
+        all_pairs=args.all_pairs,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
