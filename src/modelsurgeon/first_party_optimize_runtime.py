@@ -1225,7 +1225,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         proof = self._ensure_loaded()
         if exclude_validation and len(proof._chunks) < 2:
             raise FirstPartyOptimizeRuntimeError(
-                "distillation requires at least two calibration chunks for held-out selection"
+                "repair requires at least two calibration chunks for held-out selection"
             )
         torch = proof._torch
         examples: list[dict[str, Any]] = []
@@ -1316,7 +1316,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             return tuple(examples), hashlib.sha256(payload).hexdigest()
         if len(proof._chunks) < 2:
             raise FirstPartyOptimizeRuntimeError(
-                "distillation requires at least two calibration chunks for held-out selection"
+                "repair requires at least two calibration chunks for held-out selection"
             )
         torch = proof._torch
         input_ids = torch.tensor((proof._chunks[-1],), dtype=torch.long)
@@ -1477,7 +1477,13 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             else Path(_text(validation_dataset_value, "repair.validation_dataset")).expanduser()
         )
         examples = self._repair_examples(
-            exclude_validation=method == "distillation" and validation_dataset is None
+            exclude_validation=method in {"lora", "distillation"} and validation_dataset is None
+        )
+        validation_examples, validation_dataset_sha256 = self._repair_validation_examples(
+            validation_dataset
+        )
+        evaluation_source = (
+            "external_text" if validation_dataset is not None else "calibration_holdout"
         )
         if method == "lora":
             lora_config = LoRARepairConfig(
@@ -1503,6 +1509,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 lora_config,
                 source_checkpoint_id=self._checkpoint_id(self.source_digest or self.plan.plan_id),
                 candidate_checkpoint_id=self._checkpoint_id(self.artifact_digest),
+                validation_examples=validation_examples,
+                validation_dataset_sha256=validation_dataset_sha256,
+                evaluation_source=evaluation_source,
             )
             repair_record = lora_result.to_record()
         else:
@@ -1520,9 +1529,6 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "distillation targets expose no trainable weight or bias parameters",
                 )
             tokenizer_signature = TokenizerSignature.from_tokenizer(proof._tokenizer)
-            validation_examples, validation_dataset_sha256 = self._repair_validation_examples(
-                validation_dataset
-            )
             # Distillation must recover the immutable source behavior. Using
             # the surgically modified parent here would make the student match
             # its own damaged logits and the default KL-only objective could
@@ -1553,9 +1559,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 candidate_parent_checkpoint_id=self._checkpoint_id(self.artifact_digest),
                 teacher_model=teacher_model,
                 validation_examples=validation_examples,
-                evaluation_source=(
-                    "external_text" if validation_dataset is not None else "calibration_holdout"
-                ),
+                evaluation_source=evaluation_source,
                 validation_dataset_sha256=validation_dataset_sha256,
             )
             repair_record = distillation_result.to_record()
