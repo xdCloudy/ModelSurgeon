@@ -120,13 +120,27 @@ class SurrogateConfig:
         if self.reference_point is not None:
             if self.acquisition is not AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
                 raise SurrogateError("a reference point is only valid for hypervolume improvement")
-            if not self.reference_point or any(
-                isinstance(value, bool)
-                or not isinstance(value, (int, float))
-                or not math.isfinite(value)
+            if not self.reference_point:
+                raise SurrogateError("hypervolume reference point must contain finite values")
+            if any(
+                isinstance(value, bool) or not isinstance(value, (int, float))
                 for value in self.reference_point
             ):
                 raise SurrogateError("hypervolume reference point must contain finite values")
+            try:
+                normalized_reference = tuple(float(value) for value in self.reference_point)
+            except (OverflowError, TypeError, ValueError) as error:
+                raise SurrogateError(
+                    "hypervolume reference point must contain finite values"
+                ) from error
+            if any(
+                isinstance(value, bool) or not math.isfinite(normalized)
+                for value, normalized in zip(
+                    self.reference_point, normalized_reference, strict=True
+                )
+            ):
+                raise SurrogateError("hypervolume reference point must contain finite values")
+            object.__setattr__(self, "reference_point", normalized_reference)
 
     def to_record(self) -> dict[str, object]:
         return {

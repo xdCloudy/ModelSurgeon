@@ -209,26 +209,18 @@ def test_two_objective_hypervolume_matches_independent_union_oracle() -> None:
         for size in range(1, len(rectangles) + 1):
             sign = 1.0 if size % 2 else -1.0
             for subset in combinations(rectangles, size):
-                area += sign * min(item[0] for item in subset) * min(
-                    item[1] for item in subset
-                )
+                area += sign * min(item[0] for item in subset) * min(item[1] for item in subset)
         return area
 
     cases = (
-        *(
-            points
-            for size in range(1, 5)
-            for points in combinations(grid, size)
-        ),
+        *(points for size in range(1, 5) for points in combinations(grid, size)),
         ((1.0, 0.5), (1.0, 0.5)),
     )
 
     for points in cases:
         expected = inclusion_exclusion(points)
         assert _hypervolume_1d_or_2d(points, reference) == pytest.approx(expected)
-        assert _hypervolume_1d_or_2d(tuple(reversed(points)), reference) == pytest.approx(
-            expected
-        )
+        assert _hypervolume_1d_or_2d(tuple(reversed(points)), reference) == pytest.approx(expected)
 
 
 def test_hypervolume_acquisition_uses_objective_directions_and_reference_units() -> None:
@@ -362,17 +354,13 @@ def test_hypervolume_batch_recomputes_marginal_gain_after_each_selection(
         _state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),
         _state(7, 0.95, ArchitectureEvidenceStatus.PREDICTED),
     )
-    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
-        candidates, fit
-    )
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(candidates, fit)
 
     chosen = [decision for decision in selection.selected]
     assert len(chosen) == 2
     assert fit.model is not None
     best_measured = max(
-        example.objectives[0].estimate
-        for example in fit.model.examples
-        if example.feasible
+        example.objectives[0].estimate for example in fit.model.examples if example.feasible
     )
     assert sorted(decision.acquisition for decision in chosen) == pytest.approx(
         [0.0, 0.95 - best_measured]
@@ -393,3 +381,18 @@ def test_hypervolume_rejects_more_than_two_objectives() -> None:
     config = SurrogateConfig(AcquisitionKind.HYPERVOLUME_IMPROVEMENT, evaluation_budget=1)
     with pytest.raises(SurrogateError, match="at most two"):
         SurrogateArchitecturePolicy(config, objectives, CONSTRAINTS)
+
+
+def test_hypervolume_reference_rejects_overflow_and_non_numeric_values() -> None:
+    with pytest.raises(SurrogateError, match="reference point must contain finite values"):
+        SurrogateConfig(
+            AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+            evaluation_budget=1,
+            reference_point=(10**400,),
+        )
+    with pytest.raises(SurrogateError, match="reference point must contain finite values"):
+        SurrogateConfig(
+            AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+            evaluation_budget=1,
+            reference_point=("0.5",),
+        )
