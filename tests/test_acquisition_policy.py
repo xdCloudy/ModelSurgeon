@@ -128,6 +128,48 @@ def test_feature_diversity_rejects_partial_candidate_alignment() -> None:
         acquire_candidates(candidates, 2, diversity_candidates=features)
 
 
+def test_feature_diversity_uses_prior_labeled_items_as_fixed_centers() -> None:
+    candidates = (
+        AcquisitionCandidate("cand_near", 0.0, 0.5, 0.0, 0.0),
+        AcquisitionCandidate("cand_far", 0.0, 0.5, 0.0, 0.0),
+    )
+    features = (
+        DiversityCandidate("cand_near", (1.0,), (), frozenset()),
+        DiversityCandidate("cand_far", (10.0,), (), frozenset()),
+    )
+    initial_center = DiversityCandidate("cand_labeled", (0.0,), (), frozenset())
+
+    report = acquire_candidates(
+        candidates,
+        1,
+        config=AcquisitionPolicyConfig(
+            high_value_fraction=0.0,
+            uncertain_fraction=0.0,
+            diverse_fraction=1.0,
+            seed=2,
+        ),
+        diversity_candidates=features,
+        diversity_initial_centers=(initial_center,),
+    )
+
+    assert report.selections[0].candidate_id == "cand_far"
+    assert report.diversity_selection is not None
+    assert report.diversity_selection.initial_center_count == 1
+
+
+def test_feature_diversity_rejects_initial_center_candidate_id_collision() -> None:
+    candidate = _candidates(1)[0]
+    features = (DiversityCandidate(candidate.candidate_id, (0.0,), (), frozenset()),)
+
+    with pytest.raises(AcquisitionPolicyError, match="outside the candidate pool"):
+        acquire_candidates(
+            (candidate,),
+            1,
+            diversity_candidates=features,
+            diversity_initial_centers=features,
+        )
+
+
 def test_zero_uncertainty_quota_does_not_consume_the_diversity_pool() -> None:
     candidates = _candidates(6)
     features = tuple(

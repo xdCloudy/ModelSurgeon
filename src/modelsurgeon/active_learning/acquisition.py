@@ -135,6 +135,7 @@ def acquire_candidates(
     config: AcquisitionPolicyConfig = DEFAULT_ACQUISITION_POLICY_CONFIG,
     diversity_candidates: tuple[DiversityCandidate, ...] | None = None,
     diversity_config: DiversitySelectionConfig | None = None,
+    diversity_initial_centers: tuple[DiversityCandidate, ...] = (),
 ) -> AcquisitionReport:
     """Allocate exact quotas, optionally using feature-space diversity for its lane."""
 
@@ -145,9 +146,9 @@ def acquire_candidates(
         raise AcquisitionPolicyError("acquisition candidate IDs must be unique")
     resolved_diversity_config = diversity_config
     if diversity_candidates is None:
-        if diversity_config is not None:
+        if diversity_config is not None or diversity_initial_centers:
             raise AcquisitionPolicyError(
-                "diversity configuration requires feature-space diversity candidates"
+                "diversity configuration and centers require feature-space candidates"
             )
         diverse_by_id: dict[str, DiversityCandidate] = {}
     else:
@@ -155,6 +156,11 @@ def acquire_candidates(
         if len(diversity_ids) != len(set(diversity_ids)) or set(diversity_ids) != set(ids):
             raise AcquisitionPolicyError(
                 "feature-space diversity IDs must exactly match acquisition candidates"
+            )
+        center_ids = tuple(item.candidate_id for item in diversity_initial_centers)
+        if len(center_ids) != len(set(center_ids)) or set(center_ids) & set(ids):
+            raise AcquisitionPolicyError(
+                "initial diversity centers must be unique and outside the candidate pool"
             )
         if resolved_diversity_config is None:
             resolved_diversity_config = DiversitySelectionConfig(seed=config.seed)
@@ -167,6 +173,7 @@ def acquire_candidates(
                 diversity_candidates,
                 0,
                 config=resolved_diversity_config,
+                initial_centers=diversity_initial_centers,
             )
             if diversity_candidates is not None and resolved_diversity_config is not None
             else None
@@ -227,13 +234,16 @@ def acquire_candidates(
             quota_map[AcquisitionReason.DIVERSE],
             config=resolved_diversity_config,
             initial_centers=(
-                tuple(
-                    diverse_by_id[item.candidate_id]
-                    for item in candidates
-                    if item.candidate_id in selected
+                (
+                    *diversity_initial_centers,
+                    *tuple(
+                        diverse_by_id[item.candidate_id]
+                        for item in candidates
+                        if item.candidate_id in selected
+                    ),
                 )
                 if quota_map[AcquisitionReason.DIVERSE] > 0
-                else ()
+                else diversity_initial_centers
             ),
         )
         for selection in diversity_report.selections:

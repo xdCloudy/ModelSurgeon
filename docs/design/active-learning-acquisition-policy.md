@@ -10,7 +10,9 @@ seed-hash tie-breaking. The diversity phase retains scalar-score ranking by defa
 can instead provide a feature/topology row for every candidate; those rows must align exactly
 with the acquisition candidate IDs. In feature mode, seeded farthest-first selection starts
 from the candidates already selected by the first two phases, then chooses from the residual
-pool. Its normalization and center count are embedded in the acquisition record. This makes
+pool. Callers can also pass previously selected labeled examples as fixed initial centers;
+these IDs must be distinct from the current candidate pool. Its normalization and center count
+are embedded in the acquisition record. This makes
 the diversity quota measure batch coverage rather than rank a caller-supplied scalar. Overlap
 between phases is skipped; any remaining shortfall is filled by the deterministic combined
 score. Every acquired candidate records its
