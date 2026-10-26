@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
+import platform
 import subprocess
 from pathlib import Path
 
@@ -55,6 +57,13 @@ def _tool_provenance(root: Path) -> dict[str, object]:
     return {
         "git_revision": revision,
         "worktree_dirty": dirty,
+        "runtime": {
+            "python": platform.python_version(),
+            "lightgbm": importlib.metadata.version("lightgbm"),
+            "numpy": importlib.metadata.version("numpy"),
+            "scikit_learn": importlib.metadata.version("scikit-learn"),
+            "platform": platform.platform(),
+        },
         "source_sha256": {
             path.relative_to(root).as_posix(): _sha256(path) for path in source_files
         },
