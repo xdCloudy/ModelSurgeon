@@ -370,6 +370,19 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
         hashlib.sha256(normalized_sensitivity_report).hexdigest()
         == sensitivity["report_sha256_lf_normalized"]
     )
+    severity = report["pruning_severity"]
+    assert severity["run_metadata"]["magnitude_128"]["candidate_plus_passes"] == 63
+    assert severity["run_metadata"]["magnitude_256"]["candidate_plus_passes"] == 50
+    severity_comparison = severity["comparisons"][2]
+    assert severity_comparison["left_minus_right_percentage_points"] == pytest.approx(
+        100.0 * 13 / 164
+    )
+    assert severity_comparison["removed_channel_selection"]["overlap_count"] == 128
+    severity_report = root / severity["report_path"]
+    normalized_severity_report = severity_report.read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(normalized_severity_report).hexdigest() == severity[
+        "report_sha256_lf_normalized"
+    ]
     assert "No third-party source code copied" in report["method_provenance"]["reuse"]
     for item in report["source_reports"]:
         source = root / item["path"]
