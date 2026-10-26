@@ -23,10 +23,10 @@ from modelsurgeon.config import (
     TaskQualityConfig,
 )
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
-from modelsurgeon.optimization import build_optimize_plan
+from modelsurgeon.optimization import available_hardware_profiles, build_optimize_plan
 from modelsurgeon.optimization_orchestrator import OptimizeOrchestrator
 
-TOOL_REVISION = "first-party-hf-acceptance-v3"
+TOOL_REVISION = "first-party-hf-acceptance-v4"
 
 
 def _model_reference(value: str) -> tuple[str, str]:
@@ -140,6 +140,7 @@ def _run_cell(
     calibration_text: Path,
     artifact_root: Path,
     preset: str,
+    hardware_profile: str,
     quality_profile: str,
     evaluations: int | None,
     search_scope: str,
@@ -201,6 +202,7 @@ def _run_cell(
     plan = build_optimize_plan(
         settings,
         preset=preset,
+        hardware_profile=hardware_profile,
         quality_profile=quality_profile,
         dry_run=False,
     )
@@ -260,6 +262,12 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--artifact-root", required=True, type=Path)
     parser.add_argument("--preset", default="balanced")
+    parser.add_argument(
+        "--hardware-profile",
+        choices=available_hardware_profiles(),
+        default="cpu-small",
+        help="declared planning/runtime envelope (default: cpu-small)",
+    )
     parser.add_argument("--quality-profile", default="quality")
     parser.add_argument("--evaluations", type=int)
     parser.add_argument(
@@ -345,6 +353,7 @@ def main() -> int:
                 calibration_text=calibration_text,
                 artifact_root=args.artifact_root,
                 preset=args.preset,
+                hardware_profile=args.hardware_profile,
                 quality_profile=args.quality_profile,
                 evaluations=args.evaluations,
                 search_scope=args.search_scope,
@@ -377,6 +386,7 @@ def main() -> int:
         "git_revision": _git_revision(),
         "command_contract": {
             "preset": args.preset,
+            "hardware_profile": args.hardware_profile,
             "quality_profile": args.quality_profile,
             "evaluations": args.evaluations,
             "min_quality_retention_ratio": 0.99,

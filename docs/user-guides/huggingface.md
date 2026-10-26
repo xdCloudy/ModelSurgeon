@@ -27,6 +27,12 @@ CUDA wheel. A `True` CUDA availability result confirms the runtime can see a
 device; it does not establish enough free VRAM for a particular model. Check
 current VRAM headroom before starting a model-scale run.
 
+The revision-pinned acceptance runner defaults to the conservative `cpu-small`
+planning profile. Pass `--hardware-profile gpu-12gb` to plan and execute the
+campaign against the repository's 12 GB CUDA envelope; the selected profile is
+recorded in the campaign and is a declared budget, while runtime telemetry
+records actual resource use.
+
 Keep downloaded models, generated checkpoints, logs, and reports below an ignored work/ or artifacts/ directory. Never use the source model directory as an output directory. The source checkpoint is an immutable input and every published artifact must have a different path.
 
 ## 2. Pin and inspect a model
