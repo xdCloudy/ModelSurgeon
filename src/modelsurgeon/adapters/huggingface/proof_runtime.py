@@ -1123,13 +1123,16 @@ class HuggingFaceMLPProofRuntime:
                 loss = self._torch.nn.functional.cross_entropy(
                     logits.view(-1, int(logits.shape[-1])),
                     targets.view(-1),
-                    reduction="mean",
+                    reduction="sum",
                 )
                 total_loss = loss if total_loss is None else total_loss + loss
                 total_tokens += int(targets.numel())
             if total_loss is None or total_tokens <= 0:
                 raise HuggingFaceMLPProofError("gradient calibration produced no loss")
-            total_loss.backward()
+            # Match the corpus-level mean used by _forward_measurement. A short
+            # final chunk contributes in proportion to its causal target count,
+            # rather than receiving the same weight as a full sequence chunk.
+            (total_loss / total_tokens).backward()
 
             output_records: list[tuple[ComponentId, tuple[FeatureRecord, ...]]] = []
             context = self._feature_sample_context()

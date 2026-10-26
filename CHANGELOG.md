@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - Corrected Hugging Face MLP gradient-feature aggregation to weight each
+    causal target equally across calibration chunks, matching the corpus-level
+    loss used for perplexity and preventing a short final chunk from skewing
+    first-order sensitivity estimates.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

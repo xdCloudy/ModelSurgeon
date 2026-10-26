@@ -16,7 +16,7 @@ from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.experiments.candidates import CandidateScope
 from modelsurgeon.graph import ComponentId
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
 transformers = pytest.importorskip("transformers")
 
@@ -76,7 +76,7 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
             dtype=HuggingFaceDType.FLOAT32,
             local_files_only=True,
             sequence_length=8,
-            max_tokens=16,
+            max_tokens=18,
             safe_perplexity_delta=1_000_000.0,
             seed=7,
             tool_revision="test-revision",
@@ -117,7 +117,7 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
     gradients = runtime.collect_mlp_channel_gradient_features(
         tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
     )
-    assert gradients.token_count == 14
+    assert gradients.token_count == 15
     assert tuple(component for component, _ in gradients.records) == gradient_components
     assert all(
         {feature.name for feature in features}
@@ -129,3 +129,42 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
         for _, features in gradients.records
         for feature in features
     )
+
+    # Compare the reported first-order score with the token-weighted gradient
+    # of the same independently chunked causal-LM corpus. The final chunk has
+    # two input tokens (one target), while the first two chunks have seven each.
+    runtime.model.zero_grad(set_to_none=True)
+    summed_nll = None
+    token_count = 0
+    for chunk in runtime._chunks:
+        input_ids = torch.tensor(
+            [chunk], dtype=torch.long, device=runtime._input_device
+        )
+        logits = runtime.model(input_ids=input_ids, use_cache=False).logits[:, :-1, :]
+        targets = input_ids[:, 1:].to(logits.device)
+        nll = torch.nn.functional.cross_entropy(
+            logits.float().contiguous().view(-1, int(logits.shape[-1])),
+            targets.contiguous().view(-1),
+            reduction="sum",
+        )
+        summed_nll = nll if summed_nll is None else summed_nll + nll
+        token_count += int(targets.numel())
+    assert summed_nll is not None
+    (summed_nll / token_count).backward()
+    gate, up, down = runtime._projection_weights(0)
+    expected_removal = -(
+        torch.sum(gate[0].detach().float() * gate.grad[0].detach().float())
+        + torch.sum(up[0].detach().float() * up.grad[0].detach().float())
+        + torch.sum(
+            down.detach().float().transpose(0, 1)[0]
+            * down.grad.detach().float().transpose(0, 1)[0]
+        )
+    )
+    reported = dict(gradients.records)[gradient_components[0]]
+    first_order = next(
+        feature.value
+        for feature in reported
+        if feature.name == "first_order_removal_estimate"
+    )
+    assert first_order == pytest.approx(float(expected_removal), rel=1e-5, abs=1e-7)
+    runtime.model.zero_grad(set_to_none=True)
