@@ -8,6 +8,7 @@ import pytest
 from tools.run_evalplus_hf_pruning_study import (
     _decoder_with_task_local_stopping_criteria,
     _docker_wrapper,
+    _evaluate_in_docker,
     _generate_predictions,
     _low_magnitude_channels,
     _prepare_workspace,
@@ -80,6 +81,64 @@ def test_docker_wrapper_accepts_only_plain_jsonl_filename() -> None:
     compile(wrapper, "evalplus-docker-wrapper.py", "exec")
     with pytest.raises(ValueError, match="plain JSONL filename"):
         _docker_wrapper("../outside.jsonl")
+
+
+def test_evalplus_docker_command_uses_numeric_default_task_timeout(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tools.run_evalplus_hf_pruning_study as study
+
+    samples = tmp_path / "arm" / "samples.jsonl"
+    samples.parent.mkdir()
+    samples.write_text("{}\n", encoding="utf-8")
+    dataset = tmp_path / "HumanEvalPlus.jsonl"
+    dataset.write_text("{}\n", encoding="utf-8")
+    (samples.parent / dataset.name).write_bytes(dataset.read_bytes())
+    per_task = {
+        f"HumanEval/{index}": {"base_status": "pass", "plus_status": "pass"}
+        for index in range(164)
+    }
+    report = {
+        "schema_version": 1,
+        "evalplus_version": "0.3.1",
+        "task_count": 164,
+        "per_task": per_task,
+        "evalplus_dataset_hash": "dataset-hash",
+        "dataset_sha256": "dataset-sha256",
+        "base_passes": 164,
+        "plus_passes": 164,
+        "base_pass_at_1": 1.0,
+        "plus_pass_at_1": 1.0,
+    }
+    observed: dict[str, object] = {}
+
+    def _run(command: list[str], *_args: object, **_kwargs: object) -> SimpleNamespace:
+        observed["command"] = command
+        return SimpleNamespace(
+            stdout=(
+                "MODELSURGEON_EVALPLUS_REPORT=" + json.dumps(report) + "\n"
+            ).encode(),
+            stderr=b"",
+            returncode=0,
+            timed_out=False,
+            output_exceeded=False,
+        )
+
+    monkeypatch.setattr(study, "run_bounded_process", _run)
+
+    result = _evaluate_in_docker(
+        samples,
+        dataset,
+        docker="docker",
+        image="evalplus:test",
+        image_identity={"revision": "revision", "image_id": "image-id"},
+        timeout_seconds=30,
+    )
+
+    command = observed["command"]
+    assert isinstance(command, list)
+    assert "EVALPLUS_TIMEOUT_PER_TASK=30" not in command
+    assert result["plus_pass_at_1"] == 1.0
 
 
 def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(

@@ -269,8 +269,6 @@ def _evaluate_in_docker(
         "--env",
         "EVALPLUS_MAX_MEMORY_BYTES=1073741824",
         "--env",
-        "EVALPLUS_TIMEOUT_PER_TASK=30",
-        "--env",
         "HOME=/tmp",
         "--env",
         "XDG_CACHE_HOME=/tmp/.cache",
