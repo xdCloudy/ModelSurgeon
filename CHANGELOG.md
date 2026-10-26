@@ -5,7 +5,8 @@
   - Corrected Hugging Face MLP gradient-feature aggregation to weight each
     causal target equally across calibration chunks, matching the corpus-level
     loss used for perplexity and preventing a short final chunk from skewing
-    first-order sensitivity estimates.
+    first-order sensitivity estimates. Each chunk now backpropagates before the
+    next forward pass, bounding activation-graph memory to one sequence chunk.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

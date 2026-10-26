@@ -1111,8 +1111,9 @@ class HuggingFaceMLPProofRuntime:
 
         def operation() -> None:
             self.model.zero_grad(set_to_none=True)
-            total_tokens = 0
-            total_loss: Any = None
+            total_tokens = sum(max(len(chunk) - 1, 0) for chunk in self._chunks)
+            if total_tokens <= 0:
+                raise HuggingFaceMLPProofError("gradient calibration produced no loss")
             for chunk in self._chunks:
                 input_ids = self._torch.tensor(
                     [chunk], dtype=self._torch.long, device=self._input_device
@@ -1125,14 +1126,13 @@ class HuggingFaceMLPProofRuntime:
                     targets.view(-1),
                     reduction="sum",
                 )
-                total_loss = loss if total_loss is None else total_loss + loss
-                total_tokens += int(targets.numel())
-            if total_loss is None or total_tokens <= 0:
-                raise HuggingFaceMLPProofError("gradient calibration produced no loss")
-            # Match the corpus-level mean used by _forward_measurement. A short
-            # final chunk contributes in proportion to its causal target count,
-            # rather than receiving the same weight as a full sequence chunk.
-            (total_loss / total_tokens).backward()
+                # Match the corpus-level mean used by _forward_measurement. A short
+                # final chunk contributes in proportion to its causal target count,
+                # rather than receiving the same weight as a full sequence chunk.
+                # Backpropagate each scaled chunk before the next forward pass so
+                # activation graphs do not accumulate across the calibration corpus.
+                (loss / total_tokens).backward()
+                del output, logits, targets, loss
 
             output_records: list[tuple[ComponentId, tuple[FeatureRecord, ...]]] = []
             context = self._feature_sample_context()
