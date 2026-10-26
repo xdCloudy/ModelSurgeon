@@ -612,6 +612,36 @@ def _sample_digests(path: Path, tasks: dict[str, Any]) -> dict[str, object]:
     }
 
 
+def _repair_prediction_checkpoint(path: Path) -> None:
+    """Recover a valid or interrupted final JSONL record before EvalPlus resumes it."""
+    if not path.is_file():
+        return
+    content = path.read_bytes()
+    if not content or content.endswith(b"\n"):
+        return
+    last_newline = content.rfind(b"\n")
+    final_record = content[last_newline + 1 :]
+    try:
+        json.loads(final_record.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        repaired = content[: last_newline + 1] if last_newline >= 0 else b""
+    else:
+        repaired = content + b"\n"
+
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(repaired)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_name, path)
+    except BaseException:
+        Path(temporary_name).unlink(missing_ok=True)
+        raise
+
+
 def _generate_predictions(
     model_path: Path,
     target_path: Path,
@@ -631,6 +661,9 @@ def _generate_predictions(
         max_new_tokens=max_new_tokens,
         dtype="float16",
     )
+    _repair_prediction_checkpoint(target_path)
+    raw_path = target_path.with_name(f"{target_path.stem}.raw.jsonl")
+    raw_path.unlink(missing_ok=True)
     codegen(
         target_path=str(target_path),
         model=decoder,
@@ -640,7 +673,6 @@ def _generate_predictions(
         resume=True,
     )
     del decoder
-    raw_path = target_path.with_name(f"{target_path.stem}.raw.jsonl")
     if raw_path.exists():
         raw_path.unlink()
     gc.collect()

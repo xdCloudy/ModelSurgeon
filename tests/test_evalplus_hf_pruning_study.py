@@ -10,6 +10,7 @@ from tools.run_evalplus_hf_pruning_study import (
     _generate_predictions,
     _low_magnitude_channels,
     _prepare_workspace,
+    _repair_prediction_checkpoint,
 )
 
 
@@ -153,3 +154,32 @@ def test_workspace_refuses_unmarked_nonempty_directory(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="without a study manifest"):
         _prepare_workspace(workspace, args)
+
+
+def test_checkpoint_recovery_discards_only_an_incomplete_final_record(tmp_path) -> None:
+    path = tmp_path / "predictions.jsonl"
+    complete = b'{"task_id":"HumanEval/0","solution":"def f(): return 0"}\n'
+    path.write_bytes(complete + b'{"task_id":"HumanEval/1","solution":"unfinished')
+
+    _repair_prediction_checkpoint(path)
+
+    assert path.read_bytes() == complete
+
+
+def test_checkpoint_recovery_terminates_a_complete_final_record(tmp_path) -> None:
+    path = tmp_path / "predictions.jsonl"
+    complete_record = b'{"task_id":"HumanEval/0","solution":"def f(): return 0"}'
+    path.write_bytes(complete_record)
+
+    _repair_prediction_checkpoint(path)
+
+    assert path.read_bytes() == complete_record + b"\n"
+
+
+def test_checkpoint_recovery_drops_a_truncated_only_record(tmp_path) -> None:
+    path = tmp_path / "predictions.jsonl"
+    path.write_bytes(b'{"task_id":"HumanEval/0","solution":')
+
+    _repair_prediction_checkpoint(path)
+
+    assert path.read_bytes() == b""
