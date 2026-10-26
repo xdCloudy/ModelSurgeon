@@ -50,6 +50,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.8 one-epoch post-surgery LoRA study](v1.8-lora-post-surgery-one-epoch.md)
 - [v1.8 two-epoch post-surgery LoRA study](v1.8-lora-post-surgery-two-epoch.md)
 - [v1.8 post-surgery LoRA on 512 randomized test rows](v1.8-lora-post-surgery-512test.md)
+- [v1.8 multi-seed LoRA on the same 512 randomized test rows](v1.8-lora-post-surgery-512test-multiseed.md)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
