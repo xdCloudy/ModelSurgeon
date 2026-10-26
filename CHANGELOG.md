@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+  - Extended the ShortGPT physical benchmark to run with explicit CPU or
+    CUDA-auto placement and repeated synchronized prefill-throughput samples.
+    Added a pinned Qwen2.5-0.5B RTX 3060 evaluation: the candidate reloaded and
+    used 2.99% fewer disk bytes, but its held-out perplexity regressed more
+    than magnitude and random controls. Timing overlap does not establish a
+    throughput win.
+
   - Keep Hugging Face per-layer config metadata aligned when physically removing
     transformer blocks, so Qwen configs with `layer_types` remain serializable.
     A pinned Qwen2.5-0.5B WikiText-2 comparison also records a negative result:
