@@ -660,7 +660,7 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         1,
         ("mlp_channel",),
         ("fp32",),
-        ("cpu",),
+        ("cpu", "cuda", "gpu"),
         {"minimum_support_coverage": 1.0},
         {
             "candidate_grouping": "mlp_channel_index_all_layers",
