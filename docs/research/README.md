@@ -36,6 +36,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [first-party Hugging Face chat-controlled acceptance evidence](first-party-hf-chat-acceptance-evidence-v1.json)
 - [first-party Hugging Face quality-gate acceptance evidence](first-party-hf-quality-gate-evidence-v1.json)
 - [first-party Hugging Face task-quality acceptance evidence](first-party-hf-task-quality-acceptance-evidence-v1.json)
+- [multiple-choice task-quality integration research and limits](task-quality-multiple-choice-integration.md)
 - [first-party Hugging Face chat task-quality acceptance evidence](first-party-hf-chat-task-quality-acceptance-evidence-v1.json)
 - [first-party Hugging Face Python API acceptance evidence](first-party-hf-python-api-acceptance-evidence-v1.json)
 - [native GGUF task-quality v2 CPU smoke and limitations](native-gguf-task-quality-v2-smoke.md)

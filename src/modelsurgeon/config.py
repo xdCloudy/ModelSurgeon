@@ -151,11 +151,12 @@ class CalibrationConfig(StrictConfigModel):
 class TaskQualityConfig(StrictConfigModel):
     """Optional real task-quality benchmark for hard quality preservation."""
 
-    method: Literal["none", "code_exact_match"] = "none"
+    method: Literal["none", "code_exact_match", "multiple_choice_accuracy"] = "none"
     dataset: Path | None = None
     dataset_revision: str | None = None
     split: str = "test"
     max_new_tokens: int = Field(default=128, gt=0)
+    max_input_tokens: int = Field(default=4096, gt=0, le=8192)
     max_samples: int | None = Field(default=None, gt=0)
 
     @field_validator("dataset", "dataset_revision")

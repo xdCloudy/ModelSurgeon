@@ -109,6 +109,18 @@ def test_task_quality_config_requires_a_dataset_when_enabled() -> None:
         dataset_revision="dataset-r1",
     )
     assert configured.max_new_tokens == 128
+    multiple_choice = TaskQualityConfig(
+        method="multiple_choice_accuracy",
+        dataset="choices.jsonl",
+        max_input_tokens=2048,
+    )
+    assert multiple_choice.max_input_tokens == 2048
+    with pytest.raises(ValidationError, match="less than or equal to 8192"):
+        TaskQualityConfig(
+            method="multiple_choice_accuracy",
+            dataset="choices.jsonl",
+            max_input_tokens=8193,
+        )
     with pytest.raises(ValidationError, match="dataset is required"):
         TaskQualityConfig(method="code_exact_match")
     with pytest.raises(ValidationError, match="requires an enabled"):
