@@ -1,4 +1,5 @@
 from dataclasses import replace
+from itertools import combinations
 
 import pytest
 
@@ -190,6 +191,38 @@ def test_exact_two_objective_hypervolume_and_feasible_frontier() -> None:
         ),
     )
     assert tuple(item.candidate_id for item in _feasible_frontier(examples)) == ("feasible",)
+
+
+def test_two_objective_hypervolume_matches_independent_union_oracle() -> None:
+    reference = (0.0, 0.0)
+    grid = tuple((x, y) for x in (-1.0, 0.0, 1.0) for y in (-1.0, 0.0, 1.0))
+
+    def inclusion_exclusion(points: tuple[tuple[float, float], ...]) -> float:
+        rectangles = tuple((max(0.0, x), max(0.0, y)) for x, y in points)
+        area = 0.0
+        for size in range(1, len(rectangles) + 1):
+            sign = 1.0 if size % 2 else -1.0
+            for subset in combinations(rectangles, size):
+                area += sign * min(item[0] for item in subset) * min(
+                    item[1] for item in subset
+                )
+        return area
+
+    cases = (
+        *(
+            points
+            for size in range(1, 5)
+            for points in combinations(grid, size)
+        ),
+        ((1.0, 0.5), (1.0, 0.5)),
+    )
+
+    for points in cases:
+        expected = inclusion_exclusion(points)
+        assert _hypervolume_1d_or_2d(points, reference) == pytest.approx(expected)
+        assert _hypervolume_1d_or_2d(tuple(reversed(points)), reference) == pytest.approx(
+            expected
+        )
 
 
 def test_hypervolume_acquisition_uses_objective_directions_and_reference_units() -> None:
