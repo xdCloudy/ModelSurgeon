@@ -9,6 +9,7 @@ closed instead of being represented as estimates.
 
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import math
@@ -106,10 +107,6 @@ def _digest_file(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return "sha256:" + digest.hexdigest()
-
-
-def _raw_digest_file(path: Path) -> str:
-    return _digest_file(path).removeprefix("sha256:")
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -299,20 +296,26 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
         return path
 
-    def _calibration(self) -> Path:
+    def _calibration(self) -> tuple[Path, str]:
         calibration = _mapping(self._resolved().get("calibration"), "calibration")
         path = _path(calibration.get("dataset"), "calibration.dataset")
         if not path.is_file():
             raise NativeGGUFOptimizeRuntimeError(
                 f"calibration.dataset must name an existing UTF-8 text file: {path}"
             )
+        digest = hashlib.sha256()
+        decoder = codecs.getincrementaldecoder("utf-8")()
         try:
-            path.read_text(encoding="utf-8")
+            with path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    decoder.decode(chunk)
+                    digest.update(chunk)
+                decoder.decode(b"", final=True)
         except UnicodeDecodeError as error:
             raise NativeGGUFOptimizeRuntimeError(
                 "calibration.dataset must be valid UTF-8"
             ) from error
-        return path
+        return path, digest.hexdigest()
 
     def _hardware(self, probe_path: Path | None = None) -> Mapping[str, object]:
         if self.runtime_hardware is None:
@@ -371,7 +374,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         if self.manifest is not None:
             return self.manifest
         calibration = _mapping(self._resolved().get("calibration"), "calibration")
-        path = self._calibration()
+        path, calibration_digest = self._calibration()
         dataset_revision = calibration.get("dataset_revision")
         if not isinstance(dataset_revision, str) or not dataset_revision.strip():
             raise NativeGGUFOptimizeRuntimeError(
@@ -379,7 +382,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
         self.manifest = LlamaCppPerplexityManifest(
             path,
-            _raw_digest_file(path),
+            calibration_digest,
             _integer(calibration.get("samples"), 512, "calibration.samples"),
             "local-text",
             dataset_revision,
