@@ -120,6 +120,7 @@ Attention-head and transformer-layer edits use the corresponding remove_huggingf
 
 ## 5. CPU, 12 GB GPU, and failure recovery
 
+- Large checkpoint placement: `HuggingFaceLoadRequest` accepts `device_map="auto"`, a `max_memory` mapping with integer byte limits such as `{0: 10 * 1024**3, "cpu": 8 * 1024**3}`, and an explicit `offload_folder` on a local disk. The folder must be outside the source checkpoint tree. `max_memory` is an Accelerate placement target, not a hard peak-memory cap; activations and the largest dispatched module can exceed it. Disk offload can be slow and needs extra disk space. Measure peak RAM, VRAM, and runtime on the target machine.
 - CPU-only: use --device-map cpu, --dtype auto, short sequence lengths, and small token/candidate budgets. This is the most portable validation path.
 - 12 GB GPU: use --device-map auto, record the device and driver, and bound sequence length, calibration tokens, batch size, and candidate count. Keep enough host RAM and disk for the staged destination and cache.
 - Out of memory: reduce the batch or token budget and retry from the same immutable source. Do not resume a run after changing its model revision, preprocessing contract, or output identity.

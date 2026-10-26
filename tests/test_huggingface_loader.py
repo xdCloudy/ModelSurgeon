@@ -112,6 +112,92 @@ def test_explicit_loader_controls_and_revision_are_forwarded() -> None:
     assert result.provenance.resolved_revision == "b" * 40
 
 
+def test_memory_budget_and_disk_offload_are_forwarded_and_recorded(tmp_path: Path) -> None:
+    max_memory = {0: 12 * 1024**3, "cpu": 2 * 1024**3}
+    request = HuggingFaceLoadRequest(
+        model="org/model",
+        device_map="auto",
+        max_memory=max_memory,
+        offload_folder=tmp_path / "offload",
+        offload_buffers=True,
+    )
+    max_memory[0] = 1
+
+    result = load_causal_lm(request)
+
+    _, options = FakeAutoModel.calls[-1]
+    assert options["max_memory"] == {0: 12 * 1024**3, "cpu": 2 * 1024**3}
+    assert options["offload_folder"] == str((tmp_path / "offload").resolve())
+    assert options["offload_buffers"] is True
+    assert result.provenance.to_record()["loader_options"] == {
+        "trust_remote_code": False,
+        "device_map": "auto",
+        "dtype": "auto",
+        "local_files_only": False,
+        "low_cpu_mem_usage": True,
+        "max_memory": {"0": 12 * 1024**3, "cpu": 2 * 1024**3},
+        "offload_folder": str((tmp_path / "offload").resolve()),
+        "offload_buffers": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"model": "x", "max_memory": {}}, "non-empty"),
+        ({"model": "x", "max_memory": {"cpu": True}}, "positive integer"),
+        ({"model": "x", "max_memory": {0: 1, "0": 2}}, "unique when serialized"),
+        ({"model": "x", "max_memory": {"cpu": 1}}, "device_map"),
+        ({"model": "x", "offload_folder": " "}, "cannot be blank"),
+        ({"model": "x", "offload_folder": 123}, "local path"),
+    ],
+)
+def test_invalid_memory_controls_fail_before_loading(
+    kwargs: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        HuggingFaceLoadRequest(**kwargs)  # type: ignore[arg-type]
+
+    assert FakeAutoModel.calls == []
+
+
+def test_offload_folder_cannot_modify_source_model_tree(tmp_path: Path) -> None:
+    model_root = tmp_path / "local-model"
+    model_root.mkdir()
+
+    with pytest.raises(ValueError, match="inside the source model directory"):
+        HuggingFaceLoadRequest(
+            model=str(model_root),
+            device_map="auto",
+            offload_folder=model_root / "offload",
+        )
+
+    assert FakeAutoModel.calls == []
+
+
+def test_meta_parameters_without_dispatch_hooks_are_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MetaDevice:
+        type = "meta"
+
+    class MetaParameter:
+        device = MetaDevice()
+
+    def load_meta_only(cls: type, model: str, **kwargs: Any) -> object:
+        return SimpleNamespace(
+            config=SimpleNamespace(_commit_hash="b" * 40),
+            parameters=lambda: [MetaParameter()],
+            modules=lambda: [],
+        )
+
+    monkeypatch.setattr(FakeAutoModel, "from_pretrained", classmethod(load_meta_only))
+
+    with pytest.raises(HuggingFaceModelError, match="without execution hooks"):
+        load_causal_lm(HuggingFaceLoadRequest(model="org/model", device_map="auto"))
+
+
 def test_requested_revision_is_pinned_before_loading_when_model_omits_commit_hash() -> None:
     FakeAutoModel.commit_hash = ""
 

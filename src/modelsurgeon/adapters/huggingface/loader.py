@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import stat
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from modelsurgeon.adapters.checkpoint_paths import (
@@ -44,7 +46,34 @@ class HuggingFaceRevisionError(HuggingFaceLoadError):
 
 
 _DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "cpu", "sequential"})
+_AUTO_DEVICE_MAPS = frozenset({"auto", "balanced", "balanced_low_0", "sequential"})
 _SHARDED_INDEX_NAMES = ("model.safetensors.index.json", "pytorch_model.bin.index.json")
+
+
+def _validated_offload_folder(model: str, value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    if not isinstance(value, (str, Path)):
+        raise ValueError("offload_folder must be a local path")
+    if isinstance(value, str) and not value.strip():
+        raise ValueError("offload_folder cannot be blank")
+    try:
+        folder = Path(value).expanduser().resolve()
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("offload_folder must resolve to a local directory") from exc
+    if folder.exists() and not folder.is_dir():
+        raise ValueError("offload_folder must be a directory")
+
+    source = Path(model).expanduser()
+    if source.exists():
+        source_root = source.resolve() if source.is_dir() else source.resolve().parent
+        try:
+            folder.relative_to(source_root)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("offload_folder cannot be inside the source model directory")
+    return folder
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +87,9 @@ class HuggingFaceLoadRequest:
     dtype: HuggingFaceDType = HuggingFaceDType.AUTO
     local_files_only: bool = False
     low_cpu_mem_usage: bool = True
+    max_memory: Mapping[str | int, int] | None = None
+    offload_folder: str | Path | None = None
+    offload_buffers: bool = False
 
     def __post_init__(self) -> None:
         if not self.model.strip():
@@ -67,6 +99,34 @@ class HuggingFaceLoadRequest:
         if self.device_map is not None and self.device_map not in _DEVICE_MAPS:
             allowed = ", ".join(sorted(_DEVICE_MAPS))
             raise ValueError(f"device_map must be one of: {allowed}")
+        if self.max_memory is not None:
+            if not isinstance(self.max_memory, Mapping) or not self.max_memory:
+                raise ValueError("max_memory must be a non-empty device-to-bytes mapping")
+            copied: dict[str | int, int] = {}
+            serialized_devices: set[str] = set()
+            for device, limit in self.max_memory.items():
+                if isinstance(device, bool) or not isinstance(device, (str, int)):
+                    raise ValueError("max_memory device keys must be strings or integer indexes")
+                if isinstance(device, str) and not device.strip():
+                    raise ValueError("max_memory device keys cannot be blank")
+                if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+                    raise ValueError("max_memory limits must be positive integer byte counts")
+                serialized_device = str(device)
+                if serialized_device in serialized_devices:
+                    raise ValueError("max_memory device keys must be unique when serialized")
+                serialized_devices.add(serialized_device)
+                copied[device] = limit
+            object.__setattr__(self, "max_memory", MappingProxyType(copied))
+        if not isinstance(self.offload_buffers, bool):
+            raise ValueError("offload_buffers must be a boolean")
+        offload_folder = _validated_offload_folder(self.model, self.offload_folder)
+        object.__setattr__(self, "offload_folder", offload_folder)
+        if (
+            self.max_memory is not None or offload_folder is not None or self.offload_buffers
+        ) and self.device_map not in _AUTO_DEVICE_MAPS:
+            raise ValueError(
+                "max_memory and offload options require an automatic or sequential device_map"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,19 +141,29 @@ class HuggingFaceLoadProvenance:
     dtype: HuggingFaceDType
     local_files_only: bool
     low_cpu_mem_usage: bool
+    max_memory: tuple[tuple[str, int], ...] | None = None
+    offload_folder: str | None = None
+    offload_buffers: bool = False
 
     def to_record(self) -> dict[str, object]:
+        loader_options: dict[str, object] = {
+            "trust_remote_code": self.trust_remote_code,
+            "device_map": self.device_map,
+            "dtype": self.dtype.value,
+            "local_files_only": self.local_files_only,
+            "low_cpu_mem_usage": self.low_cpu_mem_usage,
+        }
+        if self.max_memory is not None:
+            loader_options["max_memory"] = dict(self.max_memory)
+        if self.offload_folder is not None:
+            loader_options["offload_folder"] = self.offload_folder
+        if self.offload_buffers:
+            loader_options["offload_buffers"] = True
         return {
             "source": self.source,
             "requested_revision": self.requested_revision,
             "resolved_revision": self.resolved_revision,
-            "loader_options": {
-                "trust_remote_code": self.trust_remote_code,
-                "device_map": self.device_map,
-                "dtype": self.dtype.value,
-                "local_files_only": self.local_files_only,
-                "low_cpu_mem_usage": self.low_cpu_mem_usage,
-            },
+            "loader_options": loader_options,
         }
 
 
@@ -115,6 +185,31 @@ def _torch_dtype(dtype: HuggingFaceDType) -> Any:
             "Hugging Face support is optional; install with `uv sync --extra hf`"
         ) from exc
     return getattr(torch, dtype.value)
+
+
+def _validate_loaded_model_placement(model: Any) -> None:
+    """Reject meta-only models that Accelerate did not dispatch for execution."""
+    parameters = getattr(model, "parameters", None)
+    modules = getattr(model, "modules", None)
+    if not callable(parameters) or not callable(modules):
+        return
+
+    try:
+        has_meta_parameters = any(
+            getattr(getattr(parameter, "device", None), "type", None) == "meta"
+            for parameter in parameters()
+        )
+        has_accelerate_hooks = any(
+            getattr(module, "_hf_hook", None) is not None for module in modules()
+        )
+    except Exception as exc:
+        raise HuggingFaceModelError("loaded model placement could not be inspected") from exc
+
+    if has_meta_parameters and not has_accelerate_hooks:
+        raise HuggingFaceModelError(
+            "Transformers left model parameters on the meta device without execution hooks; "
+            "increase max_memory or use a supported device_map"
+        )
 
 
 def _transformers_device_map(device_map: str | None) -> str | dict[str, str] | None:
@@ -290,15 +385,25 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
 
     try:
         resolved_hub_revision = _preflight_model_checkpoint(request)
+        loader_options: dict[str, Any] = {
+            "revision": resolved_hub_revision or request.revision,
+            "trust_remote_code": request.trust_remote_code,
+            "device_map": _transformers_device_map(request.device_map),
+            "torch_dtype": _torch_dtype(request.dtype),
+            "local_files_only": request.local_files_only,
+            "low_cpu_mem_usage": request.low_cpu_mem_usage,
+        }
+        if request.max_memory is not None:
+            loader_options["max_memory"] = dict(request.max_memory)
+        if request.offload_folder is not None:
+            loader_options["offload_folder"] = str(request.offload_folder)
+        if request.offload_buffers:
+            loader_options["offload_buffers"] = True
         model = auto_model.from_pretrained(
             request.model,
-            revision=resolved_hub_revision or request.revision,
-            trust_remote_code=request.trust_remote_code,
-            device_map=_transformers_device_map(request.device_map),
-            torch_dtype=_torch_dtype(request.dtype),
-            local_files_only=request.local_files_only,
-            low_cpu_mem_usage=request.low_cpu_mem_usage,
+            **loader_options,
         )
+        _validate_loaded_model_placement(model)
     except Exception as exc:
         if isinstance(exc, HuggingFaceLoadError):
             raise
@@ -321,6 +426,9 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
                 dtype=request.dtype,
                 local_files_only=request.local_files_only,
                 low_cpu_mem_usage=request.low_cpu_mem_usage,
+                max_memory=request.max_memory,
+                offload_folder=request.offload_folder,
+                offload_buffers=request.offload_buffers,
             ),
         ),
         trust_remote_code=request.trust_remote_code,
@@ -328,5 +436,12 @@ def load_causal_lm(request: HuggingFaceLoadRequest) -> HuggingFaceLoadResult:
         dtype=request.dtype,
         local_files_only=request.local_files_only,
         low_cpu_mem_usage=request.low_cpu_mem_usage,
+        max_memory=(
+            tuple(sorted((str(device), limit) for device, limit in request.max_memory.items()))
+            if request.max_memory is not None
+            else None
+        ),
+        offload_folder=str(request.offload_folder) if request.offload_folder is not None else None,
+        offload_buffers=request.offload_buffers,
     )
     return HuggingFaceLoadResult(model=model, provenance=provenance)
