@@ -45,9 +45,7 @@ def test_reap_score_record_round_trips_without_torch() -> None:
         ("scores_by_layer", [[0.25, True], [0.5, 0.75]]),
     ],
 )
-def test_reap_score_record_rejects_malformed_evidence(
-    field: str, value: object
-) -> None:
+def test_reap_score_record_rejects_malformed_evidence(field: str, value: object) -> None:
     record = deepcopy(_record())
     record[field] = value
 
