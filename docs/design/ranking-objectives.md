@@ -39,20 +39,32 @@ sequence ranking to prediction-only ranking.
 ## Metrics and cost controls
 
 The result reports NDCG, regret, precision@k, violation rate@k, Brier
-calibration error, and cumulative frontier utility. Confidence intervals use a
-seeded cluster bootstrap over `lineage_group_id`; each lineage group receives
+calibration error, cumulative frontier utility, and paired regret difference
+from pointwise. Confidence intervals use a seeded cluster bootstrap over
+`lineage_group_id`; each lineage group receives
 equal weight regardless of how many lists it contains. This keeps related
-lists from being counted as independent replicates. Training-step and inference-cost
+lists from being counted as independent replicates. Intervals are omitted and
+no recommendation is made when fewer than two independent lineage groups are
+available. Training-step and inference-cost
 fields are `null` unless supplied by the caller; resource costs are not
 estimated by this evaluator. These fields document the caller's evidence, but
 the evaluator cannot verify training logs or benchmark methodology. Rankings
 and the `recommended_objective` policy remain quality/regret based and are not
 a measured deployment-cost Pareto comparison.
 
+Metric point estimates are means over lineage-group means; interval bounds are
+percentiles of the seeded cluster-bootstrap replicates and can be asymmetric
+around those point estimates.
+
 ## Recommendation policy
 
 The pointwise result is the baseline. A more complex objective is recommended
-only when its regret interval is entirely below the pointwise regret interval.
+only when the upper confidence bound for its paired held-out regret difference
+from pointwise is below zero. Differences are calculated on identical list IDs
+and their intervals resample lineage groups as clusters. This preserves the
+shared-list design and avoids comparing two unrelated marginal intervals. The
+paired regret bounds use a Bonferroni-adjusted confidence level across the three
+non-pointwise alternatives.
 Otherwise `recommended_objective` is `None` and the result carries a negative
 or neutral recommendation reason. This preserves a useful study result when
 the evidence is censored, tied, or insufficient for a superiority claim.

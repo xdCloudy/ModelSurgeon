@@ -193,8 +193,77 @@ def test_bootstrap_resamples_lineage_groups_as_independent_units() -> None:
     regret = study.result_for(RankingObjective.POINTWISE).metric("regret")
 
     assert regret.value == pytest.approx(0.4)
-    assert regret.interval_low == pytest.approx(regret.value)
-    assert regret.interval_high == pytest.approx(regret.value)
+    assert regret.interval_low is None
+    assert regret.interval_high is None
+    assert study.recommended_objective is None
+    assert "fewer than two independent lineage groups" in study.recommendation_reason
+
+
+def test_recommendation_uses_paired_regret_difference_on_shared_lists() -> None:
+    rows_by_list = []
+    regret_values = (0.1, 0.5, 1.0, 2.0)
+    for index, baseline_regret in enumerate(regret_values):
+        candidates = (
+            RankingCandidateEvidence(
+                "best",
+                0.1,
+                10.0,
+                0.0,
+                False,
+                10.0,
+                objective_scores=tuple((objective, 0.1) for objective in RankingObjective),
+            ),
+            RankingCandidateEvidence(
+                "pointwise",
+                0.9,
+                10.0 - baseline_regret,
+                0.0,
+                False,
+                10.0 - baseline_regret,
+                objective_scores=tuple(
+                    (objective, 0.1 if objective is RankingObjective.PAIRWISE else 0.9)
+                    for objective in RankingObjective
+                ),
+            ),
+            RankingCandidateEvidence(
+                "pairwise",
+                0.8,
+                10.0 - baseline_regret + 0.1,
+                0.0,
+                False,
+                10.0 - baseline_regret + 0.1,
+                objective_scores=tuple(
+                    (objective, 0.9 if objective is RankingObjective.PAIRWISE else 0.8)
+                    for objective in RankingObjective
+                ),
+            ),
+        )
+        rows_by_list.append(
+            RankingCandidateList(
+                f"paired-{index}",
+                f"state-{index}",
+                "model",
+                "test",
+                f"lineage-{index}",
+                candidates,
+            )
+        )
+
+    study = evaluate_ranking_objectives(
+        rows_by_list,
+        RankingObjectiveConfig(top_k=1, bootstrap_repetitions=200, seed=29),
+    )
+    pointwise = study.result_for(RankingObjective.POINTWISE)
+    pairwise = study.result_for(RankingObjective.PAIRWISE)
+    paired_difference = pairwise.metric("paired_regret_difference_vs_pointwise")
+
+    assert pairwise.metric("regret").interval_low < pointwise.metric("regret").interval_high
+    assert pointwise.metric("regret").value == pytest.approx(
+        sum(regret_values) / len(regret_values)
+    )
+    assert paired_difference.value == pytest.approx(-0.1)
+    assert paired_difference.interval_high == pytest.approx(-0.1)
+    assert study.recommended_objective is RankingObjective.PAIRWISE
 
 
 def test_invalid_objective_inputs_fail_closed() -> None:

@@ -6,12 +6,12 @@ import json
 import math
 import random
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Final
 
 RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 3
-RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v4"
+RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v5"
 
 
 class RankingObjectiveError(ValueError):
@@ -231,13 +231,6 @@ class RankingMetric:
             raise RankingObjectiveError("ranking metric values must be finite")
         if self.value is None and not self.reason:
             raise RankingObjectiveError("undefined ranking metrics require a reason")
-        if (
-            self.value is not None
-            and self.interval_low is not None
-            and self.interval_high is not None
-            and (self.interval_low > self.value or self.value > self.interval_high)
-        ):
-            raise RankingObjectiveError("ranking metric intervals must contain the value")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -388,7 +381,7 @@ def _bootstrap_interval(
     lineage_group_ids: Sequence[str],
     config: RankingObjectiveConfig,
     seed_offset: int,
-) -> tuple[float, float, float]:
+) -> tuple[float, float | None, float | None]:
     if not values:
         raise RankingObjectiveError("ranking metrics require measured held-out lists")
     if len(values) != len(lineage_group_ids):
@@ -400,15 +393,18 @@ def _bootstrap_interval(
     group_means = tuple(
         math.fsum(values_by_group[group_id]) / len(values_by_group[group_id]) for group_id in groups
     )
+    mean = math.fsum(group_means) / len(group_means)
+    if len(groups) < 2:
+        return mean, None, None
     rng = random.Random(config.seed + seed_offset)
-    estimates = [math.fsum(group_means) / len(group_means)]
+    estimates: list[float] = []
     for _ in range(config.bootstrap_repetitions):
         sample = [group_means[rng.randrange(len(group_means))] for _ in groups]
         estimates.append(math.fsum(sample) / len(sample))
     estimates.sort()
     low_index = int((1.0 - config.confidence) / 2.0 * len(estimates))
     high_index = min(len(estimates) - 1, int((1.0 + config.confidence) / 2.0 * len(estimates)))
-    return estimates[0], estimates[low_index], estimates[high_index]
+    return mean, estimates[low_index], estimates[high_index]
 
 
 def evaluate_ranking_objectives(
@@ -426,6 +422,8 @@ def evaluate_ranking_objectives(
     if any(item.split not in {"validation", "test"} for item in candidate_lists):
         raise RankingObjectiveError("objective evaluation requires held-out validation/test lists")
     results: list[RankingObjectiveResult] = []
+    regret_by_objective: dict[RankingObjective, dict[str, float]] = {}
+    lineage_group_by_list: dict[str, str] = {}
     for objective in RankingObjective:
         ranked_lists: list[tuple[str, tuple[str, ...]]] = []
         metric_rows: list[tuple[float, float, float, float, float]] = []
@@ -439,6 +437,10 @@ def evaluate_ranking_objectives(
             )
             metric_rows.append(_list_metrics(ranked, min(resolved.top_k, len(ranked))))
             metric_group_ids.append(candidate_list.lineage_group_id)
+            regret_by_objective.setdefault(objective, {})[candidate_list.list_id] = metric_rows[-1][
+                0
+            ]
+            lineage_group_by_list[candidate_list.list_id] = candidate_list.lineage_group_id
         if not metric_rows:
             raise RankingObjectiveError(
                 f"objective {objective.value} has no measured held-out lists"
@@ -483,26 +485,41 @@ def evaluate_ranking_objectives(
             )
         )
     results.sort(key=lambda item: item.objective.value)
-    pointwise = next(item for item in results if item.objective is RankingObjective.POINTWISE)
-    pointwise_regret = pointwise.metric("regret")
+    pointwise_regrets = regret_by_objective[RankingObjective.POINTWISE]
+    alternative_count = len(RankingObjective) - 1
+    adjusted_confidence = 1.0 - 2.0 * (1.0 - resolved.confidence) / alternative_count
+    recommendation_config = replace(resolved, confidence=adjusted_confidence)
+    for index, result in enumerate(results, start=1):
+        objective_regrets = regret_by_objective[result.objective]
+        shared_list_ids = tuple(sorted(set(objective_regrets) & set(pointwise_regrets)))
+        differences = tuple(
+            objective_regrets[list_id] - pointwise_regrets[list_id] for list_id in shared_list_ids
+        )
+        paired_group_ids = tuple(lineage_group_by_list[list_id] for list_id in shared_list_ids)
+        mean, low, high = _bootstrap_interval(
+            differences, paired_group_ids, recommendation_config, 700 + index * 100
+        )
+        paired_metric = RankingMetric("paired_regret_difference_vs_pointwise", mean, low, high)
+        results[index - 1] = replace(result, metrics=(*result.metrics, paired_metric))
     recommendation: RankingObjective | None = None
     reason = (
-        "pointwise remains the preregistered baseline; no confidence-bounded "
+        "fewer than two independent lineage groups; no confidence-bounded "
+        "recommendation is available"
+        if len(set(lineage_group_by_list.values())) < 2
+        else "pointwise remains the preregistered baseline; no confidence-bounded "
         "complex-objective benefit"
     )
     for result in results:
         if result.objective is RankingObjective.POINTWISE:
             continue
-        regret = result.metric("regret")
-        if (
-            regret.interval_high is not None
-            and pointwise_regret.interval_low is not None
-            and regret.interval_high < pointwise_regret.interval_low
+        paired_regret_difference = result.metric("paired_regret_difference_vs_pointwise")
+        if paired_regret_difference.interval_high is not None and (
+            paired_regret_difference.interval_high < 0.0
         ):
             recommendation = result.objective
             reason = (
-                f"{result.objective.value} has a confidence-bounded lower held-out "
-                "regret than pointwise"
+                f"{result.objective.value} has a family-wise confidence-bounded lower "
+                "paired held-out regret difference than pointwise"
             )
             break
     return RankingObjectiveStudy(tuple(results), recommendation, reason)
