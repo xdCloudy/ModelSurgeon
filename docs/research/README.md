@@ -52,3 +52,4 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
+- [Qwen3.6-derived MoE GGUF 224-expert stress study](qwen35moe-gguf-expert-slicing-224-fulltest-2026-10-26.md) — complete held-out perplexity comparison of router-norm and equal-size random 224-expert slices; both fail the configured 98% quality-retention floor.
