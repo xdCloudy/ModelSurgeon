@@ -45,6 +45,13 @@ EXAMPLES = (
     },
 )
 TEACHER_LOGITS = (torch.tensor([[[0.0, 4.0, -1.0], [-1.0, 0.0, 4.0]]]),)
+VALIDATION_EXAMPLES = (
+    {
+        "input_ids": torch.tensor([[2, 0]]),
+        "attention_mask": torch.tensor([[1, 1]]),
+        "labels": torch.tensor([[2, 0]]),
+    },
+)
 
 
 def _config(**overrides: object) -> DistillationRepairConfig:
@@ -94,6 +101,27 @@ def test_precomputed_logits_are_immutable_and_selected_repair_is_recorded() -> N
     assert result.resource_use.token_rows == 2
     assert result.resource_use.teacher_logit_bytes == TEACHER_LOGITS[0].numel() * 4
     assert torch.equal(TEACHER_LOGITS[0], immutable_before)
+
+
+def test_checkpoint_selection_uses_disjoint_validation_examples() -> None:
+    candidate = _TinyCausalModel()
+    result = _run(
+        candidate,
+        _config(max_steps=1),
+        validation_examples=VALIDATION_EXAMPLES,
+        baseline_validation_logits=(torch.zeros(1, 2, 3),),
+    )
+
+    assert result.evaluation_split == "validation"
+    assert result.baseline_loss == pytest.approx(0.0)
+    assert result.resource_use.token_rows == 4
+    assert result.resource_use.teacher_logit_bytes == 2 * TEACHER_LOGITS[0].numel() * 4
+    assert result.to_record()["evaluation_split"] == "validation"
+
+
+def test_distillation_rejects_overlapping_training_and_validation_examples() -> None:
+    with pytest.raises(DistillationRepairError, match="must be disjoint"):
+        _run(_TinyCausalModel(), _config(), validation_examples=EXAMPLES)
 
 
 def test_distinct_teacher_inference_is_frozen_and_mode_is_restored() -> None:
