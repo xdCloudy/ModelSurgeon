@@ -371,13 +371,29 @@ def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> Non
         == sensitivity["report_sha256_lf_normalized"]
     )
     severity = report["pruning_severity"]
+    assert severity["run_metadata"]["magnitude_64"]["candidate_plus_passes"] == 60
     assert severity["run_metadata"]["magnitude_128"]["candidate_plus_passes"] == 63
     assert severity["run_metadata"]["magnitude_256"]["candidate_plus_passes"] == 50
-    severity_comparison = severity["comparisons"][2]
+    severity_comparison = next(
+        comparison
+        for comparison in severity["comparisons"]
+        if comparison["left"] == "magnitude_128"
+        and comparison["right"] == "magnitude_256"
+    )
     assert severity_comparison["left_minus_right_percentage_points"] == pytest.approx(
         100.0 * 13 / 164
     )
     assert severity_comparison["removed_channel_selection"]["overlap_count"] == 128
+    mild_severity_comparison = next(
+        comparison
+        for comparison in severity["comparisons"]
+        if comparison["left"] == "magnitude_128"
+        and comparison["right"] == "magnitude_64"
+    )
+    assert mild_severity_comparison["left_minus_right_percentage_points"] == pytest.approx(
+        100.0 * 3 / 164
+    )
+    assert mild_severity_comparison["removed_channel_selection"]["overlap_count"] == 64
     severity_report = root / severity["report_path"]
     normalized_severity_report = severity_report.read_bytes().replace(b"\r\n", b"\n")
     assert hashlib.sha256(normalized_severity_report).hexdigest() == severity[

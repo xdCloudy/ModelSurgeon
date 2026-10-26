@@ -436,7 +436,7 @@
   },
   "pruning_severity": {
     "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning_severity_comparison.json",
-    "report_sha256_lf_normalized": "08069eafec6993dc4099ab630aa9bfee3311d198f017739ffa02ed2523488f9a",
+    "report_sha256_lf_normalized": "83ca44cba152a4ff1b406a8147b51ce51c902d96ed5cc78b49487b7b9ef64d81",
     "method": {
       "bootstrap": "paired percentile bootstrap over benchmark tasks",
       "bootstrap_samples": 20000,
@@ -444,6 +444,16 @@
       "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
     },
     "run_metadata": {
+      "magnitude_64": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 60,
+        "candidate_artifact_bytes": 991266771,
+        "candidate_generated_tokens_per_second": 37.322341,
+        "candidate_median_generation_latency_seconds": 1.417477,
+        "candidate_p95_generation_latency_seconds": 4.95821
+      },
       "magnitude_128": {
         "channel_scorer": "magnitude",
         "calibration_tokens": null,
@@ -494,6 +504,70 @@
         "both_pass": 51,
         "neither_pass": 83,
         "mcnemar_exact_two_sided_p_value": 0.361594608053565
+      },
+      {
+        "left": "source",
+        "right": "magnitude_64",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 60,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "left_minus_right_percentage_points": 5.487804878048781,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          0.0,
+          11.585365853658537
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 8
+        },
+        "both_pass": 52,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.10775214433670044
+      },
+      {
+        "left": "magnitude_128",
+        "right": "magnitude_64",
+        "task_count": 164,
+        "left_plus_passes": 63,
+        "right_plus_passes": 60,
+        "left_plus_status_counts": {
+          "fail": 101,
+          "pass": 63
+        },
+        "right_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "left_minus_right_percentage_points": 1.829268292682927,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -3.658536585365854,
+          7.317073170731708
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 13,
+          "right_only_pass": 10
+        },
+        "both_pass": 50,
+        "neither_pass": 91,
+        "mcnemar_exact_two_sided_p_value": 0.6776394844055176,
+        "removed_channel_selection": {
+          "left_count": 128,
+          "right_count": 64,
+          "overlap_count": 64,
+          "jaccard_similarity": 0.5
+        }
       },
       {
         "left": "source",
@@ -560,6 +634,6 @@
         }
       }
     ],
-    "finding": "At 128 channels removed per layer, candidate quality and checkpoint size were both higher than at 256; the paired task analysis found fewer passing tasks at 256 channels."
+    "finding": "The three measured severities do not form a strictly monotonic quality curve: 64 removed channels scored 60/164 and 128 removed channels scored 63/164 (paired difference not significant), while 256 removed channels scored 50/164; 128 outperformed 256 on paired tasks and had a larger artifact."
   }
 }
