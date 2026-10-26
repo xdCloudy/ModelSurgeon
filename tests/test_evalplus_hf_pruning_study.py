@@ -74,6 +74,10 @@ def test_docker_wrapper_accepts_only_plain_jsonl_filename() -> None:
     wrapper = _docker_wrapper("source_predictions.jsonl")
 
     assert b'Path("/input") / "source_predictions.jsonl"' in wrapper
+    assert b"shutil.copyfile(sample_path, evaluation_sample_path)" in wrapper
+    assert b"_eval_results.json" in wrapper
+    assert b"output_file" not in wrapper
+    compile(wrapper, "evalplus-docker-wrapper.py", "exec")
     with pytest.raises(ValueError, match="plain JSONL filename"):
         _docker_wrapper("../outside.jsonl")
 

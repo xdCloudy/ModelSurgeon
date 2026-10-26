@@ -136,22 +136,26 @@ def _docker_wrapper(sample_filename: str) -> bytes:
     if Path(sample_filename).name != sample_filename or not sample_filename.endswith(".jsonl"):
         raise ValueError("EvalPlus sample name must be a plain JSONL filename")
     sample_name = json.dumps(sample_filename)
-    script = f'''import hashlib, json
+    script = f'''import hashlib, json, shutil
 from pathlib import Path
 from evalplus.data.humaneval import get_human_eval_plus, get_human_eval_plus_hash
 from evalplus.evaluate import evaluate
 
 sample_path = Path("/input") / {sample_name}
 dataset_path = Path("/input/HumanEvalPlus.jsonl")
+evaluation_sample_path = Path("/tmp") / sample_path.name
+shutil.copyfile(sample_path, evaluation_sample_path)
 problems = get_human_eval_plus(version="default")
 evaluate(
     dataset="humaneval",
-    samples=str(sample_path),
+    samples=str(evaluation_sample_path),
     parallel=2,
     test_details=False,
-    output_file="/tmp/evalplus-results.json",
 )
-raw = json.loads(Path("/tmp/evalplus-results.json").read_text(encoding="utf-8"))
+result_path = evaluation_sample_path.with_name(
+    evaluation_sample_path.stem + "_eval_results.json"
+)
+raw = json.loads(result_path.read_text(encoding="utf-8"))
 per_task = {{}}
 for task_id, rows in raw.get("eval", {{}}).items():
     if len(rows) != 1:
