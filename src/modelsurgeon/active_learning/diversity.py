@@ -43,17 +43,33 @@ class DiversitySelectionConfig:
     max_selection: int = 4096
 
     def __post_init__(self) -> None:
-        if isinstance(self.seed, bool) or not 0 <= self.seed < 1 << 64:
-            raise DiversitySelectionError("diversity seed must be unsigned 64-bit")
+        if (
+            isinstance(self.seed, bool)
+            or not isinstance(self.seed, int)
+            or not 0 <= self.seed < 1 << 64
+        ):
+            raise DiversitySelectionError("diversity seed must be unsigned 64-bit integer")
         weights = (self.numeric_weight, self.categorical_weight, self.topology_weight)
         if any(not math.isfinite(value) or value < 0.0 for value in weights) or not any(weights):
             raise DiversitySelectionError(
                 "diversity weights must be finite, non-negative, and nonzero"
             )
-        if not 1 <= self.max_candidates <= MAX_DIVERSITY_CANDIDATES:
-            raise DiversitySelectionError("diversity candidate bound must be within 1..100000")
-        if not 1 <= self.max_selection <= 4096:
-            raise DiversitySelectionError("diversity selection bound must be within 1..4096")
+        if (
+            isinstance(self.max_candidates, bool)
+            or not isinstance(self.max_candidates, int)
+            or not 1 <= self.max_candidates <= MAX_DIVERSITY_CANDIDATES
+        ):
+            raise DiversitySelectionError(
+                "diversity candidate bound must be an integer within 1..100000"
+            )
+        if (
+            isinstance(self.max_selection, bool)
+            or not isinstance(self.max_selection, int)
+            or not 1 <= self.max_selection <= 4096
+        ):
+            raise DiversitySelectionError(
+                "diversity selection bound must be an integer within 1..4096"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +129,8 @@ def select_diverse_candidates(
         raise DiversitySelectionError("diversity candidates and centers exceed configured bound")
     if len(initial_centers) > config.max_selection:
         raise DiversitySelectionError("diversity initial centers exceed configured bound")
+    if isinstance(count, bool) or not isinstance(count, int):
+        raise DiversitySelectionError("diversity requested selection must be an integer")
     if count < 0 or count > config.max_selection:
         raise DiversitySelectionError("diversity requested selection exceeds configured bound")
     if count > len(candidates):
