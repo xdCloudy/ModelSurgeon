@@ -102,6 +102,7 @@ from modelsurgeon.surgery.serialization import (
 )
 from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_EXAMPLES
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
@@ -176,9 +177,7 @@ class HuggingFaceMLPProofConfig:
             self.task_quality_dataset is None
             and self.task_quality_method == "multiple_choice_accuracy"
         ):
-            raise HuggingFaceMLPProofError(
-                "multiple-choice task-quality method requires a dataset"
-            )
+            raise HuggingFaceMLPProofError("multiple-choice task-quality method requires a dataset")
         if self.task_quality_dataset is not None and self.task_quality_method == "none":
             raise HuggingFaceMLPProofError("task-quality dataset requires an enabled method")
         if not 1 <= self.task_quality_max_input_tokens <= 8192:
@@ -191,8 +190,14 @@ class HuggingFaceMLPProofConfig:
                 )
             except ValueError as error:
                 raise HuggingFaceMLPProofError(str(error)) from error
-        if self.task_quality_max_samples is not None and self.task_quality_max_samples <= 0:
-            raise HuggingFaceMLPProofError("task-quality max_samples must be positive")
+        if self.task_quality_max_samples is not None and (
+            not isinstance(self.task_quality_max_samples, int)
+            or isinstance(self.task_quality_max_samples, bool)
+            or not 1 <= self.task_quality_max_samples <= MAX_TASK_QUALITY_EXAMPLES
+        ):
+            raise HuggingFaceMLPProofError(
+                f"task-quality max_samples must be within 1..{MAX_TASK_QUALITY_EXAMPLES}"
+            )
 
 
 @dataclass(frozen=True, slots=True)

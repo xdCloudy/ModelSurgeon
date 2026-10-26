@@ -158,7 +158,7 @@ def test_task_quality_rejects_zero_baseline_and_duplicate_ids(tmp_path: Path) ->
 def test_code_dataset_read_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "oversized.jsonl"
     path.write_bytes(b"{" * 33)
-    monkeypatch.setattr(task_quality, "MAX_CODE_EXACT_MATCH_DATASET_BYTES", 32)
+    monkeypatch.setattr(task_quality, "MAX_TASK_QUALITY_DATASET_BYTES", 32)
 
     with pytest.raises(TaskQualityEvaluationError, match="exceeds 32 bytes"):
         CodeExactMatchDataset.load(path)

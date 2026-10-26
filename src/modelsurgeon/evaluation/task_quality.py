@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import math
 from collections.abc import Callable, Mapping
@@ -12,11 +11,16 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Concatenate, cast
 
+from modelsurgeon.task_quality_limits import (
+    MAX_TASK_QUALITY_DATASET_BYTES,
+    MAX_TASK_QUALITY_EXAMPLES,
+    MAX_TASK_QUALITY_ROW_BYTES,
+    MAX_TASK_QUALITY_ROWS,
+)
+
 TASK_QUALITY_EVALUATOR_VERSION = "code_exact_match_v2"
-MAX_TASK_QUALITY_EXAMPLES = 4096
 MAX_TASK_QUALITY_NEW_TOKENS = 4096
 MAX_TASK_QUALITY_TOTAL_NEW_TOKENS = 1_000_000
-MAX_CODE_EXACT_MATCH_DATASET_BYTES = 16 * 1024 * 1024
 MULTIPLE_CHOICE_EVALUATOR_VERSION = "multiple_choice_loglikelihood_v1"
 MAX_MULTIPLE_CHOICE_DATASET_BYTES = 16 * 1024 * 1024
 MAX_MULTIPLE_CHOICE_OPTIONS = 16
@@ -145,61 +149,77 @@ class CodeExactMatchDataset:
             raise TaskQualityEvaluationError(
                 f"code exact-match max_samples must be within 1..{MAX_TASK_QUALITY_EXAMPLES}"
             )
+        digest = hashlib.sha256()
+        examples: list[CodeExactMatchExample] = []
+        seen: set[str] = set()
         try:
-            with resolved.open("rb") as stream:
-                payload = stream.read(MAX_CODE_EXACT_MATCH_DATASET_BYTES + 1)
-            if len(payload) > MAX_CODE_EXACT_MATCH_DATASET_BYTES:
-                raise TaskQualityEvaluationError(
-                    f"code exact-match dataset exceeds {MAX_CODE_EXACT_MATCH_DATASET_BYTES} bytes"
-                )
-            text = payload.decode("utf-8")
+            with resolved.open("rb") as dataset_file:
+                total_bytes = 0
+                line_number = 0
+                while payload_line := dataset_file.readline(MAX_TASK_QUALITY_ROW_BYTES + 1):
+                    line_number += 1
+                    if line_number > MAX_TASK_QUALITY_ROWS:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset exceeds {MAX_TASK_QUALITY_ROWS} rows"
+                        )
+                    if len(payload_line) > MAX_TASK_QUALITY_ROW_BYTES:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset line {line_number} exceeds "
+                            f"{MAX_TASK_QUALITY_ROW_BYTES} bytes"
+                        )
+                    total_bytes += len(payload_line)
+                    if total_bytes > MAX_TASK_QUALITY_DATASET_BYTES:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset exceeds {MAX_TASK_QUALITY_DATASET_BYTES} bytes"
+                        )
+                    digest.update(payload_line)
+                    try:
+                        line = payload_line.decode("utf-8")
+                    except UnicodeDecodeError as error:
+                        raise TaskQualityEvaluationError(
+                            "task-quality dataset must be UTF-8"
+                        ) from error
+                    if not line.strip():
+                        continue
+                    if max_samples is None and len(examples) >= MAX_TASK_QUALITY_EXAMPLES:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset exceeds {MAX_TASK_QUALITY_EXAMPLES} examples"
+                        )
+                    try:
+                        raw = json.loads(line)
+                    except (json.JSONDecodeError, RecursionError) as error:
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset line {line_number} is not valid JSON"
+                        ) from error
+                    if not isinstance(raw, dict):
+                        raise TaskQualityEvaluationError(
+                            f"task-quality dataset line {line_number} must be an object"
+                        )
+                    example_id = _text(raw.get("id"), f"task-quality dataset line {line_number}.id")
+                    if example_id in seen:
+                        raise TaskQualityEvaluationError(
+                            f"duplicate task-quality example id: {example_id}"
+                        )
+                    seen.add(example_id)
+                    prompt = _text(
+                        raw.get("prompt"),
+                        f"task-quality dataset line {line_number}.prompt",
+                    )
+                    reference = _text(
+                        raw.get("reference"),
+                        f"task-quality dataset line {line_number}.reference",
+                    )
+                    if max_samples is None or len(examples) < max_samples:
+                        examples.append(CodeExactMatchExample(example_id, prompt, reference))
         except OSError as error:
             raise TaskQualityEvaluationError(
                 f"cannot read task-quality dataset: {error}"
             ) from error
-        except UnicodeDecodeError as error:
-            raise TaskQualityEvaluationError("task-quality dataset must be UTF-8") from error
-        examples: list[CodeExactMatchExample] = []
-        seen: set[str] = set()
-        sample_limit = max_samples or MAX_TASK_QUALITY_EXAMPLES
-        for line_number, line in enumerate(io.StringIO(text), start=1):
-            if not line.strip():
-                continue
-            if len(examples) >= sample_limit:
-                if max_samples is None:
-                    raise TaskQualityEvaluationError(
-                        f"task-quality dataset exceeds {MAX_TASK_QUALITY_EXAMPLES} examples"
-                    )
-                break
-            try:
-                raw = json.loads(line)
-            except json.JSONDecodeError as error:
-                raise TaskQualityEvaluationError(
-                    f"task-quality dataset line {line_number} is not valid JSON"
-                ) from error
-            if not isinstance(raw, dict):
-                raise TaskQualityEvaluationError(
-                    f"task-quality dataset line {line_number} must be an object"
-                )
-            example_id = _text(raw.get("id"), f"task-quality dataset line {line_number}.id")
-            if example_id in seen:
-                raise TaskQualityEvaluationError(f"duplicate task-quality example id: {example_id}")
-            seen.add(example_id)
-            examples.append(
-                CodeExactMatchExample(
-                    example_id,
-                    _text(raw.get("prompt"), f"task-quality dataset line {line_number}.prompt"),
-                    _text(
-                        raw.get("reference"),
-                        f"task-quality dataset line {line_number}.reference",
-                    ),
-                )
-            )
         if not examples:
             raise TaskQualityEvaluationError(
                 "task-quality dataset must contain at least one example"
             )
-        return cls(resolved, revision, split, f"sha256:{_sha256(payload)}", tuple(examples))
+        return cls(resolved, revision, split, f"sha256:{digest.hexdigest()}", tuple(examples))
 
     def to_record(self) -> dict[str, object]:
         return {

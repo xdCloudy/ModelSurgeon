@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-  - Bound code exact-match task-quality dataset ingestion to 16 MiB and
-    4,096 evaluated examples. A configured sample cap now bounds the retained
-    examples while provenance continues to hash the complete dataset file.
+  - Streamed code exact-match task-quality datasets with 256 MiB total, 8 MiB
+    per-row, and 100,000-row limits. Evaluation retains at most 4,096 examples
+    (or the configured sample cap) while validating and hashing the full file.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

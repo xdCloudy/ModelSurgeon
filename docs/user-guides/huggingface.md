@@ -17,7 +17,7 @@ Keep downloaded models, generated checkpoints, logs, and reports below an ignore
 
 ## Optional code exact-match task-quality guard
 
-For a local JSONL coding benchmark, configure `task_quality.method: code_exact_match` and set `task_quality.dataset` to the file path. Each row contains `id`, `prompt`, and `reference` string fields. Dataset ingestion is bounded to 16 MiB and 4,096 evaluated examples. Set `task_quality.max_samples` to retain only the first N examples for evaluation; the recorded digest still covers the complete file so any dataset change updates its provenance.
+For a local JSONL coding benchmark, configure `task_quality.method: code_exact_match` and set `task_quality.dataset` to the file path. Each row contains `id`, `prompt`, and `reference` string fields. The loader streams the file and caps it at 256 MiB, 8 MiB per row, and 100,000 rows. Evaluation retains at most 4,096 examples. Set `task_quality.max_samples` to retain only the first N examples for evaluation; the loader validates every row and the recorded digest covers the complete file, so any dataset change updates its provenance.
 
 ## Optional multiple-choice task-quality guard
 
@@ -65,7 +65,7 @@ For a cached local snapshot, pass the snapshot path and add --local-files-only t
 
 ## 3. Run a bounded first experiment
 
-Create a small UTF-8 calibration text file from data you are allowed to use. Keep the run bounded while developing; increase the budget only after the contract and provenance are correct.
+Create a small UTF-8 calibration text file from data you are allowed to use. Calibration files are limited to 64 MiB, and the tokenizer truncates to the configured `max_tokens` before returning token IDs. Keep the run bounded while developing; increase the budget only after the contract and provenance are correct.
 
 ~~~bash
 uv run modelsurgeon first-surgeon-hf-proof "$MODEL_ID" ./calibration.txt \
