@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 2
-RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v2"
+RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 3
+RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v3"
 
 
 class RankingObjectiveError(ValueError):
@@ -35,7 +35,10 @@ class CandidateEvidenceStatus(StrEnum):
 def _finite(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise RankingObjectiveError(f"{label} must be numeric")
-    result = float(value)
+    try:
+        result = float(value)
+    except (OverflowError, ValueError) as error:
+        raise RankingObjectiveError(f"{label} must be finite") from error
     if not math.isfinite(result):
         raise RankingObjectiveError(f"{label} must be finite")
     return result
@@ -163,43 +166,41 @@ class RankingObjectiveConfig:
     bootstrap_repetitions: int = 200
     confidence: float = 0.95
     seed: int = 0
-    equal_training_budget_steps: int = 1_000
-    inference_cost_microseconds: tuple[tuple[RankingObjective, float], ...] = (
-        (RankingObjective.LISTWISE, 8.0),
-        (RankingObjective.PAIRWISE, 6.0),
-        (RankingObjective.POINTWISE, 4.0),
-        (RankingObjective.SEQUENCE, 10.0),
-    )
+    equal_training_budget_steps: int | None = None
+    inference_cost_microseconds: tuple[tuple[RankingObjective, float], ...] = ()
 
     def __post_init__(self) -> None:
-        if (
-            self.top_k <= 0
-            or self.bootstrap_repetitions <= 0
+        if self.top_k <= 0 or self.bootstrap_repetitions <= 0:
+            raise RankingObjectiveError("ranking objective budgets must be positive")
+        if self.equal_training_budget_steps is not None and (
+            isinstance(self.equal_training_budget_steps, bool)
+            or not isinstance(self.equal_training_budget_steps, int)
             or self.equal_training_budget_steps <= 0
         ):
-            raise RankingObjectiveError("ranking objective budgets must be positive")
+            raise RankingObjectiveError("declared equal training-step budget must be positive")
         if not 0.5 < self.confidence < 1.0 or not math.isfinite(self.confidence):
             raise RankingObjectiveError("ranking confidence must be in (0.5, 1)")
         if isinstance(self.seed, bool) or self.seed < 0:
             raise RankingObjectiveError("ranking objective seed must be unsigned")
         objectives = tuple(item[0] for item in self.inference_cost_microseconds)
+        if any(not isinstance(item, RankingObjective) for item in objectives):
+            raise RankingObjectiveError("objective cost entries have invalid objectives")
         if len(objectives) != len(set(objectives)):
             raise RankingObjectiveError("objective costs must be unique and canonical")
-        if any(
-            not math.isfinite(cost) or cost <= 0.0 for _, cost in self.inference_cost_microseconds
-        ):
-            raise RankingObjectiveError("objective inference costs must be positive")
+        for _, cost in self.inference_cost_microseconds:
+            if _finite(cost, "measured objective inference cost") <= 0.0:
+                raise RankingObjectiveError("measured objective inference costs must be positive")
         object.__setattr__(
             self,
             "inference_cost_microseconds",
             tuple(sorted(self.inference_cost_microseconds, key=lambda item: item[0].value)),
         )
 
-    def cost_for(self, objective: RankingObjective) -> float:
+    def cost_for(self, objective: RankingObjective) -> float | None:
         for candidate, cost in self.inference_cost_microseconds:
             if candidate is objective:
-                return cost
-        raise RankingObjectiveError(f"missing resource cost for {objective.value}")
+                return float(cost)
+        return None
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -253,12 +254,21 @@ class RankingObjectiveResult:
     objective: RankingObjective
     rankings: tuple[tuple[str, tuple[str, ...]], ...]
     metrics: tuple[RankingMetric, ...]
-    training_budget_steps: int
-    inference_cost_microseconds: float
+    training_budget_steps: int | None
+    inference_cost_microseconds: float | None
 
     def __post_init__(self) -> None:
-        if self.training_budget_steps <= 0 or self.inference_cost_microseconds <= 0.0:
-            raise RankingObjectiveError("ranking resource costs must be positive")
+        if self.training_budget_steps is not None and (
+            isinstance(self.training_budget_steps, bool)
+            or not isinstance(self.training_budget_steps, int)
+            or self.training_budget_steps <= 0
+        ):
+            raise RankingObjectiveError("declared training-step budget must be positive")
+        if self.inference_cost_microseconds is not None and (
+            isinstance(self.inference_cost_microseconds, bool)
+            or _finite(self.inference_cost_microseconds, "measured inference cost") <= 0.0
+        ):
+            raise RankingObjectiveError("measured inference cost must be positive and finite")
 
     def metric(self, name: str) -> RankingMetric:
         for metric in self.metrics:

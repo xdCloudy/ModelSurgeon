@@ -6,7 +6,9 @@
     predicted scores instead of measured cumulative utility. Added optional
     per-objective score predictions for matched comparisons and versioned the
     study protocol; legacy scalar predictions now apply uniformly and cannot
-    make any objective appear superior through outcome leakage.
+    make any objective appear superior through outcome leakage. Removed
+    assumed training-step and inference-cost defaults; absent resource
+    measurements remain `null` in the study record.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

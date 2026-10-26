@@ -1,7 +1,7 @@
 {
   "record_type": "ranking_objective_study",
-  "schema_version": 1,
-  "protocol_revision": "ranking-objectives-v1",
+  "schema_version": 3,
+  "protocol_revision": "ranking-objectives-v3",
   "objectives": ["pointwise", "pairwise", "listwise", "sequence"],
   "metrics": [
     "ndcg",
@@ -13,8 +13,9 @@
   ],
   "split_policy": "validation and test lists are required; training lists are rejected",
   "censoring": "unsupported, failed, and unknown candidates are retained as evidence but excluded from measured rankings",
-  "resource_policy": "one equal training-step budget and objective-specific inference cost are reported",
-  "recommendation_policy": "recommend a non-pointwise objective only when its bootstrap regret interval is entirely below pointwise",
+  "ranking_policy": "rank from per-objective predictions; legacy scalar predictions apply uniformly; measured outcomes are evaluation-only",
+  "resource_policy": "training-step declarations and measured inference costs are optional; missing values are null and are never estimated",
+  "recommendation_policy": "recommendation is quality/regret based and does not establish deployment-cost superiority",
   "claim_boundary": "No objective superiority claim without identical held-out lists and a confidence-bounded regret improvement.",
   "reproduction": "evaluate_ranking_objectives()"
 }

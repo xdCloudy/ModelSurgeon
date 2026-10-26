@@ -3,8 +3,10 @@
 `modelsurgeon.surgeon.ranking_objectives` defines a deterministic comparison
 boundary for pointwise, pairwise, listwise, and sequence ranking objectives.
 The study is deliberately an evaluator rather than an automatic objective
-switch: every candidate objective receives the same held-out lists, training
-step budget, and reported inference-cost accounting.
+switch: every candidate objective receives the same held-out lists. A caller
+may supply a declared equal training-step budget and measured inference costs;
+the evaluator does not invent these values or independently verify their
+provenance.
 
 ## Evidence contract
 
@@ -38,9 +40,12 @@ sequence ranking to prediction-only ranking.
 
 The result reports NDCG, regret, precision@k, violation rate@k, Brier
 calibration error, and cumulative frontier utility. Bootstrap intervals use a
-seeded list-level resampling procedure. The configuration also records one
-equal training-step budget and an inference-cost value for each objective, so
-quality comparisons cannot silently omit resource tradeoffs.
+seeded list-level resampling procedure. Training-step and inference-cost
+fields are `null` unless supplied by the caller; resource costs are not
+estimated by this evaluator. These fields document the caller's evidence, but
+the evaluator cannot verify training logs or benchmark methodology. Rankings
+and the `recommended_objective` policy remain quality/regret based and are not
+a measured deployment-cost Pareto comparison.
 
 ## Recommendation policy
 

@@ -43,8 +43,10 @@ def test_all_objectives_share_lists_and_report_metrics_and_cost() -> None:
         sorted(RankingObjective, key=lambda item: item.value)
     )
     for result in study.results:
-        assert result.training_budget_steps == 1_000
-        assert result.inference_cost_microseconds > 0.0
+        assert result.training_budget_steps is None
+        assert result.inference_cost_microseconds is None
+        assert result.to_record()["training_budget_steps"] is None
+        assert result.to_record()["inference_cost_microseconds"] is None
         assert result.metric("ndcg").value is not None
         assert result.metric("regret").interval_low is not None
         assert result.metric("precision_at_k").value is not None
@@ -55,6 +57,28 @@ def test_all_objectives_share_lists_and_report_metrics_and_cost() -> None:
     assert study.recommended_objective is None or isinstance(
         study.recommended_objective, RankingObjective
     )
+
+
+def test_study_records_only_explicit_resource_measurements() -> None:
+    costs = tuple((objective, 12.5 + index) for index, objective in enumerate(RankingObjective))
+    measured_config = RankingObjectiveConfig(
+        top_k=2,
+        bootstrap_repetitions=4,
+        equal_training_budget_steps=2_500,
+        inference_cost_microseconds=costs,
+    )
+    study = evaluate_ranking_objectives((_list(1),), measured_config)
+
+    for objective in RankingObjective:
+        result = study.result_for(objective)
+        assert result.training_budget_steps == 2_500
+        assert result.inference_cost_microseconds == measured_config.cost_for(objective)
+
+    absent = evaluate_ranking_objectives(
+        (_list(2),), RankingObjectiveConfig(top_k=2, bootstrap_repetitions=4)
+    )
+    assert all(result.training_budget_steps is None for result in absent.results)
+    assert all(result.inference_cost_microseconds is None for result in absent.results)
 
 
 def test_sequence_ranking_uses_prediction_instead_of_held_out_cumulative_utility() -> None:
@@ -180,3 +204,11 @@ def test_invalid_objective_inputs_fail_closed() -> None:
             1.0,
             objective_scores=((RankingObjective.POINTWISE, 0.1),),
         )
+
+    with pytest.raises(RankingObjectiveError, match="measured objective inference costs"):
+        RankingObjectiveConfig(inference_cost_microseconds=((RankingObjective.POINTWISE, 0.0),))
+
+    with pytest.raises(
+        RankingObjectiveError, match="measured objective inference cost must be finite"
+    ):
+        RankingObjectiveConfig(inference_cost_microseconds=((RankingObjective.POINTWISE, 10**400),))
