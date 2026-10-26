@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from modelsurgeon.config import ObjectiveDirection, ObjectiveNormalization, OptimizeMetric
@@ -15,7 +17,7 @@ from modelsurgeon.search.constraints import (
 )
 from modelsurgeon.search.deployable_state import ArchitectureAxis
 from modelsurgeon.search.objectives import ObjectiveSet, ObjectiveTerm
-from modelsurgeon.search.pareto import ParetoObjectiveValue
+from modelsurgeon.search.pareto import ParetoCandidate, ParetoObjectiveValue
 from modelsurgeon.search.surrogate import (
     AcquisitionKind,
     SurrogateArchitecturePolicy,
@@ -24,6 +26,10 @@ from modelsurgeon.search.surrogate import (
     SurrogateError,
     SurrogateFitStatus,
     SurrogatePolicyState,
+    SurrogatePrediction,
+    SurrogateTrainingExample,
+    _feasible_frontier,
+    _hypervolume_1d_or_2d,
     fit_surrogate,
 )
 
@@ -168,3 +174,137 @@ def test_surrogate_rejects_foreign_resume_state() -> None:
     )
     with pytest.raises(SurrogateError, match="another policy"):
         policy.select((state,), fit, SurrogatePolicyState("surrogate_policy_foreign"))
+
+
+def test_exact_two_objective_hypervolume_and_feasible_frontier() -> None:
+    assert _hypervolume_1d_or_2d(((0.8, 0.7), (0.7, 0.8)), (0.0, 0.0)) == pytest.approx(0.63)
+    assert _hypervolume_1d_or_2d(((0.8, 0.7),), (0.0, 0.0)) == pytest.approx(0.56)
+    assert _hypervolume_1d_or_2d(((0.8, -0.1),), (0.0, 0.0)) == 0.0
+
+    examples = (
+        SurrogateTrainingExample(
+            "feasible", (0.5,), (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),), True
+        ),
+        SurrogateTrainingExample(
+            "infeasible", (0.5,), (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.99),), False
+        ),
+    )
+    assert tuple(item.candidate_id for item in _feasible_frontier(examples)) == ("feasible",)
+
+
+def test_hypervolume_acquisition_uses_objective_directions_and_reference_units() -> None:
+    objectives = ObjectiveSet(
+        (
+            ObjectiveTerm(
+                OptimizeMetric.QUALITY,
+                ObjectiveDirection.MAXIMIZE,
+                normalization=ObjectiveNormalization.IDENTITY,
+            ),
+            ObjectiveTerm(
+                OptimizeMetric.DISK_SIZE,
+                ObjectiveDirection.MINIMIZE,
+                normalization=ObjectiveNormalization.IDENTITY,
+            ),
+        )
+    )
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=2,
+        reference_point=(150.0, 0.6),
+    )
+    policy = SurrogateArchitecturePolicy(config, objectives, CONSTRAINTS)
+    frontier = (
+        ParetoCandidate(
+            "frontier-a",
+            (
+                ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 100.0),
+                ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),
+            ),
+            {},
+        ),
+        ParetoCandidate(
+            "frontier-b",
+            (
+                ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 50.0),
+                ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.7),
+            ),
+            {},
+        ),
+    )
+    useful = SurrogatePrediction(
+        "useful",
+        (
+            ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 45.0),
+            ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.75),
+        ),
+        1.0,
+        0.0,
+        0.0,
+    )
+    outside_reference = SurrogatePrediction(
+        "outside",
+        (
+            ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 200.0),
+            ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.95),
+        ),
+        1.0,
+        0.0,
+        0.0,
+    )
+    reference = policy._effective_reference_point((frontier[0].objectives, frontier[1].objectives))
+    assert reference == (-150.0, 0.6)
+    assert policy._acquisition(useful, frontier, reference) == pytest.approx(3.25)
+    assert policy._acquisition(outside_reference, frontier, reference) == 0.0
+
+
+def test_hypervolume_reference_is_recorded_in_objective_space() -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), fit
+    )
+    assert fit.model is not None
+    observed = tuple(example.objectives[0].estimate for example in fit.model.examples)
+    expected_reference = min(observed) - 0.1 * (max(observed) - min(observed))
+    assert selection.acquisition_reference_point == pytest.approx((expected_reference,))
+    assert selection.to_record()["acquisition_reference_point"] == pytest.approx(
+        [expected_reference]
+    )
+
+    assert fit.model is not None
+    polluted_model = replace(
+        fit.model,
+        examples=(
+            *fit.model.examples,
+            SurrogateTrainingExample(
+                "infeasible-outlier",
+                fit.model.examples[0].features,
+                (ParetoObjectiveValue(OptimizeMetric.QUALITY, 1000.0),),
+                False,
+            ),
+        ),
+    )
+    polluted_fit = replace(fit, model=polluted_model)
+    polluted = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), polluted_fit
+    )
+    assert polluted.acquisition_reference_point == pytest.approx((expected_reference,))
+
+
+def test_hypervolume_rejects_more_than_two_objectives() -> None:
+    objectives = ObjectiveSet(
+        tuple(
+            ObjectiveTerm(metric, ObjectiveDirection.MAXIMIZE)
+            for metric in (
+                OptimizeMetric.QUALITY,
+                OptimizeMetric.PARAMETER_COUNT,
+                OptimizeMetric.DISK_SIZE,
+            )
+        )
+    )
+    config = SurrogateConfig(AcquisitionKind.HYPERVOLUME_IMPROVEMENT, evaluation_budget=1)
+    with pytest.raises(SurrogateError, match="at most two"):
+        SurrogateArchitecturePolicy(config, objectives, CONSTRAINTS)

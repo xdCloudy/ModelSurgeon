@@ -23,6 +23,7 @@ from modelsurgeon.search.pareto import (
 )
 
 SURROGATE_SCHEMA_VERSION = 1
+SURROGATE_ACQUISITION_PROTOCOL_REVISION = "surrogate-acquisition-v2"
 
 
 class SurrogateError(ValueError):
@@ -98,6 +99,7 @@ class SurrogateConfig:
     minimum_feasible_probability: float = 0.5
     seed: int = 0
     budget: SurrogateBudget = SurrogateBudget()
+    reference_point: tuple[float, ...] | None = None
 
     def __post_init__(self) -> None:
         for value, label in (
@@ -115,6 +117,16 @@ class SurrogateConfig:
             raise SurrogateError("minimum feasible probability must be within [0, 1]")
         if isinstance(self.seed, bool) or not 0 <= self.seed < 1 << 64:
             raise SurrogateError("surrogate seed must be unsigned 64-bit")
+        if self.reference_point is not None:
+            if self.acquisition is not AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                raise SurrogateError("a reference point is only valid for hypervolume improvement")
+            if not self.reference_point or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                for value in self.reference_point
+            ):
+                raise SurrogateError("hypervolume reference point must contain finite values")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -128,6 +140,9 @@ class SurrogateConfig:
             "minimum_feasible_probability": self.minimum_feasible_probability,
             "seed": self.seed,
             "budget": self.budget.to_record(),
+            "reference_point": (
+                None if self.reference_point is None else list(self.reference_point)
+            ),
         }
 
 
@@ -757,6 +772,7 @@ class SurrogateSelection:
     next_state: SurrogatePolicyState
     fit: SurrogateFit
     budget_exhausted: bool
+    acquisition_reference_point: tuple[float, ...] | None = None
 
     @property
     def selected(self) -> tuple[SurrogatePolicyDecision, ...]:
@@ -768,7 +784,65 @@ class SurrogateSelection:
             "next_state": self.next_state.to_record(),
             "fit": self.fit.to_record(),
             "budget_exhausted": self.budget_exhausted,
+            "acquisition_reference_point": (
+                None
+                if self.acquisition_reference_point is None
+                else list(self.acquisition_reference_point)
+            ),
         }
+
+
+def _hypervolume_1d_or_2d(
+    points: tuple[tuple[float, ...], ...], reference: tuple[float, ...]
+) -> float:
+    """Compute exact maximization hypervolume in one or two objective dimensions."""
+
+    dimensions = len(reference)
+    if dimensions not in {1, 2} or any(len(point) != dimensions for point in points):
+        raise SurrogateError("exact hypervolume currently supports one or two objectives")
+    valid = tuple(
+        point
+        for point in points
+        if all(value > bound for value, bound in zip(point, reference, strict=True))
+    )
+    if not valid:
+        return 0.0
+    if dimensions == 1:
+        return max(0.0, max(point[0] for point in valid) - reference[0])
+
+    by_x: dict[float, float] = {}
+    for x_value, y_value in valid:
+        by_x[x_value] = max(y_value, by_x.get(x_value, reference[1]))
+    x_values = sorted(by_x)
+    suffix_best_y = [0.0] * len(x_values)
+    best_y = reference[1]
+    for index in range(len(x_values) - 1, -1, -1):
+        best_y = max(best_y, by_x[x_values[index]])
+        suffix_best_y[index] = best_y
+    area = 0.0
+    previous_x = reference[0]
+    for x_value, top_y in zip(x_values, suffix_best_y, strict=True):
+        area += (x_value - previous_x) * (top_y - reference[1])
+        previous_x = x_value
+    if not math.isfinite(area):
+        raise SurrogateError("hypervolume exceeded finite numeric range")
+    return max(0.0, area)
+
+
+def _feasible_frontier(
+    examples: tuple[SurrogateTrainingExample, ...],
+) -> tuple[ParetoCandidate, ...]:
+    """Build the measured Pareto baseline without infeasible outcomes."""
+
+    return tuple(
+        ParetoCandidate(
+            example.candidate_id,
+            example.objectives,
+            {"candidate_id": example.candidate_id},
+        )
+        for example in examples
+        if example.feasible
+    )
 
 
 def _distance(left: CompleteArchitectureState, right: CompleteArchitectureState) -> int:
@@ -779,7 +853,7 @@ def _distance(left: CompleteArchitectureState, right: CompleteArchitectureState)
 
 
 class SurrogateArchitecturePolicy:
-    """Calibrated expected-improvement or hypervolume-improvement acquisition."""
+    """Calibrated scalar EI or exact mean-HVI acquisition with bounded exploration."""
 
     def __init__(
         self,
@@ -790,6 +864,15 @@ class SurrogateArchitecturePolicy:
         self.config = config
         self.objectives = objectives
         self.constraints = constraints
+        if config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            if len(objectives.terms) > 2:
+                raise SurrogateError(
+                    "exact hypervolume improvement supports at most two objectives"
+                )
+            if config.reference_point is not None and len(config.reference_point) != len(
+                objectives.terms
+            ):
+                raise SurrogateError("hypervolume reference point must align with objective terms")
 
     @property
     def policy_id(self) -> str:
@@ -798,6 +881,11 @@ class SurrogateArchitecturePolicy:
                 "config": self.config.to_record(),
                 "objectives": self.objectives.objective_set_id,
                 "constraints": self.constraints.constraint_set_id,
+                **(
+                    {"acquisition_protocol": SURROGATE_ACQUISITION_PROTOCOL_REVISION}
+                    if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT
+                    else {}
+                ),
             }
         )
         return f"surrogate_policy_{hashlib.sha256(identity.encode()).hexdigest()}"
@@ -815,23 +903,79 @@ class SurrogateArchitecturePolicy:
             weight += term.weight
         return total / weight
 
+    def _maximizing_vector(self, values: tuple[ParetoObjectiveValue, ...]) -> tuple[float, ...]:
+        by_metric = {item.metric: item.estimate for item in values}
+        vector: list[float] = []
+        for term in self.objectives.terms:
+            value = by_metric.get(term.metric)
+            if value is None:
+                raise SurrogateError(
+                    f"hypervolume objective {term.metric.value} is missing from a candidate"
+                )
+            vector.append(value if term.direction is ObjectiveDirection.MAXIMIZE else -value)
+        return tuple(vector)
+
+    def _effective_reference_point(
+        self,
+        observations: tuple[tuple[ParetoObjectiveValue, ...], ...],
+    ) -> tuple[float, ...]:
+        if self.config.reference_point is not None:
+            return tuple(
+                value if term.direction is ObjectiveDirection.MAXIMIZE else -value
+                for term, value in zip(
+                    self.objectives.terms, self.config.reference_point, strict=True
+                )
+            )
+        if not observations:
+            raise SurrogateError(
+                "hypervolume improvement needs a reference point or objective observations"
+            )
+        vectors = tuple(self._maximizing_vector(item) for item in observations)
+        reference: list[float] = []
+        for dimension in range(len(self.objectives.terms)):
+            values = tuple(point[dimension] for point in vectors)
+            nadir = min(values)
+            span = max(values) - nadir
+            margin = 0.1 * span if span > 0.0 else max(abs(nadir), 1.0) * 1e-7
+            coordinate = nadir - margin
+            if not math.isfinite(span) or not math.isfinite(coordinate):
+                raise SurrogateError(
+                    "could not infer a finite hypervolume reference point; specify one explicitly"
+                )
+            reference.append(coordinate)
+        return tuple(reference)
+
+    def _objective_space_reference_point(
+        self, maximizing_point: tuple[float, ...]
+    ) -> tuple[float, ...]:
+        return tuple(
+            value if term.direction is ObjectiveDirection.MAXIMIZE else -value
+            for term, value in zip(self.objectives.terms, maximizing_point, strict=True)
+        )
+
     def _acquisition(
         self,
         prediction: SurrogatePrediction,
         frontier: tuple[ParetoCandidate, ...],
+        reference_point: tuple[float, ...] | None,
     ) -> float:
         candidate = ParetoCandidate(prediction.candidate_id, prediction.objectives, {})
-        if any(conservatively_dominates(other, candidate, self.objectives) for other in frontier):
-            return 0.0
         if self.config.acquisition is AcquisitionKind.EXPECTED_IMPROVEMENT:
+            if any(
+                conservatively_dominates(other, candidate, self.objectives) for other in frontier
+            ):
+                return 0.0
             best = max((self._utility(item.objectives) for item in frontier), default=0.0)
             return max(0.0, self._utility(prediction.objectives) - best) + (
                 self.config.exploration_weight * prediction.uncertainty
             )
-        improvement = self._utility(prediction.objectives)
-        if frontier:
-            reference = min(self._utility(item.objectives) for item in frontier)
-            improvement = max(0.0, improvement - reference)
+        if reference_point is None:
+            raise SurrogateError("hypervolume acquisition reference point is missing")
+        candidate_point = self._maximizing_vector(prediction.objectives)
+        frontier_points = tuple(self._maximizing_vector(item.objectives) for item in frontier)
+        before = _hypervolume_1d_or_2d(frontier_points, reference_point)
+        after = _hypervolume_1d_or_2d((*frontier_points, candidate_point), reference_point)
+        improvement = max(0.0, after - before)
         return improvement + self.config.exploration_weight * prediction.uncertainty
 
     def select(
@@ -854,14 +998,24 @@ class SurrogateArchitecturePolicy:
             and current.fit_id != fit.model.model_id
         ):
             raise SurrogateError("surrogate resume state does not match fitted model")
-        frontier = tuple(
-            ParetoCandidate(
-                example.candidate_id,
-                example.objectives,
-                {"candidate_id": example.candidate_id},
+        frontier = _feasible_frontier(() if fit.model is None else fit.model.examples)
+        acquisition_reference_point: tuple[float, ...] | None = None
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            feasible_observations = (
+                tuple(example.objectives for example in fit.model.examples if example.feasible)
+                if fit.model is not None
+                else ()
             )
-            for example in (() if fit.model is None else fit.model.examples)
-        )
+            reference_observations = feasible_observations or tuple(
+                candidate.objectives
+                for candidate in candidates
+                if candidate.status is ArchitectureEvidenceStatus.PREDICTED
+                and self.constraints.evaluate(candidate.constraints).passed
+            )
+            if self.config.reference_point is not None or reference_observations:
+                acquisition_reference_point = self._effective_reference_point(
+                    reference_observations
+                )
         decisions: list[SurrogatePolicyDecision] = []
         scored: list[tuple[float, int, CompleteArchitectureState, SurrogatePrediction]] = []
         selected_ids = set(current.selected_candidate_ids)
@@ -914,7 +1068,7 @@ class SurrogateArchitecturePolicy:
                     0.0,
                     0.0,
                 )
-                acquisition = self._acquisition(prediction, frontier)
+                acquisition = self._acquisition(prediction, frontier, acquisition_reference_point)
                 reason = f"fallback_{fit.status.value}"
             else:
                 axes = tuple(
@@ -926,7 +1080,7 @@ class SurrogateArchitecturePolicy:
                     candidate.candidate_id,
                     _feature_values(candidate, axes),
                 )
-                acquisition = self._acquisition(prediction, frontier)
+                acquisition = self._acquisition(prediction, frontier, acquisition_reference_point)
             if (
                 fit.model is not None
                 and prediction.feasible_probability < self.config.minimum_feasible_probability
@@ -994,6 +1148,11 @@ class SurrogateArchitecturePolicy:
             next_state,
             fit,
             len(next_state.selected_candidate_ids) >= self.config.evaluation_budget or not scored,
+            (
+                None
+                if acquisition_reference_point is None
+                else self._objective_space_reference_point(acquisition_reference_point)
+            ),
         )
 
 
