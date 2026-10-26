@@ -587,8 +587,15 @@ def test_meta_target_direction_uses_declared_schema_and_rejects_unknown() -> Non
     assert _meta_target_direction("missing", {"metrics": []}) is None
 
 
+@pytest.mark.parametrize(
+    ("numeric_bounds", "expected_meta_status"),
+    [((0.0, 1_000_000.0), "verified_bundle"), ((100.0, 200.0), "abstained_numeric_extrapolation")],
+)
 def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    numeric_bounds: tuple[float, float],
+    expected_meta_status: str,
 ) -> None:
     model_path = tmp_path / "model"
     model_path.mkdir()
@@ -599,9 +606,9 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     registry = PretrainedSurgeonRegistry(tmp_path / "surgeon-registry")
     preprocessor = SurgeonPreprocessor(
         (
-            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0),
-            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0),
-            NumericPreprocessor("weight_l1_norm", 0.0, 1.0),
+            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0, *numeric_bounds),
+            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0, *numeric_bounds),
+            NumericPreprocessor("weight_l1_norm", 0.0, 1.0, *numeric_bounds),
         ),
         (),
         1,
@@ -693,7 +700,12 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     active = run.stages[4].result
     assert active is not None
     detail = json.loads(active.detail)
-    assert detail["meta_guidance"]["status"] == "verified_bundle"
+    assert detail["meta_guidance"]["status"] == expected_meta_status
+    if expected_meta_status == "abstained_numeric_extrapolation":
+        assert detail["meta_guidance"]["numeric_extrapolation_by_candidate"]
+        assert not detail["meta_guidance"].get("predictions")
+        assert detail["search_comparison"]["baselines"]
+        return
     assert detail["meta_guidance"]["target"] == "quality_gain"
     assert detail["meta_guidance"]["direction"] == "higher_is_better"
     guidance_predictions = detail["meta_guidance"]["predictions"]
