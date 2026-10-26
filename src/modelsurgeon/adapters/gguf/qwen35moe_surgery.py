@@ -192,6 +192,8 @@ def _validated_retained_experts(
     layout: Qwen35MoeGGUFLayout,
     retained_by_layer: Mapping[int, tuple[int, ...]],
 ) -> tuple[tuple[int, ...], ...]:
+    if any(isinstance(layer, bool) or not isinstance(layer, int) for layer in retained_by_layer):
+        raise Qwen35MoeSurgeryError("retained expert block IDs must be integers")
     if set(retained_by_layer) != set(range(layout.block_count)):
         raise Qwen35MoeSurgeryError("retained expert IDs must be supplied for every block")
     retained_counts: set[int] = set()

@@ -233,10 +233,12 @@ def test_qwen35moe_saliency_selection_refuses_unsupported_or_incomplete_scores(
         {0: (True, 2, 3), 1: (0, 1, 3)},
         {0: (0, 2.0, 3), 1: (0, 1, 3)},
         {0: ("0", 2, 3), 1: (0, 1, 3)},
+        {False: (0, 1, 3), True: (0, 1, 3)},
+        {0.0: (0, 1, 3), 1.0: (0, 1, 3)},
     ),
 )
 def test_qwen35moe_selection_must_be_uniform_valid_and_keep_top_k(
-    tmp_path: Path, retained: dict[int, tuple[int, ...]]
+    tmp_path: Path, retained: dict[Any, tuple[int, ...]]
 ) -> None:
     source_path = tmp_path / "source.gguf"
     output_path = tmp_path / "candidate.gguf"
