@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import weakref
 from pathlib import Path
 
 import pytest
@@ -114,9 +115,23 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
     gradient_components = tuple(
         ComponentId.parse(f"model.layers.0.mlp.channel.{channel}") for channel in (0, 1)
     )
-    gradients = runtime.collect_mlp_channel_gradient_features(
-        tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
-    )
+    live_logits: list[weakref.ReferenceType[object]] = []
+
+    def verify_previous_graph_released(_module: object, _inputs: object, output: object) -> None:
+        if live_logits:
+            assert live_logits[-1]() is None
+        logits = output.logits
+        live_logits.append(weakref.ref(logits))
+
+    handle = runtime.model.register_forward_hook(verify_previous_graph_released)
+    try:
+        gradients = runtime.collect_mlp_channel_gradient_features(
+            tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
+        )
+    finally:
+        handle.remove()
+    assert len(live_logits) == len(runtime._chunks)
+    assert live_logits[-1]() is None
     assert gradients.token_count == 15
     assert tuple(component for component, _ in gradients.records) == gradient_components
     assert all(
