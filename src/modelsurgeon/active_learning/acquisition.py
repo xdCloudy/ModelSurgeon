@@ -8,7 +8,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-ACQUISITION_POLICY_SCHEMA_VERSION: Final[int] = 1
+from .diversity import (
+    DiversityCandidate,
+    DiversitySelectionConfig,
+    DiversitySelectionReport,
+    select_diverse_candidates,
+)
+
+ACQUISITION_POLICY_SCHEMA_VERSION: Final[int] = 2
 
 
 class AcquisitionPolicyError(ValueError):
@@ -95,6 +102,7 @@ class AcquisitionReport:
     quotas: tuple[tuple[AcquisitionReason, int], ...]
     config: AcquisitionPolicyConfig
     schema_version: int = ACQUISITION_POLICY_SCHEMA_VERSION
+    diversity_selection: DiversitySelectionReport | None = None
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -111,6 +119,11 @@ class AcquisitionReport:
             },
             "seed": self.config.seed,
             "propensity_semantics": "deterministic-conditional-inclusion",
+            "diversity_selection": (
+                self.diversity_selection.to_record()
+                if self.diversity_selection is not None
+                else None
+            ),
             "selections": [item.to_record() for item in self.selections],
         }
 
@@ -120,18 +133,47 @@ def acquire_candidates(
     budget: int,
     *,
     config: AcquisitionPolicyConfig = DEFAULT_ACQUISITION_POLICY_CONFIG,
+    diversity_candidates: tuple[DiversityCandidate, ...] | None = None,
+    diversity_config: DiversitySelectionConfig | None = None,
 ) -> AcquisitionReport:
-    """Allocate exact quotas, deduplicate phase overlap, and fill deterministically."""
+    """Allocate exact quotas, optionally using feature-space diversity for its lane."""
 
     if budget < 0:
         raise AcquisitionPolicyError("acquisition budget cannot be negative")
     ids = tuple(item.candidate_id for item in candidates)
     if len(ids) != len(set(ids)):
         raise AcquisitionPolicyError("acquisition candidate IDs must be unique")
+    resolved_diversity_config = diversity_config
+    if diversity_candidates is None:
+        if diversity_config is not None:
+            raise AcquisitionPolicyError(
+                "diversity configuration requires feature-space diversity candidates"
+            )
+        diverse_by_id: dict[str, DiversityCandidate] = {}
+    else:
+        diversity_ids = tuple(item.candidate_id for item in diversity_candidates)
+        if len(diversity_ids) != len(set(diversity_ids)) or set(diversity_ids) != set(ids):
+            raise AcquisitionPolicyError(
+                "feature-space diversity IDs must exactly match acquisition candidates"
+            )
+        if resolved_diversity_config is None:
+            resolved_diversity_config = DiversitySelectionConfig(seed=config.seed)
+        diverse_by_id = {item.candidate_id: item for item in diversity_candidates}
     effective = min(budget, len(candidates))
     quotas = _quotas(effective, config)
     if effective == 0:
-        return AcquisitionReport((), budget, 0, len(candidates), quotas, config)
+        diversity_report = (
+            select_diverse_candidates(
+                diversity_candidates,
+                0,
+                config=resolved_diversity_config,
+            )
+            if diversity_candidates is not None and resolved_diversity_config is not None
+            else None
+        )
+        return AcquisitionReport(
+            (), budget, 0, len(candidates), quotas, config, diversity_selection=diversity_report
+        )
     by_reason = {
         AcquisitionReason.HIGH_VALUE: sorted(
             candidates,
@@ -144,19 +186,18 @@ def acquire_candidates(
             candidates,
             key=lambda item: (-item.uncertainty, _seed_rank(config.seed, item.candidate_id)),
         ),
-        AcquisitionReason.DIVERSE: sorted(
+    }
+    if diversity_candidates is None:
+        by_reason[AcquisitionReason.DIVERSE] = sorted(
             candidates,
             key=lambda item: (-item.diversity, _seed_rank(config.seed, item.candidate_id)),
-        ),
-    }
+        )
     selected: set[str] = set()
     output: list[AcquiredCandidate] = []
     quota_map = dict(quotas)
-    for reason in (
-        AcquisitionReason.HIGH_VALUE,
-        AcquisitionReason.UNCERTAIN,
-        AcquisitionReason.DIVERSE,
-    ):
+    for reason in (AcquisitionReason.HIGH_VALUE, AcquisitionReason.UNCERTAIN):
+        if quota_map[reason] == 0:
+            continue
         taken = 0
         for candidate in by_reason[reason]:
             if candidate.candidate_id in selected:
@@ -173,6 +214,49 @@ def acquire_candidates(
             selected.add(candidate.candidate_id)
             taken += 1
             if taken == quota_map[reason]:
+                break
+    diversity_report = None
+    if diversity_candidates is not None and resolved_diversity_config is not None:
+        remaining_features = tuple(
+            diverse_by_id[item.candidate_id]
+            for item in candidates
+            if item.candidate_id not in selected
+        )
+        diversity_report = select_diverse_candidates(
+            remaining_features,
+            quota_map[AcquisitionReason.DIVERSE],
+            config=resolved_diversity_config,
+        )
+        for selection in diversity_report.selections:
+            output.append(
+                AcquiredCandidate(
+                    selection.candidate_id,
+                    len(output) + 1,
+                    AcquisitionReason.DIVERSE,
+                    1.0,
+                    selection.minimum_distance or 0.0,
+                )
+            )
+            selected.add(selection.candidate_id)
+    else:
+        taken = 0
+        for candidate in (
+            by_reason[AcquisitionReason.DIVERSE] if quota_map[AcquisitionReason.DIVERSE] > 0 else ()
+        ):
+            if candidate.candidate_id in selected:
+                continue
+            output.append(
+                AcquiredCandidate(
+                    candidate.candidate_id,
+                    len(output) + 1,
+                    AcquisitionReason.DIVERSE,
+                    1.0,
+                    _score(candidate, AcquisitionReason.DIVERSE),
+                )
+            )
+            selected.add(candidate.candidate_id)
+            taken += 1
+            if taken == quota_map[AcquisitionReason.DIVERSE]:
                 break
     if len(output) < effective:
         remaining = sorted(
@@ -192,7 +276,15 @@ def acquire_candidates(
                     _fill_score(candidate),
                 )
             )
-    return AcquisitionReport(tuple(output), budget, effective, len(candidates), quotas, config)
+    return AcquisitionReport(
+        tuple(output),
+        budget,
+        effective,
+        len(candidates),
+        quotas,
+        config,
+        diversity_selection=diversity_report,
+    )
 
 
 def _quotas(

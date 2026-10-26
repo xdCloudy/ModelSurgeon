@@ -6,6 +6,10 @@
     before computing active-learning diversity distances. This prevents unit-scale
     differences from dominating farthest-first selection and lets acquisition measure
     coverage from candidates already selected in earlier policy phases.
+  - Added an opt-in feature/topology diversity lane to active-learning acquisition.
+    It uses farthest-first selection seeded by earlier value/uncertainty selections
+    and embeds the normalized diversity report in acquisition schema v2; the legacy
+    scalar-diversity path remains the default.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
