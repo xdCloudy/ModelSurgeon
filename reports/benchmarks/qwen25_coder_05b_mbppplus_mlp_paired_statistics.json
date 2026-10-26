@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "protocol": "paired-evalplus-task-outcome-inference-v2",
+  "controls": {
+    "model_revision": "ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
+    "dataset_sha256": "ee1701c904eb306523280b5a38a661d13248d16dd92d2e4fe2de36b519d3c413",
+    "evalplus_source_revision": "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2",
+    "evalplus_docker_image_id": "sha256:fbebe3a482ae3220fa4ba5ac3054f6f5391a58c9ca220916e50e59398b953a9a",
+    "source_generated_samples_sha256": "7feee8231dc5ab27400178837bf4ec787354724ba1633d4dc5dd4af211111218",
+    "task_count": 378
+  },
+  "method": {
+    "bootstrap": "paired percentile bootstrap over benchmark tasks",
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20261026,
+    "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
+    "comparison_scope": "all candidate pairs"
+  },
+  "run_metadata": {
+    "magnitude_128": {
+      "channel_scorer": "magnitude",
+      "calibration_tokens": null,
+      "calibration_token_ids_sha256": null,
+      "candidate_plus_passes": 130,
+      "candidate_artifact_bytes": 983009235,
+      "candidate_generated_tokens_per_second": null,
+      "candidate_median_generation_latency_seconds": null,
+      "candidate_p95_generation_latency_seconds": null
+    }
+  },
+  "interpretation_limits": [
+    "Intervals describe task-sample variation on this fixed benchmark; they do not capture generation-seed, model, or benchmark contamination uncertainty.",
+    "Exact McNemar p-values compare observed paired task outcomes and do not establish generalization to other models or task distributions.",
+    "Each arm uses one greedy completion per task, so the analysis does not estimate pass@k or decode variability."
+  ],
+  "source_reports": [
+    {
+      "name": "magnitude_128",
+      "path": "reports/benchmarks/qwen25_coder_05b_mbppplus_mlp_magnitude_128.json",
+      "sha256_lf_normalized": "19872ca8dc78ab59891fdbb568711d65a02350cba6f01e57f8aa785a4cb62ecc"
+    }
+  ],
+  "comparisons": [
+    {
+      "left": "source",
+      "right": "magnitude_128",
+      "task_count": 378,
+      "left_plus_passes": 149,
+      "right_plus_passes": 130,
+      "left_plus_status_counts": {
+        "fail": 229,
+        "pass": 149
+      },
+      "right_plus_status_counts": {
+        "fail": 248,
+        "pass": 130
+      },
+      "left_minus_right_percentage_points": 5.026455026455026,
+      "paired_bootstrap_95_percent_interval_percentage_points": [
+        1.0582010582010581,
+        8.994708994708995
+      ],
+      "paired_bootstrap_samples": 20000,
+      "paired_bootstrap_seed": 20261026,
+      "discordant_tasks": {
+        "left_only_pass": 38,
+        "right_only_pass": 19
+      },
+      "both_pass": 111,
+      "neither_pass": 210,
+      "mcnemar_exact_two_sided_p_value": 0.01634810389737615
+    }
+  ]
+}

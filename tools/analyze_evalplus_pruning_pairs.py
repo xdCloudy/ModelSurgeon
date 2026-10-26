@@ -161,6 +161,14 @@ def _removed_channels(report: dict[str, Any], name: str) -> frozenset[int] | Non
     return frozenset(values)
 
 
+def _generation_runtime(report: dict[str, Any], arm: str) -> dict[str, Any]:
+    generation = report.get("arms", {}).get(arm, {}).get("generation", {})
+    if not isinstance(generation, dict):
+        return {}
+    runtime = generation.get("runtime")
+    return runtime if isinstance(runtime, dict) else {}
+
+
 def build_report(
     run_paths: dict[str, Path],
     *,
@@ -168,8 +176,8 @@ def build_report(
     bootstrap_samples: int = 20_000,
     all_pairs: bool = False,
 ) -> dict[str, Any]:
-    if len(run_paths) < 2:
-        raise ValueError("at least two candidate run reports are required")
+    if not run_paths:
+        raise ValueError("at least one candidate run report is required")
     if "source" in run_paths:
         raise ValueError("'source' is reserved for each run's unpruned baseline arm")
     if reference_name == "source":
@@ -319,21 +327,15 @@ def build_report(
                 .get("pruned", {})
                 .get("artifact", {})
                 .get("file_bytes"),
-                "candidate_generated_tokens_per_second": report.get("arms", {})
-                .get("pruned", {})
-                .get("generation", {})
-                .get("runtime", {})
-                .get("generated_tokens_per_second"),
-                "candidate_median_generation_latency_seconds": report.get("arms", {})
-                .get("pruned", {})
-                .get("generation", {})
-                .get("runtime", {})
-                .get("median_generation_latency_seconds"),
-                "candidate_p95_generation_latency_seconds": report.get("arms", {})
-                .get("pruned", {})
-                .get("generation", {})
-                .get("runtime", {})
-                .get("p95_generation_latency_seconds"),
+                "candidate_generated_tokens_per_second": _generation_runtime(
+                    report, "pruned"
+                ).get("generated_tokens_per_second"),
+                "candidate_median_generation_latency_seconds": _generation_runtime(
+                    report, "pruned"
+                ).get("median_generation_latency_seconds"),
+                "candidate_p95_generation_latency_seconds": _generation_runtime(
+                    report, "pruned"
+                ).get("p95_generation_latency_seconds"),
             }
             for name, report in reports.items()
         },

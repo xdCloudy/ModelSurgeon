@@ -1,4 +1,4 @@
-"""Compare a pinned HF coder model with a physically MLP-pruned candidate on HumanEval+."""
+"""Compare a pinned HF coder model with a physically MLP-pruned candidate on EvalPlus."""
 
 from __future__ import annotations
 
@@ -33,9 +33,43 @@ MODEL = "Qwen/Qwen2.5-Coder-0.5B-Instruct"
 MODEL_REVISION = "ea3f2471cf1b1f0db85067f1ef93848e38e88c25"
 EVALPLUS_REVISION = "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2"
 EVALPLUS_VERSION = "0.3.1"
+EVALPLUS_TMPFS_SIZE = "2g"
+EVALPLUS_TMPFS_LIMIT_BYTES = 2 * 1024**3
 EVALPLUS_IMAGE_REVISION_LABEL = "org.modelsurgeon.evalplus.revision"
 HUMANEVAL_PLUS_VERSION = "v0.1.10"
 HUMANEVAL_PLUS_RELEASE_COMMIT = "200defce9e3429d28ca215b6dd061c0f7f31c18b"
+MBPP_PLUS_VERSION = "v0.2.0"
+MBPP_PLUS_RELEASE_COMMIT = "64fc4195b858a17cdfdb3324f0baf37939144e14"
+EVALPLUS_DATASETS: dict[str, dict[str, Any]] = {
+    "humaneval": {
+        "identifier": "HumanEval+",
+        "release_name": "HumanEvalPlus",
+        "version": HUMANEVAL_PLUS_VERSION,
+        "release_commit": HUMANEVAL_PLUS_RELEASE_COMMIT,
+        "license": "Apache-2.0",
+        "task_count": 164,
+        "dataset_filename": "HumanEvalPlus.jsonl",
+        "override_env": "HUMANEVAL_OVERRIDE_PATH",
+        "module": "evalplus.data.humaneval",
+        "loader": "get_human_eval_plus",
+        "hash_loader": "get_human_eval_plus_hash",
+        "version_constant": "HUMANEVAL_PLUS_VERSION",
+    },
+    "mbpp": {
+        "identifier": "MBPP+",
+        "release_name": "MbppPlus",
+        "version": MBPP_PLUS_VERSION,
+        "release_commit": MBPP_PLUS_RELEASE_COMMIT,
+        "license": "Apache-2.0",
+        "task_count": 378,
+        "dataset_filename": "MbppPlus.jsonl",
+        "override_env": "MBPP_OVERRIDE_PATH",
+        "module": "evalplus.data.mbpp",
+        "loader": "get_mbpp_plus",
+        "hash_loader": "get_mbpp_plus_hash",
+        "version_constant": "MBPP_PLUS_VERSION",
+    },
+}
 EVALPLUS_IMAGE_DEFAULT = f"modelsurgeon-evalplus:{EVALPLUS_REVISION[:7]}"
 REPORT_MARKER = "MODELSURGEON_EVALPLUS_REPORT="
 WORKSPACE_MANIFEST = ".modelsurgeon-evalplus-study.json"
@@ -50,10 +84,19 @@ WIKITEXT_TRAIN_MAX_BYTES = 12_000_000
 ACTIVATION_SCORERS = frozenset({"activation_weighted", "activation_output_energy"})
 
 
+def _evalplus_dataset(name: str) -> dict[str, Any]:
+    try:
+        return EVALPLUS_DATASETS[name]
+    except KeyError as exc:
+        raise ValueError(f"unsupported EvalPlus dataset: {name}") from exc
+
+
 def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
     channel_scorer = getattr(args, "channel_scorer", "magnitude")
     calibration_tokens = getattr(args, "calibration_tokens", 2048)
-    return {
+    dataset_name = getattr(args, "evalplus_dataset", "humaneval")
+    dataset = _evalplus_dataset(dataset_name)
+    identity: dict[str, object] = {
         "schema_version": 4,
         "model": args.model,
         "model_revision": args.model_revision,
@@ -61,7 +104,7 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
         "max_new_tokens": args.max_new_tokens,
         "evalplus_image": args.evalplus_image,
         "evalplus_revision": EVALPLUS_REVISION,
-        "dataset_version": HUMANEVAL_PLUS_VERSION,
+        "dataset_version": dataset["version"],
         "stop_criteria_policy": "restore-after-each-task-v1",
         "runtime_measurement_policy": "cuda-synchronized-generate-wall-time-v1",
         "channel_scorer": channel_scorer,
@@ -70,6 +113,9 @@ def _workspace_identity(args: argparse.Namespace) -> dict[str, object]:
             WIKITEXT_SHA256 if channel_scorer in ACTIVATION_SCORERS else None
         ),
     }
+    if dataset_name != "humaneval":
+        identity["evalplus_dataset"] = dataset_name
+    return identity
 
 
 def _prepare_workspace(path: Path, args: argparse.Namespace) -> Path:
@@ -369,22 +415,28 @@ def _calibrate_down_projection_rms(
     }
 
 
-def _docker_wrapper(sample_filename: str) -> bytes:
+def _docker_wrapper(sample_filename: str, dataset_name: str = "humaneval") -> bytes:
     if Path(sample_filename).name != sample_filename or not sample_filename.endswith(".jsonl"):
         raise ValueError("EvalPlus sample name must be a plain JSONL filename")
+    dataset = _evalplus_dataset(dataset_name)
     sample_name = json.dumps(sample_filename)
+    dataset_filename = json.dumps(dataset["dataset_filename"])
+    evalplus_dataset_name = json.dumps(dataset_name)
+    module = dataset["module"]
+    loader = dataset["loader"]
+    hash_loader = dataset["hash_loader"]
     script = f'''import hashlib, json, shutil
 from pathlib import Path
-from evalplus.data.humaneval import get_human_eval_plus, get_human_eval_plus_hash
+from {module} import {loader}, {hash_loader}
 from evalplus.evaluate import evaluate
 
 sample_path = Path("/input") / {sample_name}
-dataset_path = Path("/input/HumanEvalPlus.jsonl")
+dataset_path = Path("/input") / {dataset_filename}
 evaluation_sample_path = Path("/tmp") / sample_path.name
 shutil.copyfile(sample_path, evaluation_sample_path)
-problems = get_human_eval_plus(version="default")
+problems = {loader}(version="default")
 evaluate(
-    dataset="humaneval",
+    dataset={evalplus_dataset_name},
     samples=str(evaluation_sample_path),
     parallel=2,
     test_details=False,
@@ -396,7 +448,7 @@ raw = json.loads(result_path.read_text(encoding="utf-8"))
 per_task = {{}}
 for task_id, rows in raw.get("eval", {{}}).items():
     if len(rows) != 1:
-        raise RuntimeError("HumanEval+ study expects one greedy sample per task")
+        raise RuntimeError("EvalPlus study expects one greedy sample per task")
     per_task[task_id] = {{
         "base_status": rows[0].get("base_status"),
         "plus_status": rows[0].get("plus_status"),
@@ -409,7 +461,7 @@ plus_passes = sum(row["plus_status"] == "pass" for row in per_task.values())
 payload = {{
     "schema_version": 1,
     "evalplus_version": "0.3.1",
-    "evalplus_dataset_hash": get_human_eval_plus_hash(version="default"),
+    "evalplus_dataset_hash": {hash_loader}(version="default"),
     "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
     "task_count": len(problems),
     "base_passes": base_passes,
@@ -468,11 +520,15 @@ def _evaluate_in_docker(
     image: str,
     image_identity: dict[str, str],
     timeout_seconds: float,
+    dataset_name: str = "humaneval",
 ) -> dict[str, object]:
+    dataset = _evalplus_dataset(dataset_name)
+    if dataset_path.name != dataset["dataset_filename"]:
+        raise ValueError("sandbox dataset path does not match the selected EvalPlus dataset")
     input_dir = samples.parent
     mounted_dataset = input_dir / dataset_path.name
     if not mounted_dataset.is_file() or _sha256_file(mounted_dataset) != _sha256_file(dataset_path):
-        raise RuntimeError("the per-arm sandbox input does not contain the pinned HumanEval+ data")
+        raise RuntimeError("the per-arm sandbox input does not contain the pinned EvalPlus data")
     command = [
         docker,
         "run",
@@ -498,11 +554,11 @@ def _evaluate_in_docker(
         "--ulimit",
         "core=0",
         "--tmpfs",
-        "/tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777",
+        f"/tmp:rw,noexec,nosuid,nodev,size={EVALPLUS_TMPFS_SIZE},mode=1777",
         "--mount",
         f"type=bind,source={input_dir.resolve()},target=/input,readonly",
         "--env",
-        "HUMANEVAL_OVERRIDE_PATH=/input/HumanEvalPlus.jsonl",
+        f"{dataset['override_env']}=/input/{dataset['dataset_filename']}",
         "--env",
         "EVALPLUS_MAX_MEMORY_BYTES=1073741824",
         "--env",
@@ -517,7 +573,7 @@ def _evaluate_in_docker(
     ]
     completed = run_bounded_process(
         command,
-        _docker_wrapper(samples.name),
+        _docker_wrapper(samples.name, dataset_name),
         timeout_seconds=timeout_seconds,
         stdout_limit=16 * 1024 * 1024,
         stderr_limit=1024 * 1024,
@@ -540,7 +596,11 @@ def _evaluate_in_docker(
         raise RuntimeError("sandboxed EvalPlus report has an unsupported schema or version")
     task_count = result.get("task_count")
     per_task = result.get("per_task")
-    if not isinstance(task_count, int) or task_count != 164 or not isinstance(per_task, dict):
+    if (
+        not isinstance(task_count, int)
+        or task_count != dataset["task_count"]
+        or not isinstance(per_task, dict)
+    ):
         raise RuntimeError("sandboxed EvalPlus report has an incomplete task set")
     if len(per_task) != task_count:
         raise RuntimeError("sandboxed EvalPlus report has duplicate or missing task results")
@@ -647,12 +707,13 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     # Avoid the optional hf_xet extension: standard Hub downloads work on this Windows setup.
     os.environ["HF_HUB_DISABLE_XET"] = "1"
     import torch
-    from evalplus.data import get_human_eval_plus
-    from evalplus.data.humaneval import HUMANEVAL_PLUS_VERSION as installed_dataset_version
     from evalplus.data.utils import get_dataset_metadata, make_cache
     from huggingface_hub import snapshot_download
 
-    if installed_dataset_version != HUMANEVAL_PLUS_VERSION:
+    dataset = _evalplus_dataset(getattr(args, "evalplus_dataset", "humaneval"))
+    dataset_module = importlib.import_module(str(dataset["module"]))
+    installed_dataset_version = getattr(dataset_module, str(dataset["version_constant"]))
+    if installed_dataset_version != dataset["version"]:
         raise RuntimeError("installed EvalPlus dataset version differs from this study protocol")
     if importlib.metadata.version("evalplus") != EVALPLUS_VERSION:
         raise RuntimeError(f"this study requires EvalPlus {EVALPLUS_VERSION}")
@@ -670,18 +731,25 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
     ).resolve(strict=True)
     dataset_url, dataset_cache_path = get_dataset_metadata(
-        "HumanEvalPlus", HUMANEVAL_PLUS_VERSION, False
+        str(dataset["release_name"]), str(dataset["version"]), False
     )
     make_cache(dataset_url, dataset_cache_path)
     dataset_path = Path(dataset_cache_path).resolve(strict=True)
-    tasks = get_human_eval_plus(version="default")
-    if len(tasks) != 164:
-        raise RuntimeError(f"expected all 164 HumanEval+ tasks, found {len(tasks)}")
+    tasks = getattr(dataset_module, str(dataset["loader"]))(version="default")
+    if len(tasks) != dataset["task_count"]:
+        raise RuntimeError(
+            f"expected all {dataset['task_count']} {dataset['identifier']} tasks, "
+            f"found {len(tasks)}"
+        )
     dataset_record = {
-        "identifier": "HumanEval+",
-        "version": HUMANEVAL_PLUS_VERSION,
-        "release_commit": HUMANEVAL_PLUS_RELEASE_COMMIT,
-        "license": "Apache-2.0",
+        "identifier": dataset["identifier"],
+        "version": dataset["version"],
+        "release_commit": dataset["release_commit"],
+        "license": dataset["license"],
+        "release_repository": (
+            "https://github.com/evalplus/"
+            f"{str(dataset['release_name']).lower()}_release"
+        ),
         "url": dataset_url,
         "sha256": _sha256_file(dataset_path),
         "example_count": len(tasks),
@@ -719,7 +787,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             channel_scorer=args.channel_scorer,
             activation_rms_by_layer=activation_rms_by_layer,
         )
-        dataset_input = root / "HumanEvalPlus.jsonl"
+        dataset_input = root / str(dataset["dataset_filename"])
         shutil.copyfile(dataset_path, dataset_input)
         # Evaluation inputs share a read-only mount; each generated arm sees only its own samples.
         source_input = root / "source-input"
@@ -732,10 +800,18 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         source_samples = source_input / "source_predictions.jsonl"
         candidate_samples = candidate_input / "candidate_predictions.jsonl"
         source_generation = _generate_predictions(
-            snapshot, source_samples, tasks, max_new_tokens=args.max_new_tokens
+            snapshot,
+            source_samples,
+            tasks,
+            max_new_tokens=args.max_new_tokens,
+            dataset_name=str(getattr(args, "evalplus_dataset", "humaneval")),
         )
         candidate_generation = _generate_predictions(
-            candidate_path, candidate_samples, tasks, max_new_tokens=args.max_new_tokens
+            candidate_path,
+            candidate_samples,
+            tasks,
+            max_new_tokens=args.max_new_tokens,
+            dataset_name=str(getattr(args, "evalplus_dataset", "humaneval")),
         )
         # Restrict each read-only bind mount to its own outputs and the pinned test data.
         source_eval = _evaluate_in_docker(
@@ -745,6 +821,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             image=args.evalplus_image,
             image_identity=image_identity,
             timeout_seconds=args.evalplus_timeout_seconds,
+            dataset_name=str(getattr(args, "evalplus_dataset", "humaneval")),
         )
         candidate_eval = _evaluate_in_docker(
             candidate_samples,
@@ -753,13 +830,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             image=args.evalplus_image,
             image_identity=image_identity,
             timeout_seconds=args.evalplus_timeout_seconds,
+            dataset_name=str(getattr(args, "evalplus_dataset", "humaneval")),
         )
 
     source_score = float(source_eval["plus_pass_at_1"])
     candidate_score = float(candidate_eval["plus_pass_at_1"])
     return {
         "schema_version": 3,
-        "protocol": "physical-mlp-pruning-humanevalplus-pass-at-1-v3",
+        "protocol": (
+            "physical-mlp-pruning-"
+            f"{getattr(args, 'evalplus_dataset', 'humaneval')!s}plus-pass-at-1-v3"
+        ),
         "model": {
             "identifier": args.model,
             "revision": args.model_revision,
@@ -801,6 +882,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "transformers_version": importlib.metadata.version("transformers"),
             "evalplus_version": EVALPLUS_VERSION,
             "evalplus_source_revision": EVALPLUS_REVISION,
+            "evalplus_dataset": getattr(args, "evalplus_dataset", "humaneval"),
             "evalplus_license": "Apache-2.0",
             "evalplus_docker_image": args.evalplus_image,
             "evalplus_docker_image_id": image_identity["image_id"],
@@ -815,8 +897,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             if args.channel_scorer in ACTIVATION_SCORERS
             else None,
             "remove_channels": args.remove_channels,
+            "evalplus_dataset": getattr(args, "evalplus_dataset", "humaneval"),
             "max_new_tokens": args.max_new_tokens,
-            "prompt_mode": "EvalPlus base-prompt function completion",
+            "prompt_mode": "EvalPlus base-prompt code completion",
             "greedy": True,
             "samples_per_task": 1,
             "execution_parallelism": 2,
@@ -827,6 +910,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             ),
             "sandbox_network": "disabled",
             "sandbox_memory_limit_bytes": 3 * 1024**3,
+            "sandbox_tmpfs_limit_bytes": EVALPLUS_TMPFS_LIMIT_BYTES,
             "sandbox_cpu_limit": 2,
             "sandbox_wall_time_limit_seconds_per_arm": args.evalplus_timeout_seconds,
         },
@@ -854,22 +938,29 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 None if source_score <= 0 else candidate_score / source_score
             ),
             "retention_inconclusive": source_score <= 0,
-            "generated_tokens_per_second_ratio": (
-                float(candidate_generation["runtime"]["generated_tokens_per_second"])
-                / float(source_generation["runtime"]["generated_tokens_per_second"])
-                if float(source_generation["runtime"]["generated_tokens_per_second"]) > 0
-                else None
+            "generated_tokens_per_second_ratio": _runtime_ratio(
+                source_generation.get("runtime"), candidate_generation.get("runtime")
             ),
-            "median_generation_latency_delta_seconds": (
-                float(candidate_generation["runtime"]["median_generation_latency_seconds"])
-                - float(source_generation["runtime"]["median_generation_latency_seconds"])
+            "median_generation_latency_delta_seconds": _runtime_delta(
+                source_generation.get("runtime"),
+                candidate_generation.get("runtime"),
+                "median_generation_latency_seconds",
             ),
-            "p95_generation_latency_delta_seconds": (
-                float(candidate_generation["runtime"]["p95_generation_latency_seconds"])
-                - float(source_generation["runtime"]["p95_generation_latency_seconds"])
+            "p95_generation_latency_delta_seconds": _runtime_delta(
+                source_generation.get("runtime"),
+                candidate_generation.get("runtime"),
+                "p95_generation_latency_seconds",
             ),
         },
         "limitations": [
+            *(
+                [
+                    "Generation timing was unavailable for a resumed prediction checkpoint; "
+                    "no speed claim is made."
+                ]
+                if source_generation["runtime"] is None or candidate_generation["runtime"] is None
+                else []
+            ),
             (
                 "One code-specialized model revision, one MLP pruning severity, "
                 "and one greedy sample per task."
@@ -879,8 +970,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 "prompt prefill and is not a repeated decode-only latency benchmark."
             ),
             (
-                "HumanEval+ is public and may be present in model training data; contamination "
-                "is not ruled out."
+                f"{dataset['identifier']} is public and may be present in model training data; "
+                "contamination is not ruled out."
             ),
             (
                 "Pass@1 measures executable correctness, not coding quality on repository-scale "
@@ -1030,6 +1121,26 @@ def _decoder_with_task_local_stopping_criteria(decoder_type: type) -> type:
     return TaskLocalStoppingCriteriaDecoder
 
 
+def _runtime_ratio(source: object, candidate: object) -> float | None:
+    if not isinstance(source, dict) or not isinstance(candidate, dict):
+        return None
+    source_rate = source.get("generated_tokens_per_second")
+    candidate_rate = candidate.get("generated_tokens_per_second")
+    if not isinstance(source_rate, (int, float)) or not isinstance(candidate_rate, (int, float)):
+        return None
+    return None if source_rate <= 0 else float(candidate_rate) / float(source_rate)
+
+
+def _runtime_delta(source: object, candidate: object, metric: str) -> float | None:
+    if not isinstance(source, dict) or not isinstance(candidate, dict):
+        return None
+    source_value = source.get(metric)
+    candidate_value = candidate.get(metric)
+    if not isinstance(source_value, (int, float)) or not isinstance(candidate_value, (int, float)):
+        return None
+    return float(candidate_value) - float(source_value)
+
+
 def _summarize_generation_metrics(
     records: list[dict[str, int | float]],
 ) -> dict[str, object]:
@@ -1066,16 +1177,18 @@ def _generate_predictions(
     tasks: dict[str, Any],
     *,
     max_new_tokens: int,
+    dataset_name: str = "humaneval",
 ) -> dict[str, object]:
     import torch
     from evalplus.codegen import codegen
     from evalplus.provider.hf import HuggingFaceDecoder
 
+    _evalplus_dataset(dataset_name)
     TaskLocalDecoder = _decoder_with_task_local_stopping_criteria(HuggingFaceDecoder)
 
     decoder = TaskLocalDecoder(
         name=str(model_path),
-        dataset="humaneval",
+        dataset=dataset_name,
         force_base_prompt=True,
         temperature=0.0,
         max_new_tokens=max_new_tokens,
@@ -1087,17 +1200,25 @@ def _generate_predictions(
     codegen(
         target_path=str(target_path),
         model=decoder,
-        dataset="humaneval",
+        dataset=dataset_name,
         greedy=True,
         n_samples=1,
         resume=True,
     )
     runtime_records = decoder._modelsurgeon_generation_metrics
-    if len(runtime_records) != len(tasks):
-        raise RuntimeError(
-            "generation timing did not cover every task; refusing to report partial runtime data"
+    sample_digests = _sample_digests(target_path, tasks)
+    if len(runtime_records) == len(tasks):
+        generation_metrics = _summarize_generation_metrics(runtime_records)
+        runtime_status = "measured"
+    else:
+        # A resumed checkpoint can contain outputs created before timing was added. Keep the
+        # complete quality evidence, but omit incomplete or absent performance measurements.
+        generation_metrics = None
+        runtime_status = (
+            "unavailable_after_checkpoint_resume"
+            if not runtime_records
+            else "partial_timings_discarded_after_checkpoint_resume"
         )
-    generation_metrics = _summarize_generation_metrics(runtime_records)
     del decoder
     if raw_path.exists():
         raw_path.unlink()
@@ -1106,7 +1227,7 @@ def _generate_predictions(
         torch.cuda.empty_cache()
     if not target_path.is_file():
         raise RuntimeError("EvalPlus code generation did not write its JSONL sample file")
-    return {**_sample_digests(target_path, tasks), "runtime": generation_metrics}
+    return {**sample_digests, "runtime": generation_metrics, "runtime_status": runtime_status}
 
 
 def main() -> None:
@@ -1129,6 +1250,12 @@ def main() -> None:
     parser.add_argument("--calibration-tokens", type=int, default=2048)
     parser.add_argument("--max-new-tokens", type=int, default=256)
     parser.add_argument("--evalplus-image", default=EVALPLUS_IMAGE_DEFAULT)
+    parser.add_argument(
+        "--evalplus-dataset",
+        choices=tuple(EVALPLUS_DATASETS),
+        default="humaneval",
+        help="pinned EvalPlus code-generation task set",
+    )
     parser.add_argument("--evalplus-timeout-seconds", type=float, default=1800.0)
     args = parser.parse_args()
     if args.remove_channels <= 0 or args.max_new_tokens <= 0 or args.calibration_tokens <= 0:

@@ -34,10 +34,13 @@ def _run_report(candidate: list[str], *, source_hash: str = "same-source") -> di
         "method": {"removed_channels": [0, 1]},
         "arms": {
             "source": {
-                "generation": {"sample_file_sha256": source_hash},
+                "generation": {"sample_file_sha256": source_hash, "runtime": None},
                 "task_quality": quality,
             },
-            "pruned": {"task_quality": {"per_task": results}},
+            "pruned": {
+                "generation": {"runtime": None},
+                "task_quality": {"per_task": results},
+            },
         },
     }
 
@@ -77,6 +80,7 @@ def test_build_report_checks_controls_and_hashes_sources(tmp_path: Path) -> None
     report = build_report(paths, bootstrap_samples=100)
 
     assert report["controls"]["task_count"] == 4
+    assert report["run_metadata"]["magnitude"]["candidate_generated_tokens_per_second"] is None
     assert report["method"]["comparison_scope"] == "reference candidate pairs"
     assert [item["left"] + "-" + item["right"] for item in report["comparisons"]] == [
         "source-magnitude",
@@ -158,3 +162,19 @@ def test_build_report_can_compare_every_candidate_pair(tmp_path: Path) -> None:
         "magnitude-energy",
         "activation-energy",
     ]
+
+
+def test_build_report_supports_one_candidate_against_its_source(tmp_path: Path) -> None:
+    path = tmp_path / "magnitude.json"
+    path.write_text(
+        json.dumps(_run_report(["pass", "fail", "fail", "pass"])), encoding="utf-8"
+    )
+
+    report = build_report(
+        {"magnitude": path}, reference_name="magnitude", all_pairs=True, bootstrap_samples=100
+    )
+
+    assert [item["left"] + "-" + item["right"] for item in report["comparisons"]] == [
+        "source-magnitude"
+    ]
+    assert report["comparisons"][0]["task_count"] == 4

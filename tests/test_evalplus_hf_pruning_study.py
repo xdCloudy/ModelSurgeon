@@ -18,6 +18,7 @@ from tools.run_evalplus_hf_pruning_study import (
     _prepare_workspace,
     _repair_prediction_checkpoint,
     _summarize_generation_metrics,
+    _workspace_identity,
 )
 
 
@@ -109,29 +110,52 @@ def test_docker_wrapper_accepts_only_plain_jsonl_filename() -> None:
         _docker_wrapper("../outside.jsonl")
 
 
+def test_docker_wrapper_uses_pinned_mbpp_plus_api() -> None:
+    wrapper = _docker_wrapper("source_predictions.jsonl", "mbpp")
+
+    assert b"from evalplus.data.mbpp import get_mbpp_plus, get_mbpp_plus_hash" in wrapper
+    assert b'Path("/input") / "MbppPlus.jsonl"' in wrapper
+    assert b'dataset="mbpp"' in wrapper
+    compile(wrapper, "evalplus-mbpp-docker-wrapper.py", "exec")
+
+
+@pytest.mark.parametrize(
+    ("dataset_name", "dataset_filename", "task_prefix", "task_count", "override_env"),
+    [
+        ("humaneval", "HumanEvalPlus.jsonl", "HumanEval", 164, "HUMANEVAL_OVERRIDE_PATH"),
+        ("mbpp", "MbppPlus.jsonl", "Mbpp", 378, "MBPP_OVERRIDE_PATH"),
+    ],
+)
 def test_evalplus_docker_command_uses_numeric_default_task_timeout(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
+    dataset_name: str,
+    dataset_filename: str,
+    task_prefix: str,
+    task_count: int,
+    override_env: str,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import tools.run_evalplus_hf_pruning_study as study
 
     samples = tmp_path / "arm" / "samples.jsonl"
     samples.parent.mkdir()
     samples.write_text("{}\n", encoding="utf-8")
-    dataset = tmp_path / "HumanEvalPlus.jsonl"
+    dataset = tmp_path / dataset_filename
     dataset.write_text("{}\n", encoding="utf-8")
     (samples.parent / dataset.name).write_bytes(dataset.read_bytes())
     per_task = {
-        f"HumanEval/{index}": {"base_status": "pass", "plus_status": "pass"} for index in range(164)
+        f"{task_prefix}/{index}": {"base_status": "pass", "plus_status": "pass"}
+        for index in range(task_count)
     }
     report = {
         "schema_version": 1,
         "evalplus_version": "0.3.1",
-        "task_count": 164,
+        "task_count": task_count,
         "per_task": per_task,
         "evalplus_dataset_hash": "dataset-hash",
         "dataset_sha256": "dataset-sha256",
-        "base_passes": 164,
-        "plus_passes": 164,
+        "base_passes": task_count,
+        "plus_passes": task_count,
         "base_pass_at_1": 1.0,
         "plus_pass_at_1": 1.0,
     }
@@ -156,16 +180,29 @@ def test_evalplus_docker_command_uses_numeric_default_task_timeout(
         image="evalplus:test",
         image_identity={"revision": "revision", "image_id": "image-id"},
         timeout_seconds=30,
+        dataset_name=dataset_name,
     )
 
     command = observed["command"]
     assert isinstance(command, list)
     assert "EVALPLUS_TIMEOUT_PER_TASK=30" not in command
+    assert f"{override_env}=/input/{dataset_filename}" in command
+    tmpfs_index = command.index("--tmpfs") + 1
+    assert command[tmpfs_index].endswith("size=2g,mode=1777")
     assert result["plus_pass_at_1"] == 1.0
 
 
+@pytest.mark.parametrize("record_runtime", [True, False])
+@pytest.mark.parametrize(
+    ("dataset_name", "task_id"),
+    [("humaneval", "HumanEval/0"), ("mbpp", "Mbpp/0")],
+)
 def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
+    record_runtime: bool,
+    dataset_name: str,
+    task_id: str,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     evalplus_module = ModuleType("evalplus")
     evalplus_module.__path__ = []
@@ -177,7 +214,7 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     torch_module.cuda = SimpleNamespace(is_available=lambda: False)
     observed: dict[str, object] = {}
     target = tmp_path / "predictions.jsonl"
-    tasks = {"HumanEval/0": {"prompt": "def f():"}}
+    tasks = {task_id: {"prompt": "def f():"}}
 
     class _Decoder:
         def __init__(self, **kwargs: object) -> None:
@@ -203,9 +240,10 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
         observed["resume"] = kwargs["resume"]
         decoder = kwargs["model"]
         observed["decoder"] = decoder
-        decoder.codegen("prompt")
+        if record_runtime:
+            decoder.codegen("prompt")
         target.write_text(
-            json.dumps({"task_id": "HumanEval/0", "solution": "def f(): return 1"}) + "\n",
+            json.dumps({"task_id": task_id, "solution": "def f(): return 1"}) + "\n",
             encoding="utf-8",
         )
         target.with_name("predictions.raw.jsonl").write_text("raw output", encoding="utf-8")
@@ -218,14 +256,22 @@ def test_generation_uses_evalplus_dataset_name_and_removes_raw_output(
     monkeypatch.setitem(sys.modules, "evalplus.provider.hf", hf_module)
     monkeypatch.setitem(sys.modules, "torch", torch_module)
 
-    result = _generate_predictions(tmp_path, target, tasks, max_new_tokens=8)
+    result = _generate_predictions(
+        tmp_path, target, tasks, max_new_tokens=8, dataset_name=dataset_name
+    )
 
-    assert observed["dataset"] == "humaneval"
+    assert observed["dataset"] == dataset_name
+    assert observed["decoder_kwargs"]["dataset"] == dataset_name
     assert observed["resume"] is True
     assert observed["decoder_kwargs"]["force_base_prompt"] is True
     assert result["sample_count"] == 1
-    assert result["runtime"]["generation_calls"] == 1
-    assert result["runtime"]["generated_tokens"] == 2
+    if record_runtime:
+        assert result["runtime"]["generation_calls"] == 1
+        assert result["runtime"]["generated_tokens"] == 2
+        assert result["runtime_status"] == "measured"
+    else:
+        assert result["runtime"] is None
+        assert result["runtime_status"] == "unavailable_after_checkpoint_resume"
     decoder = observed["decoder"]
     assert "generate" not in decoder.model.__dict__
     assert decoder.model._get_stopping_criteria == decoder._modelsurgeon_base_get_stopping_criteria
@@ -320,6 +366,24 @@ def test_workspace_refuses_unmarked_nonempty_directory(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="without a study manifest"):
         _prepare_workspace(workspace, args)
+
+
+def test_mbpp_workspace_identity_pins_its_dataset_release() -> None:
+    args = SimpleNamespace(
+        model="Qwen/Qwen2.5-Coder-0.5B-Instruct",
+        model_revision="revision-a",
+        remove_channels=128,
+        max_new_tokens=256,
+        evalplus_image="modelsurgeon-evalplus:test",
+        channel_scorer="magnitude",
+        calibration_tokens=2048,
+        evalplus_dataset="mbpp",
+    )
+
+    identity = _workspace_identity(args)
+
+    assert identity["evalplus_dataset"] == "mbpp"
+    assert identity["dataset_version"] == "v0.2.0"
 
 
 def test_activation_weighted_study_comparison_is_paired_and_provenanced() -> None:
