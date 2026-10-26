@@ -119,6 +119,22 @@ def test_block_influence_uses_shortgpt_fallback_when_every_hidden_pair_is_zero()
     assert tuple(score.token_count for score in scores) == (2, 2)
 
 
+def test_block_influence_keeps_finite_large_hidden_states_numerically_stable() -> None:
+    model = _TinyModel()
+    model.model.layers = torch.nn.ModuleList((_IdentityBlock(),))
+    model.config.num_hidden_layers = 1
+    model.embed.weight.data.fill_(1e20)
+
+    scores = measure_huggingface_block_influence(
+        model,
+        ((1, 2),),
+        input_device=torch.device("cpu"),
+    )
+
+    assert scores[0].score == pytest.approx(0.0, abs=1e-6)
+    assert scores[0].token_count == 2
+
+
 @pytest.mark.parametrize("value", (float("nan"), float("inf"), float("-inf")))
 def test_block_influence_rejects_nonfinite_hidden_activations(value: float) -> None:
     model = _TinyModel()

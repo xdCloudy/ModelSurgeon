@@ -84,17 +84,26 @@ def measure_huggingface_block_influence(
             if nonfinite_activations[layer_index] is None:
                 nonfinite_activations[layer_index] = nonfinite
             else:
-                nonfinite_activations[layer_index] = (
-                    nonfinite_activations[layer_index] | nonfinite
-                )
-            source_norm = torch.linalg.vector_norm(source, dim=-1, keepdim=True)
-            target_norm = torch.linalg.vector_norm(target, dim=-1, keepdim=True)
-            similarity = (source * target).sum(dim=-1) / (
-                source_norm.squeeze(-1) * target_norm.squeeze(-1)
-            )
+                nonfinite_activations[layer_index] = nonfinite_activations[layer_index] | nonfinite
+            # Scale before taking dot products/norms: finite hidden states can
+            # still overflow float32 when squared or multiplied directly.
+            source_scale = torch.amax(torch.abs(source), dim=-1, keepdim=True)
+            target_scale = torch.amax(torch.abs(target), dim=-1, keepdim=True)
+            safe_source_scale = torch.where(source_scale > 0, source_scale, 1.0)
+            safe_target_scale = torch.where(target_scale > 0, target_scale, 1.0)
+            scaled_source = source / safe_source_scale
+            scaled_target = target / safe_target_scale
+            source_norm = torch.linalg.vector_norm(scaled_source, dim=-1, keepdim=True)
+            target_norm = torch.linalg.vector_norm(scaled_target, dim=-1, keepdim=True)
+            safe_source_norm = torch.where(source_norm > 0, source_norm, 1.0)
+            safe_target_norm = torch.where(target_norm > 0, target_norm, 1.0)
+            source_unit = scaled_source / safe_source_norm
+            target_unit = scaled_target / safe_target_norm
+            similarity = (source_unit * target_unit).sum(dim=-1)
             # ShortGPT maps the undefined cosine for a zero-norm pair to 0.5.
             # Keep those rows in the mean rather than dropping and reweighting them.
-            similarity = torch.nan_to_num(similarity, nan=0.5)
+            zero_norm_pair = (source_norm.squeeze(-1) == 0) | (target_norm.squeeze(-1) == 0)
+            similarity = torch.where(zero_norm_pair, 0.5, similarity).clamp(-1.0, 1.0)
             score_sum = (1.0 - similarity).sum().detach()
             count = score_sum.new_tensor(hidden_in.shape[0] * hidden_in.shape[1], dtype=torch.long)
             if cosine_sums[layer_index] is None:
