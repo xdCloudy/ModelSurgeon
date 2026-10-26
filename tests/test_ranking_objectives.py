@@ -57,6 +57,100 @@ def test_all_objectives_share_lists_and_report_metrics_and_cost() -> None:
     )
 
 
+def test_sequence_ranking_uses_prediction_instead_of_held_out_cumulative_utility() -> None:
+    study = evaluate_ranking_objectives(
+        (_list(1),), RankingObjectiveConfig(top_k=2, bootstrap_repetitions=4)
+    )
+
+    # The measured cumulative utilities favor "safe", but the held-out model
+    # prediction ranks "risky" first. Measured outcomes are scoring targets only.
+    assert study.result_for(RankingObjective.SEQUENCE).rankings == (
+        ("list-1", ("risky", "safe", "steady")),
+    )
+
+
+def test_objective_specific_predictions_drive_each_ranking() -> None:
+    def all_scores(
+        values: dict[RankingObjective, float],
+    ) -> tuple[tuple[RankingObjective, float], ...]:
+        return tuple((objective, values[objective]) for objective in RankingObjective)
+
+    rows = (
+        RankingCandidateEvidence(
+            "candidate-a",
+            0.0,
+            1.0,
+            0.1,
+            False,
+            1.0,
+            objective_scores=all_scores(
+                {
+                    RankingObjective.POINTWISE: 0.9,
+                    RankingObjective.PAIRWISE: 0.1,
+                    RankingObjective.LISTWISE: 0.3,
+                    RankingObjective.SEQUENCE: 0.2,
+                }
+            ),
+        ),
+        RankingCandidateEvidence(
+            "candidate-b",
+            0.0,
+            0.8,
+            0.2,
+            False,
+            0.8,
+            objective_scores=all_scores(
+                {
+                    RankingObjective.POINTWISE: 0.1,
+                    RankingObjective.PAIRWISE: 0.9,
+                    RankingObjective.LISTWISE: 0.2,
+                    RankingObjective.SEQUENCE: 0.3,
+                }
+            ),
+        ),
+        RankingCandidateEvidence(
+            "candidate-c",
+            0.0,
+            0.7,
+            0.3,
+            False,
+            0.7,
+            objective_scores=all_scores(
+                {
+                    RankingObjective.POINTWISE: 0.2,
+                    RankingObjective.PAIRWISE: 0.3,
+                    RankingObjective.LISTWISE: 0.9,
+                    RankingObjective.SEQUENCE: 0.8,
+                }
+            ),
+        ),
+    )
+    study = evaluate_ranking_objectives(
+        (
+            RankingCandidateList(
+                "list-objective-scores",
+                "state",
+                "model",
+                "test",
+                "lineage",
+                rows,
+            ),
+        ),
+        RankingObjectiveConfig(top_k=1, bootstrap_repetitions=4),
+    )
+
+    expected_first = {
+        RankingObjective.POINTWISE: "candidate-a",
+        RankingObjective.PAIRWISE: "candidate-b",
+        RankingObjective.LISTWISE: "candidate-c",
+        RankingObjective.SEQUENCE: "candidate-c",
+    }
+    for objective, candidate_id in expected_first.items():
+        ranking = study.result_for(objective).rankings[0]
+        assert ranking[0] == "list-objective-scores"
+        assert ranking[1][0] == candidate_id
+
+
 def test_invalid_objective_inputs_fail_closed() -> None:
     with pytest.raises(RankingObjectiveError, match="held-out"):
         evaluate_ranking_objectives(
@@ -75,3 +169,14 @@ def test_invalid_objective_inputs_fail_closed() -> None:
 
     with pytest.raises(RankingObjectiveError, match="complete outcomes"):
         RankingCandidateEvidence("bad", 0.1, 1.0, 0.5, None, 1.0)
+
+    with pytest.raises(RankingObjectiveError, match="cover every ranking objective"):
+        RankingCandidateEvidence(
+            "incomplete-objective-scores",
+            0.1,
+            1.0,
+            0.5,
+            False,
+            1.0,
+            objective_scores=((RankingObjective.POINTWISE, 0.1),),
+        )

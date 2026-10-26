@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Fixed held-out ranking-objective evaluation so sequence ranking uses
+    predicted scores instead of measured cumulative utility. Added optional
+    per-objective score predictions for matched comparisons and versioned the
+    study protocol; legacy scalar predictions now apply uniformly and cannot
+    make any objective appear superior through outcome leakage.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

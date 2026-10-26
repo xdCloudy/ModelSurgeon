@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 1
-RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v1"
+RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 2
+RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v2"
 
 
 class RankingObjectiveError(ValueError):
@@ -60,10 +60,29 @@ class RankingCandidateEvidence:
     violated: bool | None
     cumulative_utility: float | None
     status: CandidateEvidenceStatus = CandidateEvidenceStatus.MEASURED
+    objective_scores: tuple[tuple[RankingObjective, float], ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.candidate_id, "candidate ID")
         _finite(self.predicted_score, "predicted score")
+        objectives = tuple(objective for objective, _ in self.objective_scores)
+        if len(objectives) != len(set(objectives)):
+            raise RankingObjectiveError("objective-specific predictions must be unique")
+        if objectives and set(objectives) != set(RankingObjective):
+            raise RankingObjectiveError(
+                "objective-specific predictions must cover every ranking objective"
+            )
+        for objective, score in self.objective_scores:
+            if not isinstance(objective, RankingObjective):
+                raise RankingObjectiveError(
+                    "objective-specific prediction has an invalid objective"
+                )
+            _finite(score, f"{objective.value} predicted score")
+        object.__setattr__(
+            self,
+            "objective_scores",
+            tuple(sorted(self.objective_scores, key=lambda item: item[0].value)),
+        )
         if self.utility is not None:
             _finite(self.utility, "candidate utility")
         if not 0.0 <= _finite(self.violation_probability, "violation probability") <= 1.0:
@@ -87,7 +106,20 @@ class RankingCandidateEvidence:
             "violated": self.violated,
             "cumulative_utility": self.cumulative_utility,
             "status": self.status.value,
+            "objective_scores": {
+                objective.value: score for objective, score in self.objective_scores
+            },
         }
+
+    def score_for(self, objective: RankingObjective) -> float:
+        """Return a held-out prediction, never a measured candidate outcome."""
+
+        if not self.objective_scores:
+            return self.predicted_score
+        for candidate_objective, score in self.objective_scores:
+            if candidate_objective is objective:
+                return score
+        raise RankingObjectiveError(f"missing predicted score for {objective.value}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,21 +324,7 @@ def _rank_candidates(
     )
     if not measured:
         return ()
-    if objective is RankingObjective.SEQUENCE:
-        return tuple(sorted(measured, key=lambda item: (-_cumulative(item), item.candidate_id)))
-    if objective is RankingObjective.PAIRWISE:
-        return tuple(sorted(measured, key=lambda item: (-item.predicted_score, item.candidate_id)))
-    if objective is RankingObjective.LISTWISE:
-        # Softmax normalization is list-aware but preserves deterministic utility order.
-        scores = tuple(math.exp(max(-40.0, min(40.0, item.predicted_score))) for item in measured)
-        return tuple(
-            item
-            for _, item in sorted(
-                zip(scores, measured, strict=True),
-                key=lambda pair: (-pair[0], pair[1].candidate_id),
-            )
-        )
-    return tuple(sorted(measured, key=lambda item: (-item.predicted_score, item.candidate_id)))
+    return tuple(sorted(measured, key=lambda item: (-item.score_for(objective), item.candidate_id)))
 
 
 def _utility(item: RankingCandidateEvidence) -> float:
