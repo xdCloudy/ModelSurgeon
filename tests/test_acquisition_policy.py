@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from modelsurgeon.active_learning import (
@@ -22,6 +24,18 @@ def _candidates(count: int):
         )
         for index in range(count)
     )
+
+
+@pytest.mark.parametrize("invalid_seed", [1.5, True, "42"])
+def test_policy_rejects_non_integer_seeds(invalid_seed: object) -> None:
+    with pytest.raises(AcquisitionPolicyError, match="seed must be unsigned 64-bit integer"):
+        AcquisitionPolicyConfig(seed=cast(int, invalid_seed))
+
+
+@pytest.mark.parametrize("invalid_budget", [1.5, True, "1"])
+def test_acquisition_rejects_non_integer_budgets(invalid_budget: object) -> None:
+    with pytest.raises(AcquisitionPolicyError, match="budget must be an integer"):
+        acquire_candidates(_candidates(3), cast(int, invalid_budget))
 
 
 def test_explicit_fractions_reasons_and_propensities_are_recorded() -> None:

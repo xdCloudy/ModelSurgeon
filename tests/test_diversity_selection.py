@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from modelsurgeon.active_learning import (
     DiversityCandidate,
     DiversitySelectionConfig,
+    DiversitySelectionError,
     select_diverse_candidates,
 )
 
@@ -137,6 +140,30 @@ def test_existing_selected_candidates_are_fixed_farthest_first_centers() -> None
     assert report.selections[1].candidate_id == "cand_mid"
     assert report.initial_center_count == 1
     assert report.to_record()["initial_center_count"] == 1
+
+
+@pytest.mark.parametrize("invalid_seed", [1.5, True, "1"])
+def test_config_rejects_non_integer_seeds(invalid_seed: object) -> None:
+    with pytest.raises(DiversitySelectionError, match="seed must be unsigned 64-bit integer"):
+        DiversitySelectionConfig(seed=cast(int, invalid_seed))
+
+
+@pytest.mark.parametrize("invalid_bound", [1.5, True, "1"])
+def test_config_rejects_non_integer_bounds(invalid_bound: object) -> None:
+    with pytest.raises(DiversitySelectionError, match="candidate bound must be an integer"):
+        DiversitySelectionConfig(seed=0, max_candidates=cast(int, invalid_bound))
+    with pytest.raises(DiversitySelectionError, match="selection bound must be an integer"):
+        DiversitySelectionConfig(seed=0, max_selection=cast(int, invalid_bound))
+
+
+@pytest.mark.parametrize("invalid_count", [1.5, True, "1"])
+def test_selection_rejects_non_integer_counts(invalid_count: object) -> None:
+    with pytest.raises(DiversitySelectionError, match="selection must be an integer"):
+        select_diverse_candidates(
+            (_candidate("only", 0.0, "a"),),
+            cast(int, invalid_count),
+            config=DiversitySelectionConfig(seed=0),
+        )
 
 
 def test_zero_selection_is_deterministic() -> None:
