@@ -150,15 +150,10 @@ def _validated_metadata(
     keys = [entry.key for entry in metadata]
     if len(keys) != len(set(keys)):
         raise GGUFWriteError("GGUF metadata keys must be unique")
-    alignment_entry = next(
-        (entry for entry in metadata if entry.key == "general.alignment"), None
-    )
+    alignment_entry = next((entry for entry in metadata if entry.key == "general.alignment"), None)
     if alignment_entry is None:
         return (*metadata, GGUFWriteMetadata("general.alignment", GGUFValueType.UINT32, alignment))
-    if (
-        alignment_entry.value_type is not GGUFValueType.UINT32
-        or alignment_entry.value != alignment
-    ):
+    if alignment_entry.value_type is not GGUFValueType.UINT32 or alignment_entry.value != alignment:
         raise GGUFWriteError("general.alignment must match the writer alignment")
     return metadata
 
@@ -298,9 +293,7 @@ def write_gguf_transactionally(
             actual = validation.container
             if actual.file_size != layout.total_bytes or tuple(
                 (item.name, item.data_offset, item.byte_size) for item in actual.tensors
-            ) != tuple(
-                (item.name, item.data_offset, item.byte_size) for item in layout.tensors
-            ):
+            ) != tuple((item.name, item.data_offset, item.byte_size) for item in layout.tensors):
                 raise GGUFWriteError("staged GGUF offsets or sizes failed validation")
         staged_result = GGUFWriteResult(
             staging,
