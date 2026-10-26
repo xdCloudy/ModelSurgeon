@@ -1,9 +1,12 @@
 # Active-learning diversity selection
 
-Issue #111 uses seeded farthest-first traversal over normalized numeric features,
-categorical Hamming distance, and topology-set Jaccard distance. Explicit non-negative
-weights combine those spaces, and seeded candidate hashes provide deterministic initial
-choice and tie-breaking.
+Issue #111 uses seeded farthest-first traversal over numeric features normalized
+independently to the candidate pool's min/max range, categorical Hamming distance,
+and topology-set Jaccard distance. Normalization is fit without outcomes and is
+invariant to numeric units; constant columns contribute zero. Explicit
+non-negative weights combine those spaces, and seeded candidate hashes provide
+deterministic initial choice and tie-breaking. Reports record the normalization
+revision because it affects distances and selection order.
 
 The selector never constructs a candidate-by-candidate distance matrix. It retains one
 minimum-distance scalar per input candidate plus the bounded selected-index set, yielding

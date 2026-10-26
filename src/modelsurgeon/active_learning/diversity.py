@@ -8,8 +8,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
-DIVERSITY_SELECTION_SCHEMA_VERSION: Final[int] = 1
+DIVERSITY_SELECTION_SCHEMA_VERSION: Final[int] = 2
 MAX_DIVERSITY_CANDIDATES: Final[int] = 100_000
+_NUMERIC_NORMALIZATION: Final[str] = "candidate_pool_minmax_v1"
 
 
 class DiversitySelectionError(ValueError):
@@ -91,6 +92,7 @@ class DiversitySelectionReport:
                 "categorical": self.categorical_weight,
                 "topology": self.topology_weight,
             },
+            "numeric_normalization": _NUMERIC_NORMALIZATION,
             "working_distance_values": self.working_distance_values,
             "selections": [item.to_record() for item in self.selections],
         }
@@ -129,6 +131,7 @@ def select_diverse_candidates(
         raise DiversitySelectionError("diversity numeric feature schemas must align")
     if any(len(item.categorical_features) != categorical_width for item in candidates):
         raise DiversitySelectionError("diversity categorical feature schemas must align")
+    numeric_bounds = _numeric_normalization_bounds(candidates, numeric_width)
 
     selected_indexes: set[int] = set()
     minimum_distances = [math.inf] * len(candidates)
@@ -142,7 +145,7 @@ def select_diverse_candidates(
         for index, candidate in enumerate(candidates):
             if index in selected_indexes:
                 continue
-            distance = _distance(candidate, candidates[latest], config)
+            distance = _distance(candidate, candidates[latest], config, numeric_bounds)
             if distance < minimum_distances[index]:
                 minimum_distances[index] = distance
             key = (minimum_distances[index], -_seed_rank(config.seed, ids[index]))
@@ -171,13 +174,18 @@ def _distance(
     left: DiversityCandidate,
     right: DiversityCandidate,
     config: DiversitySelectionConfig,
+    numeric_bounds: tuple[tuple[float, float, float], ...],
 ) -> float:
     numeric = (
         math.sqrt(
             math.fsum(
-                (left_value - right_value) ** 2
-                for left_value, right_value in zip(
-                    left.numeric_features, right.numeric_features, strict=True
+                (_normalize_numeric(left_value, bounds) - _normalize_numeric(right_value, bounds))
+                ** 2
+                for left_value, right_value, bounds in zip(
+                    left.numeric_features,
+                    right.numeric_features,
+                    numeric_bounds,
+                    strict=True,
                 )
             )
             / len(left.numeric_features)
@@ -198,12 +206,46 @@ def _distance(
     )
     union = left.topology | right.topology
     topology = 0.0 if not union else 1.0 - len(left.topology & right.topology) / len(union)
-    total_weight = config.numeric_weight + config.categorical_weight + config.topology_weight
+    weight_scale = max(
+        config.numeric_weight,
+        config.categorical_weight,
+        config.topology_weight,
+    )
+    numeric_weight = config.numeric_weight / weight_scale
+    categorical_weight = config.categorical_weight / weight_scale
+    topology_weight = config.topology_weight / weight_scale
+    total_weight = math.fsum((numeric_weight, categorical_weight, topology_weight))
     return (
-        config.numeric_weight * numeric
-        + config.categorical_weight * categorical
-        + config.topology_weight * topology
+        numeric_weight * numeric + categorical_weight * categorical + topology_weight * topology
     ) / total_weight
+
+
+def _numeric_normalization_bounds(
+    candidates: Sequence[DiversityCandidate],
+    width: int,
+) -> tuple[tuple[float, float, float], ...]:
+    """Fit scale-safe min/max transforms on the unlabeled candidate pool."""
+
+    bounds: list[tuple[float, float, float]] = []
+    for column in range(width):
+        low = min(candidate.numeric_features[column] for candidate in candidates)
+        high = max(candidate.numeric_features[column] for candidate in candidates)
+        scale = max(abs(low), abs(high))
+        if scale == 0.0:
+            bounds.append((1.0, 0.0, 0.0))
+            continue
+        low_scaled = low / scale
+        high_scaled = high / scale
+        bounds.append((scale, low_scaled, high_scaled - low_scaled))
+    return tuple(bounds)
+
+
+def _normalize_numeric(value: float, bounds: tuple[float, float, float]) -> float:
+    scale, low_scaled, width_scaled = bounds
+    if width_scaled == 0.0:
+        return 0.0
+    normalized = (value / scale - low_scaled) / width_scaled
+    return min(1.0, max(0.0, normalized))
 
 
 def _seed_rank(seed: int, candidate_id: str) -> int:

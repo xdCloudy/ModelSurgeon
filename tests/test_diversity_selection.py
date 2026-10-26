@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from modelsurgeon.active_learning import (
     DiversityCandidate,
     DiversitySelectionConfig,
@@ -44,6 +46,75 @@ def test_categorical_and_topology_space_change_farthest_selection() -> None:
         "cand_different",
     }
     assert report.selections[1].minimum_distance is not None
+
+
+def test_numeric_diversity_is_invariant_to_feature_units_and_scale_safe() -> None:
+    vectors = (
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (0.0, 1.0),
+        (1.0, 1.0),
+        (0.5, 0.25),
+        (0.25, 0.75),
+    )
+    topology = frozenset({"layer:0"})
+    candidates = tuple(
+        DiversityCandidate(f"cand_{index}", vector, ("same",), topology)
+        for index, vector in enumerate(vectors)
+    )
+    rescaled = tuple(
+        DiversityCandidate(
+            candidate.candidate_id,
+            (
+                candidate.numeric_features[0] * 1e290 - 3e289,
+                candidate.numeric_features[1] * 1e300 + 2e300,
+            ),
+            candidate.categorical_features,
+            candidate.topology,
+        )
+        for candidate in candidates
+    )
+    config = DiversitySelectionConfig(seed=13)
+
+    original_report = select_diverse_candidates(candidates, 5, config=config)
+    rescaled_report = select_diverse_candidates(rescaled, 5, config=config)
+
+    assert tuple(item.candidate_id for item in original_report.selections) == tuple(
+        item.candidate_id for item in rescaled_report.selections
+    )
+    for original, changed in zip(
+        original_report.selections, rescaled_report.selections, strict=True
+    ):
+        assert original.minimum_distance == pytest.approx(changed.minimum_distance)
+        if changed.minimum_distance is not None:
+            assert 0.0 <= changed.minimum_distance <= 1.0
+    assert rescaled_report.to_record()["numeric_normalization"] == "candidate_pool_minmax_v1"
+
+
+def test_large_finite_weights_do_not_overflow_distance() -> None:
+    candidates = (
+        _candidate("a", 0.0, "a", "layer:0"),
+        _candidate("b", 1.0, "b", "layer:1"),
+        _candidate("c", 0.5, "c", "layer:2"),
+    )
+    baseline = select_diverse_candidates(candidates, 3, config=DiversitySelectionConfig(seed=29))
+    large_weights = select_diverse_candidates(
+        candidates,
+        3,
+        config=DiversitySelectionConfig(
+            seed=29,
+            numeric_weight=1e308,
+            categorical_weight=1e308,
+            topology_weight=1e308,
+        ),
+    )
+
+    assert tuple(item.candidate_id for item in baseline.selections) == tuple(
+        item.candidate_id for item in large_weights.selections
+    )
+    assert large_weights.selections[1].minimum_distance == pytest.approx(
+        baseline.selections[1].minimum_distance
+    )
 
 
 def test_zero_selection_is_deterministic() -> None:

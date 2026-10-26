@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - Normalize each numeric feature over the candidate pool before computing
+    active-learning diversity distances. This prevents unit-scale differences
+    from dominating farthest-first selection; the report schema now identifies
+    the normalization method.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
