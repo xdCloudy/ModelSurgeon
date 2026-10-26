@@ -272,9 +272,9 @@ class RepairConfig(StrictConfigModel):
         return value
 
     @model_validator(mode="after")
-    def validation_dataset_requires_distillation(self) -> RepairConfig:
-        if self.validation_dataset is not None and self.method != "distillation":
-            raise ValueError("repair.validation_dataset requires method=distillation")
+    def validation_dataset_requires_repair(self) -> RepairConfig:
+        if self.validation_dataset is not None and self.method not in {"lora", "distillation"}:
+            raise ValueError("repair.validation_dataset requires method=lora or distillation")
         return self
 
     @field_validator("target_modules")
