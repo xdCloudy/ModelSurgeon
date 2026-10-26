@@ -42,6 +42,8 @@ class _TinyModel(torch.nn.Module):
 
 def test_block_influence_measures_corresponding_token_rows_and_removes_hooks() -> None:
     model = _TinyModel().train()
+    model.model.layers[0].eval()
+    module_training_states = tuple(module.training for module in model.modules())
 
     scores = measure_huggingface_block_influence(
         model,
@@ -52,7 +54,7 @@ def test_block_influence_measures_corresponding_token_rows_and_removes_hooks() -
     assert scores[0].score == pytest.approx(0.0, abs=1e-6)
     assert scores[1].score == pytest.approx(2.0, abs=1e-6)
     assert tuple(item.token_count for item in scores) == (5, 5)
-    assert model.training is True
+    assert tuple(module.training for module in model.modules()) == module_training_states
     assert all(not block._forward_hooks for block in model.model.layers)
 
 

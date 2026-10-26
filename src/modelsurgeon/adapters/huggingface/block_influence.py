@@ -98,7 +98,7 @@ def measure_huggingface_block_influence(
 
         return hook
 
-    was_training = bool(getattr(model, "training", False))
+    module_training_states = tuple((module, module.training) for module in model.modules())
     handles = [block.register_forward_hook(capture(index)) for index, block in enumerate(blocks)]
     try:
         model.eval()
@@ -109,7 +109,8 @@ def measure_huggingface_block_influence(
     finally:
         for handle in handles:
             handle.remove()
-        model.train(was_training)
+        for module, was_training in module_training_states:
+            module.training = was_training
 
     scores: list[BlockInfluenceScore] = []
     for layer_index, (score_sum, token_count) in enumerate(
