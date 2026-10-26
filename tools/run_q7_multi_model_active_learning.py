@@ -31,6 +31,7 @@ def main() -> None:
     parser.add_argument("--budget", action="append", type=int)
     parser.add_argument("--target-auc", type=float, default=0.8)
     parser.add_argument("--safe-perplexity-delta", type=float, default=0.01)
+    parser.add_argument("--feature-diversity-fraction", type=float, default=0.25)
     args = parser.parse_args()
 
     budgets = tuple(args.budget or (64, 128, 256, 384))
@@ -38,6 +39,7 @@ def main() -> None:
         budgets=budgets,
         target_auc=args.target_auc,
         safe_perplexity_delta=args.safe_perplexity_delta,
+        feature_diversity_fraction=args.feature_diversity_fraction,
     )
     results: list[dict[str, object]] = []
     sources: list[dict[str, str]] = []
@@ -65,13 +67,25 @@ def main() -> None:
         raise ValueError("Q7 requires at least three distinct models")
     record: dict[str, object] = {
         "record_type": "v0.8_q7_multi_model_active_learning_study",
-        "version": "1",
+        "version": "2",
         "protocol": {
-            "strategies": ["active_uncertainty", "seeded_random"],
+            "strategies": [
+                "active_uncertainty",
+                "uncertainty_diversity",
+                "seeded_random",
+            ],
             "budgets": list(budgets),
             "seeds": list(config.seeds),
             "target_auc": args.target_auc,
             "safe_perplexity_delta": args.safe_perplexity_delta,
+            "acquisition_policy": {
+                "high_value_fraction": 0.0,
+                "uncertainty_fraction": 1.0 - config.feature_diversity_fraction,
+                "diversity_fraction": config.feature_diversity_fraction,
+                "initial_centers": "currently selected labeled examples",
+                "numeric_features": "source-only trained-preprocessor output",
+                "categorical_and_topology": "pre-mutation model and mutation metadata",
+            },
             "feature_profile": "static_activation_gradient",
             "test_metric": "roc_auc",
             "gpu_hour_accounting": "sum_selected_cuda_evaluation_wall_seconds",
