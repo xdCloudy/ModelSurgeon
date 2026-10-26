@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import struct
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -285,3 +286,40 @@ def test_qwen35moe_layout_rejects_block_count_larger_than_tensor_inventory(
         pytest.raises(Qwen35MoeSurgeryError, match="block_count exceeds"),
     ):
         build_qwen35moe_gguf_layout(source.container)
+
+
+def test_qwen35moe_failed_staging_validation_does_not_publish_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import modelsurgeon.adapters.gguf.qwen35moe_surgery as surgery
+
+    source_path = tmp_path / "source.gguf"
+    output_path = tmp_path / "candidate.gguf"
+    _write(source_path)
+    original_validate = surgery.build_qwen35moe_gguf_layout
+    calls = 0
+
+    def reject_staged_output(container: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise Qwen35MoeSurgeryError("injected staged semantic validation failure")
+        return original_validate(container)
+
+    monkeypatch.setattr(surgery, "build_qwen35moe_gguf_layout", reject_staged_output)
+    with open_gguf(source_path) as source:
+        disk = preflight_gguf_disk(
+            output_path,
+            tmp_path,
+            GGUFDiskEstimate(source_path.stat().st_size, 0),
+        )
+        with pytest.raises(Qwen35MoeSurgeryError, match="injected staged"):
+            execute_qwen35moe_expert_pruning(
+                source,
+                {0: (0, 2, 3), 1: (0, 1, 3)},
+                output_path,
+                disk,
+            )
+
+    assert not output_path.exists()
+    assert not tuple(tmp_path.glob(".candidate.gguf.modelsurgeon-*.tmp"))

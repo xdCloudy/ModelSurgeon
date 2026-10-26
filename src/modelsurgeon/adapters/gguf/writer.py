@@ -6,7 +6,7 @@ import hashlib
 import os
 import secrets
 import struct
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -242,6 +242,7 @@ def write_gguf_transactionally(
     version: int = 3,
     byte_order: ByteOrder = ByteOrder.LITTLE,
     alignment: int = 32,
+    staging_validator: Callable[[Path, GGUFWriteResult], None] | None = None,
 ) -> GGUFWriteResult:
     """Stream a validated staging file, fsync it, then atomically publish it."""
 
@@ -301,6 +302,15 @@ def write_gguf_transactionally(
                 (item.name, item.data_offset, item.byte_size) for item in layout.tensors
             ):
                 raise GGUFWriteError("staged GGUF offsets or sizes failed validation")
+        staged_result = GGUFWriteResult(
+            staging,
+            layout.total_bytes,
+            digest.hexdigest(),
+            layout.tensors,
+            tuple(tensor_digests),
+        )
+        if staging_validator is not None:
+            staging_validator(staging, staged_result)
         try:
             os.link(staging, output)
         except FileExistsError as error:

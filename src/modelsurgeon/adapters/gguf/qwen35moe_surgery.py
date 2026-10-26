@@ -433,6 +433,22 @@ def execute_qwen35moe_expert_pruning(
             ),
         )
 
+    staged_layout: Qwen35MoeGGUFLayout | None = None
+
+    def validate_staging(path: Path, result: GGUFWriteResult) -> None:
+        nonlocal staged_layout
+        output_hashes = dict(result.tensor_sha256)
+        for name, digest in unchanged_hashes:
+            if output_hashes.get(name) != digest:
+                raise Qwen35MoeSurgeryError(f"untouched tensor {name!r} changed during surgery")
+        with open_gguf(path) as output:
+            output_layout = build_qwen35moe_gguf_layout(output.container)
+            if output_layout.expert_count != len(retained[0]):
+                raise Qwen35MoeSurgeryError("output expert_count disagrees with the surgery plan")
+            if output_layout.expert_used_count != layout.expert_used_count:
+                raise Qwen35MoeSurgeryError("output expert_used_count changed unexpectedly")
+            staged_layout = output_layout
+
     write_result = write_gguf_transactionally(
         destination,
         _metadata(source, len(retained[0])),
@@ -441,20 +457,13 @@ def execute_qwen35moe_expert_pruning(
         version=source.container.version,
         byte_order=source.container.byte_order,
         alignment=source.container.alignment,
+        staging_validator=validate_staging,
     )
-    output_hashes = dict(write_result.tensor_sha256)
-    for name, digest in unchanged_hashes:
-        if output_hashes.get(name) != digest:
-            raise Qwen35MoeSurgeryError(f"untouched tensor {name!r} changed during surgery")
-    with open_gguf(write_result.path) as output:
-        output_layout = build_qwen35moe_gguf_layout(output.container)
-        if output_layout.expert_count != len(retained[0]):
-            raise Qwen35MoeSurgeryError("output expert_count disagrees with the surgery plan")
-        if output_layout.expert_used_count != layout.expert_used_count:
-            raise Qwen35MoeSurgeryError("output expert_used_count changed unexpectedly")
+    if staged_layout is None:
+        raise Qwen35MoeSurgeryError("Qwen3.5 staged output validation did not run")
     return Qwen35MoeSurgeryResult(
         write_result,
-        output_layout,
+        staged_layout,
         tuple(sorted(unchanged_hashes)),
         peak_payload,
     )
