@@ -26,6 +26,7 @@ from modelsurgeon.search.surrogate import (
     SurrogateConfig,
     SurrogateError,
     SurrogateFitStatus,
+    SurrogateModel,
     SurrogatePolicyState,
     SurrogatePrediction,
     SurrogateTrainingExample,
@@ -330,6 +331,52 @@ def test_hypervolume_reference_is_recorded_in_objective_space() -> None:
         (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), polluted_fit
     )
     assert polluted.acquisition_reference_point == pytest.approx((expected_reference,))
+
+
+def test_hypervolume_batch_recomputes_marginal_gain_after_each_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=2,
+        batch_size=2,
+        exploration_weight=0.0,
+        reference_point=(0.6,),
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+
+    def predict_identical_point(
+        self: SurrogateModel, candidate_id: str, features: tuple[float, ...]
+    ) -> SurrogatePrediction:
+        del self, features
+        return SurrogatePrediction(
+            candidate_id,
+            (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.95),),
+            1.0,
+            0.0,
+            0.0,
+        )
+
+    monkeypatch.setattr(SurrogateModel, "predict", predict_identical_point)
+    candidates = (
+        _state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),
+        _state(7, 0.95, ArchitectureEvidenceStatus.PREDICTED),
+    )
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        candidates, fit
+    )
+
+    chosen = [decision for decision in selection.selected]
+    assert len(chosen) == 2
+    assert fit.model is not None
+    best_measured = max(
+        example.objectives[0].estimate
+        for example in fit.model.examples
+        if example.feasible
+    )
+    assert sorted(decision.acquisition for decision in chosen) == pytest.approx(
+        [0.0, 0.95 - best_measured]
+    )
 
 
 def test_hypervolume_rejects_more_than_two_objectives() -> None:

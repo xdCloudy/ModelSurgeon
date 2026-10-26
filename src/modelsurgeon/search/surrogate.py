@@ -1112,7 +1112,21 @@ class SurrogateArchitecturePolicy:
         limit = min(self.config.batch_size, remaining)
         chosen: list[tuple[float, int, CompleteArchitectureState, SurrogatePrediction]] = []
         pool_scored = list(scored)
+        selection_frontier = tuple(frontier)
+        acquisition_by_id = {item[2].candidate_id: item[0] for item in scored}
         while pool_scored and len(chosen) < limit:
+            if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                pool_scored = [
+                    (
+                        self._acquisition(
+                            prediction, selection_frontier, acquisition_reference_point
+                        ),
+                        tie_rank,
+                        candidate,
+                        prediction,
+                    )
+                    for _, tie_rank, candidate, prediction in pool_scored
+                ]
             pool_scored.sort(
                 key=lambda item: (
                     -item[0],
@@ -1121,19 +1135,35 @@ class SurrogateArchitecturePolicy:
                     item[2].candidate_id,
                 )
             )
-            chosen.append(pool_scored.pop(0))
+            selected = pool_scored.pop(0)
+            chosen.append(selected)
+            acquisition_by_id[selected[2].candidate_id] = selected[0]
+            if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                selection_frontier = (
+                    *selection_frontier,
+                    ParetoCandidate(
+                        selected[2].candidate_id,
+                        selected[3].objectives,
+                        {"candidate_id": selected[2].candidate_id},
+                    ),
+                )
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            for _, _, candidate, prediction in pool_scored:
+                acquisition_by_id[candidate.candidate_id] = self._acquisition(
+                    prediction, selection_frontier, acquisition_reference_point
+                )
         chosen_ids = {item[2].candidate_id for item in chosen}
         reason = (
             "surrogate_acquisition" if fit.model is not None else f"fallback_{fit.status.value}"
         )
-        for acquisition, _, candidate, prediction in scored:
+        for _, _, candidate, prediction in scored:
             constraint_record = self.constraints.evaluate(candidate.constraints).to_record()
             decisions.append(
                 SurrogatePolicyDecision(
                     candidate.candidate_id,
                     candidate.candidate_id in chosen_ids,
                     reason if candidate.candidate_id in chosen_ids else "outside_batch_cutoff",
-                    acquisition,
+                    acquisition_by_id[candidate.candidate_id],
                     prediction,
                     candidate.status,
                     constraint_record,

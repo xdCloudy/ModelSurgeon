@@ -7,7 +7,9 @@
     deterministically inferred reference point. Infeasible observations no
     longer distort the measured Pareto baseline, and the effective reference
     point is recorded in objective units. This is deterministic mean HVI, not
-    expected hypervolume improvement; dimensions above two fail closed.
+    expected hypervolume improvement; dimensions above two fail closed. Batch
+    candidates are selected greedily, recomputing marginal gain against earlier
+    predictions in the same batch.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
