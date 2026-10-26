@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Added fail-closed reloading for Qwen3.5 REAP score records, validating the
+    metric schema, uniform layer/expert dimensions, finite saliency values, and
+    consistency between unseen experts and routed-token counts.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

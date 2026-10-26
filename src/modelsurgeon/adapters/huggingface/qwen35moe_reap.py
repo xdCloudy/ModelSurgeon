@@ -8,6 +8,7 @@ observation is recorded.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import import_module
@@ -38,6 +39,89 @@ class Qwen35MoeReapResult:
             "scores_by_layer": [list(layer) for layer in self.scores_by_layer],
             "routed_counts_by_layer": [list(layer) for layer in self.routed_counts_by_layer],
         }
+
+    @classmethod
+    def from_record(cls, record: object) -> Qwen35MoeReapResult:
+        """Load a score record, rejecting malformed or ambiguous evidence."""
+
+        required = {
+            "schema_version",
+            "metric",
+            "scores_by_layer",
+            "routed_counts_by_layer",
+        }
+        if (
+            not isinstance(record, Mapping)
+            or set(record) != required
+            or isinstance(record.get("schema_version"), bool)
+            or not isinstance(record.get("schema_version"), int)
+            or record.get("schema_version") != 1
+            or record.get("metric") != "mean_router_weighted_expert_output_l2"
+        ):
+            raise Qwen35MoeReapError("unsupported or malformed Qwen3.5 REAP score record")
+
+        raw_scores = record["scores_by_layer"]
+        raw_counts = record["routed_counts_by_layer"]
+        if (
+            not isinstance(raw_scores, list)
+            or not raw_scores
+            or not isinstance(raw_counts, list)
+            or len(raw_counts) != len(raw_scores)
+        ):
+            raise Qwen35MoeReapError(
+                "REAP score and route-count layers must be non-empty and align"
+            )
+
+        scores_by_layer: list[tuple[float | None, ...]] = []
+        routed_counts_by_layer: list[tuple[int, ...]] = []
+        expert_count: int | None = None
+        for layer, (scores, counts) in enumerate(zip(raw_scores, raw_counts, strict=True)):
+            if (
+                not isinstance(scores, list)
+                or not scores
+                or not isinstance(counts, list)
+                or len(scores) != len(counts)
+                or (expert_count is not None and len(scores) != expert_count)
+            ):
+                raise Qwen35MoeReapError(
+                    f"REAP score and route-count experts for layer {layer} must align"
+                )
+            expert_count = len(scores)
+            validated_scores: list[float | None] = []
+            validated_counts: list[int] = []
+            for expert, (score, count) in enumerate(zip(scores, counts, strict=True)):
+                if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                    raise Qwen35MoeReapError(
+                        f"route count for layer {layer}, expert {expert} must be "
+                        "a nonnegative integer"
+                    )
+                if score is None:
+                    if count != 0:
+                        raise Qwen35MoeReapError(
+                            f"unseen expert at layer {layer}, expert {expert} has routed tokens"
+                        )
+                    validated_scores.append(None)
+                else:
+                    try:
+                        numeric_score = float(score)
+                    except (OverflowError, TypeError, ValueError):
+                        numeric_score = math.nan
+                    if (
+                        isinstance(score, bool)
+                        or not isinstance(score, (int, float))
+                        or not math.isfinite(numeric_score)
+                        or numeric_score < 0
+                        or count == 0
+                    ):
+                        raise Qwen35MoeReapError(
+                            f"score for layer {layer}, expert {expert} must be finite, "
+                            "nonnegative, and have routed tokens"
+                        )
+                    validated_scores.append(numeric_score)
+                validated_counts.append(count)
+            scores_by_layer.append(tuple(validated_scores))
+            routed_counts_by_layer.append(tuple(validated_counts))
+        return cls(tuple(scores_by_layer), tuple(routed_counts_by_layer))
 
 
 MaskProvider = Callable[[int, tuple[Any, ...]], Any | None]
