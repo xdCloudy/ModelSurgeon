@@ -1,0 +1,191 @@
+{
+  "calibration_dataset": "Salesforce/wikitext wikitext-2-raw-v1 training split",
+  "calibration_text_sha256": "dd19e768934268c03ddcf1e880debd6f862dbf23789a83e465f7aa3233ce4170",
+  "measurements": [
+    {
+      "calibration_text_sha256": "dd19e768934268c03ddcf1e880debd6f862dbf23789a83e465f7aa3233ce4170",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 0.9999998211860657,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.022122668102383614,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "aa40277aa36d0ddfaa7dfece966db8102a290e9f",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 0,
+      "max_abs_first_order_difference": 3.1366944313049316e-06,
+      "max_abs_gradient_difference": 1.52587890625e-05,
+      "max_relative_first_order_difference": 1.710697054862976,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-1.5B",
+      "model_revision": "8faed761d45a263340a0528343f099c05c9a4323",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 6134675456,
+        "median_peak_incremental_bytes": 3029223424,
+        "median_peak_reserved_bytes": 6209667072,
+        "median_wall_seconds": 0.7065157999750227,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 3087429632,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 6125172736,
+            "peak_incremental_bytes": 3037743104,
+            "peak_reserved_bytes": 6188695552,
+            "wall_seconds": 1.198970100027509
+          },
+          {
+            "baseline_allocated_bytes": 3105452032,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 6134675456,
+            "peak_incremental_bytes": 3029223424,
+            "peak_reserved_bytes": 6209667072,
+            "wall_seconds": 0.7065157999750227
+          },
+          {
+            "baseline_allocated_bytes": 3105452032,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 6134675456,
+            "peak_incremental_bytes": 3029223424,
+            "peak_reserved_bytes": 6209667072,
+            "wall_seconds": 0.5558416999992914
+          }
+        ]
+      },
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 3805535232,
+        "median_peak_incremental_bytes": 700083200,
+        "median_peak_reserved_bytes": 3827302400,
+        "median_wall_seconds": 0.6040181000134908,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 3105452032,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3805535232,
+            "peak_incremental_bytes": 700083200,
+            "peak_reserved_bytes": 3827302400,
+            "wall_seconds": 0.5541480999672785
+          },
+          {
+            "baseline_allocated_bytes": 3105452032,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3805535232,
+            "peak_incremental_bytes": 700083200,
+            "peak_reserved_bytes": 3827302400,
+            "wall_seconds": 0.6498173999716528
+          },
+          {
+            "baseline_allocated_bytes": 3105452032,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3805535232,
+            "peak_incremental_bytes": 700083200,
+            "peak_reserved_bytes": 3827302400,
+            "wall_seconds": 0.6040181000134908
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    },
+    {
+      "calibration_text_sha256": "dd19e768934268c03ddcf1e880debd6f862dbf23789a83e465f7aa3233ce4170",
+      "causal_target_tokens": 1016,
+      "chunks": 8,
+      "device": "NVIDIA GeForce RTX 3060",
+      "dtype": "float16",
+      "first_order_score_spearman_min": 1.0,
+      "first_order_scores_allclose_rtol_1e-4_atol_1e-6": false,
+      "first_order_scores_max_abs_value": 0.11945270746946335,
+      "first_order_top_1_percent_overlap_min": 1.0,
+      "first_order_top_5_percent_overlap_min": 1.0,
+      "git_revision": "aa40277aa36d0ddfaa7dfece966db8102a290e9f",
+      "gradient_allclose_rtol_1e-4_atol_1e-6": false,
+      "layer": 27,
+      "max_abs_first_order_difference": 1.8388964235782623e-05,
+      "max_abs_gradient_difference": 0.000244140625,
+      "max_relative_first_order_difference": 0.48009276390075684,
+      "max_relative_gradient_difference": 2.0,
+      "max_tokens": 1024,
+      "model": "Qwen/Qwen2.5-1.5B",
+      "model_revision": "8faed761d45a263340a0528343f099c05c9a4323",
+      "record_type": "hf_gradient_graph_memory_comparison",
+      "repeat_count": 3,
+      "retained_graphs": {
+        "median_peak_allocated_bytes": 4082055168,
+        "median_peak_incremental_bytes": 977586176,
+        "median_peak_reserved_bytes": 4171235328,
+        "median_wall_seconds": 0.3749285999801941,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 3087429632,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 4076318720,
+            "peak_incremental_bytes": 988889088,
+            "peak_reserved_bytes": 4133486592,
+            "wall_seconds": 0.8214205999975093
+          },
+          {
+            "baseline_allocated_bytes": 3104468992,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 4082055168,
+            "peak_incremental_bytes": 977586176,
+            "peak_reserved_bytes": 4171235328,
+            "wall_seconds": 0.28351219999603927
+          },
+          {
+            "baseline_allocated_bytes": 3104468992,
+            "mode": "retained_graphs",
+            "peak_allocated_bytes": 4082055168,
+            "peak_incremental_bytes": 977586176,
+            "peak_reserved_bytes": 4171235328,
+            "wall_seconds": 0.3749285999801941
+          }
+        ]
+      },
+      "schema_version": 1,
+      "sequence_length": 128,
+      "streamed_backward": {
+        "median_peak_allocated_bytes": 3548019712,
+        "median_peak_incremental_bytes": 443550720,
+        "median_peak_reserved_bytes": 3617587200,
+        "median_wall_seconds": 0.29261960001895204,
+        "runs": [
+          {
+            "baseline_allocated_bytes": 3104468992,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3548019712,
+            "peak_incremental_bytes": 443550720,
+            "peak_reserved_bytes": 3617587200,
+            "wall_seconds": 0.3117758999578655
+          },
+          {
+            "baseline_allocated_bytes": 3104468992,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3548019712,
+            "peak_incremental_bytes": 443550720,
+            "peak_reserved_bytes": 3617587200,
+            "wall_seconds": 0.273812800005544
+          },
+          {
+            "baseline_allocated_bytes": 3104468992,
+            "mode": "streamed_backward",
+            "peak_allocated_bytes": 3548019712,
+            "peak_incremental_bytes": 443550720,
+            "peak_reserved_bytes": 3617587200,
+            "wall_seconds": 0.29261960001895204
+          }
+        ]
+      },
+      "torch_version": "2.14.1+cu130"
+    }
+  ],
+  "record_type": "hf_gradient_graph_memory_model_scale_followup",
+  "schema_version": 1,
+  "train_member_sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57"
+}

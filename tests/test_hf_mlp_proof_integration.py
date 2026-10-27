@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import weakref
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,7 +18,7 @@ from modelsurgeon.datasets.grouped_splits import SplitPartition, SplitRatios
 from modelsurgeon.experiments.candidates import CandidateScope
 from modelsurgeon.graph import ComponentId
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
 transformers = pytest.importorskip("transformers")
 
@@ -58,7 +60,13 @@ def _write_tiny_llama(path: Path) -> None:
     tokenizer.save_pretrained(path)
 
 
-def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "dtype",
+    (HuggingFaceDType.FLOAT32, HuggingFaceDType.BFLOAT16),
+)
+def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(
+    tmp_path: Path, dtype: HuggingFaceDType
+) -> None:
     model_path = tmp_path / "tiny-llama"
     model_path.mkdir()
     _write_tiny_llama(model_path)
@@ -73,10 +81,10 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
             model=str(model_path),
             calibration_text=calibration,
             device_map="cpu",
-            dtype=HuggingFaceDType.FLOAT32,
+            dtype=dtype,
             local_files_only=True,
             sequence_length=8,
-            max_tokens=16,
+            max_tokens=18,
             safe_perplexity_delta=1_000_000.0,
             seed=7,
             tool_revision="test-revision",
@@ -114,10 +122,37 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
     gradient_components = tuple(
         ComponentId.parse(f"model.layers.0.mlp.channel.{channel}") for channel in (0, 1)
     )
-    gradients = runtime.collect_mlp_channel_gradient_features(
-        tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
+    gradient_parameters = runtime._projection_weights(0)
+    supports_gradient_dtype = all(
+        hasattr(parameter, "grad_dtype") for parameter in gradient_parameters
     )
-    assert gradients.token_count == 14
+    original_runtime_gradient_dtypes = (
+        tuple((parameter, parameter.grad_dtype) for parameter in gradient_parameters)
+        if supports_gradient_dtype
+        else ()
+    )
+    live_logits: list[weakref.ReferenceType[object]] = []
+
+    def verify_previous_graph_released(_module: object, _inputs: object, output: Any) -> None:
+        if live_logits:
+            assert live_logits[-1]() is None
+        logits = output.logits
+        live_logits.append(weakref.ref(logits))
+
+    handle = runtime.model.register_forward_hook(verify_previous_graph_released)
+    try:
+        gradients = runtime.collect_mlp_channel_gradient_features(
+            tuple((component, 0, channel) for channel, component in enumerate(gradient_components))
+        )
+    finally:
+        handle.remove()
+    assert len(live_logits) == len(runtime._chunks)
+    assert live_logits[-1]() is None
+    assert all(
+        parameter.grad_dtype == gradient_dtype
+        for parameter, gradient_dtype in original_runtime_gradient_dtypes
+    )
+    assert gradients.token_count == 15
     assert tuple(component for component, _ in gradients.records) == gradient_components
     assert all(
         {feature.name for feature in features}
@@ -129,3 +164,56 @@ def test_real_hf_runtime_builds_leakage_safe_mlp_channel_dataset(tmp_path: Path)
         for _, features in gradients.records
         for feature in features
     )
+
+    # Compare the reported first-order score with the token-weighted gradient
+    # of the same independently chunked causal-LM corpus. The final chunk has
+    # two input tokens (one target), while the first two chunks have seven each.
+    runtime.model.zero_grad(set_to_none=True)
+    summed_nll = None
+    token_count = 0
+    for chunk in runtime._chunks:
+        input_ids = torch.tensor(
+            [chunk], dtype=torch.long, device=runtime._input_device
+        )
+        logits = runtime.model(input_ids=input_ids, use_cache=False).logits[:, :-1, :]
+        targets = input_ids[:, 1:].to(logits.device)
+        nll = torch.nn.functional.cross_entropy(
+            logits.float().contiguous().view(-1, int(logits.shape[-1])),
+            targets.contiguous().view(-1),
+            reduction="sum",
+        )
+        summed_nll = nll if summed_nll is None else summed_nll + nll
+        token_count += int(targets.numel())
+    assert summed_nll is not None
+    gate, up, down = gradient_parameters
+    reference_parameters = gradient_parameters
+    supports_reference_gradient_dtype = all(
+        hasattr(parameter, "grad_dtype") for parameter in reference_parameters
+    )
+    original_reference_gradient_dtypes = (
+        tuple((parameter, parameter.grad_dtype) for parameter in reference_parameters)
+        if supports_reference_gradient_dtype
+        else ()
+    )
+    if supports_reference_gradient_dtype:
+        for parameter in reference_parameters:
+            parameter.grad_dtype = torch.float32
+    (summed_nll / token_count).backward()
+    expected_removal = -(
+        torch.sum(gate[0].detach().float() * gate.grad[0].detach().float())
+        + torch.sum(up[0].detach().float() * up.grad[0].detach().float())
+        + torch.sum(
+            down.detach().float().transpose(0, 1)[0]
+            * down.grad.detach().float().transpose(0, 1)[0]
+        )
+    )
+    reported = dict(gradients.records)[gradient_components[0]]
+    first_order = next(
+        feature.value
+        for feature in reported
+        if feature.name == "first_order_removal_estimate"
+    )
+    assert first_order == pytest.approx(float(expected_removal), rel=1e-5, abs=1e-7)
+    runtime.model.zero_grad(set_to_none=True)
+    for parameter, gradient_dtype in original_reference_gradient_dtypes:
+        parameter.grad_dtype = gradient_dtype
