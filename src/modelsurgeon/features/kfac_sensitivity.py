@@ -91,9 +91,7 @@ def _matrix_shape(values: object, name: str) -> tuple[int, int]:
         raise KroneckerSensitivityError(f"{name} must be a rectangular numeric matrix")
     columns = len(first_row)
     if columns <= 0 or any(
-        not isinstance(row, Sequence)
-        or isinstance(row, (str, bytes))
-        or len(row) != columns
+        not isinstance(row, Sequence) or isinstance(row, (str, bytes)) or len(row) != columns
         for row in values
     ):
         raise KroneckerSensitivityError(f"{name} must be a rectangular numeric matrix")
@@ -192,14 +190,27 @@ def score_structured_linear_removals(
     groups = _candidate_groups(candidate_groups, dimension)
     max_group = max(len(group) for group in groups)
 
-    # Covers float64 copies of the three inputs, both matrix products, the
-    # selected group blocks, and reduction scratch; deliberately conservative.
-    estimated_workspace = 8 * (
-        2 * output_width * input_width
-        + 3 * input_width * input_width
-        + 3 * output_width * output_width
-        + 3 * max_group * max_group
-    )
+    singleton_groups = max_group == 1
+    if singleton_groups:
+        # A singleton removal uses only the diagonal of W A W.T or W.T G W.
+        # Materializing the full pairwise matrix is unnecessary and quadratic
+        # in the pruned width. Include converted inputs and the one projection.
+        estimated_workspace = 8 * (
+            2 * output_width * input_width
+            + input_width * input_width
+            + output_width * output_width
+            + output_width
+            + input_width
+        )
+    else:
+        # Covers float64 copies of the three inputs, both matrix products, the
+        # selected group blocks, and reduction scratch; deliberately conservative.
+        estimated_workspace = 8 * (
+            2 * output_width * input_width
+            + 3 * input_width * input_width
+            + 3 * output_width * output_width
+            + 3 * max_group * max_group
+        )
     if estimated_workspace > max_workspace_bytes:
         raise KroneckerSensitivityError(
             f"planned KFAC workspace {estimated_workspace} exceeds budget "
@@ -217,7 +228,15 @@ def score_structured_linear_removals(
     output_gradient = _as_symmetric_matrix(
         np, output_gradient_second_moment, "output-gradient second moment"
     )
-    if axis is LinearRemovalAxis.OUTPUT_ROWS:
+    if singleton_groups and axis is LinearRemovalAxis.OUTPUT_ROWS:
+        projected_weights = matrix @ activation
+        diagonal_cost = np.sum(projected_weights * matrix, axis=1) * np.diag(output_gradient)
+        parameter_count = input_width
+    elif singleton_groups:
+        projected_weights = output_gradient @ matrix
+        diagonal_cost = np.sum(projected_weights * matrix, axis=0) * np.diag(activation)
+        parameter_count = output_width
+    elif axis is LinearRemovalAxis.OUTPUT_ROWS:
         pairwise_cost = (matrix @ activation) @ matrix.T
         pairwise_cost = output_gradient * pairwise_cost.T
         parameter_count = input_width
@@ -228,9 +247,14 @@ def score_structured_linear_removals(
 
     candidate_costs: list[StructuredRemovalCost] = []
     for candidate_index, indices in enumerate(groups):
-        selected = pairwise_cost[np.ix_(indices, indices)]
-        loss_increase = 0.5 * float(np.sum(selected, dtype=np.float64))
-        scale = max(1.0, float(np.max(np.abs(selected))))
+        if singleton_groups:
+            selected_cost = float(diagonal_cost[indices[0]])
+            loss_increase = 0.5 * selected_cost
+            scale = max(1.0, abs(selected_cost))
+        else:
+            selected = pairwise_cost[np.ix_(indices, indices)]
+            loss_increase = 0.5 * float(np.sum(selected, dtype=np.float64))
+            scale = max(1.0, float(np.max(np.abs(selected))))
         if not math.isfinite(loss_increase) or loss_increase < -1e-10 * scale:
             raise KroneckerSensitivityError(
                 "KFAC removal cost is negative or non-finite; supplied factors may not be PSD"
