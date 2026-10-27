@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/xdCloudy/ModelSurgeon/blob/main/docs/progress/schema-v1.json",
+  "title": "ModelSurgeon evidence-backed progress inventory",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version", "inventory_id", "scope_version", "assessment_date",
+    "assessment_main_commit", "scope_note", "scoring", "scope_history",
+    "workstreams", "milestones", "research_sources", "compatibility_cells",
+    "benchmark_records", "blockers", "priority_order", "retired_milestones", "backlog_audit"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "inventory_id": { "const": "modelsurgeon-progress" },
+    "scope_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "assessment_date": { "$ref": "#/$defs/date" },
+    "assessment_main_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "scope_note": { "type": "string", "minLength": 1 },
+    "scoring": {
+      "type": "object",
+      "required": ["dimension_weights", "workstream_weight_total", "milestone_weight_total_per_workstream", "compatibility_is_separate_metric", "integrated_requires_assessed_main"],
+      "properties": {
+        "dimension_weights": { "type": "object", "required": ["research", "implementation", "effectiveness", "readiness"] },
+        "workstream_weight_total": { "const": 100 },
+        "milestone_weight_total_per_workstream": { "const": 100 },
+        "compatibility_is_separate_metric": { "type": "boolean" },
+        "integrated_requires_assessed_main": { "type": "boolean" }
+      }
+    },
+    "scope_history": { "type": "array", "minItems": 1 },
+    "workstreams": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["id", "title", "weight", "description", "dimension_weights"] } },
+    "milestones": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/milestone" } },
+    "research_sources": { "type": "array", "items": { "$ref": "#/$defs/researchSource" } },
+    "compatibility_cells": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/compatibilityCell" } },
+    "benchmark_records": { "type": "array" },
+    "blockers": { "type": "array" },
+    "priority_order": { "type": "array", "items": { "type": "string" } },
+    "retired_milestones": { "type": "array" },
+    "backlog_audit": {
+      "type": "object",
+      "required": ["audit_date", "main_commit", "open_issue_count", "open_pull_request_count", "scope_note", "notable_pull_requests", "dependency_chains", "triage"]
+    }
+  },
+  "$defs": {
+    "date": { "type": "string", "format": "date" },
+    "evidenceRef": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "researchSource": {
+      "type": "object",
+      "required": ["id", "project", "url", "pinned_revision", "license_spdx", "licence_status", "method", "relevance", "research_status", "research_outcome", "integration_approach", "hypothesis", "requirements", "findings", "remaining_investigation", "source_paths", "assessment_date", "history"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "paper_url": { "type": "string", "format": "uri" },
+        "pinned_revision": { "type": ["string", "null"] },
+        "license_spdx": { "type": ["string", "null"] },
+        "licence_status": { "enum": ["verified", "declared_unverified", "unknown", "not_applicable"] },
+        "research_status": { "type": "string" },
+        "research_outcome": { "type": ["string", "null"], "enum": ["positive", "negative", "inconclusive", "infeasible", "superseded", "blocked", null] },
+        "source_paths": { "type": "array", "items": { "type": "string" } },
+        "assessment_date": { "$ref": "#/$defs/date" },
+        "history": { "type": "array", "minItems": 1 }
+      },
+      "additionalProperties": true
+    },
+    "milestone": {
+      "type": "object",
+      "required": [
+        "id", "workstream", "title", "description", "scope", "weight",
+        "research_status", "research_outcome", "implementation_status",
+        "effectiveness_status", "readiness_status", "scored_dimensions",
+        "research_questions", "acceptance_criteria", "dependencies", "evidence_refs", "source_refs",
+        "related_prs", "related_commits", "remaining_work", "limitations",
+        "assessment_date", "history"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "workstream": { "type": "string" },
+        "weight": { "type": "integer", "minimum": 1 },
+        "research_status": {
+          "enum": ["not_investigated", "prior_art_reviewed", "hypothesis_established", "feasibility_evaluated", "experimental_implementation", "physical_experiment_conducted", "baselines_compared", "reproducibility_validated", "research_concluded"]
+        },
+        "research_outcome": { "type": ["string", "null"], "enum": ["positive", "negative", "inconclusive", "infeasible", "superseded", "blocked", null] },
+        "implementation_status": {
+          "enum": ["not_implemented", "experimental", "prototype", "functional", "locally_tested", "ci_validated", "physically_benchmarked", "integrated", "regression_tested", "production_validated"]
+        },
+        "effectiveness_status": {
+          "enum": ["not_assessed", "measured_negative", "measured_inconclusive", "quality_gate_passed", "replicated_advantage", "production_validated"]
+        },
+        "readiness_status": {
+          "enum": ["not_assessed", "experimental", "locally_validated", "ci_validated", "integrated_main", "release_validated", "production_validated"]
+        },
+        "scored_dimensions": { "type": "array", "items": { "enum": ["research", "implementation", "effectiveness", "readiness"] }, "uniqueItems": true },
+        "research_questions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "acceptance_criteria": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "dependencies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "assessment_date": { "$ref": "#/$defs/date" },
+        "history": { "type": "array", "minItems": 1 }
+      },
+      "additionalProperties": true
+    },
+    "compatibilityCell": {
+      "type": "object",
+      "required": [
+        "id", "architecture", "model_scope", "model_type", "format", "quantization",
+        "operation", "hardware_backend", "runtime", "recovery_method", "theoretical_status",
+        "implementation_level", "validation_level", "status", "evidence_refs", "limitations",
+        "assessment_date", "weight"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "model_scope": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 },
+        "quantization": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string", "minLength": 1 },
+        "model_type": { "enum": ["dense", "moe", "multimodal", "unknown"] },
+        "hardware_backend": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 },
+        "recovery_method": { "type": "string", "minLength": 1 },
+        "theoretical_status": { "enum": ["plausible", "unknown", "unsupported"] },
+        "implementation_level": { "enum": ["not_implemented", "in_pr", "experimental", "integrated_main"] },
+        "validation_level": { "enum": ["not_tested", "synthetic", "physical", "independent_reproduction"] },
+        "status": { "enum": ["verified", "experimental", "research_only", "unknown", "unsupported"] },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "limitations": { "type": "array", "items": { "type": "string" } },
+        "assessment_date": { "$ref": "#/$defs/date" },
+        "weight": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    }
+  }
+}

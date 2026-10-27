@@ -20,6 +20,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --extra dev --locked
+      - run: uv run --locked --extra dev python tools/progress.py validate
+      - run: uv run --locked --extra dev python tools/progress.py check
       - run: uv run --locked --extra dev python tools/audit_v20_release.py
       - run: uv run --locked --extra dev python tools/audit_v30_release.py
       - run: uv run ruff check .

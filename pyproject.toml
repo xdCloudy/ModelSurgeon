@@ -62,6 +62,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 "tools/post_v1_roadmap_catalog.py" = ["E501"]
 "tools/bootstrap_post_v1.py" = ["E501"]
 "tools/audit_post_v1.py" = ["E501"]
+"tools/progress.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
