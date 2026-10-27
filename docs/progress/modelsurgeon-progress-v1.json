@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.2",
+  "scope_version": "1.2.3",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -1227,8 +1227,8 @@
       "workstream": "moe",
       "title": "Expert scoring: random, router, activation, sensitivity and balancing",
       "description": "Compare expert selection methods and balancing on named MoE cells; REAP Qwen3.5 results are tracked separately.",
-      "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP studies tracked by moe.reap_qwen35_cut and moe.reap_profile_ensemble.",
-      "weight": 20,
+      "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP quality, profile-ensemble and profile-stability studies tracked separately.",
+      "weight": 15,
       "research_status": "hypothesis_established",
       "research_outcome": null,
       "implementation_status": "experimental",
@@ -1261,7 +1261,7 @@
         738
       ],
       "related_commits": [],
-      "remaining_work": "Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; the bounded REAP Qwen3.5 studies are tracked separately.",
+      "remaining_work": "Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; bounded Qwen3.5 REAP quality and profile studies are tracked separately.",
       "limitations": [
         "No main-integrated MoE win is established."
       ],
@@ -1311,6 +1311,21 @@
             }
           ],
           "reason": "Narrowed this milestone after adding separate bounded records for Qwen3.5 REAP quality-gate and profile-aggregation experiments; historical broad scope is preserved in scope_history."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Separated the bounded Qwen3.5 profile-stability study from the broader expert-selection milestone; prior scopes remain in scope_history."
         }
       ],
       "research_questions": [
@@ -1327,6 +1342,17 @@
             "weight": 30
           },
           "reason": "Split the bounded Qwen3.5 REAP quality-gate study and profile-aggregation study into stable, independently assessable milestones; keep general expert-selection comparisons open."
+        },
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.3",
+          "previous": {
+            "title": "Expert scoring: random, router, activation, sensitivity and balancing",
+            "description": "Compare expert selection methods and balancing on named MoE cells; REAP Qwen3.5 results are tracked separately.",
+            "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP studies tracked by moe.reap_qwen35_cut and moe.reap_profile_ensemble.",
+            "weight": 20
+          },
+          "reason": "Separated Qwen3.5 REAP profile-ranking stability into a bounded research milestone; broad expert-selection comparisons remain open."
         }
       ]
     },
@@ -1457,6 +1483,73 @@
             }
           ],
           "reason": "Bounded to the named Qwen3.5 checkpoint, compression point, evaluation corpus and metrics in the linked reproducibility record. PR #738 remains open; this is not integrated capability."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_profile_stability_qwen35",
+      "workstream": "moe",
+      "title": "REAP profile aggregation stability on Qwen3.5",
+      "description": "Compare expert-set stability for single-profile selection and score aggregation using three calibration profiles from one Qwen3.5-family checkpoint at a fixed 12.5% expert cut.",
+      "scope": "Three 8,192-token WikiText-2 train-prefix, disjoint train-suffix and validation profiles for the pinned Qwen3.5-family model. Leave one profile out, aggregate the other two with mean-minmax, max-minmax and mean-rank, and compare each selected bottom-32 set to the held-out profile using 41 per-layer Jaccard scores.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "positive",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this checkpoint and fixed cut, does mean-minmax aggregation of two calibration profiles improve the held-out profile bottom-expert-set agreement over single-profile selection?"
+      ],
+      "acceptance_criteria": [
+        "Run deterministic leave-one-profile-out analysis over all three pinned profiles; preserve hashes and per-fold Jaccards; report macro mean and worst fold against the single-profile baseline. A positive result applies only to these profiles and ranking metric."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-profile-stability-bounded-results-2026-10-27.md",
+          "label": "Bounded Qwen3.5 profile-stability result"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [
+        "cf4d6fc2d304d432add1d3b138c00e02a134bb36"
+      ],
+      "remaining_work": "Repeat with more independent profiles and additional checkpoints; then physically generate candidates and evaluate them on untouched task and deployment measures before using stability as an optimization objective.",
+      "limitations": [
+        "Only three calibration profiles from one model were available; 41 layers are not independent samples, so no significance interval is claimed.",
+        "Mean-minmax improved the point estimates for both average held-out Jaccard (0.3129 to 0.3618) and worst held-out fold (0.2614 to 0.2736), but the gain is small and unreplicated.",
+        "This is ranking stability only. No candidate artifact, PPL, task quality, latency, memory, runtime, or recovery outcome was measured by this analysis.",
+        "The analysis utility is in open PR #738; no optimizer integration or production readiness is claimed."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "positive",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-profile-stability-bounded-results-2026-10-27.md",
+              "label": "Bounded Qwen3.5 profile-stability result"
+            }
+          ],
+          "reason": "A reproducible leave-one-profile-out point-estimate improvement was found for the bounded Jaccard stability metric; it is not evidence of better model quality."
         }
       ]
     },

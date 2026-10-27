@@ -72,9 +72,9 @@ Current package version: **`1.0.0` (evidence-bounded research release)**. The v3
 <!-- BEGIN GENERATED MODELSURGEON PROGRESS -->
 ### Evidence-backed development dashboard
 
-**Overall completion:** `██████░░░░░░░░░░░░░░` 29.1%
+**Overall completion:** `██████░░░░░░░░░░░░░░` 29.2%
 **Learned Meta-Surgeon:** `████░░░░░░░░░░░░░░░░` 21.7%
-**Research coverage:** 49.9% · **Optimization effectiveness:** 6.0% · **Model compatibility:** 36.1% · **Production readiness:** 34.0%
+**Research coverage:** 50.2% · **Optimization effectiveness:** 6.0% · **Model compatibility:** 36.1% · **Production readiness:** 34.0%
 
 Assessment date: **2026-10-27** against main `589c609e1571`. Only evidence present on the assessed main commit contributes; open PRs are tracked but not counted as integrated. Backlog snapshot: **0 open issues / 59 open PRs**. Negative research can be complete while effectiveness remains zero. See the [scoring rules](docs/progress/README.md#scoring-method) and [PR backlog](docs/progress/PR_BACKLOG.md).
 
@@ -83,7 +83,7 @@ Assessment date: **2026-10-27** against main `589c609e1571`. Only evidence prese
 | Learned Meta-Surgeon | 22% | 22% | 49% | 40% | 4% | 35% | [matrix](docs/progress/META_SURGEON.md) |
 | Pruning and sparsification | 10% | 24% | 46% | 31% | 3% | 20% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
 | Quantization | 7% | 16% | 38% | 8% | 6% | 14% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
-| Mixture-of-Experts optimization | 8% | 6% | 18% | 3% | 0% | 3% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Mixture-of-Experts optimization | 8% | 7% | 22% | 3% | 1% | 3% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
 | Model recovery and repair | 6% | 18% | 46% | 10% | 7% | 10% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
 | Architecture optimization | 5% | 33% | 62% | 40% | 10% | 20% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
 | Search and optimization | 7% | 36% | 75% | 34% | 10% | 30% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |

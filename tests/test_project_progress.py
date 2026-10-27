@@ -275,3 +275,17 @@ def test_readme_percentages_are_canonical_and_regenerated() -> None:
     assert f"{scores['overall']:.1f}%" in readme
     assert "**Overall completion:** `" in readme
     assert "**Model compatibility:**" in readme
+
+
+def test_reap_profile_stability_is_bounded_and_not_quality_effectiveness() -> None:
+    data = load_data()
+    milestone = next(
+        item for item in data["milestones"] if item["id"] == "moe.reap_profile_stability_qwen35"
+    )
+
+    assert milestone["research_status"] == "research_concluded"
+    assert milestone["research_outcome"] == "positive"
+    assert milestone["effectiveness_status"] == "measured_inconclusive"
+    assert milestone["related_prs"] == [738]
+    assert "three calibration profiles" in " ".join(milestone["limitations"])
+    assert "No candidate artifact" in " ".join(milestone["limitations"])

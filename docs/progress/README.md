@@ -1,17 +1,17 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.2`.
+Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.3`.
 
-Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated.
+Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
 
-Overall weighted completion: **29.1%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **29.2%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 49.9% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Research coverage | 50.2% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
 | Implementation maturity | 39.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 6.0% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
 | Production readiness | 34.0% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
@@ -30,7 +30,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 | [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.7% | 48.9% | 40.2% | 3.6% | 35.0% |
 | [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 24.1% | 45.5% | 30.8% | 3.2% | 20.2% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
-| [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 6.0% | 18.1% | 3.0% | 0.5% | 3.0% |
+| [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 7.1% | 21.9% | 3.0% | 1.0% | 3.0% |
 | [Model recovery and repair](FEATURE_MATRIX.md#recovery) | 6% | 18.0% | 46.0% | 10.0% | 6.7% | 10.0% |
 | [Architecture optimization](FEATURE_MATRIX.md#architecture) | 5% | 32.6% | 62.5% | 40.0% | 10.0% | 20.0% |
 | [Search and optimization](FEATURE_MATRIX.md#search) | 7% | 36.3% | 75.2% | 33.8% | 10.0% | 30.4% |
@@ -47,7 +47,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 3. **Predictor architecture and objective selection** (`meta_surgeon.predictor_selection`): Define compute-bounded tuning and a prospective held-out decision protocol.
 4. **Differentiable structured masks** (`pruning.differentiable_masks`): Audit full training objective and reference paper, then run an isolated CPU correctness fixture before any model-scale experiment.
 5. **Layer removal with pre-pruning regularization** (`pruning.depth_regularization`): Inspect the complete layer-scaling and removal path and reproduce against ShortGPT on a small supported checkpoint.
-6. **Expert scoring: random, router, activation, sensitivity and balancing** (`moe.selection`): Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; the bounded REAP Qwen3.5 studies are tracked separately.
+6. **Expert scoring: random, router, activation, sensitivity and balancing** (`moe.selection`): Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; bounded Qwen3.5 REAP quality and profile studies are tracked separately.
 7. **Hardware-conditioned quality and resource prediction** (`meta_surgeon.resource_prediction`): Add pinned multi-device evidence, define deployment metrics and measure model/hardware transfer before training this predictor.
 
 ## Critical-path dependencies
