@@ -1,5 +1,10 @@
 """Hugging Face model adapter."""
 
+from modelsurgeon.adapters.huggingface.block_influence import (
+    BlockInfluenceScore,
+    HuggingFaceBlockInfluenceError,
+    measure_huggingface_block_influence,
+)
 from modelsurgeon.adapters.huggingface.discovery import (
     HuggingFaceComponentKind,
     HuggingFaceDiscovery,
@@ -51,7 +56,9 @@ __all__ = [
     "HF_PHYSICAL_ATTENTION_SCHEMA_VERSION",
     "HF_PHYSICAL_LAYER_SCHEMA_VERSION",
     "HF_PHYSICAL_MLP_SCHEMA_VERSION",
+    "BlockInfluenceScore",
     "HuggingFaceAttentionRemovalResult",
+    "HuggingFaceBlockInfluenceError",
     "HuggingFaceComponentKind",
     "HuggingFaceDType",
     "HuggingFaceDependencyError",
@@ -76,6 +83,7 @@ __all__ = [
     "TransformerShape",
     "discover_huggingface_components",
     "load_causal_lm",
+    "measure_huggingface_block_influence",
     "remove_huggingface_attention_heads",
     "remove_huggingface_mlp_channels",
     "remove_huggingface_transformer_layers",

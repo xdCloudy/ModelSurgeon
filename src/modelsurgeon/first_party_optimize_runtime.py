@@ -14,6 +14,7 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from modelsurgeon.adapters import ModelFormat
+from modelsurgeon.adapters.huggingface.block_influence import BlockInfluenceScore
 from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceDType,
     HuggingFaceLoadRequest,
@@ -50,6 +52,7 @@ from modelsurgeon.evaluation.task_quality import (
     evaluate_code_quality_gate,
 )
 from modelsurgeon.experiments.candidates import (
+    MAX_ENUMERATED_CANDIDATES,
     CandidateEnumeratorConfig,
     CandidateFilter,
     CandidateScope,
@@ -139,6 +142,91 @@ def _digest_tree(path: Path) -> str:
     return hashlib.sha256(
         json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _activation_magnitude_order(
+    candidate_ids: tuple[str, ...],
+    candidate_features: Mapping[str, tuple[Mapping[str, object], ...]],
+) -> tuple[str, ...]:
+    """Rank candidates by their lowest finite pre-mutation activation magnitude."""
+
+    magnitudes: dict[str, float] = {}
+    for candidate_id in candidate_ids:
+        values: list[float] = []
+        for item in candidate_features.get(candidate_id, ()):
+            if item.get("name") != "activation_abs_mean":
+                continue
+            value = _finite_nonnegative_feature_value(item.get("value"))
+            if value is not None:
+                values.append(value)
+        if values:
+            magnitudes[candidate_id] = statistics.fmean(values)
+    return tuple(
+        candidate_id
+        for candidate_id, _ in sorted(magnitudes.items(), key=lambda item: (item[1], item[0]))
+    )
+
+
+def _activation_weighted_order(
+    candidate_ids: tuple[str, ...],
+    candidate_features: Mapping[str, tuple[Mapping[str, object], ...]],
+) -> tuple[str, ...]:
+    """Rank channels by a WANDA-inspired product of weight and activation norms."""
+
+    scores: dict[str, float] = {}
+    for candidate_id in candidate_ids:
+        values: dict[str, list[float]] = {
+            "weight_l2_norm": [],
+            "activation_rms": [],
+        }
+        for item in candidate_features.get(candidate_id, ()):
+            name = item.get("name")
+            if not isinstance(name, str) or name not in values:
+                continue
+            value = _finite_nonnegative_feature_value(item.get("value"))
+            if value is not None:
+                values[name].append(value)
+        if not values["weight_l2_norm"] or not values["activation_rms"]:
+            continue
+        score = statistics.fmean(values["weight_l2_norm"]) * statistics.fmean(
+            values["activation_rms"]
+        )
+        if math.isfinite(score):
+            scores[candidate_id] = score
+    return tuple(
+        candidate_id
+        for candidate_id, _ in sorted(scores.items(), key=lambda item: (item[1], item[0]))
+    )
+
+
+def _shortgpt_layer_order(
+    candidates: tuple[MutationCandidate, ...],
+    scores: tuple[BlockInfluenceScore, ...],
+) -> tuple[str, ...]:
+    """Rank whole-layer candidates by ascending ShortGPT Block Influence."""
+    score_by_layer = {item.layer_index: item.score for item in scores}
+    ranked: list[tuple[float, str]] = []
+    for candidate in candidates:
+        if candidate.scope is not CandidateScope.TRANSFORMER_LAYER:
+            continue
+        layer_index = candidate.layer_index
+        score = score_by_layer.get(layer_index) if layer_index is not None else None
+        if score is None or not math.isfinite(score):
+            continue
+        ranked.append((score, candidate.candidate_id))
+    return tuple(candidate_id for _, candidate_id in sorted(ranked))
+
+
+def _finite_nonnegative_feature_value(value: object) -> float | None:
+    """Return finite, non-negative numeric feature data; ignore malformed cache values."""
+
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        normalized = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return normalized if math.isfinite(normalized) and normalized >= 0 else None
 
 
 def _tree_entries(path: Path) -> list[dict[str, object]]:
@@ -259,7 +347,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self.meta_guidance: Mapping[str, object] | None = None
         self.meta_predictions: dict[str, float] = {}
         self.meta_order: tuple[str, ...] = ()
+        self.evaluation_selection: Mapping[str, object] | None = None
         self.search_comparison: Mapping[str, object] | None = None
+        self.layer_selection_record: Mapping[str, object] | None = None
         self.measured_frontier: Mapping[str, object] | None = None
         self.campaign_run_id: str | None = None
         self.state_updates: tuple[Mapping[str, object], ...] = ()
@@ -885,15 +975,35 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 magnitudes.items(), key=lambda item: (item[1], item[0])
             )
         )
+        activation_order = _activation_magnitude_order(
+            tuple(candidate.candidate_id for candidate in candidates),
+            self.candidate_features,
+        )
+        activation_weighted_order = _activation_weighted_order(
+            tuple(candidate.candidate_id for candidate in candidates),
+            self.candidate_features,
+        )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
+        candidate_ids = tuple(sorted(item.candidate_id for item in candidates))
         random_order = tuple(
             item.candidate_id
-            for item in rank_random(candidates, seed=seed).entries
+            for item in rank_random(candidate_ids, seed=seed).entries
+        )
+        shortgpt_order = (
+            ()
+            if self.proof is None or self.layer_selection_record is None
+            else _shortgpt_layer_order(candidates, self.proof.block_influence_scores())
         )
 
         def baseline_record(name: str, candidate_id: str | None) -> dict[str, object]:
-            if candidate_id is None or candidate_id not in actual:
+            if candidate_id is None:
                 return {"method": name, "candidate_id": None, "measured": False}
+            if candidate_id not in actual:
+                return {
+                    "method": name,
+                    "candidate_id": candidate_id,
+                    "measured": False,
+                }
             measurement = actual[candidate_id]
             measured_delta = _number(measurement["perplexity_delta"], "perplexity_delta")
             quality_gate = self._quality_gate_for_candidate_record(measurement)
@@ -907,15 +1017,46 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "regret_vs_measured_best": measured_delta - best_delta,
             }
 
+        measured_best_quality_gate = self._quality_gate_for_candidate_record(ranked[0][4])
+        baselines = [
+            baseline_record("meta_surgeon", self.meta_order[0] if self.meta_order else None),
+            baseline_record("magnitude", magnitude_order[0] if magnitude_order else None),
+            baseline_record(
+                "activation_magnitude",
+                activation_order[0] if activation_order else None,
+            ),
+            baseline_record(
+                "activation_weighted_magnitude",
+                activation_weighted_order[0] if activation_weighted_order else None,
+            ),
+        ]
+        if self.layer_selection_record is not None:
+            baselines.append(
+                baseline_record(
+                    "shortgpt_block_influence",
+                    shortgpt_order[0] if shortgpt_order else None,
+                )
+            )
+        baselines.extend(
+            (
+                baseline_record("random", random_order[0] if random_order else None),
+                baseline_record(
+                    "no_guidance", candidate_ids[0] if candidate_ids else None
+                ),
+            )
+        )
         self.search_comparison = {
             "measured_authority": "physical_evaluation",
             "measured_best": ranked[0][3].candidate_id,
-            "baselines": [
-                baseline_record("meta_surgeon", self.meta_order[0] if self.meta_order else None),
-                baseline_record("magnitude", magnitude_order[0] if magnitude_order else None),
-                baseline_record("random", random_order[0] if random_order else None),
-                baseline_record("no_guidance", ranked[0][3].candidate_id),
-            ],
+            "measured_best_constraints_passed": bool(
+                measured_best_quality_gate["accepted"]
+            ),
+            "baselines": baselines,
+            "candidate_selection": self.layer_selection_record,
+            "candidate_pool_size": len(candidate_ids),
+            "evaluation_selection": self.evaluation_selection,
+            "no_guidance_policy": "first_candidate_by_canonical_id",
+            "baseline_regret_scope": "measured_candidates_only",
         }
 
     def _model_source(self) -> str:
@@ -1919,12 +2060,19 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         reference = self._record_runtime_boundary(
             stage, outcome, detail
         )
+        stage_detail: dict[str, object] = {
+            "status": workflow_outcome.value,
+            "reason": detail,
+            "evidence": reference,
+        }
+        if stage is OptimizeStage.ACTIVE_SEARCH and self.search_comparison is not None:
+            stage_detail["search_comparison"] = self.search_comparison
         return StageResult(
             workflow_outcome,
             ("unknown_" if classification == "unknown" else "unsupported_")
             + hashlib.sha256(run_key.encode()).hexdigest(),
             json.dumps(
-                {"status": workflow_outcome.value, "reason": detail, "evidence": reference},
+                stage_detail,
                 sort_keys=True,
             ),
             complete=True,
@@ -1936,6 +2084,38 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
         maximum = max(1, self.plan.budget.evaluations)
         scopes = self._candidate_scopes()
+        search_settings = _mapping(
+            _mapping(self.plan.resolved_config, "resolved configuration").get("search", {}),
+            "search",
+        )
+        layer_ranking = search_settings.get("layer_ranking", "none")
+        if layer_ranking not in {"none", "shortgpt_block_influence"}:
+            raise FirstPartyOptimizeRuntimeError("unsupported search.layer_ranking value")
+        enumerate_limit = maximum
+        if (
+            scopes == (CandidateScope.MLP_CHANNEL,)
+            and _config_value(self.plan, "surgeon", "card_digest")
+            and layer_ranking == "none"
+        ):
+            multiplier = _integer(
+                search_settings.get("meta_candidate_pool_multiplier", 4),
+                4,
+                "search.meta_candidate_pool_multiplier",
+            )
+            if not 1 <= multiplier <= 32:
+                raise FirstPartyOptimizeRuntimeError(
+                    "search.meta_candidate_pool_multiplier must be between 1 and 32"
+                )
+            enumerate_limit = min(
+                MAX_ENUMERATED_CANDIDATES,
+                maximum * multiplier,
+            )
+        if layer_ranking == "shortgpt_block_influence":
+            if scopes != (CandidateScope.TRANSFORMER_LAYER,):
+                raise FirstPartyOptimizeRuntimeError(
+                    "ShortGPT layer ranking requires transformer_layer-only search"
+                )
+            enumerate_limit = max(maximum, proof._discovery.shape.layers)
         candidates: list[MutationCandidate] = []
         base_scopes = tuple(scope for scope in scopes if scope is not CandidateScope.LOW_RANK)
         if base_scopes:
@@ -1945,7 +2125,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 CandidateEnumeratorConfig(
                     seed=seed,
                     filters=CandidateFilter(scopes=base_scopes),
-                    max_candidates=maximum,
+                    max_candidates=enumerate_limit,
                 ),
             )
             candidates.extend(report.candidates)
@@ -1983,6 +2163,33 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                         candidate.constraint_ids,
                     )
                 )
+        if layer_ranking == "shortgpt_block_influence":
+            scores = proof.block_influence_scores()
+            score_by_layer = {item.layer_index: item.score for item in scores}
+            ordered_ids = _shortgpt_layer_order(tuple(candidates), scores)
+            candidates_by_id = {item.candidate_id: item for item in candidates}
+            if len(ordered_ids) != proof._discovery.shape.layers:
+                raise FirstPartyOptimizeRuntimeError(
+                    "ShortGPT ranking did not score every adapter-supported layer"
+                )
+            selected_ids = ordered_ids[:maximum]
+            ranked_scores = sorted(scores, key=lambda item: (item.score, item.layer_index))
+            self.layer_selection_record = {
+                "method": layer_ranking,
+                "source": "calibration_tokens",
+                "scored_layer_count": len(scores),
+                "evaluated_candidate_ids": list(selected_ids),
+                "ranked_layers": [
+                    {
+                        "layer_index": item.layer_index,
+                        "block_influence": score_by_layer[item.layer_index],
+                        "token_count": item.token_count,
+                    }
+                    for item in ranked_scores
+                ],
+                "measurement_authority": "physical_evaluation",
+            }
+            candidates = [candidates_by_id[candidate_id] for candidate_id in selected_ids]
         self.candidates = tuple(sorted(candidates, key=lambda item: item.candidate_id))
         return self.candidates
 
@@ -2392,11 +2599,31 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             self._prepare_candidate_features(proof, candidate)
         meta_order = self._meta_rank(candidate_pool)
         by_id = {candidate.candidate_id: candidate for candidate in candidate_pool}
-        evaluation_order = (
-            tuple(by_id[candidate_id] for candidate_id in meta_order if candidate_id in by_id)
-            if meta_order
-            else candidate_pool
+        ranked_ids = tuple(
+            candidate_id
+            for candidate_id in meta_order
+            if candidate_id in by_id
         )
+        if ranked_ids:
+            ranked_id_set = set(ranked_ids)
+            ordered_ids = ranked_ids + tuple(
+                candidate.candidate_id
+                for candidate in candidate_pool
+                if candidate.candidate_id not in ranked_id_set
+            )
+            selection_policy = "meta_surgeon"
+        else:
+            ordered_ids = tuple(candidate.candidate_id for candidate in candidate_pool)
+            selection_policy = "canonical_id"
+        evaluation_budget = max(0, self.plan.budget.evaluations)
+        evaluated_ids = ordered_ids[:evaluation_budget]
+        evaluation_order = tuple(by_id[candidate_id] for candidate_id in evaluated_ids)
+        self.evaluation_selection = {
+            "policy": selection_policy,
+            "candidate_pool_size": len(candidate_pool),
+            "evaluation_budget": evaluation_budget,
+            "evaluated_candidate_ids": list(evaluated_ids),
+        }
         scored: list[tuple[float, float, str, MutationCandidate, Mapping[str, object]]] = []
         for candidate in evaluation_order:
             try:
@@ -2469,6 +2696,32 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     )
                 )
         if not scored:
+            measured: list[
+                tuple[float, float, str, MutationCandidate, Mapping[str, object]]
+            ] = []
+            for candidate in candidate_pool:
+                observed_measurement = self.actual_measurements.get(candidate.candidate_id)
+                if observed_measurement is None:
+                    continue
+                measured.append(
+                    (
+                        _number(
+                            observed_measurement["perplexity_delta"], "perplexity_delta"
+                        ),
+                        _number(
+                            observed_measurement["latency_delta_seconds"],
+                            "latency_delta_seconds",
+                        ),
+                        candidate.request.mutation_id,
+                        candidate,
+                        observed_measurement,
+                    )
+                )
+            if measured:
+                self._build_search_comparison(
+                    candidate_pool,
+                    sorted(measured, key=lambda item: (item[0], item[1], item[2])),
+                )
             raise FirstPartyOptimizeRuntimeError(
                 "no measured candidate met the declared quality constraints"
             )

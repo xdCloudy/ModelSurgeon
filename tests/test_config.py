@@ -73,6 +73,11 @@ def test_duplicate_or_empty_optimization_dimensions_are_rejected() -> None:
 
 
 def test_search_scopes_are_non_empty_and_unique() -> None:
+    assert SearchConfig().meta_candidate_pool_multiplier == 4
+    with pytest.raises(ValidationError):
+        SearchConfig(meta_candidate_pool_multiplier=0)
+    with pytest.raises(ValidationError):
+        SearchConfig(meta_candidate_pool_multiplier=33)
     assert SearchConfig(scopes=("attention_head", "transformer_layer")).scopes == (
         "attention_head",
         "transformer_layer",
@@ -81,6 +86,11 @@ def test_search_scopes_are_non_empty_and_unique() -> None:
         SearchConfig(scopes=("attention_head", "attention_head"))
     with pytest.raises(ValidationError, match="non-empty"):
         SearchConfig(scopes=())
+    assert SearchConfig(
+        scopes=("transformer_layer",), layer_ranking="shortgpt_block_influence"
+    ).layer_ranking == "shortgpt_block_influence"
+    with pytest.raises(ValidationError, match="requires scopes"):
+        SearchConfig(layer_ranking="shortgpt_block_influence")
 
 
 def test_repair_config_is_explicit_and_canonical() -> None:

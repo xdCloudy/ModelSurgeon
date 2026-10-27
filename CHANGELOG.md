@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+  - Reject duplicate, negative, and non-integer random seeds in the ShortGPT
+    depth benchmark so repeated random selections cannot inflate the reported
+    control count. Resolve model IDs only from their pinned local Hugging Face
+    cache before loading, matching the benchmark's local-first behavior.
+
+  - Extended the ShortGPT physical benchmark to run with explicit CPU or
+    CUDA-auto placement and repeated synchronized prefill-throughput samples.
+    Added a pinned Qwen2.5-0.5B RTX 3060 evaluation: the candidate reloaded and
+    used 2.99% fewer disk bytes, but its held-out perplexity regressed more
+    than magnitude and random controls. Timing overlap does not establish a
+    throughput win.
+
+  - Keep Hugging Face per-layer config metadata aligned when physically removing
+    transformer blocks, so Qwen configs with `layer_types` remain serializable.
+    A pinned Qwen2.5-0.5B WikiText-2 comparison also records a negative result:
+    ShortGPT selection underperformed weight-magnitude and all three sampled
+    random removals on the held-out perplexity slice.
+
+  - Meta-Surgeon guided Hugging Face MLP search now ranks a bounded candidate
+    pool before spending the configured physical-evaluation budget. The pool
+    multiplier defaults to four and is capped at 32; deterministic canonical
+    ordering remains the fallback when verified Meta-Surgeon guidance is
+    unavailable, and measured quality gates remain authoritative.
+
+  - Corrected the first-party search `no_guidance` comparator to use the first
+    candidate in canonical ID order instead of the best physically measured
+    candidate. Comparison evidence now preserves the selected ID when that
+    candidate was not evaluated and declares the deterministic baseline rule.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

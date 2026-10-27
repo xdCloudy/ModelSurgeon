@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -502,6 +503,93 @@ def test_first_party_runtime_executes_real_attention_and_layer_scopes(
     assert surgery.artifact_digest is not None
 
 
+def test_shortgpt_layer_ranking_spends_budget_on_lowest_influence_layer(
+    tmp_path: Path,
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        search=SearchConfig(
+            scopes=("transformer_layer",),
+            layer_ranking="shortgpt_block_influence",
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=1),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
+    )
+
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        build_first_party_optimize_runtime(plan),
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.SUPPORTED
+    active = run.stages[4].result
+    assert active is not None
+    detail = json.loads(active.detail)
+    selection = detail["search_comparison"]["candidate_selection"]
+    ranked_layers = sorted(
+        selection["ranked_layers"],
+        key=lambda item: (item["block_influence"], item["layer_index"]),
+    )
+    assert selection["method"] == "shortgpt_block_influence"
+    assert selection["scored_layer_count"] == 2
+    assert len(selection["evaluated_candidate_ids"]) == 1
+    assert detail["candidate_id"] == selection["evaluated_candidate_ids"][0]
+    assert detail["candidate_scope"] == "layer"
+    assert ranked_layers[0]["token_count"] > 0
+    comparison = detail["search_comparison"]
+    no_guidance = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["no_guidance_policy"] == "first_candidate_by_canonical_id"
+    assert comparison["candidate_pool_size"] >= 1
+    assert no_guidance["candidate_id"] is not None
+    assert no_guidance["measured"] is (
+        no_guidance["candidate_id"] == detail["candidate_id"]
+    )
+
+
+def test_no_guidance_baseline_keeps_unmeasured_candidate_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        model=ModelConfig(path=str(tmp_path / "model"), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(dataset=str(tmp_path / "calibration.txt"), seed=7),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    runtime = build_first_party_optimize_runtime(plan)
+    runtime.actual_measurements = {"cand_b": {"perplexity_delta": 0.1}}
+    monkeypatch.setattr(
+        runtime, "_quality_gate_for_candidate_record", lambda _measurement: {"accepted": True}
+    )
+
+    candidate_a = SimpleNamespace(candidate_id="cand_a")
+    candidate_b = SimpleNamespace(candidate_id="cand_b")
+    measured = {"perplexity_delta": 0.1}
+    runtime._build_search_comparison(
+        (candidate_b, candidate_a),
+        [(0.1, 0.0, "mutation_b", candidate_b, measured)],
+    )
+
+    comparison = runtime.search_comparison
+    assert comparison is not None
+    baseline = next(item for item in comparison["baselines"] if item["method"] == "no_guidance")
+    assert comparison["measured_best"] == "cand_b"
+    assert baseline["candidate_id"] == "cand_a"
+    assert baseline["measured"] is False
+
+
 def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) -> None:
     model_path = tmp_path / "model"
     model_path.mkdir()
@@ -626,9 +714,109 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
     detail = json.loads(active.detail)
     assert detail["meta_guidance"]["status"] == "verified_bundle"
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
+    evaluation_selection = detail["search_comparison"]["evaluation_selection"]
+    assert evaluation_selection["policy"] == "meta_surgeon"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] > 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
+    assert evaluation_selection["evaluated_candidate_ids"] == detail["meta_guidance"][
+        "ordered_candidates"
+    ][:2]
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
         "magnitude",
+        "activation_magnitude",
+        "activation_weighted_magnitude",
         "random",
         "no_guidance",
     }
+    activation_baseline = next(
+        item
+        for item in detail["search_comparison"]["baselines"]
+        if item["method"] == "activation_magnitude"
+    )
+    assert activation_baseline["candidate_id"] is not None
+    assert activation_baseline["measured"] is (
+        activation_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
+    activation_weighted_baseline = next(
+        item
+        for item in detail["search_comparison"]["baselines"]
+        if item["method"] == "activation_weighted_magnitude"
+    )
+    assert activation_weighted_baseline["candidate_id"] is not None
+    assert activation_weighted_baseline["measured"] is (
+        activation_weighted_baseline["candidate_id"]
+        in evaluation_selection["evaluated_candidate_ids"]
+    )
+
+
+def test_search_comparison_survives_when_all_candidates_fail_quality_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    _write_tiny_llama(model_path)
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("a b c d e a b c d e a b c d e", encoding="utf-8")
+    settings = Settings(
+        artifact_dir=tmp_path / "artifacts",
+        model=ModelConfig(path=str(model_path), revision="test-revision", dtype="fp32"),
+        calibration=CalibrationConfig(
+            dataset=str(calibration), samples=2, max_sequence_length=8, seed=7
+        ),
+        constraints=ConstraintConfig(min_quality_retention_ratio=0.95),
+    )
+    plan = build_optimize_plan(settings, preset="fast", quality_profile="fast", dry_run=False)
+    plan = replace(
+        plan,
+        budget=replace(plan.budget, evaluations=2),
+        quality_profile=replace(plan.quality_profile, max_perplexity_delta=0.0),
+    )
+    runtime = build_first_party_optimize_runtime(plan)
+
+    def rejected_measurement(_proof: object, _candidate: object) -> dict[str, object]:
+        return {
+            "measurement_authority": "physical_model_evaluation",
+            "baseline_perplexity": 1.0,
+            "candidate_perplexity": 1.1,
+            "perplexity_delta": 0.1,
+            "baseline_median_seconds": 0.1,
+            "candidate_median_seconds": 0.1,
+            "latency_delta_seconds": 0.0,
+            "baseline_parameter_count": 100,
+            "candidate_parameter_count": 90,
+            "parameter_delta": -10,
+            "baseline_storage_bytes": 400,
+            "candidate_storage_bytes": 360,
+            "storage_delta_bytes": -40,
+            "measurement_wall_seconds": 0.1,
+            "repetitions": 1,
+            "baseline_task_quality": None,
+            "candidate_task_quality": None,
+            "token_count": 16,
+        }
+
+    monkeypatch.setattr(runtime, "_measure_candidate", rejected_measurement)
+    run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
+        runtime,
+        approvals=tuple(item.code for item in plan.approvals if item.required),
+    )
+
+    assert run.outcome is WorkflowOutcome.UNSUPPORTED
+    active_search = run.stages[4].result
+    assert active_search is not None
+    detail = json.loads(active_search.detail)
+    comparison = detail["search_comparison"]
+    evaluation_selection = comparison["evaluation_selection"]
+    assert evaluation_selection["policy"] == "canonical_id"
+    assert evaluation_selection["evaluation_budget"] == 2
+    assert evaluation_selection["candidate_pool_size"] == 2
+    assert len(evaluation_selection["evaluated_candidate_ids"]) == 2
+    assert comparison["measured_best"] is not None
+    assert comparison["measured_best_constraints_passed"] is False
+    assert len(comparison["baselines"]) == 6
+    measured_baselines = [item for item in comparison["baselines"] if item["measured"]]
+    assert measured_baselines
+    assert all(item["constraints_passed"] is False for item in measured_baselines)

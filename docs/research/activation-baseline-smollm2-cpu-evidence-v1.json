@@ -1,0 +1,107 @@
+{
+  "record_type": "activation_baseline_physical_comparison",
+  "schema_version": 1,
+  "purpose": "Exploratory physical comparison; negative and in-sample evidence only",
+  "source": {
+    "reported_git_head_at_run": "ab958824b09f0273c963cc8747d55a2c01736f4d",
+    "working_tree_change_committed_as": "2cc2ff45d7381588ea05ee3b3ddb5a87449bd7ff",
+    "campaign_record_sha256": "a7125015a990cf6760b36275701540c4c9712cf0e2257d25b9ba32a5b887a5d9"
+  },
+  "campaign": {
+    "tool": "tools/run_first_party_hf_acceptance.py",
+    "preset": "balanced",
+    "quality_profile": "quality",
+    "search_scope": "mlp_channel",
+    "evaluation_budget": 3,
+    "device": "CPU",
+    "hardware": "Windows 11; 20 logical cores; 64 GiB system RAM; CUDA unavailable",
+    "dataset": {
+      "identifier": "WikiText-2 raw v1 train split",
+      "split": "train",
+      "archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+      "input_sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57",
+      "input_bytes": 10940747,
+      "measured_tokens": 62
+    },
+    "hard_quality_constraints": {
+      "max_perplexity_delta": 0.02,
+      "minimum_quality_retention_ratio": 0.99
+    }
+  },
+  "model": {
+    "identifier": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "weight_file_sha256": "80521b40281d6ce74e35c9282c22539e75aa0ac8578892b2a59955ef78d55da1",
+    "family": "Llama",
+    "parameters": 134515008,
+    "baseline_perplexity": 73.06499222272446
+  },
+  "observed_rankings": {
+    "measured_best_candidate": "cand_42cd48de9b6da004794b5c85bfa1b6d6cea92a2eaa38d3ca2e3a7e86ea075267",
+    "measured_best_constraints_passed": false,
+    "meta_surgeon": {
+      "candidate_id": null,
+      "measured": false,
+      "reason": "No Meta-Surgeon model was configured for this campaign"
+    },
+    "magnitude": {
+      "candidate_id": "cand_42cd48de9b6da004794b5c85bfa1b6d6cea92a2e3a7e86ea075267",
+      "perplexity_delta": 0.25792027762459213,
+      "regret_vs_measured_best": 0.0,
+      "constraints_passed": false
+    },
+    "activation_magnitude": {
+      "candidate_id": "cand_5fd8555e8a2818cd35464913878041ca7eefa279a4f749165232286220d7684e",
+      "perplexity_delta": 0.29753174732523746,
+      "regret_vs_measured_best": 0.03961146970064533,
+      "constraints_passed": false
+    },
+    "activation_weighted_magnitude": {
+      "candidate_id": "cand_c345895a9f5030f95f1ea3361b11c6d7aef129a06089986cf560d495df495e9f",
+      "perplexity_delta": 3.0153892141467793,
+      "regret_vs_measured_best": 2.757468936522187,
+      "constraints_passed": false
+    },
+    "random": {
+      "candidate_id": "cand_42cd48de9b6da004794b5c85bfa1b6d6cea92a2eaa38d3ca2e3a7e86ea075267",
+      "perplexity_delta": 0.25792027762459213,
+      "constraints_passed": false
+    },
+    "no_guidance": {
+      "candidate_id": "cand_42cd48de9b6da004794b5c85bfa1b6d6cea92a2e3a7e86ea075267",
+      "perplexity_delta": 0.25792027762459213,
+      "constraints_passed": false
+    }
+  },
+  "candidate_measurements": [
+    {
+      "candidate_id": "cand_42cd48de9b6da004794b5c85bfa1b6d6cea92a2e3a7e86ea075267",
+      "perplexity_delta": 0.25792027762459213,
+      "parameter_delta": -51840,
+      "storage_delta_bytes": -207360,
+      "quality_gate_passed": false
+    },
+    {
+      "candidate_id": "cand_5fd8555e8a2818cd35464913878041ca7eefa279a4f749165232286220d7684e",
+      "perplexity_delta": 0.29753174732523746,
+      "parameter_delta": -51840,
+      "storage_delta_bytes": -207360,
+      "quality_gate_passed": false
+    },
+    {
+      "candidate_id": "cand_c345895a9f5030f95f1ea3361b11c6d7aef129a06089986cf560d495df495e9f",
+      "perplexity_delta": 3.0153892141467793,
+      "parameter_delta": -51840,
+      "storage_delta_bytes": -207360,
+      "quality_gate_passed": false
+    }
+  ],
+  "limitations": [
+    "Only 62 calibration tokens were measured, and candidates were scored on that same corpus.",
+    "This is not held-out quality evidence or evidence of generalization.",
+    "All three physical candidates failed the declared quality gate; no artifact was promoted.",
+    "A single three-candidate cell cannot establish comparative superiority or a stable ranking advantage.",
+    "The second Qwen2.5-0.5B cell in the campaign reached its baseline measurement but its active search stopped at resource preflight when available RAM fell to 1.75 GiB."
+  ],
+  "conclusion": "The runtime now retains measured baseline comparisons when every candidate is rejected. In this small SmolLM2 cell, activation magnitude ranked behind the measured best and the activation-weighted score ranked worst. These observations justify no optimizer-quality or performance claim; larger, held-out, repeated comparisons remain necessary."
+}

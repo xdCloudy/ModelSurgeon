@@ -1,0 +1,381 @@
+{
+  "calibration": {
+    "bytes": 10940747,
+    "name": "wiki.train.raw.txt",
+    "sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57",
+    "split": "train",
+    "tokens": 2048
+  },
+  "candidates": {
+    "random": [
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 3.6097335308555545,
+        "parameter_delta": -3540096,
+        "perplexity": 36.956203814641015,
+        "perplexity_delta": 3.3618721949447306,
+        "removed_layer": 14,
+        "seed": 11,
+        "token_count": 16256,
+        "wall_seconds": 246.72174649999943
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 5.420507079972996,
+        "parameter_delta": -3540096,
+        "perplexity": 225.9936903264417,
+        "perplexity_delta": 192.39935870674543,
+        "removed_layer": 29,
+        "seed": 23,
+        "token_count": 16256,
+        "wall_seconds": 251.51214760000585
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 6.691673714344896,
+        "parameter_delta": -3540096,
+        "perplexity": 805.669585045991,
+        "perplexity_delta": 772.0752534262947,
+        "removed_layer": 11,
+        "seed": 47,
+        "token_count": 16256,
+        "wall_seconds": 247.25306650000857
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 3.709829702152042,
+        "parameter_delta": -3540096,
+        "perplexity": 40.84684980403211,
+        "perplexity_delta": 7.252518184335827,
+        "removed_layer": 18,
+        "seed": 101,
+        "token_count": 16256,
+        "wall_seconds": 249.9257259000151
+      },
+      {
+        "candidate_parameters": 130974912,
+        "mean_loss": 4.1856410953942245,
+        "parameter_delta": -3540096,
+        "perplexity": 65.7356302206143,
+        "perplexity_delta": 32.14129860091801,
+        "removed_layer": 24,
+        "seed": 202,
+        "token_count": 16256,
+        "wall_seconds": 242.60466470001847
+      }
+    ],
+    "shortgpt_block_influence": {
+      "artifact_reload": {
+        "disk_bytes": 265504056,
+        "finite_logits": true,
+        "parameter_count": 130974912,
+        "perplexity": 36.956203814641015,
+        "perplexity_delta": 3.3618721949447306
+      },
+      "candidate_parameters": 130974912,
+      "mean_loss": 3.6097335308555545,
+      "parameter_delta": -3540096,
+      "perplexity": 36.956203814641015,
+      "perplexity_delta": 3.3618721949447306,
+      "removed_layer": 14,
+      "token_count": 16256,
+      "wall_seconds": 244.46330620002118
+    },
+    "weight_magnitude": {
+      "candidate_parameters": 130974912,
+      "mean_loss": 11.033053285493626,
+      "parameter_delta": -3540096,
+      "perplexity": 61886.24900782347,
+      "perplexity_delta": 61852.654676203776,
+      "removed_layer": 0,
+      "token_count": 16256,
+      "wall_seconds": 249.24400829998194
+    }
+  },
+  "environment": {
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "device": "cpu",
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.7",
+    "torch": "2.11.0+cu128",
+    "torch_threads": 2,
+    "transformers": "5.20.2"
+  },
+  "evaluation": {
+    "baseline": {
+      "mean_loss": 3.5143573509426567,
+      "perplexity": 33.594331619696284,
+      "token_count": 16256,
+      "wall_seconds": 241.77822760000709
+    },
+    "bytes": 1121800,
+    "name": "wiki.test.raw.txt",
+    "sha256": "a1ac9f35d8d3014f89b8d5cb4cfd5e55516c0126b3a8de75447b7d3084fc5011",
+    "split": "test",
+    "tokens": 16256
+  },
+  "interpretation": {
+    "all_pruned_candidates_regress_vs_source": true,
+    "heldout_tokens": 16256,
+    "inference_speed_claimed": false,
+    "quality_retained": false,
+    "scope": "One pinned 135M model, one removed layer per candidate, 2,048 WikiText-2 train tokens for ranking, and the first 16,256 test tokens for held-out PPL. This repeat is descriptive and does not prove generalization or stable method superiority.",
+    "shortgpt_layer": 14,
+    "shortgpt_matches_random_seed_11": true,
+    "shortgpt_ppl_equals_random_seed_11": true
+  },
+  "limitations": [
+    "One pinned model and one removed layer; cross-model generalization is untested.",
+    "Five predeclared random seeds give descriptive, not powered, uncertainty estimates.",
+    "CPU latency is environment-sensitive and is not evidence of acceleration.",
+    "Scores use WikiText-2 train tokens; quality uses its held-out test split."
+  ],
+  "model": {
+    "identifier": "HuggingFaceTB/SmolLM2-135M",
+    "parameters": 134515008,
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "source_disk_bytes": 272437465,
+    "weight_file_sha256": "80521b40281d6ce74e35c9282c22539e75aa0ac8578892b2a59955ef78d55da1"
+  },
+  "provenance": {
+    "benchmark_script": "tools/benchmark_shortgpt_depth.py",
+    "benchmark_script_sha256_at_run": "e8e79e3dec9a8d0bcaa36641b2fbe1bcb38ae9e427a9d9da0d86f7f3a0d59fab",
+    "candidate_weights_sha256": "1e1303c9f00018d30c8479c66cc95665e7602389e64e8acc8122bfb0b81b4766",
+    "command": [
+      "python",
+      "tools/benchmark_shortgpt_depth.py",
+      "--model",
+      "<local SmolLM2-135M snapshot>",
+      "--revision",
+      "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+      "--calibration-text",
+      "<local WikiText-2 raw train file>",
+      "--evaluation-text",
+      "<local WikiText-2 raw test file>",
+      "--output-directory",
+      "<external result directory>",
+      "--calibration-tokens",
+      "2048",
+      "--evaluation-tokens",
+      "16384",
+      "--sequence-length",
+      "128",
+      "--cpu-threads",
+      "2",
+      "--random-seeds",
+      "11",
+      "23",
+      "47",
+      "101",
+      "202"
+    ],
+    "raw_report_retained_at": "D:\\ModelSurgeonEval\\shortgpt-depth-20261025-b\\shortgpt-depth-report.json",
+    "raw_report_sha256": "23431ae16b2999a4f3435857a7b5f8c0ed3942f8690443dd3f1c09cf342c5c80",
+    "report_note": "The original raw report contains a stale hard-coded three-seed limitation. The checked-in copy corrects that text to five; all measured fields and seeds are unchanged.",
+    "repository": "https://github.com/xdCloudy/ModelSurgeon",
+    "source_revision": "1c4512dc6977f93131d3b518bfece49243c613c0"
+  },
+  "record_type": "shortgpt_depth_pruning_physical_comparison",
+  "schema_version": 1,
+  "selection": {
+    "metric": "mean(1 - cosine(block_input, block_output))",
+    "random_seeds": [
+      11,
+      23,
+      47,
+      101,
+      202
+    ],
+    "random_selected_layers": [
+      14,
+      29,
+      11,
+      18,
+      24
+    ],
+    "shortgpt_layer_order": [
+      {
+        "layer_index": 14,
+        "score": 0.019324522465467453,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 17,
+        "score": 0.019591044634580612,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 13,
+        "score": 0.02138453535735607,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 25,
+        "score": 0.021769549697637558,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 26,
+        "score": 0.022622840479016304,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 12,
+        "score": 0.023523056879639626,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 15,
+        "score": 0.023756207898259163,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 16,
+        "score": 0.023894034326076508,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 18,
+        "score": 0.03017628937959671,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 3,
+        "score": 0.03113161399960518,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 4,
+        "score": 0.03187110647559166,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 7,
+        "score": 0.03215428441762924,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 9,
+        "score": 0.03216040879487991,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 6,
+        "score": 0.03224491700530052,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 5,
+        "score": 0.034368693828582764,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 2,
+        "score": 0.03642430901527405,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 19,
+        "score": 0.03646114468574524,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 21,
+        "score": 0.03653937205672264,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 11,
+        "score": 0.03677614778280258,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 22,
+        "score": 0.03821860998868942,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 8,
+        "score": 0.038398031145334244,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 10,
+        "score": 0.03954713046550751,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 27,
+        "score": 0.04245269298553467,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 20,
+        "score": 0.04671870172023773,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 28,
+        "score": 0.04953787103295326,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 23,
+        "score": 0.05151047557592392,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 1,
+        "score": 0.16151100397109985,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 24,
+        "score": 0.16415247321128845,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 29,
+        "score": 0.25191453099250793,
+        "tokens": 2048
+      },
+      {
+        "layer_index": 0,
+        "score": 0.9736746549606323,
+        "tokens": 2048
+      }
+    ],
+    "weight_magnitude_layer_order": [
+      0,
+      18,
+      17,
+      14,
+      15,
+      20,
+      19,
+      2,
+      5,
+      7,
+      8,
+      21,
+      16,
+      13,
+      4,
+      12,
+      3,
+      6,
+      29,
+      9,
+      22,
+      1,
+      11,
+      10,
+      23,
+      24,
+      27,
+      28,
+      26,
+      25
+    ]
+  }
+}

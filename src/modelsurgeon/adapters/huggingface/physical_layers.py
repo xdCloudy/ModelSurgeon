@@ -35,6 +35,7 @@ def remove_huggingface_transformer_layers(
     torch = __import__("torch")
     config = getattr(model, "config", None)
     configured = getattr(config, "num_hidden_layers", None)
+    layer_types = getattr(config, "layer_types", None)
     base = getattr(model, "model", None)
     layers = getattr(base, "layers", None)
     if (
@@ -46,6 +47,12 @@ def remove_huggingface_transformer_layers(
     ):
         raise HuggingFacePhysicalLayerError(
             "model must expose a ModuleList matching config.num_hidden_layers"
+        )
+    if layer_types is not None and (
+        not isinstance(layer_types, (list, tuple)) or len(layer_types) != configured
+    ):
+        raise HuggingFacePhysicalLayerError(
+            "model config layer_types must match config.num_hidden_layers"
         )
     if (
         not removed_indices
@@ -75,6 +82,13 @@ def remove_huggingface_transformer_layers(
         if hasattr(layer, "layer_idx"):
             layer.layer_idx = index
     config.num_hidden_layers = len(retained)
+    if layer_types is not None:
+        retained_layer_types = [
+            layer_types[index] for index in range(configured) if index not in removed
+        ]
+        config.layer_types = (
+            tuple(retained_layer_types) if isinstance(layer_types, tuple) else retained_layer_types
+        )
     new_parameters = sum(int(parameter.numel()) for parameter in model.parameters())
     return HuggingFaceLayerRemovalResult(
         configured,

@@ -42,6 +42,9 @@ jobs:
           tests/test_hf_mlp_proof_integration.py
           tests/test_first_party_optimize_runtime.py
           tests/test_surgeon_mlp_integration.py
+          tests/test_hf_block_influence.py
+          tests/test_hf_physical_layers.py
+          tests/test_shortgpt_benchmark.py
           -q
 
   lightgbm-smoke:
