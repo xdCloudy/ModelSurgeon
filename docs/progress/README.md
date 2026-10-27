@@ -1,20 +1,20 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.3`.
+Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.4`.
 
-Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness.
+Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
 
-Overall weighted completion: **29.2%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **29.1%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 50.2% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 39.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Research coverage | 50.4% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Implementation maturity | 39.3% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 6.0% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 34.0% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Production readiness | 33.9% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
 | Representative compatibility coverage | 36.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
@@ -28,7 +28,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.7% | 48.9% | 40.2% | 3.6% | 35.0% |
-| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 24.1% | 45.5% | 30.8% | 3.2% | 20.2% |
+| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 23.4% | 47.4% | 27.8% | 2.7% | 19.2% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 7.1% | 21.9% | 3.0% | 1.0% | 3.0% |
 | [Model recovery and repair](FEATURE_MATRIX.md#recovery) | 6% | 18.0% | 46.0% | 10.0% | 6.7% | 10.0% |
@@ -63,6 +63,7 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 | `pruning.dependency_methods` — Dependency-aware structured pruning libraries | `pruning.physical` |
 | `pruning.differentiable_masks` — Differentiable structured masks | `pruning.physical` |
 | `pruning.depth_regularization` — Layer removal with pre-pruning regularization | `pruning.physical` |
+| `pruning.depth_shortgpt` — ShortGPT block-influence depth selection | `pruning.physical` |
 | `quantization.joint` — Pruning/quantization order and repair interactions | `quantization.codecs`, `pruning.physical` |
 | `quantization.gsq_rco` — GSQ and RCO quantization research | `quantization.codecs` |
 | `moe.surgery` — Expert pruning/merge, redundancy, router, shared/routed and layerwise allocation | `moe.selection` |

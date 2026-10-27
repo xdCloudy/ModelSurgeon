@@ -113,6 +113,25 @@ def test_narrowed_research_conclusions_preserve_prior_evidence() -> None:
     assert "Bayesian/evolutionary search" in milestones["search.controls"]["scope"]
 
 
+def test_bounded_shortgpt_negative_result_is_not_effectiveness_or_integration_credit() -> None:
+    data = load_data()
+    milestone = next(item for item in data["milestones"] if item["id"] == "pruning.depth_shortgpt")
+    source = next(item for item in data["research_sources"] if item["id"] == "shortgpt-mit")
+
+    assert milestone["research_status"] == "research_concluded"
+    assert milestone["research_outcome"] == "negative"
+    assert progress.score_dimension(milestone, "research") == 100
+    assert progress.score_dimension(milestone, "effectiveness") == 0
+    assert milestone["implementation_status"] == "experimental"
+    assert milestone["readiness_status"] == "experimental"
+    assert milestone["related_prs"] == [735]
+    assert milestone["related_commits"] == ["61451985128b3c72a433300f69aa5e7a471d79c6"]
+    assert source["pinned_revision"] == "78d9615fdcae6d90368832bd0a86c49c323549b9"
+    assert source["license_spdx"] == "MIT"
+    assert "main-branch support" in milestone["scope"]
+    assert "quality gate" in " ".join(milestone["limitations"])
+
+
 def test_compatibility_separates_theory_implementation_and_validation() -> None:
     data = load_data()
     cells = {item["id"]: item for item in data["compatibility_cells"]}
