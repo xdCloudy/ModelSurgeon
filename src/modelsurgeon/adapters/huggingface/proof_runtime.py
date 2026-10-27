@@ -397,9 +397,7 @@ class _DownProjectionChannelMask(AbstractContextManager["_DownProjectionChannelM
         handle.remove()
 
 
-class _DownProjectionChannelMaskGroup(
-    AbstractContextManager["_DownProjectionChannelMaskGroup"]
-):
+class _DownProjectionChannelMaskGroup(AbstractContextManager["_DownProjectionChannelMaskGroup"]):
     """Temporarily mask one shared channel in every transformer layer."""
 
     def __init__(self, modules: Sequence[Any], channel_index: int, torch: Any) -> None:
@@ -1468,8 +1466,7 @@ class HuggingFaceMLPProofRuntime:
         _, channel = _channel_coordinates(candidate.request)
         component = ComponentId.parse(f"model.layers.0.mlp.channel.{channel}")
         per_layer = tuple(
-            self._feature_records(layer, channel)
-            for layer in range(self._discovery.shape.layers)
+            self._feature_records(layer, channel) for layer in range(self._discovery.shape.layers)
         )
         if not per_layer or any(not records for records in per_layer):
             raise HuggingFaceMLPProofError("global MLP group features are incomplete")
@@ -1505,9 +1502,7 @@ class HuggingFaceMLPProofRuntime:
         if precision_compatible:
             precision = replace(
                 next(iter(first_records.values())).precision,
-                storage_dtype=(
-                    next(iter(storage_dtypes)) if len(storage_dtypes) == 1 else "mixed"
-                ),
+                storage_dtype=(next(iter(storage_dtypes)) if len(storage_dtypes) == 1 else "mixed"),
             )
             for name in sorted(names):
                 template = first_records[name]
@@ -1534,9 +1529,7 @@ class HuggingFaceMLPProofRuntime:
                 cast(float, records["weight_l1_norm"].value) for records in by_layer
             )
             group_weight_l2 = math.sqrt(
-                math.fsum(
-                    cast(float, records["weight_l2_norm"].value) ** 2 for records in by_layer
-                )
+                math.fsum(cast(float, records["weight_l2_norm"].value) ** 2 for records in by_layer)
             )
             group_parameter_count = math.fsum(
                 cast(float, records["weight_count"].value) for records in by_layer
@@ -1624,9 +1617,7 @@ class HuggingFaceMLPProofRuntime:
         require_safe_transaction(transaction)
         _, channel = _channel_coordinates(plan.request)
         return _DownProjectionChannelMaskGroup(
-            tuple(
-                self._down_projection(layer) for layer in range(self._discovery.shape.layers)
-            ),
+            tuple(self._down_projection(layer) for layer in range(self._discovery.shape.layers)),
             channel,
             self._torch,
         )
