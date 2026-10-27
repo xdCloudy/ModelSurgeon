@@ -2034,12 +2034,18 @@
         {
           "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
           "label": "v1.1-structured-baseline-evidence-v1.json"
+        },
+        {
+          "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
+          "label": "LLM-Surgeon KFAC source audit"
         }
       ],
-      "source_refs": [],
+      "source_refs": [
+        "llm-surgeon"
+      ],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Trace current upstream source and audit licenses before reuse.",
+      "remaining_work": "Trace additional current upstream sources, reproduce shortlisted methods, and compare pinned implementations with matched physical outcomes before reuse or promotion.",
       "limitations": [
         "Existing availability studies are not performance comparisons."
       ],
@@ -2063,6 +2069,29 @@
             }
           ],
           "reason": "Reassessed after separating source/availability review from an actual matched algorithm comparison."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+              "label": "v1.1-unstructured-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+              "label": "v1.1-structured-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
+              "label": "LLM-Surgeon KFAC source audit"
+            }
+          ],
+          "reason": "Added pinned Qualcomm LLM-Surgeon KFAC source/license audit; no performance outcome or implementation maturity was inferred."
         }
       ]
     },
@@ -2909,20 +2938,29 @@
       "id": "llm-surgeon",
       "project": "LLM-Surgeon (Qualcomm)",
       "url": "https://github.com/Qualcomm-AI-research/llm-surgeon",
-      "pinned_revision": null,
-      "license_spdx": null,
-      "licence_status": "unknown",
-      "licence_note": "Not yet independently audited; no code reuse or dependency until source license and revision are verified.",
-      "method": "LLM layer/head/neuron importance and structured compression",
-      "relevance": "Potential established baseline for llm layer/head/neuron importance and structured compression.",
-      "research_status": "not_investigated",
+      "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+      "license_spdx": "BSD-3-Clause-Clear",
+      "licence_status": "verified",
+      "licence_note": "Exact root LICENSE at pinned revision declares BSD-3-Clause-Clear: preserve copyright, conditions, and disclaimer; binary redistribution must reproduce notices; no endorsement and no express patent license. No code copied; file-level notice review required before a port.",
+      "method": "Kronecker-factored output-gradient/Fisher and input-activation curvature for structured and unstructured pruning, with global thresholding and optional surviving-weight compensation.",
+      "relevance": "A second-order structured-pruning baseline beyond ModelSurgeons magnitude, activation, gradient, and synthetic diagonal-Hessian probes.",
+      "research_status": "prior_art_reviewed",
       "research_outcome": null,
-      "integration_approach": "INTEGRATE or ADAPT only after source, license, hardware, and matched benchmark audit.",
-      "hypothesis": "Layerwise importance with reconstruction may outperform simple structural heuristics while preserving task quality.",
-      "requirements": "Pin source and license, trace tensor transforms and compare against random/magnitude with matched physical candidates.",
-      "findings": "Not investigated in this inventory assessment; no measured result claimed.",
-      "remaining_investigation": "Resolve current upstream revision and SPDX coverage, inspect algorithm entry points/tests, then reproduce under the pinned benchmark protocol.",
-      "source_paths": [],
+      "integration_approach": "ADAPT mathematical scoring and compensation behind ModelSurgeon architecture adapters; do not adopt standalone optimizer as-is.",
+      "hypothesis": "Bounded KFAC cost estimates and local compensation may lower held-out loss increase versus random, magnitude, activation, and first-order gradient selections at equal physical parameter removal.",
+      "requirements": "Pinned OPT/LLaMA paths use calibration forward/backward/Fisher statistics, layerwise matrix factors, eigendecomposition/inverse-based compensation, PyTorch 2.1 and Transformers 4.34.1; assess factor storage and current-stack compatibility before physical evaluation.",
+      "findings": "At pinned revision, surgeon.py loads OPT/LLaMA; sparsify.py computes per-module structured costs and one global threshold; curvature.py implements identity/activation/KFAC paths; pruner.py estimates removal costs and can compensate surviving weights; threshold.py accounts for row/column overlap. Exact LICENSE is BSD-3-Clause-Clear. No ModelSurgeon KFAC collector, physical comparison, or code reuse exists.",
+      "remaining_investigation": "Validate KFAC quadratic cost and compensation against exact tiny dense calculations; build bounded factor collection for one supported HF architecture; compare same-size physical removals against random/magnitude/activation/gradient on held-out data and measure memory/time. Preserve attribution if any source code is adapted.",
+      "source_paths": [
+        "surgeon.py",
+        "sparsify.py",
+        "curvature.py",
+        "pruner.py",
+        "threshold.py",
+        "modelutils.py",
+        "requirements.txt",
+        "LICENSE"
+      ],
       "assessment_date": "2026-10-27",
       "history": [
         {
@@ -2934,6 +2972,25 @@
           "licence_status": "unknown",
           "source_paths": [],
           "reason": "Added as an identified research avenue; exact revision and licensing review are pending."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "At pinned revision, surgeon.py loads OPT/LLaMA; sparsify.py computes per-module structured costs and one global threshold; curvature.py implements identity/activation/KFAC paths; pruner.py estimates removal costs and can compensate surviving weights; threshold.py accounts for row/column overlap. Exact LICENSE is BSD-3-Clause-Clear. No ModelSurgeon KFAC collector, physical comparison, or code reuse exists.",
+          "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+          "licence_status": "verified",
+          "source_paths": [
+            "surgeon.py",
+            "sparsify.py",
+            "curvature.py",
+            "pruner.py",
+            "threshold.py",
+            "modelutils.py",
+            "requirements.txt",
+            "LICENSE"
+          ],
+          "reason": "Pinned source-code and license audit recorded in docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md; research remains at prior-art review until isolated and physical comparisons are run."
         }
       ]
     },
