@@ -25,8 +25,12 @@ def load_gguf_activation_moments(
     max_file_bytes: int = 16 * 1024 * 1024,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     """Load validated calibration statistics bound to one exact GGUF digest."""
-    if max_file_bytes <= 0:
-        raise ValueError("activation moment file limit must be positive")
+    if (
+        isinstance(max_file_bytes, bool)
+        or not isinstance(max_file_bytes, int)
+        or max_file_bytes <= 0
+    ):
+        raise ValueError("activation moment file limit must be a positive integer")
     resolved = Path(path).expanduser().resolve(strict=True)
     if not resolved.is_file():
         raise ValueError(f"activation moment manifest is not a file: {resolved}")

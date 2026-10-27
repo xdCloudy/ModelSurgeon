@@ -159,6 +159,19 @@ def test_rejects_manifest_over_configured_limit(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("limit", (0, -1, True, 1.5))
+def test_rejects_invalid_manifest_file_limit(tmp_path: Path, limit: object) -> None:
+    path = tmp_path / "moments.json"
+    _write(path, _manifest())
+
+    with pytest.raises(ValueError, match="positive integer"):
+        load_gguf_activation_moments(
+            path,
+            expected_source_sha256=_SOURCE_SHA256,
+            max_file_bytes=limit,  # type: ignore[arg-type]
+        )
+
+
 class _FixtureTokenizer:
     vocab_size = 3
     bos_token_id = None
