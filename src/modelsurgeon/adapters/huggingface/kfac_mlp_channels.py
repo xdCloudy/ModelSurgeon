@@ -236,8 +236,8 @@ def score_huggingface_gated_mlp_channels_kfac(
                     gradients_for_output.detach()[:, :-1, :].reshape(-1, hidden_size)
                     * batch_target_tokens
                 )
-                activation_collectors[layer_index].update(activation_rows.numpy())
-                gradient_collectors[layer_index].update(gradient_rows.numpy())
+                activation_collectors[layer_index].update(activation_rows.float().numpy())
+                gradient_collectors[layer_index].update(gradient_rows.float().numpy())
             target_token_count += batch_target_tokens
     finally:
         for handle in handles:
@@ -264,7 +264,7 @@ def score_huggingface_gated_mlp_channels_kfac(
     for down, activation, gradient in zip(
         down_projections, activation_summaries, gradient_summaries, strict=True
     ):
-        weights = down.weight.detach().numpy()
+        weights = down.weight.detach().float().numpy()
         report = score_structured_linear_removals(
             weights,
             activation.matrix,

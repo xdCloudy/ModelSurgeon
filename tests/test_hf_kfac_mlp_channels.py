@@ -105,6 +105,22 @@ def test_collects_cpu_factors_and_scores_shared_gated_mlp_channels() -> None:
     assert all(not module._forward_pre_hooks for module in down_projections)
 
 
+def test_collects_bfloat16_cpu_factors_without_upcasting_model_weights() -> None:
+    model = _TinyCausalLM().to(dtype=torch.bfloat16)
+    token_ids = torch.tensor([[1, 3, 2, 5, 8, 4, 7, 6]], dtype=torch.int64)
+
+    report = score_huggingface_gated_mlp_channels_kfac(
+        model,
+        (token_ids,),
+        max_calibration_target_tokens=7,
+        max_workspace_bytes=128 * 1024 * 1024,
+    )
+
+    assert report.calibration_target_tokens == 7
+    assert all(parameter.dtype is torch.bfloat16 for parameter in model.parameters())
+    assert all(torch.isfinite(torch.tensor(cost)) for cost in report.aggregate_costs)
+
+
 def test_rejects_unsupported_model_type_before_registering_hooks() -> None:
     model = _TinyCausalLM(model_type="gpt2")
     with pytest.raises(HuggingFaceMLPKFACError, match="only Llama and Qwen2"):
