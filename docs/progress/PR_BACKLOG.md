@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 56 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 58 open PRs.
 
-All 56 currently open PRs were enumerated; the following 22 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
+All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -17,6 +17,7 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#749](https://github.com/xdCloudy/ModelSurgeon/pull/749) → [#748](https://github.com/xdCloudy/ModelSurgeon/pull/748) | `codex/acceptance-repair-arms → codex/source-teacher-distillation` |
 | [#703](https://github.com/xdCloudy/ModelSurgeon/pull/703) → [#723](https://github.com/xdCloudy/ModelSurgeon/pull/723) | `codex/stream-task-quality-dataset → codex/gguf-task-quality` |
 | [#774](https://github.com/xdCloudy/ModelSurgeon/pull/774) → [#775](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system → codex/kfac-structured-sensitivity` |
+| [#776](https://github.com/xdCloudy/ModelSurgeon/pull/776) → [#777](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027 → codex/clarify-structural-surrogate-evidence` |
 
 ## Notable open and dependency PRs
 
@@ -44,9 +45,11 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#773: Separate calibration and held-out splits](https://github.com/xdCloudy/ModelSurgeon/pull/773) | `main` | `codex/fix-pruning-calibration-split` | pruning evaluation integrity | No |
 | [#774: Add evidence-backed project progress system](https://github.com/xdCloudy/ModelSurgeon/pull/774) | `main` | `codex/model-progress-system` | canonical research and implementation progress tracking | Yes |
 | [#775: Prototype bounded KFAC structured removal costs](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system` | `codex/kfac-structured-sensitivity` | stacked on progress system PR #774; CPU-only research primitive | No |
+| [#776: Expand evidence-backed research milestones](https://github.com/xdCloudy/ModelSurgeon/pull/776) | `main` | `codex/progress-inventory-refinement-20261027` | expanded progress inventory foundation | No |
+| [#777: Fix structural Meta-Surgeon test-set selection](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027` | `codex/clarify-structural-surrogate-evidence` | stacked on #776; structural feature-path selector evaluation guard | No |
 
 ## Triage
 
-Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. Preserve that review dependency; do not count #775 as integrated. Recheck open PR dependencies before integration.
+Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration.
 
 Re-fetch and re-audit the live backlog before later review or branch integration. Respect normal CI and approval requirements; this inventory does not authorize merging or bypass review.
