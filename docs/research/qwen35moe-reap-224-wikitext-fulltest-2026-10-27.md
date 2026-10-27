@@ -25,6 +25,8 @@ These intervals quantify chunk-sampling variation conditional on these fixed art
 
 The REAP artifact is 2,513,960,832 bytes (11.58%) smaller than the source, and has 31.38B parameters after removing 32 experts from each layer. The 96-byte excess over the ModelSurgeon-produced random artifacts is POE provenance metadata and is negligible relative to model size.
 
+A follow-up train-versus-validation calibration comparison found mean Jaccard 0.257 between the two REAP bottom-12.5% expert sets, despite high within-run convergence. This strengthens the need to test calibration sensitivity before generalizing the PPL result; details and raw score profiles are in the [calibration-stability record](qwen35moe-reap-calibration-stability-2026-10-27.md).
+
 ## Reproduction inputs and procedure
 
 - Source GGUF SHA-256: `ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1`; source model revision `eed558458ca9ff6972063c486c7f1ab9e0b0c93e`.

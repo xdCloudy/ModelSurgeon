@@ -1,12 +1,14 @@
 # Qwen3.5 REAP-style expert scoring adapter
 
 Status: experimental calibration adapter. It is not connected to candidate
-selection, structural surgery, or autonomous optimization. A single full
-WikiText-2 held-out comparison on one Qwen3.5-family GGUF found better PPL than
-router-norm and two random 12.5% expert-pruning baselines, but the candidate
-failed the repository's 98% quality-retention gate. This is promising
-one-cell evidence, not a promoted method or a latency/resource result. See the
-[full experiment record](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md).
+selection, structural surgery, or autonomous optimization. One full
+WikiText-2 test comparison on a single Qwen3.5-family GGUF found REAP better
+than router norm and two random 12.5% cuts, but the candidate failed the
+98% quality-retention gate. A separate train/validation profile comparison
+found only 0.257 mean Jaccard between the per-layer bottom-12.5% REAP sets.
+These are one-cell results: REAP has not been promoted and its generalization,
+latency, and resource effects remain unproven. See the [quality comparison](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md)
+and [calibration-stability record](qwen35moe-reap-calibration-stability-2026-10-27.md).
 
 ## Acquisition decision
 
@@ -180,13 +182,15 @@ the synthetic-input parity above must not be presented as model validation.
 
 ## Next evidence required
 
-The first full held-out PPL comparison is recorded in
+The full held-out PPL and paired chunk comparison are recorded in
 [`qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md`](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md)
 and machine-readable form in
 [`records/qwen35moe-reap-224-wikitext-fulltest-2026-10-27.json`](records/qwen35moe-reap-224-wikitext-fulltest-2026-10-27.json).
 It shows a substantial one-cell PPL improvement over router norm and two
-random seeds, while missing the 98% gate. Replicate with independently sampled
-calibration subsets and random seeds; include coding/reasoning/task quality,
+random seeds, while missing the 98% gate. Independent train-versus-validation
+profiles also show low prune-set overlap; see the
+[`calibration-stability record`](qwen35moe-reap-calibration-stability-2026-10-27.md).
+Replicate with independently sampled calibration subsets and random seeds; include coding/reasoning/task quality,
 artifact reload and runtime checks, decode/prefill speed, peak RAM/VRAM, and
 calibration cost. Validate the first-party adapter's score ordering against
 this external POE result before treating the result as evidence for PR #738's
