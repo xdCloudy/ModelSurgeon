@@ -99,11 +99,13 @@ from modelsurgeon.surgery.serialization import (
 )
 from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_ROWS
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
 HF_MLP_FEATURE_EXTRACTOR_VERSION = "1"
 HF_MLP_EVALUATOR_VERSION = "hf_mlp_perplexity_v1"
+_MAX_CALIBRATION_TEXT_BYTES = 64 * 1024 * 1024
 
 
 class HuggingFaceMLPProofError(ValueError):
@@ -163,8 +165,24 @@ class HuggingFaceMLPProofConfig:
             raise HuggingFaceMLPProofError("task-quality split cannot be blank")
         if self.task_quality_max_new_tokens <= 0:
             raise HuggingFaceMLPProofError("task-quality max_new_tokens must be positive")
-        if self.task_quality_max_samples is not None and self.task_quality_max_samples <= 0:
-            raise HuggingFaceMLPProofError("task-quality max_samples must be positive")
+        if (
+            self.task_quality_max_samples is not None
+            and (
+                not isinstance(self.task_quality_max_samples, int)
+                or isinstance(self.task_quality_max_samples, bool)
+                or self.task_quality_max_samples <= 0
+            )
+        ):
+            raise HuggingFaceMLPProofError(
+                "task-quality max_samples must be a positive integer"
+            )
+        if (
+            self.task_quality_max_samples is not None
+            and self.task_quality_max_samples > MAX_TASK_QUALITY_ROWS
+        ):
+            raise HuggingFaceMLPProofError(
+                f"task-quality max_samples cannot exceed {MAX_TASK_QUALITY_ROWS}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,11 +483,16 @@ def _tool_revision(explicit: str | None) -> str:
 
 def _read_calibration_text(path: Path) -> tuple[str, str]:
     try:
-        payload = path.read_bytes()
+        with path.open("rb") as stream:
+            payload = stream.read(_MAX_CALIBRATION_TEXT_BYTES + 1)
     except OSError as error:
         raise HuggingFaceMLPProofError(f"cannot read calibration text: {error}") from error
     if not payload:
         raise HuggingFaceMLPProofError("calibration text cannot be empty")
+    if len(payload) > _MAX_CALIBRATION_TEXT_BYTES:
+        raise HuggingFaceMLPProofError(
+            f"calibration text exceeds the {_MAX_CALIBRATION_TEXT_BYTES}-byte limit"
+        )
     try:
         text = payload.decode("utf-8")
     except UnicodeDecodeError as error:
@@ -654,6 +677,8 @@ class HuggingFaceMLPProofRuntime:
             text,
             add_special_tokens=False,
             return_attention_mask=False,
+            truncation=True,
+            max_length=config.max_tokens,
         )
         if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
             raise HuggingFaceMLPProofError("tokenizer did not return an input_ids mapping")

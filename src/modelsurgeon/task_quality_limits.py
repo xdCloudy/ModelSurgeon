@@ -1,0 +1,5 @@
+"""Resource limits for user-supplied task-quality datasets."""
+
+MAX_TASK_QUALITY_DATASET_BYTES = 256 * 1024 * 1024
+MAX_TASK_QUALITY_ROW_BYTES = 8 * 1024 * 1024
+MAX_TASK_QUALITY_ROWS = 100_000
