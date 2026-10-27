@@ -25,8 +25,12 @@ def _sha256(path: Path) -> str:
 
 
 def _load(path: Path, dataset: Path) -> dict[str, Any]:
-    profile_bytes = path.read_bytes()
+    # Git may check JSON profile files out with CRLF on Windows. Hash the
+    # canonical LF bytes so an identical committed profile has one identity.
+    profile_bytes = path.read_bytes().replace(b"\r\n", b"\n")
     record = json.loads(profile_bytes)
+    if not isinstance(record, dict):
+        raise ValueError(f"unsupported POE profile: {path}")
     if record.get("poeprofile") != 0 or not isinstance(record.get("layers"), list):
         raise ValueError(f"unsupported POE profile: {path}")
     if len(record["layers"]) != record.get("n_layers"):
@@ -84,9 +88,7 @@ def _ranked_set(values: list[float], count: int, *, bottom: bool) -> set[int]:
     return set(chosen)
 
 
-def compare(
-    first: dict[str, Any], second: dict[str, Any], fraction: float
-) -> dict[str, Any]:
+def compare(first: dict[str, Any], second: dict[str, Any], fraction: float) -> dict[str, Any]:
     a = first["record"]
     b = second["record"]
     for key in ("model_fingerprint", "arch", "n_layers", "n_experts", "top_k"):
