@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.0.0",
+  "scope_version": "1.1.0",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "6820c77c6c090bbbd7c821b16a39041f8c39c980",
-  "scope_note": "Conservative initial evidence audit across the known ModelSurgeon research and engineering ambition. Research, implementation, effectiveness, and production readiness are independent dimensions. Infrastructure and negative research do not imply an effective optimizer. Scope expands append-only as avenues are discovered; that may lower percentages.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision narrows completed conclusions to named studies, separates Meta-Surgeon ranking, transfer, calibration, active learning, OOD, continual learning, and constrained autonomy, pins newly inspected source implementations, and tracks independent compatibility axes. New scope may lower scores; source discovery does not imply support.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -23,6 +23,12 @@
       "scope_version": "1.0.0",
       "change": "Initial grouped evidence-based inventory; preserve identifiers and append discoveries.",
       "previous_scope_version": null
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.1.0",
+      "change": "Narrowed six conclusions to exact report scopes; split Meta-Surgeon decision/transfer/calibration/active-learning/OOD/continual/autonomy objectives and added explicit milestone research questions.",
+      "previous_scope_version": "1.0.0"
     }
   ],
   "workstreams": [
@@ -175,10 +181,10 @@
     {
       "id": "meta_surgeon.data",
       "workstream": "meta_surgeon",
-      "title": "Training data, quality and reproducibility",
-      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "weight": 34,
+      "title": "Leakage and provenance audit for v0.8 evidence",
+      "description": "Audit the recorded v0.8 Meta-Surgeon splits, model grouping, provenance, and retention of negative outcomes.",
+      "scope": "The documented v0.8 dataset/split audit in the named v0.5/v1.0 records only; this does not conclude data quality or representativeness across all models, tasks, or future corpora.",
+      "weight": 13,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
       "implementation_status": "integrated",
@@ -191,25 +197,25 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Leakage audit separates model-grouped train/calibration/test and retains rejected/negative outcomes."
+        "The named reports record model-grouped train/validation/test boundaries and retain negative/rejected outcomes with provenance."
       ],
       "dependencies": [],
       "evidence_refs": [
         {
           "path": "docs/research/v0.5-first-surgeon-evidence.md",
-          "label": "v0.5-first-surgeon-evidence.md"
+          "label": "Initial data/split evidence"
         },
         {
           "path": "docs/research/v1.0-scientific-results.md",
-          "label": "v1.0-scientific-results.md"
+          "label": "v1.0 evidence-scope synthesis"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Expand independent physical outcomes across families/tasks/hardware.",
+      "remaining_work": "Expand audits to independently collected physical outcomes across model families, task domains, hardware, distributions, and future training data.",
       "limitations": [
-        "Dataset scale and distribution do not establish broad generalization."
+        "Closes only the audited v0.8 evidence records; it does not validate future corpora, broad distributions, or every contamination pathway."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -231,20 +237,43 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.5-first-surgeon-evidence.md",
+              "label": "Initial data/split evidence"
+            },
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "v1.0 evidence-scope synthesis"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
         }
+      ],
+      "research_questions": [
+        "Do the audited v0.8 records separate model/component train, validation, and held-out test examples and retain source identity, negative outcomes, and reproduction metadata?"
       ]
     },
     {
       "id": "meta_surgeon.features",
       "workstream": "meta_surgeon",
-      "title": "Structural, activation, gradient, Hessian and hardware features",
-      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "weight": 33,
+      "title": "Q1–Q3 static, activation, and gradient feature ablations",
+      "description": "Evaluate the static, activation, and gradient feature profiles used by the v0.8 candidate predictor on named small checkpoint cells.",
+      "scope": "Q1–Q3 ablations on three named sub-billion checkpoints and their persisted component split protocol. Hessian, hardware-conditioned, cross-family, quantized, and future representations remain outside this closed study.",
+      "weight": 15,
       "research_status": "research_concluded",
-      "research_outcome": "negative",
+      "research_outcome": "inconclusive",
       "implementation_status": "integrated",
-      "effectiveness_status": "measured_negative",
+      "effectiveness_status": "measured_inconclusive",
       "readiness_status": "integrated_main",
       "scored_dimensions": [
         "research",
@@ -253,37 +282,29 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Ablations establish feature reliability and causal token accounting on held-out data."
+        "Q1–Q3 reports preserve paired feature ablations, model/split identities, uncertainty, and per-profile negative, inconclusive, and positive findings."
       ],
       "dependencies": [],
       "evidence_refs": [
         {
           "path": "docs/research/v0.8-q1-static-feature-evidence.md",
-          "label": "v0.8-q1-static-feature-evidence.md"
+          "label": "Q1 static feature evidence"
         },
         {
           "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
-          "label": "v0.8-q2-activation-feature-evidence.md"
+          "label": "Q2 activation feature evidence"
         },
         {
           "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
-          "label": "v0.8-q3-gradient-feature-evidence.md"
-        },
-        {
-          "path": "docs/research/v0.8-quantization-context-evidence.md",
-          "label": "v0.8-quantization-context-evidence.md"
-        },
-        {
-          "path": "docs/research/fisher-hessian-spike.md",
-          "label": "fisher-hessian-spike.md"
+          "label": "Q3 gradient feature evidence"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Improve features, curvature budget, architecture representations and quantized reliability.",
+      "remaining_work": "Study architecture-aware, hardware-conditioned, quantized, curvature, and interaction features on independent data; do not infer those results from Q1–Q3.",
       "limitations": [
-        "Static/activation gains were not shown; Hessian remains a spike; gradient transfer is unproven."
+        "Q1–Q3 cover three named small models and one short calibration corpus; they do not establish cross-domain or physical optimizer advantage."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -317,20 +338,71 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q1-static-feature-evidence.md",
+              "label": "Q1 static feature evidence"
+            },
+            {
+              "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+              "label": "Q2 activation feature evidence"
+            },
+            {
+              "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+              "label": "Q3 gradient feature evidence"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q1-static-feature-evidence.md",
+              "label": "Q1 static feature evidence"
+            },
+            {
+              "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+              "label": "Q2 activation feature evidence"
+            },
+            {
+              "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+              "label": "Q3 gradient feature evidence"
+            }
+          ],
+          "reassessment": true,
+          "reason": "Reassessed the bounded Q1-Q3 aggregate: Q1 was negative, Q2 inconclusive, and Q3 predictive metrics improved; the combined result is mixed, not wholly negative."
         }
+      ],
+      "research_questions": [
+        "On the three Q1–Q3 checkpoint cells, do static, activation, and gradient profiles improve held-out candidate safety/quality prediction over their declared controls?"
       ]
     },
     {
       "id": "meta_surgeon.decision",
       "workstream": "meta_surgeon",
-      "title": "Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy",
-      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
-      "weight": 33,
+      "title": "Q4 held-out single-channel learned ranking versus controls",
+      "description": "Test whether the v0.8 learned candidate ranker selects safer single-channel masks than random and magnitude at matched budget.",
+      "scope": "Exact Q4 evaluation over 51 component-held-out candidates per model, 20 paired seeds, three named checkpoints, and ΔPPL ≤ 0.01. Not cumulative surgery, end-to-end optimization, or broad transfer.",
+      "weight": 10,
       "research_status": "research_concluded",
-      "research_outcome": "negative",
+      "research_outcome": "positive",
       "implementation_status": "integrated",
-      "effectiveness_status": "measured_negative",
+      "effectiveness_status": "measured_inconclusive",
       "readiness_status": "integrated_main",
       "scored_dimensions": [
         "research",
@@ -339,7 +411,7 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Held-out physical choices beat random, magnitude and no-guidance on repeated unseen-model comparisons at equal budget."
+        "Q4 reproduces paired equal-budget selections, threshold violations, ΔPPL uncertainty, exact IDs, and its single-mask boundary."
       ],
       "dependencies": [
         "meta_surgeon.data",
@@ -350,31 +422,19 @@
       "evidence_refs": [
         {
           "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
-          "label": "v0.8-q4-pruning-baseline-evidence.md"
+          "label": "Q4 equal-budget selector and uncertainty"
         },
         {
-          "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
-          "label": "v0.8-q5-cross-model-transfer-evidence.md"
-        },
-        {
-          "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
-          "label": "v0.8-q6-cross-family-transfer-evidence.md"
-        },
-        {
-          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
-          "label": "v0.8-q7-active-learning-evidence.md"
-        },
-        {
-          "path": "docs/research/v1.0-scientific-results.md",
-          "label": "v1.0-scientific-results.md"
+          "path": "docs/research/v0.8-q4-pruning-baselines.json",
+          "label": "Canonical Q4 report"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Establish cross-model/family/hardware transfer, calibrated abstention and incremental-learning benefit.",
+      "remaining_work": "Test cumulative physical surgery, reloadable artifact quality, size, inference, memory, and optimization cost at equal budget.",
       "limitations": [
-        "Some pilots avoided threshold violations; no dependable general optimization advantage is established."
+        "Positive candidate-ranking evidence covers single-channel masks on three checkpoints; deployed artifact gains are unmeasured."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -408,7 +468,30 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "positive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "Q4 equal-budget selector and uncertainty"
+            },
+            {
+              "path": "docs/research/v0.8-q4-pruning-baselines.json",
+              "label": "Canonical Q4 report"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
         }
+      ],
+      "research_questions": [
+        "At Q4's equal budget and split, does the learned ranker select a set with lower measured single-mask ΔPPL and fewer quality violations than random and magnitude?"
       ]
     },
     {
@@ -487,17 +570,20 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that named exact cells save, reload and meet declared quality/task/resource gates."
       ]
     },
     {
       "id": "pruning.scores",
       "workstream": "pruning",
-      "title": "Magnitude, random, activation, gradient, sensitivity and Hessian selection",
-      "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
-      "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "title": "Q1–Q4 single-channel score and learned-ranker comparisons",
+      "description": "Compare tested static, activation, gradient, magnitude, random, and learned scores on named v0.8 candidate outcomes.",
+      "scope": "Q1–Q4 candidate-level score evaluations on three named sub-billion checkpoints, shared short calibration data, component-held-out splits, and linked reports. Not a conclusion on Hessian, WANDA, SparseGPT, cumulative surgery, or every score.",
       "weight": 33,
       "research_status": "research_concluded",
-      "research_outcome": "negative",
+      "research_outcome": "inconclusive",
       "implementation_status": "integrated",
       "effectiveness_status": "measured_negative",
       "readiness_status": "integrated_main",
@@ -508,29 +594,29 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Matched repeated studies beat simple controls with held-out physical quality and deployment evidence."
+        "Q1–Q4 retain method-specific outcomes, splits, equal budgets, uncertainty, and validity bounds; mixed results stay inconclusive overall."
       ],
       "dependencies": [],
       "evidence_refs": [
         {
           "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
-          "label": "v0.8-q2-activation-feature-evidence.md"
+          "label": "Q2 activation ablation"
         },
         {
           "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
-          "label": "v0.8-q3-gradient-feature-evidence.md"
+          "label": "Q3 gradient features"
         },
         {
           "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
-          "label": "v0.8-q4-pruning-baseline-evidence.md"
+          "label": "Q4 equal-budget comparison"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Diagnose random beating importance scores and improve interactions/global ranking.",
+      "remaining_work": "Diagnose random beating router norm in MoE PR #736; test independent calibration text and cumulative masks; evaluate KFAC, WANDA/SparseGPT, dependency-aware, and interaction-aware scores.",
       "limitations": [
-        "Activation/static methods did not reliably beat simple baselines."
+        "Single-mask reports do not establish cumulative quality, reload validity, or deployment benefit; method-level findings remain in their reports."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -556,7 +642,34 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+              "label": "Q2 activation ablation"
+            },
+            {
+              "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+              "label": "Q3 gradient features"
+            },
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "Q4 equal-budget comparison"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
         }
+      ],
+      "research_questions": [
+        "Under Q1–Q4's pinned candidate-level protocol, which tested scores improve held-out ΔPPL prediction or equal-budget safe selection over random and magnitude?"
       ]
     },
     {
@@ -598,7 +711,11 @@
           "label": "v1.1-structured-baseline-evidence-v1.json"
         }
       ],
-      "source_refs": [],
+      "source_refs": [
+        "slice-gpt",
+        "short-gpt",
+        "minitron"
+      ],
       "related_prs": [],
       "related_commits": [],
       "remaining_work": "Run pinned upstream adapters and repeated physical schedule comparisons.",
@@ -629,7 +746,33 @@
             }
           ],
           "reason": "Reassessed after separating source/availability review from an actual matched algorithm comparison."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "feasibility_evaluated",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q8-iterative-pruning-evidence.md",
+              "label": "v0.8-q8-iterative-pruning-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+              "label": "v1.1-unstructured-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+              "label": "v1.1-structured-baseline-evidence-v1.json"
+            }
+          ],
+          "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that equal-target matched comparison shows significant frontier gains with cost and uncertainty."
       ]
     },
     {
@@ -700,6 +843,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that each exact codec/operation physically reloads and passes quality/resource/runtime tests."
       ]
     },
     {
@@ -762,6 +908,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that matched artifact size and deployment cost show quality advantage over fixed precision baselines."
       ]
     },
     {
@@ -799,7 +948,9 @@
           "label": "v1.2-hf-cumulative-surgery-v1.json"
         }
       ],
-      "source_refs": [],
+      "source_refs": [
+        "moep"
+      ],
       "related_prs": [],
       "related_commits": [],
       "remaining_work": "Reproduce interaction results across architectures and runtimes.",
@@ -826,7 +977,29 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.2-quantization-order-study-v1.json",
+              "label": "v1.2-quantization-order-study-v1.json"
+            },
+            {
+              "path": "docs/research/v1.2-hf-cumulative-surgery-v1.json",
+              "label": "v1.2-hf-cumulative-surgery-v1.json"
+            }
+          ],
+          "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that controlled factorial/sequential comparisons validate interactions across independent splits."
       ]
     },
     {
@@ -857,7 +1030,12 @@
           "label": "v1.1-competitor-pareto-study-v1.json"
         }
       ],
-      "source_refs": [],
+      "source_refs": [
+        "reap",
+        "crucible",
+        "hope",
+        "moep"
+      ],
       "related_prs": [
         736,
         738
@@ -883,7 +1061,25 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
       ]
     },
     {
@@ -916,7 +1112,10 @@
           "label": "gguf-native-surgery-spec.md"
         }
       ],
-      "source_refs": [],
+      "source_refs": [
+        "hope",
+        "moep"
+      ],
       "related_prs": [
         736,
         738
@@ -942,7 +1141,25 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [
+            {
+              "path": "docs/research/gguf-native-surgery-spec.md",
+              "label": "gguf-native-surgery-spec.md"
+            }
+          ],
+          "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that exact architecture cells preserve router semantics, reload and meet quality/resource gates."
       ]
     },
     {
@@ -994,6 +1211,9 @@
           "evidence_refs": [],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that multi-axis runs outperform random expert and quantization baselines at equal budget."
       ]
     },
     {
@@ -1056,6 +1276,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that compare no-repair and LoRA with accepted updates, held-out quality, time, peak resources and artifact cost."
       ]
     },
     {
@@ -1110,6 +1333,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that teacher-based repair beats no-repair on independent task/quality gates at equal budget."
       ]
     },
     {
@@ -1169,6 +1395,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that recovery utility exceeds compute, memory, latency and energy cost over no repair."
       ]
     },
     {
@@ -1231,6 +1460,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that adapters enforce coupled dimensions and pass physical save/reload/quality regression."
       ]
     },
     {
@@ -1303,14 +1535,17 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that repeated equal-budget physical search improves feasible quality/size/performance frontier."
       ]
     },
     {
       "id": "search.controls",
       "workstream": "search",
-      "title": "Random, magnitude, heuristic controls and deduplication",
-      "description": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
-      "scope": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "title": "Q4/Q7 matched controls for ranking and offline acquisition",
+      "description": "Audit only persisted Q4 random/magnitude controls and the Q7 uncertainty-versus-seeded-random offline replay.",
+      "scope": "Exact Q4 equal-budget single-mask and Q7 three-model/five-seed offline replay studies. Does not conclude Bayesian/evolutionary search, beam search, multi-fidelity allocation, or general budget-aware search.",
       "weight": 34,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
@@ -1324,25 +1559,29 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Each search claim includes equal-budget random, magnitude and no-guidance controls."
+        "Q4/Q7 compare matched budgets, retain all seeds/non-reaching cases, and report per-model outcomes without a universal winner claim."
       ],
       "dependencies": [],
       "evidence_refs": [
         {
           "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
-          "label": "v0.8-q4-pruning-baseline-evidence.md"
+          "label": "Q4 matched controls"
         },
         {
-          "path": "docs/research/v1.1-benchmark-protocol-v1.json",
-          "label": "v1.1-benchmark-protocol-v1.json"
+          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+          "label": "Q7 per-model offline replay"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning.json",
+          "label": "Canonical Q7 curves and outcomes"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Expand matched baselines for operation-specific spaces.",
+      "remaining_work": "Evaluate controls for multi-step surgery, candidate cost, Pareto constraints, Bayesian/evolutionary policies, and multi-fidelity scheduling.",
       "limitations": [
-        "No universal winner; retain per-method findings."
+        "Q7 replays pre-measured labels, not live campaigns; benefit varied by model."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -1364,7 +1603,34 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "Q4 matched controls"
+            },
+            {
+              "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+              "label": "Q7 per-model offline replay"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning.json",
+              "label": "Canonical Q7 curves and outcomes"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
         }
+      ],
+      "research_questions": [
+        "Do the Q4 learned ranker or Q7 uncertainty acquisition consistently beat matched controls across every tested model under their declared outcomes?"
       ]
     },
     {
@@ -1430,6 +1696,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that paired multi-seed physical runs improve frontier or reduce required experiments."
       ]
     },
     {
@@ -1496,6 +1765,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that budget invariants plus measured deployable gains per cost against controls."
       ]
     },
     {
@@ -1558,6 +1830,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that each verified cell names checkpoint revision, operation, reload, quality/runtime and tests."
       ]
     },
     {
@@ -1620,6 +1895,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that exact codec operations preserve untouched data, reload, runtime and quality gates."
       ]
     },
     {
@@ -1685,6 +1963,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that unknown/unsupported coverage is explicit and never inferred from family detection."
       ]
     },
     {
@@ -1747,6 +2028,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that repeated runs record peak RSS/VRAM, load time, offload, ceilings and failures."
       ]
     },
     {
@@ -1811,6 +2095,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that paired repeated source/candidate inference reports intervals and exact runtime configuration."
       ]
     },
     {
@@ -1873,6 +2160,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that pinned independent tasks measure baseline/candidate quality and uncertainty for declared use."
       ]
     },
     {
@@ -1937,6 +2227,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that bind source/output hashes, artifact reload, actual size, quality, failure and rollback evidence."
       ]
     },
     {
@@ -2002,6 +2295,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that independent replay reproduces pinned results and contamination/leakage audits pass."
       ]
     },
     {
@@ -2093,14 +2389,17 @@
           ],
           "reason": "Added pinned Qualcomm LLM-Surgeon KFAC source/license audit; no performance outcome or implementation maturity was inferred."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that promising methods have pinned revisions/source paths/licenses and fair reproducible comparisons."
       ]
     },
     {
       "id": "scientific_research.negative",
       "workstream": "scientific_research",
-      "title": "Ablations, failures, negative hypotheses and independent research",
-      "description": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
-      "scope": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "title": "Integrity of the bounded v0.8 Q1–Q8 findings ledger",
+      "description": "Preserve and synthesize the named Q1–Q8 findings, validity boundaries, and negative/inconclusive outcomes in v1.0.",
+      "scope": "Evidence-ledger coverage of exact Q1–Q8 studies summarized in v1.0; not completion of the broader literature or independent research programme.",
       "weight": 33,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
@@ -2114,25 +2413,25 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Negative record includes falsifiable hypothesis, controls, artifacts, analysis and follow-up."
+        "Every Q1–Q8 claim resolves to a retained report/manifest and states model, split, baseline, and scope boundary."
       ],
       "dependencies": [],
       "evidence_refs": [
         {
           "path": "docs/research/v1.0-scientific-results.md",
-          "label": "v1.0-scientific-results.md"
+          "label": "Bounded Q1–Q8 synthesis"
         },
         {
           "path": "docs/research/v1.2-physical-pareto-study-v1.json",
-          "label": "v1.2-physical-pareto-study-v1.json"
+          "label": "Retained physical study ledger"
         }
       ],
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Investigate random outperformance and transfer failures causally.",
+      "remaining_work": "Continue independent literature/source research, add new hypotheses as scoped milestones, and retain future positive, negative, infeasible, and inconclusive results append-only.",
       "limitations": [
-        "Studies vary in scale and replication."
+        "The synthesis does not establish that the listed research avenues are exhaustively investigated."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -2154,7 +2453,30 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "Bounded Q1–Q8 synthesis"
+            },
+            {
+              "path": "docs/research/v1.2-physical-pareto-study-v1.json",
+              "label": "Retained physical study ledger"
+            }
+          ],
+          "reason": "Narrowed conclusion to the exact named evidence scope; broader questions remain open separately.",
+          "reassessment": true
         }
+      ],
+      "research_questions": [
+        "Does the v1.0 synthesis link each bounded Q1–Q8 claim to evidence and retain mixed outcomes and limitations without broadening claims?"
       ]
     },
     {
@@ -2220,6 +2542,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that new scoped methods include hypothesis, source pin/license and resource/test plan."
       ]
     },
     {
@@ -2282,6 +2607,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that interfaces use one bounded orchestrator; same request preserves constraints and canonical evidence."
       ]
     },
     {
@@ -2344,6 +2672,9 @@
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
         }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that fault tests prove source immutability, bounded work and recovery in declared trust boundaries."
       ]
     },
     {
@@ -2409,6 +2740,373 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ],
+      "research_questions": [
+        "Within this milestone's declared scope, does evidence establish that clean environment reproduces bounded install/run; release boundary matches evidence."
+      ]
+    },
+    {
+      "id": "meta_surgeon.transfer",
+      "workstream": "meta_surgeon",
+      "title": "Q5–Q6 transfer pilots",
+      "description": "The exact Q5 unseen-checkpoint and Q6 held-out-family folds: named SmolLM2/Qwen sources and targets, fitted preprocessing, candidate ranking, regression, and schema behavior. Broader transfer remains open.",
+      "scope": "The exact Q5 unseen-checkpoint and Q6 held-out-family folds: named SmolLM2/Qwen sources and targets, fitted preprocessing, candidate ranking, regression, and schema behavior. Broader transfer remains open.",
+      "weight": 16,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Do these exact held-out folds retain safe ranking and calibrated effect-size prediction across the named unseen checkpoint and family?"
+      ],
+      "acceptance_criteria": [
+        "Do these exact held-out folds retain safe ranking and calibrated effect-size prediction across the named unseen checkpoint and family?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+          "label": "Q5 held-out checkpoint fold"
+        },
+        {
+          "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+          "label": "Q6 held-out-family fold"
+        },
+        {
+          "path": "docs/research/v1.0-scientific-results.md",
+          "label": "Transfer validity limits"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Add independent targets/families, corpus shifts, runtime/hardware transfer, and replicated outcomes.",
+      "limitations": [
+        "One unseen checkpoint and one held-out-family fold do not establish broad transfer; held-out-family regression R² was negative."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+              "label": "Q5 held-out checkpoint fold"
+            },
+            {
+              "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+              "label": "Q6 held-out-family fold"
+            },
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "Transfer validity limits"
+            }
+          ],
+          "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.calibration",
+      "workstream": "meta_surgeon",
+      "title": "Q5 cross-model probability calibration",
+      "description": "The single cross-model Q5 calibration-error comparison on SmolLM2-360M; broad calibration and abstention remain separate open questions.",
+      "scope": "The single cross-model Q5 calibration-error comparison on SmolLM2-360M; broad calibration and abstention remain separate open questions.",
+      "weight": 10,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Did Q5 cross-model inference retain source probability calibration on the one unseen target?"
+      ],
+      "acceptance_criteria": [
+        "Did Q5 cross-model inference retain source probability calibration on the one unseen target?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+          "label": "Calibration error increased 0.1451 to 0.2920"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Test calibration, uncertainty coverage, selective risk, and abstention across multiple model-grouped targets.",
+      "limitations": [
+        "One target result does not establish that all calibration methods fail."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+              "label": "Calibration error increased 0.1451 to 0.2920"
+            }
+          ],
+          "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.active_learning",
+      "workstream": "meta_surgeon",
+      "title": "Q7 offline uncertainty-acquisition replay",
+      "description": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
+      "scope": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
+      "weight": 12,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Does uncertainty acquisition reduce experiments to AUC ≥ 0.90 without consistently worsening held-out AULC across Q7 models?"
+      ],
+      "acceptance_criteria": [
+        "Does uncertainty acquisition reduce experiments to AUC ≥ 0.90 without consistently worsening held-out AULC across Q7 models?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+          "label": "Q7 per-model sample/cost results"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning.json",
+          "label": "Canonical Q7 replay record"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Run prospective campaigns where labels are acquired after selection; test cost-aware strategies across more models.",
+      "limitations": [
+        "Offline replay reuses measured labels; no general sample-efficiency advantage was shown."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+              "label": "Q7 per-model sample/cost results"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning.json",
+              "label": "Canonical Q7 replay record"
+            }
+          ],
+          "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.ood",
+      "workstream": "meta_surgeon",
+      "title": "OOD detection and safe abstention",
+      "description": "Detect model, architecture, data, quantization, or hardware shifts outside the predictor's validated distribution and abstain before unsafe surgery.",
+      "scope": "Detect model, architecture, data, quantization, or hardware shifts outside the predictor's validated distribution and abstain before unsafe surgery.",
+      "weight": 10,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "not_implemented",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Can an OOD policy detect unsupported model/candidate distributions and abstain before proposing unsafe surgery?"
+      ],
+      "acceptance_criteria": [
+        "Can an OOD policy detect unsupported model/candidate distributions and abstain before proposing unsafe surgery?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+          "label": "Unknown-category path is not OOD detection"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Define shift suites, calibrate thresholds, enforce abstention, and test physical failure handling.",
+      "limitations": [
+        "Unknown-category schema handling is not evidence of distribution detection or safety."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+              "label": "Unknown-category path is not OOD detection"
+            }
+          ],
+          "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+              "label": "Unknown-category path is not OOD detection"
+            }
+          ],
+          "reason": "Corrected maturity: an unknown-category path in Q6 does not implement OOD detection or safe abstention.",
+          "reassessment": true
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.continual",
+      "workstream": "meta_surgeon",
+      "title": "Continual learning from accumulated surgery outcomes",
+      "description": "Versioned updates from provenance-verified positive, negative, and rejected physical outcomes without leakage or catastrophic forgetting.",
+      "scope": "Versioned updates from provenance-verified positive, negative, and rejected physical outcomes without leakage or catastrophic forgetting.",
+      "weight": 7,
+      "research_status": "not_investigated",
+      "research_outcome": null,
+      "implementation_status": "not_implemented",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Do incremental updates improve unseen-model decisions without leakage or regression on retained models?"
+      ],
+      "acceptance_criteria": [
+        "Do incremental updates improve unseen-model decisions without leakage or regression on retained models?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Design snapshot/version controls, replay baselines, immutable splits, and prospective sequential tests.",
+      "limitations": [
+        "No continual-training claim or experiment is recorded."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [],
+          "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.autonomy",
+      "workstream": "meta_surgeon",
+      "title": "Constraint-preserving learned candidate selection",
+      "description": "Learned predictions may rank or abstain; only the central orchestrator may execute mutations under explicit quality, resource, approval, and rollback constraints.",
+      "scope": "Learned predictions may rank or abstain; only the central orchestrator may execute mutations under explicit quality, resource, approval, and rollback constraints.",
+      "weight": 7,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "not_implemented",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "Can prospective unseen-model campaigns improve Pareto outcomes while never bypassing user constraints, quality gates, or rollback?"
+      ],
+      "acceptance_criteria": [
+        "Can prospective unseen-model campaigns improve Pareto outcomes while never bypassing user constraints, quality gates, or rollback?"
+      ],
+      "dependencies": [],
+      "evidence_refs": [],
+      "source_refs": [
+        "prunenet"
+      ],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Gate orchestration on calibrated predictions, OOD detection, transfer, physical decision quality, and rollback tests.",
+      "limitations": [
+        "The conversational interface is not the scientific authority; no learned autonomous optimizer is validated."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [],
+          "reason": "Pinned PruneNet policy-learning source review is a comparator only; no autonomous ModelSurgeon policy is implemented or validated."
         }
       ]
     }
@@ -2546,19 +3244,25 @@
       "id": "slice-gpt",
       "project": "SliceGPT",
       "url": "https://github.com/microsoft/TransformerCompression",
-      "pinned_revision": null,
-      "license_spdx": null,
-      "licence_status": "unknown",
-      "licence_note": "Rotation-based dimension reduction",
-      "method": "SliceGPT",
+      "pinned_revision": "183cd92d8469bf3f1e979585a08dc382692bfbed",
+      "license_spdx": "MIT",
+      "licence_status": "verified",
+      "licence_note": "Root LICENSE and source headers at the pinned revision identify MIT; preserve Microsoft copyright and notice if portions are reused. No code copied.",
+      "method": "Orthogonal rotations make transformer dimensions sliceable; model adapters and a scheduler physically reduce selected dimensions while preserving transformed behavior.",
       "relevance": "Rotation can reduce quality loss under width reduction.",
-      "research_status": "not_investigated",
+      "research_status": "prior_art_reviewed",
       "integration_approach": "REIMPLEMENT/INTEGRATE",
       "hypothesis": "Rotation can reduce quality loss under width reduction.",
       "requirements": "Source/license audit and reload/runtime tests.",
-      "findings": "No implementation comparison.",
-      "remaining_investigation": "Trace transform and exact architecture support.",
-      "source_paths": [],
+      "findings": "Inspected rotation, slicing scheduler, model utility/adapter paths and MIT notice. This is a width-reduction alternative, not independent channel masking; no ModelSurgeon matched result.",
+      "remaining_investigation": "Trace rotation invariance and slicing for exact families; compare reload, quality, size, and CPU/GPU inference against coupled channel pruning at equal size.",
+      "source_paths": [
+        "src/slicegpt/model_utils.py",
+        "src/slicegpt/rotate.py",
+        "src/slicegpt/slicing_scheduler.py",
+        "src/slicegpt/model_adapter.py",
+        "LICENSE"
+      ],
       "research_outcome": null,
       "assessment_date": "2026-10-27",
       "history": [
@@ -2571,26 +3275,48 @@
           "licence_status": "unknown",
           "source_paths": [],
           "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "183cd92d8469bf3f1e979585a08dc382692bfbed",
+          "licence_status": "verified",
+          "source_paths": [
+            "src/slicegpt/model_utils.py",
+            "src/slicegpt/rotate.py",
+            "src/slicegpt/slicing_scheduler.py",
+            "src/slicegpt/model_adapter.py",
+            "LICENSE"
+          ],
+          "reason": "Pinned Microsoft TransformerCompression source; inspected rotation/slicing entry points and MIT notice; no reuse or benefit claim.",
+          "findings": "Inspected rotation, slicing scheduler, model utility/adapter paths and MIT notice. This is a width-reduction alternative, not independent channel masking; no ModelSurgeon matched result."
         }
-      ]
+      ],
+      "paper_url": "https://arxiv.org/abs/2401.15024"
     },
     {
       "id": "short-gpt",
       "project": "ShortGPT",
-      "url": "https://github.com/RUCAIBox/ShortGPT",
-      "pinned_revision": null,
+      "url": "https://github.com/icip-cas/ShortGPT",
+      "pinned_revision": "9a2ee8dfe9e28d0bee430e83c140b787c02ddd6c",
       "license_spdx": null,
       "licence_status": "unknown",
-      "licence_note": "Layer importance/depth pruning",
-      "method": "ShortGPT",
+      "licence_note": "No root LICENSE or repository SPDX license was present at the pinned revision. Research/reference only; do not incorporate code unless licensing is resolved.",
+      "method": "Block Influence (one minus cosine similarity between each transformer block input/output hidden state) ranks layers for deletion; ShortGPT-gen skips selected layers during prompt processing.",
       "relevance": "Hidden-state contribution predicts removable depth.",
-      "research_status": "not_investigated",
+      "research_status": "prior_art_reviewed",
       "integration_approach": "REIMPLEMENT/ADAPT",
       "hypothesis": "Hidden-state contribution predicts removable depth.",
       "requirements": "Pinned code, multiple seeds, tasks, runtime.",
-      "findings": "No implementation comparison.",
-      "remaining_investigation": "Trace scoring and compare with random layer removal.",
-      "source_paths": [],
+      "findings": "Inspected run_shortgpt.py, shortgpt.py, metrics.py and README. The example accumulates block-influence sums over PG-19 validation prompts and deletes lowest-score layers; code is bound to a Llama-2 path and hard-codes CUDA in inference. The pinned repository has no declared code license; no ModelSurgeon result or code reuse.",
+      "remaining_investigation": "Resolve code licensing before reuse; reproduce BI and ShortGPT-gen separately on supported checkpoints, test layer order and task-specific calibration, and measure physical reload/quality/latency on consumer hardware.",
+      "source_paths": [
+        "shortgpt/run_shortgpt.py",
+        "shortgpt/shortgpt.py",
+        "shortgpt/metrics.py",
+        "README.md"
+      ],
       "research_outcome": null,
       "assessment_date": "2026-10-27",
       "history": [
@@ -2603,8 +3329,24 @@
           "licence_status": "unknown",
           "source_paths": [],
           "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "9a2ee8dfe9e28d0bee430e83c140b787c02ddd6c",
+          "licence_status": "unknown",
+          "source_paths": [
+            "shortgpt/run_shortgpt.py",
+            "shortgpt/shortgpt.py",
+            "shortgpt/metrics.py",
+            "README.md"
+          ],
+          "findings": "Inspected run_shortgpt.py, shortgpt.py, metrics.py and README. The example accumulates block-influence sums over PG-19 validation prompts and deletes lowest-score layers; code is bound to a Llama-2 path and hard-codes CUDA in inference. The pinned repository has no declared code license; no ModelSurgeon result or code reuse.",
+          "reason": "Pinned the paper-linked repository and traced BI computation/removal entry points. No code license is declared; preserve research-only status."
         }
-      ]
+      ],
+      "paper_url": "https://arxiv.org/abs/2403.03853"
     },
     {
       "id": "llm-compressor",
@@ -3057,6 +3799,141 @@
           "reason": "Added as an identified research avenue; exact revision and licensing review are pending."
         }
       ]
+    },
+    {
+      "id": "prunenet",
+      "project": "PruneNet: policy-learning calibration-free structured pruning",
+      "url": "https://github.com/LCS2-IIITD/PruneNet",
+      "pinned_revision": "0b67c440a57a9ef53ce7dcd6d97fb45b6674239c",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "Root LICENSE at the pinned revision is Apache-2.0. No code copied; preserve Apache notice if a future compatible port is made.",
+      "method": "A learned row-selection policy conditioned on MLP weight matrices; stochastic keep actions are trained with an episode reward based on spectral/activation proxies, then used for structured slicing.",
+      "relevance": "A learned policy comparator, but its training proxy is not directly a held-out ModelSurgeon physical quality/resource objective.",
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "integration_approach": "REIMPLEMENT the research question or adapt only after training against measured ModelSurgeon outcomes; no copied code.",
+      "hypothesis": "A model-conditioned policy could discover interactions missed by fixed norms only if its reward predicts held-out physical quality and deployment outcomes better than random/magnitude/activation.",
+      "requirements": "Pinned source defaults to OPT and uses PyTorch/SliceGPT/Transformers. The training loop deep-copies the model per episode and samples rows; hardware and peak memory cost require measurement.",
+      "findings": "Inspected SparsityPredictor.py and prunenet.py. The predictor has a fixed intermediate dimension; episodes copy the original model, sample keep sets and update from proxy rewards. No ModelSurgeon or task-quality reproduction was run.",
+      "remaining_investigation": "Reproduce under ModelSurgeon's matched consumer-hardware protocol before adopting or claiming benefit; recheck the pinned revision and file-level notices before any reuse.",
+      "source_paths": [
+        "prunenet/SparsityPredictor.py",
+        "prunenet/prunenet.py",
+        "prunenet/prunenet_utils.py",
+        "LICENSE"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "0b67c440a57a9ef53ce7dcd6d97fb45b6674239c",
+          "licence_status": "verified",
+          "source_paths": [
+            "prunenet/SparsityPredictor.py",
+            "prunenet/prunenet.py",
+            "prunenet/prunenet_utils.py",
+            "LICENSE"
+          ],
+          "reason": "Pinned and inspected algorithm entry points and license evidence; this is prior-art analysis, not a ModelSurgeon reproduction.",
+          "findings": "Inspected SparsityPredictor.py and prunenet.py. The predictor has a fixed intermediate dimension; episodes copy the original model, sample keep sets and update from proxy rewards. No ModelSurgeon or task-quality reproduction was run."
+        }
+      ],
+      "paper_url": "https://arxiv.org/abs/2501.15296"
+    },
+    {
+      "id": "hope",
+      "project": "HOPE: Higher-Order Pruning of Experts",
+      "url": "https://github.com/awslabs/HOPE",
+      "pinned_revision": "f335c52d6dd2e97a3d2611c08b950386d43fb529",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "Pinned LICENSE header states Apache-2.0; no code copied. Preserve Amazon copyright and Apache notices if code is reused.",
+      "method": "Collects pairwise expert-interaction statistics and solves a binary quadratic keep-set objective, extending independent first-order expert scores.",
+      "relevance": "Relevant to MoE cases where router mass/norm overlooks expert interactions and seeded random may win.",
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "integration_approach": "ADAPT interaction-aware scoring behind a ModelSurgeon architecture adapter only after verifying its objective and resource budget; keep optimizer constraints central.",
+      "hypothesis": "Pairwise terms may produce equal-budget keep sets with lower held-out loss than router norm, REAP, random and magnitude at equal physical expert removal.",
+      "requirements": "Pinned repository targets Transformers 5.2.0 and stacked 3D expert tensors; calibration accumulates O(E^2) pairwise statistics per layer. CPU accumulation exists; peak memory and runtime still require measurement.",
+      "findings": "Inspected hope/calibrate.py hooks/statistics, solve/prune entry points, and Apache LICENSE. Repository lists Qwen3 MoE/Next/3.5 and GLM-4.5 layouts; its benchmark claims are not reproduced by ModelSurgeon.",
+      "remaining_investigation": "Reproduce under ModelSurgeon's matched consumer-hardware protocol before adopting or claiming benefit; recheck the pinned revision and file-level notices before any reuse.",
+      "source_paths": [
+        "hope/calibrate.py",
+        "hope/solve.py",
+        "hope/prune.py",
+        "LICENSE"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "f335c52d6dd2e97a3d2611c08b950386d43fb529",
+          "licence_status": "verified",
+          "source_paths": [
+            "hope/calibrate.py",
+            "hope/solve.py",
+            "hope/prune.py",
+            "LICENSE"
+          ],
+          "reason": "Pinned and inspected algorithm entry points and license evidence; this is prior-art analysis, not a ModelSurgeon reproduction.",
+          "findings": "Inspected hope/calibrate.py hooks/statistics, solve/prune entry points, and Apache LICENSE. Repository lists Qwen3 MoE/Next/3.5 and GLM-4.5 layouts; its benchmark claims are not reproduced by ModelSurgeon."
+        }
+      ],
+      "paper_url": "https://arxiv.org/abs/2609.18916"
+    },
+    {
+      "id": "moep",
+      "project": "moep: REAP selection, causal ablation, GGUF surgery, and repair study",
+      "url": "https://github.com/anik-jha/moep",
+      "pinned_revision": "400603b404b517172d1c85e1dc0cfd97f9977e1c",
+      "license_spdx": "MIT",
+      "licence_status": "verified",
+      "licence_note": "Pinned root LICENSE is MIT; no source copied. Preserve notice on future reuse. Model artifacts have separate upstream licenses.",
+      "method": "Compares routing frequency/mass, output norm, REAP, random and contrastive expert scores; adds paired masked ablation, byte-preserving GGUF expert surgery, and optional distillation repair.",
+      "relevance": "Directly relevant to PRs #736/#738 and quantized MoE optimization; retains random controls and explicit negative expert-selection findings.",
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "integration_approach": "ADAPT score baselines and artifact invariants behind existing GGUF/architecture boundaries after independent reproduction; preserve attribution if code is reused.",
+      "hypothesis": "Router-only scores can suppress general-coverage experts; interaction or causal diagnostics may identify safer sets, while deep pruning may lose to equal-memory low-bit quantization.",
+      "requirements": "Pinned README reports runs on DGX Spark with 119GB unified memory. Tiny synthetic MoE tests and CPU fixture validation may be feasible; model-scale results are not GPU-feasible on the current 12GB card.",
+      "findings": "Inspected scoring.py, ablation.py, gguf_prune.py, surgery.py, tests and MIT LICENSE. Upstream reports a contrastive collapse, byte-preserving GGUF edits, and pruning-vs-quantization results; these are not independently reproduced here.",
+      "remaining_investigation": "Reproduce under ModelSurgeon's matched consumer-hardware protocol before adopting or claiming benefit; recheck the pinned revision and file-level notices before any reuse.",
+      "source_paths": [
+        "src/moep/scoring.py",
+        "src/moep/ablation.py",
+        "src/moep/gguf_prune.py",
+        "src/moep/surgery.py",
+        "tests/test_gguf_prune.py",
+        "tests/test_scoring.py",
+        "LICENSE"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "400603b404b517172d1c85e1dc0cfd97f9977e1c",
+          "licence_status": "verified",
+          "source_paths": [
+            "src/moep/scoring.py",
+            "src/moep/ablation.py",
+            "src/moep/gguf_prune.py",
+            "src/moep/surgery.py",
+            "tests/test_gguf_prune.py",
+            "tests/test_scoring.py",
+            "LICENSE"
+          ],
+          "reason": "Pinned and inspected algorithm entry points and license evidence; this is prior-art analysis, not a ModelSurgeon reproduction.",
+          "findings": "Inspected scoring.py, ablation.py, gguf_prune.py, surgery.py, tests and MIT LICENSE. Upstream reports a contrastive collapse, byte-preserving GGUF edits, and pruning-vs-quantization results; these are not independently reproduced here."
+        }
+      ],
+      "paper_url": "https://arxiv.org/abs/2607.16721"
     }
   ],
   "compatibility_cells": [
@@ -3078,7 +3955,14 @@
         "Exact tested checkpoints/configurations only."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "integrated_main",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "Transformers; version pinned in evidence",
+      "recovery_method": "none unless cited evidence says otherwise"
     },
     {
       "id": "hf-mistral-mlp",
@@ -3098,7 +3982,14 @@
         "Not all Mistral variants."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "integrated_main",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "Transformers; version pinned in evidence",
+      "recovery_method": "none unless cited evidence says otherwise"
     },
     {
       "id": "hf-smollm-attn-layer",
@@ -3122,7 +4013,14 @@
         "Some strict-gate failures retained."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "experimental",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "Transformers; version pinned in evidence",
+      "recovery_method": "none unless cited evidence says otherwise"
     },
     {
       "id": "hf-qwen-mlp",
@@ -3146,7 +4044,14 @@
         "Small named checkpoint/task scope."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "integrated_main",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "Transformers; version pinned in evidence",
+      "recovery_method": "none unless cited evidence says otherwise"
     },
     {
       "id": "gguf-llama-q4-mlp",
@@ -3166,7 +4071,14 @@
         "Pinned runtime/geometry and exact operation only."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "integrated_main",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "llama.cpp; version pinned in evidence",
+      "recovery_method": "none in this cell"
     },
     {
       "id": "gguf-qwen-dense",
@@ -3186,7 +4098,14 @@
         "Physical children failed quality gate."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "experimental",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "llama.cpp; version pinned in evidence",
+      "recovery_method": "none in this cell"
     },
     {
       "id": "gguf-smollm-q4",
@@ -3206,7 +4125,14 @@
         "All measured candidates failed quality gate."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "plausible",
+      "implementation_level": "experimental",
+      "validation_level": "physical",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "llama.cpp; version pinned in evidence",
+      "recovery_method": "none in this cell"
     },
     {
       "id": "gguf-qwen35-moe",
@@ -3226,7 +4152,14 @@
         "PRs #736/#738 are unmerged; not main support."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "moe",
+      "theoretical_status": "plausible",
+      "implementation_level": "in_pr",
+      "validation_level": "synthetic",
+      "hardware_backend": "CPU/CUDA as reported for exact cited run only",
+      "runtime": "llama.cpp; version pinned in evidence",
+      "recovery_method": "none in this cell"
     },
     {
       "id": "hf-gemma",
@@ -3246,7 +4179,14 @@
         "Architecture recognition is not physical support."
       ],
       "assessment_date": "2026-10-27",
-      "weight": 1
+      "weight": 1,
+      "model_type": "dense",
+      "theoretical_status": "unknown",
+      "implementation_level": "not_implemented",
+      "validation_level": "not_tested",
+      "hardware_backend": "unknown",
+      "runtime": "Transformers not validated",
+      "recovery_method": "unknown"
     },
     {
       "id": "multimodal",
@@ -3264,6 +4204,84 @@
       ],
       "limitations": [
         "No multimodal surgery claim."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1,
+      "model_type": "multimodal",
+      "theoretical_status": "unsupported",
+      "implementation_level": "not_implemented",
+      "validation_level": "not_tested",
+      "hardware_backend": "unknown",
+      "runtime": "unknown",
+      "recovery_method": "unknown"
+    },
+    {
+      "id": "gguf-qwen35-moe-hope",
+      "architecture": "Qwen3.5 MoE",
+      "model_scope": "stacked expert layout only; no ModelSurgeon HOPE adapter",
+      "format": "GGUF",
+      "quantization": "Q4_K_M; other codecs unknown",
+      "operation": "higher-order expert scoring and expert slice",
+      "model_type": "moe",
+      "hardware_backend": "CPU or CUDA statistics not validated here",
+      "runtime": "llama.cpp export/reload not validated for this operation",
+      "recovery_method": "none",
+      "theoretical_status": "plausible",
+      "implementation_level": "not_implemented",
+      "validation_level": "not_tested",
+      "status": "unknown",
+      "evidence_refs": [],
+      "limitations": [
+        "HOPE targets HF stacked experts; GGUF tensor layout/runtime behavior remain unverified."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "hf-qwen-lora-recovery",
+      "architecture": "Qwen2.5 dense",
+      "model_scope": "named 0.5B checkpoint after structural surgery",
+      "format": "Hugging Face/safetensors",
+      "quantization": "FP16/BF16",
+      "operation": "LoRA recovery after structured pruning",
+      "model_type": "dense",
+      "hardware_backend": "CPU/CUDA recovery not validated in this cell",
+      "runtime": "Transformers/PEFT combination unvalidated",
+      "recovery_method": "LoRA fine-tuning",
+      "theoretical_status": "plausible",
+      "implementation_level": "not_implemented",
+      "validation_level": "not_tested",
+      "status": "unknown",
+      "evidence_refs": [],
+      "limitations": [
+        "No matched ModelSurgeon LoRA artifact or quality/cost comparison is recorded."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "gguf-qwen35-moe-reap-cpu-llamacpp",
+      "architecture": "Qwen3.5 MoE",
+      "model_scope": "specific quantized MoE checkpoint; unmerged PR scope",
+      "format": "GGUF",
+      "quantization": "Q4_K_M",
+      "operation": "REAP expert selection, slice, and CPU runtime reload",
+      "model_type": "moe",
+      "hardware_backend": "CPU",
+      "runtime": "llama.cpp",
+      "recovery_method": "none",
+      "theoretical_status": "plausible",
+      "implementation_level": "in_pr",
+      "validation_level": "synthetic",
+      "status": "research_only",
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+          "label": "Unmerged PR baseline scope"
+        }
+      ],
+      "limitations": [
+        "No main-integrated physical expert-pruning result or independent runtime/quality reproduction."
       ],
       "assessment_date": "2026-10-27",
       "weight": 1
@@ -3465,8 +4483,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "6820c77c6c090bbbd7c821b16a39041f8c39c980",
     "open_issue_count": 0,
-    "open_pull_request_count": 56,
-    "scope_note": "All 56 open PRs were enumerated; the following 21 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.",
+    "open_pull_request_count": 57,
+    "scope_note": "All 57 open PRs were enumerated; the following 22 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -3656,6 +4674,15 @@
         "relationship": "canonical research and implementation progress tracking",
         "status": "open",
         "integrated_on_main": false
+      },
+      {
+        "number": 775,
+        "title": "Prototype bounded KFAC structured removal costs",
+        "head_branch": "codex/kfac-structured-sensitivity",
+        "base_branch": "codex/model-progress-system",
+        "relationship": "stacked on progress system PR #774; CPU-only research primitive",
+        "status": "open",
+        "integrated_on_main": false
       }
     ],
     "dependency_chains": [
@@ -3675,8 +4702,12 @@
       [
         703,
         723
+      ],
+      [
+        774,
+        775
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. #774 adds the canonical progress workflow but its unmerged content is not integrated. Recheck the 56-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 is the progress-system base and remains open; #775 is stacked on #774. Neither branch is integrated. Recheck all 57 open PRs for duplicates and dependencies before integration; stacked PRs require base-to-head review."
   }
 }

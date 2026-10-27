@@ -13,6 +13,7 @@ import posixpath
 import re
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from datetime import date, timedelta
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
@@ -135,19 +136,24 @@ def _reference_markdown(refs: list[dict[str, Any]]) -> str:
 
 
 def score_dimension(milestone: dict[str, Any], dimension: str) -> float:
-    status_key = {
+    status_keys: dict[str, str] = {
         "research": "research_status",
         "implementation": "implementation_status",
         "effectiveness": "effectiveness_status",
         "readiness": "readiness_status",
-    }[dimension]
-    score_map = {
+    }
+    score_maps: dict[str, Mapping[str, float]] = {
         "research": RESEARCH_SCORES,
         "implementation": IMPLEMENTATION_SCORES,
         "effectiveness": EFFECTIVENESS_SCORES,
         "readiness": READINESS_SCORES,
-    }[dimension]
-    return float(score_map[milestone[status_key]])
+    }
+    status_key = status_keys[dimension]
+    score_map = score_maps[dimension]
+    status = milestone.get(status_key)
+    if not isinstance(status, str) or status not in score_map:
+        return 0.0
+    return float(score_map[status])
 
 
 def calculate_progress(data: dict[str, Any]) -> dict[str, Any]:
@@ -283,6 +289,7 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
             "effectiveness_status",
             "readiness_status",
             "scored_dimensions",
+            "research_questions",
             "acceptance_criteria",
             "dependencies",
             "evidence_refs",
@@ -523,6 +530,7 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         "effectiveness_status",
         "readiness_status",
         "scored_dimensions",
+        "research_questions",
         "acceptance_criteria",
         "dependencies",
         "evidence_refs",
@@ -534,11 +542,10 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         "assessment_date",
         "history",
     )
-    milestone_by_id = {
-        item.get("id"): item
-        for item in milestones
-        if isinstance(item, dict) and _is_text(item.get("id"))
-    }
+    milestone_by_id: dict[str, dict[str, Any]] = {}
+    for item in milestones:
+        if isinstance(item, dict) and _is_text(item.get("id")):
+            milestone_by_id[item["id"]] = item
     for milestone in milestones:
         if not isinstance(milestone, dict):
             err("every milestone must be an object")
@@ -549,6 +556,7 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
             continue
         array_fields = (
             "scored_dimensions",
+            "research_questions",
             "acceptance_criteria",
             "dependencies",
             "evidence_refs",
@@ -612,6 +620,10 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
                 err(f"milestone {milestone['id']} needs a non-empty {field}")
         if not _as_list(milestone["acceptance_criteria"]):
             err(f"milestone {milestone['id']} needs measurable acceptance criteria")
+        if not _as_list(milestone["research_questions"]) or any(
+            not _is_text(question) for question in milestone["research_questions"]
+        ):
+            err(f"milestone {milestone['id']} needs specific research questions")
         if milestone["assessment_date"] != data.get("assessment_date"):
             err(f"milestone {milestone['id']} assessment_date differs from the dataset")
         if (
@@ -759,9 +771,9 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         ):
             stream_milestone_weights[milestone["workstream"]] += milestone["weight"]
     for workstream in workstreams:
-        if isinstance(workstream, dict) and stream_milestone_weights[workstream.get("id")] != 100:
+        if isinstance(workstream, dict) and isinstance(workstream.get("id"), str) and stream_milestone_weights[workstream["id"]] != 100:
             err(
-                f"milestone weights for {workstream.get('id')} must total 100; got {stream_milestone_weights[workstream.get('id')]}"
+                f"milestone weights for {workstream['id']} must total 100; got {stream_milestone_weights[workstream['id']]}"
             )
     _validate_dependency_graph(milestone_by_id, err)
 
@@ -782,6 +794,13 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
             "format",
             "quantization",
             "operation",
+            "model_type",
+            "hardware_backend",
+            "runtime",
+            "recovery_method",
+            "theoretical_status",
+            "implementation_level",
+            "validation_level",
             "status",
             "evidence_refs",
             "limitations",
@@ -790,6 +809,16 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         ):
             if key not in cell:
                 err(f"compatibility cell missing {key}: {cell.get('id')}")
+        for key in (
+            "id", "architecture", "model_scope", "format", "quantization", "operation",
+            "hardware_backend", "runtime", "recovery_method", "assessment_date",
+        ):
+            if not _is_text(cell.get(key)):
+                err(f"compatibility cell {cell.get('id')} needs a non-empty {key}")
+        if not isinstance(cell.get("weight"), int) or cell["weight"] <= 0:
+            err(f"compatibility cell {cell.get('id')} needs a positive integer weight")
+        if not isinstance(cell.get("evidence_refs"), list) or not isinstance(cell.get("limitations"), list):
+            err(f"compatibility cell {cell.get('id')} evidence_refs and limitations must be arrays")
         if (
             not isinstance(cell.get("status"), str)
             or cell.get("status") not in COMPATIBILITY_SCORES
@@ -797,6 +826,28 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
             err(f"compatibility cell {cell.get('id')} has an invalid status")
         if cell.get("status") == "verified" and not cell.get("evidence_refs"):
             err(f"verified compatibility cell {cell.get('id')} needs evidence")
+        if cell.get("model_type") not in {"dense", "moe", "multimodal", "unknown"}:
+            err(f"compatibility cell {cell.get('id')} has an invalid model_type")
+        if cell.get("theoretical_status") not in {"plausible", "unknown", "unsupported"}:
+            err(f"compatibility cell {cell.get('id')} has an invalid theoretical_status")
+        if cell.get("implementation_level") not in {
+            "not_implemented", "in_pr", "experimental", "integrated_main"
+        }:
+            err(f"compatibility cell {cell.get('id')} has an invalid implementation_level")
+        if cell.get("validation_level") not in {
+            "not_tested", "synthetic", "physical", "independent_reproduction"
+        }:
+            err(f"compatibility cell {cell.get('id')} has an invalid validation_level")
+        if cell.get("status") == "verified" and (
+            cell.get("implementation_level") != "integrated_main"
+            or cell.get("validation_level") not in {"physical", "independent_reproduction"}
+            or cell.get("theoretical_status") != "plausible"
+        ):
+            err(
+                f"verified compatibility cell {cell.get('id')} requires plausible theory, main integration, and physical validation"
+            )
+        if cell.get("implementation_level") == "in_pr" and cell.get("status") == "verified":
+            err(f"unmerged compatibility cell {cell.get('id')} cannot be verified support")
         if cell.get("assessment_date") != data.get("assessment_date"):
             err(f"compatibility cell {cell.get('id')} assessment_date differs from the dataset")
         for ref in _as_list(cell.get("evidence_refs")):
@@ -1069,13 +1120,14 @@ def render_feature_matrix(data: dict[str, Any], scores: dict[str, Any]) -> str:
         lines.extend([f"### {stream['title']}", "", _markdown(stream["description"]), ""])
         lines.extend(
             [
-                "| ID | Milestone and scope | Research | Outcome | Implementation | Effectiveness | Readiness | Acceptance criteria | Dependencies | Evidence | PRs / commits | Remaining work | Limitations |",
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                "| ID | Objective and scope | Research questions | Research | Outcome | Implementation | Effectiveness | Readiness | Acceptance criteria | Dependencies | Evidence | PRs / commits | Remaining work | Limitations |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for milestone in (m for m in data["milestones"] if m["workstream"] == stream_id):
             lines.append(
                 f"| `{milestone['id']}` | **{_markdown(milestone['title'])}** — {_markdown(milestone['scope'])} | "
+                f"{_markdown('; '.join(milestone['research_questions']))} | "
                 f"{_label(milestone['research_status'])} | {_label(milestone['research_outcome']) if milestone['research_outcome'] else 'Open'} | "
                 f"{_label(milestone['implementation_status'])} | {_label(milestone['effectiveness_status'])} | "
                 f"{_label(milestone['readiness_status'])} | "
@@ -1099,12 +1151,12 @@ def render_meta_surgeon(data: dict[str, Any], scores: dict[str, Any]) -> str:
         "",
         "The Meta-Surgeon remains the central scientific objective. Each row separates research closure, implementation status, measured effectiveness, and readiness. Predictor existence, falling training loss, or offline AUC alone does not establish optimization value.",
         "",
-        "| Capability | Research | Outcome | Implementation | Effectiveness | Acceptance test / target | Evidence | Remaining work |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Capability | Research question | Research | Outcome | Implementation | Effectiveness | Acceptance test / target | Evidence | Remaining work |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for item in rows:
         lines.append(
-            f"| `{item['id']}` — **{_markdown(item['title'])}** | {_label(item['research_status'])} | "
+            f"| `{item['id']}` — **{_markdown(item['title'])}** | {_markdown('; '.join(item['research_questions']))} | {_label(item['research_status'])} | "
             f"{_label(item['research_outcome']) if item['research_outcome'] else 'Open'} | {_label(item['implementation_status'])} | "
             f"{_label(item['effectiveness_status'])} | {_markdown('; '.join(item['acceptance_criteria']))} | "
             f"{_reference_markdown(item['evidence_refs'])} | {_markdown(item['remaining_work'])} |"
@@ -1145,19 +1197,19 @@ def render_methods(data: dict[str, Any]) -> str:
 
 def render_compatibility(data: dict[str, Any], scores: dict[str, Any]) -> str:
     lines = [
-        "# Representative model, format, and operation compatibility",
+        "# Representative model, format, runtime, and operation compatibility",
         "",
         f"Assessment: {data['assessment_date']} · weighted verified-support coverage: **{scores['compatibility']:.1f}%** across {len(data['compatibility_cells'])} declared representative cells.",
         "",
-        "This is a curated, evidence-bounded set, not a Cartesian claim over every model x format x quantization x operation. Architecture, checkpoint format, quantization, and operation are explicit fields. `experimental`, `research_only`, `unknown`, and `unsupported` are not supported claims.",
+        "This is a curated, evidence-bounded set, not a Cartesian claim over every model x format x quantization x operation x runtime x recovery method. The table separates theoretical plausibility, implementation location, and validation level. `in_pr` is not main support; only physical or independently reproduced results can be `verified`.",
         "",
-        "| Cell | Architecture / model scope | Format | Quantization | Operation | Status | Evidence | Limitations |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Cell | Architecture / scope | Dense/MoE/etc. | Format / quantization | Operation | Backend / runtime | Recovery | Theory | Implementation | Validation | Status | Evidence | Limitations |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for cell in data["compatibility_cells"]:
         lines.append(
-            f"| `{cell['id']}` | {_markdown(cell['architecture'])} / {_markdown(cell['model_scope'])} | {_markdown(cell['format'])} | "
-            f"{_markdown(cell['quantization'])} | {_markdown(cell['operation'])} | {_label(cell['status'])} | "
+            f"| `{cell['id']}` | {_markdown(cell['architecture'])} / {_markdown(cell['model_scope'])} | {_label(cell['model_type'])} | {_markdown(cell['format'])} / {_markdown(cell['quantization'])} | "
+            f"{_markdown(cell['operation'])} | {_markdown(cell['hardware_backend'])} / {_markdown(cell['runtime'])} | {_markdown(cell['recovery_method'])} | {_label(cell['theoretical_status'])} | {_label(cell['implementation_level'])} | {_label(cell['validation_level'])} | {_label(cell['status'])} | "
             f"{_reference_markdown(cell['evidence_refs'])} | {_markdown('; '.join(cell['limitations']))} |"
         )
     lines.extend(
@@ -1195,7 +1247,9 @@ def render_research(data: dict[str, Any]) -> str:
             if source.get("pinned_revision")
         ) or ("Not inspected" if not source_paths else "Pinned revision unavailable")
         lines.append(
-            f"| [{_markdown(source['project'])}]({source['url']}) · {_markdown(source['method'])} | {revision} | {_markdown(license_text)} | "
+            f"| [{_markdown(source['project'])}]({source['url']})"
+            + (f" · [paper]({source['paper_url']})" if source.get("paper_url") else "")
+            + f" · {_markdown(source['method'])} | {revision} | {_markdown(license_text)} | "
             f"{_label(source['research_status'])} | {_label(source['research_outcome']) if source['research_outcome'] else 'Open'} | {source_path_links} | {_markdown(source['integration_approach'])} | {_markdown(source['relevance'])} | "
             f"Hypothesis: {_markdown(source['hypothesis'])} Validation: {_markdown(source['requirements'])} | "
             f"{_markdown(source['findings'])} | {_markdown(source['remaining_investigation'])} |"
@@ -1333,11 +1387,11 @@ def render_progress_overview(data: dict[str, Any], scores: dict[str, Any]) -> st
         f"| Implementation maturity | {scores['dimensions']['implementation']:.1f}% | {DIMENSION_WEIGHTS['implementation']}% | Progress through tested and integrated software; integrated means present on assessed main. |",
         f"| Optimization effectiveness | {scores['dimensions']['effectiveness']:.1f}% | {DIMENSION_WEIGHTS['effectiveness']}% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |",
         f"| Production readiness | {scores['dimensions']['readiness']:.1f}% | {DIMENSION_WEIGHTS['readiness']}% | Verification, integration, regression, deployment, and operating readiness within declared scope. |",
-        f"| Representative compatibility coverage | {scores['compatibility']:.1f}% | Separate coverage measure | Weighted share of explicit model/format/quantization/operation cells with evidence-backed support. It is not added a second time to the overall score. |",
+        f"| Representative compatibility coverage | {scores['compatibility']:.1f}% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |",
         "",
         "## Scoring method",
         "",
-        "Each workstream has a positive integer weight; workstream weights total 100. Each workstream's active milestone weights total 100. A milestone contributes only to dimensions listed in `scored_dimensions`. Within a workstream, milestone-weighted dimension scores are combined using its explicit dimension weights (renormalized over applicable dimensions); the overall completion is then the workstream-weighted mean. Research, implementation, effectiveness, and readiness use the ordered score maps defined in `tools/progress.py`. Research outcome is not itself a score: an evidence-backed negative conclusion can have 100% research completion and 0% effectiveness. Compatibility coverage is reported separately to avoid double counting.",
+        "Each workstream has a positive integer weight; workstream weights total 100. Each workstream's active milestone weights total 100. A milestone contributes only to dimensions listed in `scored_dimensions`. Within a workstream, milestone-weighted dimension scores are combined using its explicit dimension weights (renormalized over applicable dimensions); the overall completion is then the workstream-weighted mean. Research, implementation, effectiveness, and readiness use the ordered score maps defined in `tools/progress.py`. Research completion applies only to the milestone's explicit research question and scope; broader open questions must be separate. Research outcome is not itself a score: an evidence-backed negative conclusion can have 100% research completion and 0% effectiveness. Compatibility coverage is separately reported; `verified` requires a plausible scope, implementation on assessed main, and physical or independent reproduction evidence.",
         "",
         "Newly discovered scope is added as milestones and a dated scope-history entry. It expands the denominator and may reduce scores. A milestone can be retired only with a permanent record in `retired_milestones`; research conclusions and identifiers are not deleted. No unmerged PR contributes to integrated or main-readiness stages.",
         "",

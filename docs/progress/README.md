@@ -1,25 +1,25 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `6820c77c6c090bbbd7c821b16a39041f8c39c980` · inventory scope: `1.0.0`.
+Assessment date: **2026-10-27** · assessed main commit: `6820c77c6c090bbbd7c821b16a39041f8c39c980` · inventory scope: `1.1.0`.
 
-Conservative initial evidence audit across the known ModelSurgeon research and engineering ambition. Research, implementation, effectiveness, and production readiness are independent dimensions. Infrastructure and negative research do not imply an effective optimizer. Scope expands append-only as avenues are discovered; that may lower percentages.
+Conservative evidence-bounded inventory. This revision narrows completed conclusions to named studies, separates Meta-Surgeon ranking, transfer, calibration, active learning, OOD, continual learning, and constrained autonomy, pins newly inspected source implementations, and tracks independent compatibility axes. New scope may lower scores; source discovery does not imply support.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
 
-Overall weighted completion: **35.1%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **33.4%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 63.4% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 50.8% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
-| Optimization effectiveness | 6.4% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 43.5% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
-| Representative compatibility coverage | 48.5% | Separate coverage measure | Weighted share of explicit model/format/quantization/operation cells with evidence-backed support. It is not added a second time to the overall score. |
+| Research coverage | 58.6% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Implementation maturity | 46.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Optimization effectiveness | 7.1% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
+| Production readiness | 39.9% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Representative compatibility coverage | 38.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
 
-Each workstream has a positive integer weight; workstream weights total 100. Each workstream's active milestone weights total 100. A milestone contributes only to dimensions listed in `scored_dimensions`. Within a workstream, milestone-weighted dimension scores are combined using its explicit dimension weights (renormalized over applicable dimensions); the overall completion is then the workstream-weighted mean. Research, implementation, effectiveness, and readiness use the ordered score maps defined in `tools/progress.py`. Research outcome is not itself a score: an evidence-backed negative conclusion can have 100% research completion and 0% effectiveness. Compatibility coverage is reported separately to avoid double counting.
+Each workstream has a positive integer weight; workstream weights total 100. Each workstream's active milestone weights total 100. A milestone contributes only to dimensions listed in `scored_dimensions`. Within a workstream, milestone-weighted dimension scores are combined using its explicit dimension weights (renormalized over applicable dimensions); the overall completion is then the workstream-weighted mean. Research, implementation, effectiveness, and readiness use the ordered score maps defined in `tools/progress.py`. Research completion applies only to the milestone's explicit research question and scope; broader open questions must be separate. Research outcome is not itself a score: an evidence-backed negative conclusion can have 100% research completion and 0% effectiveness. Compatibility coverage is separately reported; `verified` requires a plausible scope, implementation on assessed main, and physical or independent reproduction evidence.
 
 Newly discovered scope is added as milestones and a dated scope-history entry. It expands the denominator and may reduce scores. A milestone can be retired only with a permanent record in `retired_milestones`; research conclusions and identifiers are not deleted. No unmerged PR contributes to integrated or main-readiness stages.
 
@@ -27,7 +27,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 41.7% | 100.0% | 80.0% | 3.4% | 70.0% |
+| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 33.9% | 78.1% | 60.8% | 6.6% | 53.2% |
 | [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 39.4% | 66.6% | 53.5% | 6.7% | 36.6% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 19.4% | 46.0% | 10.0% | 6.7% | 16.8% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.7% | 12.6% | 3.4% | 0.0% | 3.4% |
@@ -42,7 +42,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 ## Priorities
 
-1. **Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy** (`meta_surgeon.decision`): Establish cross-model/family/hardware transfer, calibrated abstention and incremental-learning benefit.
+1. **Q4 held-out single-channel learned ranking versus controls** (`meta_surgeon.decision`): Test cumulative physical surgery, reloadable artifact quality, size, inference, memory, and optimization cost at equal budget.
 2. **Expert scoring: random/router/activation/sensitivity/REAP and balancing** (`moe.selection`): Complete pinned REAP source audit and fair expert-selection benchmarks.
 3. **Independent splits/replays, significance, uncertainty and contamination prevention** (`benchmarking.statistics`): Add repeated independent optimizer superiority studies.
 4. **Iterative/progressive pruning and WANDA/SparseGPT/Torch-Pruning/LLM-Pruner baselines** (`pruning.schedules`): Run pinned upstream adapters and repeated physical schedule comparisons.
@@ -54,7 +54,7 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 
 | Milestone | Depends on |
 | --- | --- |
-| `meta_surgeon.decision` — Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy | `meta_surgeon.data`, `meta_surgeon.features`, `search.controls`, `benchmarking.statistics` |
+| `meta_surgeon.decision` — Q4 held-out single-channel learned ranking versus controls | `meta_surgeon.data`, `meta_surgeon.features`, `search.controls`, `benchmarking.statistics` |
 | `pruning.schedules` — Iterative/progressive pruning and WANDA/SparseGPT/Torch-Pruning/LLM-Pruner baselines | `pruning.physical`, `search.controls` |
 | `quantization.joint` — Pruning/quantization order and repair interactions | `quantization.codecs`, `pruning.physical` |
 | `moe.surgery` — Expert pruning/merge, redundancy, router, shared/routed and layerwise allocation | `moe.selection` |

@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `6820c77c6c090bbbd7c821b16a39041f8c39c980` · 0 open issues · 56 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `6820c77c6c090bbbd7c821b16a39041f8c39c980` · 0 open issues · 57 open PRs.
 
-All 56 open PRs were enumerated; the following 21 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.
+All 57 open PRs were enumerated; the following 22 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -16,6 +16,7 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#693](https://github.com/xdCloudy/ModelSurgeon/pull/693) → [#768](https://github.com/xdCloudy/ModelSurgeon/pull/768) | `codex/abstain-meta-unknown → codex/abstain-meta-numeric` |
 | [#749](https://github.com/xdCloudy/ModelSurgeon/pull/749) → [#748](https://github.com/xdCloudy/ModelSurgeon/pull/748) | `codex/acceptance-repair-arms → codex/source-teacher-distillation` |
 | [#703](https://github.com/xdCloudy/ModelSurgeon/pull/703) → [#723](https://github.com/xdCloudy/ModelSurgeon/pull/723) | `codex/stream-task-quality-dataset → codex/gguf-task-quality` |
+| [#774](https://github.com/xdCloudy/ModelSurgeon/pull/774) → [#775](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system → codex/kfac-structured-sensitivity` |
 
 ## Notable open optimizer and evidence PRs
 
@@ -42,9 +43,10 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#772: Enforce integer search budgets](https://github.com/xdCloudy/ModelSurgeon/pull/772) | `main` | `codex/strict-search-budget-integers` | search budget correctness | No |
 | [#773: Separate calibration and held-out splits](https://github.com/xdCloudy/ModelSurgeon/pull/773) | `main` | `codex/fix-pruning-calibration-split` | pruning evaluation integrity | No |
 | [#774: Add evidence-backed project progress system](https://github.com/xdCloudy/ModelSurgeon/pull/774) | `main` | `codex/model-progress-system` | canonical research and implementation progress tracking | No |
+| [#775: Prototype bounded KFAC structured removal costs](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system` | `codex/kfac-structured-sensitivity` | stacked on progress system PR #774; CPU-only research primitive | No |
 
 ## Triage
 
-Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. #774 adds the canonical progress workflow but its unmerged content is not integrated. Recheck the 56-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration.
+Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 is the progress-system base and remains open; #775 is stacked on #774. Neither branch is integrated. Recheck all 57 open PRs for duplicates and dependencies before integration; stacked PRs require base-to-head review.
 
 Re-fetch and re-audit the live backlog before later review or branch integration. Respect normal CI and approval requirements; this inventory does not authorize merging or bypass review.
