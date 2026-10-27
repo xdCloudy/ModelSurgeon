@@ -76,6 +76,53 @@ def test_structured_cost_matches_dense_kronecker_quadratic(
         )
 
 
+@pytest.mark.parametrize("axis", [LinearRemovalAxis.OUTPUT_ROWS, LinearRemovalAxis.INPUT_COLUMNS])
+def test_singleton_groups_match_dense_quadratic_without_pairwise_workspace(
+    axis: LinearRemovalAxis,
+) -> None:
+    weights = np.asarray(
+        [[0.3, -0.7, 0.2], [0.6, 0.1, -0.4], [-0.2, 0.8, 0.5]],
+        dtype=np.float64,
+    )
+    activation = np.asarray(
+        [[2.0, 0.2, 0.1], [0.2, 1.5, -0.1], [0.1, -0.1, 1.2]],
+        dtype=np.float64,
+    )
+    output_gradient = np.asarray(
+        [[1.4, 0.1, -0.1], [0.1, 1.1, 0.2], [-0.1, 0.2, 1.8]],
+        dtype=np.float64,
+    )
+    groups = ((0,), (1,), (2,))
+
+    report = score_structured_linear_removals(
+        weights,
+        activation,
+        output_gradient,
+        groups,
+        axis=axis,
+    )
+
+    full_pairwise_workspace = 8 * (
+        2 * weights.shape[0] * weights.shape[1]
+        + 3 * weights.shape[1] * weights.shape[1]
+        + 3 * weights.shape[0] * weights.shape[0]
+        + 3
+    )
+    assert report.estimated_peak_workspace_bytes < full_pairwise_workspace
+    for result, group in zip(report.candidate_costs, groups, strict=True):
+        assert result.estimated_loss_increase == pytest.approx(
+            _dense_cost(
+                weights,
+                activation,
+                output_gradient,
+                axis=axis,
+                indices=group,
+            ),
+            rel=1e-12,
+            abs=1e-12,
+        )
+
+
 def test_cost_record_names_uncompensated_method_and_counts_removed_parameters() -> None:
     report = score_structured_linear_removals(
         [[1.0, 0.0], [0.0, 2.0]],
