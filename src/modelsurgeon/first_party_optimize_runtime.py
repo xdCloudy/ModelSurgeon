@@ -87,6 +87,7 @@ from modelsurgeon.optimization_orchestrator import (
 from modelsurgeon.surgery.contracts import MutationKind, MutationRequest, TransactionState
 from modelsurgeon.surgery.distillation_repair import (
     DistillationRepairConfig,
+    DistillationStatus,
     TokenizerSignature,
     run_distillation_repair,
 )
@@ -1376,6 +1377,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         )
         seed = _integer(_config_value(self.plan, "calibration", "seed"), 0, "calibration.seed")
         examples = self._repair_examples()
+        repair_algorithm_accepted = True
         if method == "lora":
             lora_config = LoRARepairConfig(
                 rank=_integer(settings.get("rank"), 4, "repair.rank"),
@@ -1432,6 +1434,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 teacher_model=teacher_model,
             )
             repair_record = distillation_result.to_record()
+            repair_algorithm_accepted = (
+                distillation_result.status is DistillationStatus.ACCEPTED
+                and distillation_result.output_checkpoint_id is not None
+            )
         repaired_measurement = proof.measure_model(
             repair_model,
             repetitions=self.plan.quality_profile.evaluation_repetitions,
@@ -1443,8 +1449,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         repair_quality_gate = self._quality_gate_for_measurements(
             source_baseline, repaired_measurement
         )
-        accepted = repaired_perplexity <= parent_perplexity and bool(
-            repair_quality_gate["accepted"]
+        accepted = (
+            repair_algorithm_accepted
+            and repaired_perplexity <= parent_perplexity
+            and bool(repair_quality_gate["accepted"])
         )
         detail: dict[str, object] = {
             "method": method,
@@ -1459,6 +1467,16 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "artifact_digest": self.artifact_digest,
         }
         if not accepted:
+            rejection_reason = (
+                "repair algorithm did not produce an accepted update"
+                if not repair_algorithm_accepted
+                else (
+                    "repair did not improve the measured parent artifact"
+                    if repaired_perplexity > parent_perplexity
+                    else "repair violated the declared quality constraints"
+                )
+            )
+            detail["rejection_reason"] = rejection_reason
             self._record_optimization_observation(
                 stage="repair",
                 state_id="rejected:" + self.artifact_digest,
@@ -1472,11 +1490,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     "measurement_authority": "physical_repair_evaluation",
                 },
                 failure={
-                    "reason": (
-                        "repair did not improve the measured parent artifact"
-                        if repaired_perplexity > parent_perplexity
-                        else "repair violated the declared quality constraints"
-                    )
+                    "reason": rejection_reason
                 },
                 lineage={"method": method, "targets": list(targets)},
             )
