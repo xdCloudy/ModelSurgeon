@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.6",
+  "scope_version": "1.2.7",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -59,6 +59,12 @@
       "scope_version": "1.2.6",
       "change": "Added a separately weighted, bounded KFAC singleton-additive physical channel-removal comparison milestone; recorded mixed baseline results and failed quality gates without claiming optimization effectiveness. Refreshed the PR backlog for stacked PR #780.",
       "previous_scope_version": "1.2.5"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.7",
+      "change": "Split a bounded Qwen2.5-0.5B KFAC physical replication into an independent milestone. It ranks KFAC ahead of magnitude and three random masks in one short held-out cell but fails the declared quality gate and requires a 14.97 GB planned workspace.",
+      "previous_scope_version": "1.2.6"
     }
   ],
   "workstreams": [
@@ -4371,7 +4377,7 @@
       "title": "KFAC singleton-additive MLP channel ranking physical comparison",
       "description": "Bounded CPU Hugging Face Llama-family gated-MLP KFAC cost adapter and physical comparison against magnitude and random channel selection.",
       "scope": "One pinned HuggingFaceTB/SmolLM2-135M checkpoint (Llama architecture), FP32 safetensors, CPU; one 256-target-token WikiText-2 calibration prefix; one 2,048-target-token held-out prefix; globally shared 8/16/32/64 MLP-channel removals; one KFAC and magnitude selection plus three random seeds per removal count; no compensation or repair.",
-      "weight": 2,
+      "weight": 1,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
       "implementation_status": "physically_benchmarked",
@@ -4438,6 +4444,88 @@
             }
           ],
           "reason": "Completed one CPU physical comparison on a pinned dense Llama-family model using FP32 arithmetic and the source BF16 storage dtype for serialized artifacts. KFAC ranked ahead of magnitude on held-out PPL at four cuts but not every random candidate; every candidate failed the predeclared quality gate. The implementation remains open-PR experimental work."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.7",
+          "previous": {
+            "weight": 2
+          },
+          "reason": "Split the bounded Qwen2.5-0.5B replication into its own exact model cell so cross-model evidence does not inflate the SmolLM2 conclusion."
+        }
+      ]
+    },
+    {
+      "id": "pruning.kfac_qwen25_replication",
+      "workstream": "pruning",
+      "title": "KFAC singleton-additive channel selection on Qwen2.5-0.5B",
+      "description": "Bounded CPU physical replication of KFAC, magnitude and random globally shared MLP-channel selection on one Qwen2.5 dense checkpoint.",
+      "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; 256 WikiText-2 train calibration target tokens; 1,024 WikiText-2 held-out target tokens; 64 globally shared MLP channels removed across 24 layers; one KFAC and magnitude selection plus three random seeds; no recovery.",
+      "weight": 1,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this exact Qwen2.5-0.5B CPU cell, does KFAC singleton-additive selection produce a quality-gated physical channel-removal result that beats magnitude and random selection?"
+      ],
+      "acceptance_criteria": [
+        "Research comparison is complete when pinned model/data revisions, disjoint calibration and held-out token hashes, matched 64-channel candidate selections, artifact hashes and reload-logit checks, held-out perplexity and bounded resource costs are recorded.",
+        "Effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 and demonstrates physical size or resource benefit; no candidate currently passes this gate."
+      ],
+      "dependencies": [
+        "pruning.kfac_physical_pilot"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+          "label": "Qwen2.5-0.5B KFAC physical comparison"
+        }
+      ],
+      "source_refs": [
+        "llm-surgeon"
+      ],
+      "related_prs": [
+        775,
+        780
+      ],
+      "related_commits": [
+        "e9246f19d7503c85c33e6ae2e867304bf72ebf3a",
+        "98a70facbec556d2e3191c78443cf27e7f75d565"
+      ],
+      "remaining_work": "Repeat with longer independent calibration and held-out samples; compare activation and gradient selection; repeat KFAC selections with multiple calibration seeds; measure task quality, inference latency and end-to-end resource cost; test another model family before claiming transfer.",
+      "limitations": [
+        "One Qwen2.5-0.5B checkpoint, one short calibration prefix and one short held-out prefix; no statistical uncertainty or task metrics.",
+        "KFAC is the lowest-PPL candidate among the five tested, but its +0.5358 PPL delta fails the <=0.05 gate; this does not establish quality-preserving effectiveness.",
+        "Scoring takes 140.36 seconds and process peak RSS is 11,653,767,168 bytes; planned workspace is 14,965,814,784 bytes under an explicit 16 GiB cap.",
+        "64 shared channels remove 0.8357% of parameters and 0.8323% of exact artifact bytes; no inference-speed improvement is established.",
+        "Adapter and physical comparison are in open PR #780 stacked on #775 and are not integrated into main."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+              "label": "Qwen2.5-0.5B KFAC physical comparison"
+            }
+          ],
+          "reason": "Completed one CPU physical replication on a pinned Qwen2 checkpoint. KFAC ranked best among magnitude and three random selections, but its held-out delta was +0.5358 and all candidates failed the strict quality gate. The planned workspace was 14.97 GB and peak RSS was 11.65 GB."
         }
       ]
     }
@@ -5022,8 +5110,8 @@
       "integration_approach": "ADAPT mathematical scoring and compensation behind ModelSurgeon architecture adapters; do not adopt standalone optimizer as-is.",
       "hypothesis": "Bounded KFAC cost estimates and local compensation may lower held-out loss increase versus random, magnitude, activation, and first-order gradient selections at equal physical parameter removal.",
       "requirements": "Pinned OPT/LLaMA paths use calibration forward/backward/Fisher statistics, layerwise matrix factors, eigendecomposition/inverse-based compensation, PyTorch 2.1 and Transformers 4.34.1; assess factor storage and current-stack compatibility before physical evaluation.",
-      "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded.",
-      "remaining_investigation": "Validate compensation and coupled structural effects; run longer held-out and repeated-seed comparisons against activation and gradient baselines across additional architectures; assess measured deployment benefit. Preserve the pinned BSD-3-Clause-Clear license if adapting upstream code; PR #780 independently implements its bounded scorer and copies no source.",
+      "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded. On the separate Qwen2.5-0.5B cell in PR #780, KFAC ranked best among magnitude and three random selections at 64 shared channels, but the +0.5358 held-out PPL delta failed the <=0.05 gate; scoring took 140.36 seconds, peak RSS was 11.65 GB, and the planned workspace was 14.97 GB. This is one short, unreplicated observation, not transfer evidence.",
+      "remaining_investigation": "Validate compensation and coupled structural effects; run longer held-out and repeated-seed comparisons against activation and gradient baselines across additional architectures; assess deployment benefit and consumer-hardware costs. Current ModelSurgeon evidence includes one Llama and one Qwen2 bounded cell, with both failing quality gates. Preserve BSD-3-Clause-Clear if adapting upstream code; the current adapter copies no source.",
       "source_paths": [
         "surgeon.py",
         "sparsify.py",
@@ -5083,6 +5171,25 @@
           ],
           "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded.",
           "reason": "Recorded bounded physical comparison as downstream ModelSurgeon evidence while preserving upstream-source review status and BSD-3-Clause-Clear provenance."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+          "licence_status": "verified",
+          "source_paths": [
+            "surgeon.py",
+            "sparsify.py",
+            "curvature.py",
+            "pruner.py",
+            "threshold.py",
+            "modelutils.py",
+            "requirements.txt",
+            "LICENSE"
+          ],
+          "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded. On the separate Qwen2.5-0.5B cell in PR #780, KFAC ranked best among magnitude and three random selections at 64 shared channels, but the +0.5358 held-out PPL delta failed the <=0.05 gate; scoring took 140.36 seconds, peak RSS was 11.65 GB, and the planned workspace was 14.97 GB. This is one short, unreplicated observation, not transfer evidence.",
+          "reason": "Added a second, separately scoped Qwen2.5 physical comparison and its measured resource cost; upstream source review status remains prior-art reviewed."
         }
       ]
     },
