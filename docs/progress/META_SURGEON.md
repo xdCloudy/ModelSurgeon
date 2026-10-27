@@ -1,0 +1,15 @@
+# Learned Meta-Surgeon progress
+
+Assessment: 2026-10-27 · maturity score: **41.7%**. This is implementation and evidence maturity, not a claim that learned decisions improve optimization.
+
+The Meta-Surgeon remains the central scientific objective. Each row separates research closure, implementation status, measured effectiveness, and readiness. Predictor existence, falling training loss, or offline AUC alone does not establish optimization value.
+
+| Capability | Research | Outcome | Implementation | Effectiveness | Acceptance test / target | Evidence | Remaining work |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `meta_surgeon.data` — **Training data, quality and reproducibility** | Research concluded | Inconclusive | Integrated | Measured inconclusive | Leakage audit separates model-grouped train/calibration/test and retains rejected/negative outcomes. | [v0.5-first-surgeon-evidence.md](../research/v0.5-first-surgeon-evidence.md), [v1.0-scientific-results.md](../research/v1.0-scientific-results.md) | Expand independent physical outcomes across families/tasks/hardware. |
+| `meta_surgeon.features` — **Structural, activation, gradient, Hessian and hardware features** | Research concluded | Negative | Integrated | Measured negative | Ablations establish feature reliability and causal token accounting on held-out data. | [v0.8-q1-static-feature-evidence.md](../research/v0.8-q1-static-feature-evidence.md), [v0.8-q2-activation-feature-evidence.md](../research/v0.8-q2-activation-feature-evidence.md), [v0.8-q3-gradient-feature-evidence.md](../research/v0.8-q3-gradient-feature-evidence.md), [v0.8-quantization-context-evidence.md](../research/v0.8-quantization-context-evidence.md), [fisher-hessian-spike.md](../research/fisher-hessian-spike.md) | Improve features, curvature budget, architecture representations and quantized reliability. |
+| `meta_surgeon.decision` — **Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy** | Research concluded | Negative | Integrated | Measured negative | Held-out physical choices beat random, magnitude and no-guidance on repeated unseen-model comparisons at equal budget. | [v0.8-q4-pruning-baseline-evidence.md](../research/v0.8-q4-pruning-baseline-evidence.md), [v0.8-q5-cross-model-transfer-evidence.md](../research/v0.8-q5-cross-model-transfer-evidence.md), [v0.8-q6-cross-family-transfer-evidence.md](../research/v0.8-q6-cross-family-transfer-evidence.md), [v0.8-q7-active-learning-evidence.md](../research/v0.8-q7-active-learning-evidence.md), [v1.0-scientific-results.md](../research/v1.0-scientific-results.md) | Establish cross-model/family/hardware transfer, calibrated abstention and incremental-learning benefit. |
+
+## Decision rule
+
+Do not promote the Meta-Surgeon as an optimization advantage until held-out, model-grouped physical comparisons show a statistically defensible gain over random, magnitude, and no-guidance baselines at equal evaluation budget, while meeting declared quality and resource gates. Record regressions and abstentions as evidence; do not discard them.

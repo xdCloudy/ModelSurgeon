@@ -69,6 +69,43 @@ the no-LLM path remains available.
 
 Current package version: **`1.0.0` (evidence-bounded research release)**. The v3.0 conversational product boundary is a repository-verified, bounded release candidate layered on that package; it does not imply production-wide optimizer support.
 
+<!-- BEGIN GENERATED MODELSURGEON PROGRESS -->
+### Evidence-backed development dashboard
+
+**Overall completion:** `███████░░░░░░░░░░░░░` 35.1%
+**Learned Meta-Surgeon:** `████████░░░░░░░░░░░░` 41.7%
+**Research coverage:** 63.4% · **Optimization effectiveness:** 6.4% · **Model compatibility:** 48.5% · **Production readiness:** 43.5%
+
+Assessment date: **2026-10-27** against main `6820c77c6c09`. Only evidence present on the assessed main commit contributes; open PRs are tracked but not counted as integrated. Backlog snapshot: **0 open issues / 55 open PRs**. Negative research can be complete while effectiveness remains zero. See the [scoring rules](docs/progress/README.md#scoring-method) and [PR backlog](docs/progress/PR_BACKLOG.md).
+
+| Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness | Details |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Learned Meta-Surgeon | 22% | 42% | 100% | 80% | 3% | 70% | [matrix](docs/progress/META_SURGEON.md) |
+| Pruning and sparsification | 10% | 39% | 67% | 54% | 7% | 37% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Quantization | 7% | 19% | 46% | 10% | 7% | 17% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Mixture-of-Experts optimization | 8% | 5% | 13% | 3% | 0% | 3% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Model recovery and repair | 6% | 18% | 46% | 10% | 7% | 10% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Architecture optimization | 5% | 33% | 62% | 40% | 10% | 20% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Search and optimization | 7% | 36% | 75% | 34% | 10% | 30% | [matrix](docs/progress/OPTIMIZATION_METHODS.md) |
+| Model and format compatibility | 9% | 48% | 46% | 80% | 7% | 70% | [matrix](docs/progress/MODEL_COMPATIBILITY.md) |
+| Hardware and inference optimization | 7% | 23% | 62% | 10% | 10% | 10% | [matrix](docs/progress/BENCHMARKS.md) |
+| Benchmarking and evaluation | 9% | 53% | 62% | 80% | 10% | 70% | [matrix](docs/progress/BENCHMARKS.md) |
+| Independent scientific research | 5% | 36% | 41% | 57% | 3% | 50% | [matrix](docs/progress/RESEARCH_INVENTORY.md) |
+| Production readiness | 5% | 53% | 62% | 80% | 10% | 70% | [matrix](docs/progress/PRODUCTION_READINESS.md) |
+
+**Current capability boundary:** existing Hugging Face surgery is physically validated only in bounded model/runtime cells; native GGUF coverage is operation/codec-specific. The learned Meta-Surgeon exists and has been tested, but held-out transfer has not shown a dependable optimization advantage. See the [generated feature matrix](docs/progress/FEATURE_MATRIX.md) and the existing [goal-to-reality audit](docs/research/goal-reality-gap-matrix.md).
+
+**Capability summary:** validated means bounded physical evidence exists; experimental means the path or study is incomplete; research-only means no integrated implementation claim; unsupported/unknown cells remain fail-closed. Physical surgery and task checks exist for named Hugging Face checkpoints and a narrow GGUF Llama Q4_K_M cell. Wider quantization, MoE, multimodal, unseen-family transfer, broad task quality, and production optimizer readiness remain unproven or unsupported. Failed quality gates remain in the evidence ledger; no performance superiority is claimed.
+
+**Compatibility:** 3 experimental, 1 research only, 1 unknown, 1 unsupported, 4 verified representative cells; weighted verified-support coverage is 48.5%. See the [compatibility matrix](docs/progress/MODEL_COMPATIBILITY.md).
+
+**Research findings:** the inventory preserves measured positive, negative, inconclusive, infeasible, and unavailable results. No single experiment establishes cross-model superiority; see the [benchmark ledger](docs/progress/BENCHMARKS.md) and [research inventory](docs/progress/RESEARCH_INVENTORY.md).
+
+**Next priorities:** Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy; Expert scoring: random/router/activation/sensitivity/REAP and balancing; Independent splits/replays, significance, uncertainty and contamination prevention.
+
+**Documentation:** [progress overview](docs/progress/README.md) · [feature matrix](docs/progress/FEATURE_MATRIX.md) · [Meta-Surgeon](docs/progress/META_SURGEON.md) · [optimization methods](docs/progress/OPTIMIZATION_METHODS.md) · [model compatibility](docs/progress/MODEL_COMPATIBILITY.md) · [research inventory](docs/progress/RESEARCH_INVENTORY.md) · [benchmarks](docs/progress/BENCHMARKS.md) · [production readiness](docs/progress/PRODUCTION_READINESS.md) · [PR backlog snapshot](docs/progress/PR_BACKLOG.md) · [canonical data](docs/progress/modelsurgeon-progress-v1.json) · [schema](docs/progress/schema-v1.json) · [update workflow](docs/progress/CONTRIBUTING.md) · [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md) · [user guides](docs/user-guides/README.md).
+<!-- END GENERATED MODELSURGEON PROGRESS -->
+
 The v2.0 autonomous benchmark boundary is implemented as a preregistration
 and publication gate. It requires exact checkpoints, held-out splits, equal
 budgets, repeated confidence-bounded measurements, complete artifact lineage,

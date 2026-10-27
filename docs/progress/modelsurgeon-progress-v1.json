@@ -1,0 +1,3616 @@
+{
+  "schema_version": 1,
+  "inventory_id": "modelsurgeon-progress",
+  "scope_version": "1.0.0",
+  "assessment_date": "2026-10-27",
+  "assessment_main_commit": "6820c77c6c090bbbd7c821b16a39041f8c39c980",
+  "scope_note": "Conservative initial evidence audit across the known ModelSurgeon research and engineering ambition. Research, implementation, effectiveness, and production readiness are independent dimensions. Infrastructure and negative research do not imply an effective optimizer. Scope expands append-only as avenues are discovered; that may lower percentages.",
+  "scoring": {
+    "dimension_weights": {
+      "research": 20,
+      "implementation": 25,
+      "effectiveness": 35,
+      "readiness": 20
+    },
+    "workstream_weight_total": 100,
+    "milestone_weight_total_per_workstream": 100,
+    "compatibility_is_separate_metric": true,
+    "integrated_requires_assessed_main": true
+  },
+  "scope_history": [
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.0.0",
+      "change": "Initial grouped evidence-based inventory; preserve identifiers and append discoveries.",
+      "previous_scope_version": null
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "meta_surgeon",
+      "title": "Learned Meta-Surgeon",
+      "weight": 22,
+      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "dimension_weights": {
+        "research": 10,
+        "implementation": 20,
+        "effectiveness": 50,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "pruning",
+      "title": "Pruning and sparsification",
+      "weight": 10,
+      "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "quantization",
+      "title": "Quantization",
+      "weight": 7,
+      "description": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "moe",
+      "title": "Mixture-of-Experts optimization",
+      "weight": 8,
+      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "recovery",
+      "title": "Model recovery and repair",
+      "weight": 6,
+      "description": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture optimization",
+      "weight": 5,
+      "description": "Attention, MLP, depth, hidden/embedding dimensions, low rank, structural transformations, multi-axis search and architecture constraints.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "search",
+      "title": "Search and optimization",
+      "weight": 7,
+      "description": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "compatibility",
+      "title": "Model and format compatibility",
+      "weight": 9,
+      "description": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "hardware",
+      "title": "Hardware and inference optimization",
+      "weight": 7,
+      "description": "CPU/CUDA/offload/hybrid, RAM/VRAM/peak memory, loading, prefill/decode/TTFT/latency, bandwidth, kernels, consumer hardware and runtimes.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "benchmarking",
+      "title": "Benchmarking and evaluation",
+      "weight": 9,
+      "description": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "scientific_research",
+      "title": "Independent scientific research",
+      "weight": 5,
+      "description": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    },
+    {
+      "id": "production_readiness",
+      "title": "Production readiness",
+      "weight": 5,
+      "description": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "dimension_weights": {
+        "research": 25,
+        "implementation": 25,
+        "effectiveness": 30,
+        "readiness": 20
+      }
+    }
+  ],
+  "milestones": [
+    {
+      "id": "meta_surgeon.data",
+      "workstream": "meta_surgeon",
+      "title": "Training data, quality and reproducibility",
+      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "weight": 34,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Leakage audit separates model-grouped train/calibration/test and retains rejected/negative outcomes."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.5-first-surgeon-evidence.md",
+          "label": "v0.5-first-surgeon-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.0-scientific-results.md",
+          "label": "v1.0-scientific-results.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand independent physical outcomes across families/tasks/hardware.",
+      "limitations": [
+        "Dataset scale and distribution do not establish broad generalization."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.5-first-surgeon-evidence.md",
+              "label": "v0.5-first-surgeon-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "v1.0-scientific-results.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.features",
+      "workstream": "meta_surgeon",
+      "title": "Structural, activation, gradient, Hessian and hardware features",
+      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "weight": 33,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Ablations establish feature reliability and causal token accounting on held-out data."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q1-static-feature-evidence.md",
+          "label": "v0.8-q1-static-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+          "label": "v0.8-q2-activation-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+          "label": "v0.8-q3-gradient-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-quantization-context-evidence.md",
+          "label": "v0.8-quantization-context-evidence.md"
+        },
+        {
+          "path": "docs/research/fisher-hessian-spike.md",
+          "label": "fisher-hessian-spike.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Improve features, curvature budget, architecture representations and quantized reliability.",
+      "limitations": [
+        "Static/activation gains were not shown; Hessian remains a spike; gradient transfer is unproven."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q1-static-feature-evidence.md",
+              "label": "v0.8-q1-static-feature-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+              "label": "v0.8-q2-activation-feature-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+              "label": "v0.8-q3-gradient-feature-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-quantization-context-evidence.md",
+              "label": "v0.8-quantization-context-evidence.md"
+            },
+            {
+              "path": "docs/research/fisher-hessian-spike.md",
+              "label": "fisher-hessian-spike.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.decision",
+      "workstream": "meta_surgeon",
+      "title": "Prediction calibration, uncertainty, active learning, transfer, OOD and autonomy",
+      "description": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "scope": "Reproducible, calibrated, architecture-aware learning that improves physical optimization decisions.",
+      "weight": 33,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Held-out physical choices beat random, magnitude and no-guidance on repeated unseen-model comparisons at equal budget."
+      ],
+      "dependencies": [
+        "meta_surgeon.data",
+        "meta_surgeon.features",
+        "search.controls",
+        "benchmarking.statistics"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+          "label": "v0.8-q4-pruning-baseline-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+          "label": "v0.8-q5-cross-model-transfer-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+          "label": "v0.8-q6-cross-family-transfer-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+          "label": "v0.8-q7-active-learning-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.0-scientific-results.md",
+          "label": "v1.0-scientific-results.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Establish cross-model/family/hardware transfer, calibrated abstention and incremental-learning benefit.",
+      "limitations": [
+        "Some pilots avoided threshold violations; no dependable general optimization advantage is established."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "v0.8-q4-pruning-baseline-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q5-cross-model-transfer-evidence.md",
+              "label": "v0.8-q5-cross-model-transfer-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+              "label": "v0.8-q6-cross-family-transfer-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+              "label": "v0.8-q7-active-learning-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "v1.0-scientific-results.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "pruning.physical",
+      "workstream": "pruning",
+      "title": "Structured/dependency-aware channel, MLP, head, layer, width, depth and rank surgery",
+      "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "locally_validated",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Named exact cells save, reload and meet declared quality/task/resource gates."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.7-hf-physical-mlp-evidence.md",
+          "label": "v0.7-hf-physical-mlp-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.7-hf-physical-attention-evidence.md",
+          "label": "v0.7-hf-physical-attention-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.7-hf-physical-layer-evidence.md",
+          "label": "v0.7-hf-physical-layer-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.7-hf-low-rank-evidence.md",
+          "label": "v0.7-hf-low-rank-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand supported architecture cells and accepted strict-gate candidates.",
+      "limitations": [
+        "Bounded cells include rejected candidates; no universal support."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "locally_validated",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.7-hf-physical-mlp-evidence.md",
+              "label": "v0.7-hf-physical-mlp-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-physical-attention-evidence.md",
+              "label": "v0.7-hf-physical-attention-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-physical-layer-evidence.md",
+              "label": "v0.7-hf-physical-layer-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-low-rank-evidence.md",
+              "label": "v0.7-hf-low-rank-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "pruning.scores",
+      "workstream": "pruning",
+      "title": "Magnitude, random, activation, gradient, sensitivity and Hessian selection",
+      "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "weight": 33,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Matched repeated studies beat simple controls with held-out physical quality and deployment evidence."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+          "label": "v0.8-q2-activation-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+          "label": "v0.8-q3-gradient-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+          "label": "v0.8-q4-pruning-baseline-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Diagnose random beating importance scores and improve interactions/global ranking.",
+      "limitations": [
+        "Activation/static methods did not reliably beat simple baselines."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+              "label": "v0.8-q2-activation-feature-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q3-gradient-feature-evidence.md",
+              "label": "v0.8-q3-gradient-feature-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "v0.8-q4-pruning-baseline-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "pruning.schedules",
+      "workstream": "pruning",
+      "title": "Iterative/progressive pruning and WANDA/SparseGPT/Torch-Pruning/LLM-Pruner baselines",
+      "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
+      "weight": 33,
+      "research_status": "feasibility_evaluated",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Equal-target matched comparison shows significant frontier gains with cost and uncertainty."
+      ],
+      "dependencies": [
+        "pruning.physical",
+        "search.controls"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q8-iterative-pruning-evidence.md",
+          "label": "v0.8-q8-iterative-pruning-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+          "label": "v1.1-unstructured-baseline-evidence-v1.json"
+        },
+        {
+          "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+          "label": "v1.1-structured-baseline-evidence-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Run pinned upstream adapters and repeated physical schedule comparisons.",
+      "limitations": [
+        "External baseline cells are unavailable/unsupported, not measured method failures."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "feasibility_evaluated",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q8-iterative-pruning-evidence.md",
+              "label": "v0.8-q8-iterative-pruning-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+              "label": "v1.1-unstructured-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+              "label": "v1.1-structured-baseline-evidence-v1.json"
+            }
+          ],
+          "reason": "Reassessed after separating source/availability review from an actual matched algorithm comparison."
+        }
+      ]
+    },
+    {
+      "id": "quantization.codecs",
+      "workstream": "quantization",
+      "title": "PTQ/QAT, weight/activation, GPTQ/AWQ, GGUF and IQ codec correctness",
+      "description": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "scope": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "locally_validated",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Each exact codec/operation physically reloads and passes quality/resource/runtime tests."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.7-llama-cpp-quantization-evidence.md",
+          "label": "v0.7-llama-cpp-quantization-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.1-quantized-baseline-evidence-v1.json",
+          "label": "v1.1-quantized-baseline-evidence-v1.json"
+        },
+        {
+          "path": "docs/research/iq-family-support-boundary.md",
+          "label": "iq-family-support-boundary.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand verified codec-specific cells and established quantizer comparisons.",
+      "limitations": [
+        "Quantized support remains operation- and codec-bounded."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "locally_validated",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.7-llama-cpp-quantization-evidence.md",
+              "label": "v0.7-llama-cpp-quantization-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.1-quantized-baseline-evidence-v1.json",
+              "label": "v1.1-quantized-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/iq-family-support-boundary.md",
+              "label": "iq-family-support-boundary.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "quantization.allocation",
+      "workstream": "quantization",
+      "title": "Mixed precision, activation-weighted allocation, GSQ/RCO and error estimation",
+      "description": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "scope": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "weight": 33,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Matched artifact size and deployment cost show quality advantage over fixed precision baselines."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-quantization-context-evidence.md",
+          "label": "v0.8-quantization-context-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-quantization-loss-evidence.md",
+          "label": "v0.8-quantization-loss-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Resolve GSQ/RCO primary sources and test sensitivity-based allocation.",
+      "limitations": [
+        "No general GSQ/RCO implementation or advantage is verified."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-quantization-context-evidence.md",
+              "label": "v0.8-quantization-context-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.8-quantization-loss-evidence.md",
+              "label": "v0.8-quantization-loss-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "quantization.joint",
+      "workstream": "quantization",
+      "title": "Pruning/quantization order and repair interactions",
+      "description": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "scope": "PTQ, QAT, mixed precision, weight-only/activation, GPTQ, AWQ, GGUF/IQ, GSQ/RCO, calibration, error, pruning and recovery interactions.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Controlled factorial/sequential comparisons validate interactions across independent splits."
+      ],
+      "dependencies": [
+        "quantization.codecs",
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.2-quantization-order-study-v1.json",
+          "label": "v1.2-quantization-order-study-v1.json"
+        },
+        {
+          "path": "docs/research/v1.2-hf-cumulative-surgery-v1.json",
+          "label": "v1.2-hf-cumulative-surgery-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Reproduce interaction results across architectures and runtimes.",
+      "limitations": [
+        "Current order studies are bounded."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.2-quantization-order-study-v1.json",
+              "label": "v1.2-quantization-order-study-v1.json"
+            },
+            {
+              "path": "docs/research/v1.2-hf-cumulative-surgery-v1.json",
+              "label": "v1.2-hf-cumulative-surgery-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "moe.selection",
+      "workstream": "moe",
+      "title": "Expert scoring: random/router/activation/sensitivity/REAP and balancing",
+      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "weight": 34,
+      "research_status": "hypothesis_established",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+          "label": "v1.1-competitor-pareto-study-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [
+        736,
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Complete pinned REAP source audit and fair expert-selection benchmarks.",
+      "limitations": [
+        "No main-integrated MoE win is established."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "moe.surgery",
+      "workstream": "moe",
+      "title": "Expert pruning/merge, redundancy, router, shared/routed and layerwise allocation",
+      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "weight": 33,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "not_implemented",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Exact architecture cells preserve router semantics, reload and meet quality/resource gates."
+      ],
+      "dependencies": [
+        "moe.selection"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/gguf-native-surgery-spec.md",
+          "label": "gguf-native-surgery-spec.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [
+        736,
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Validate MoE tensor layouts and architecture-specific surgery.",
+      "limitations": [
+        "Open PR #736/#738 work is unmerged and not main capability."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [
+            {
+              "path": "docs/research/gguf-native-surgery-spec.md",
+              "label": "gguf-native-surgery-spec.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "moe.joint",
+      "workstream": "moe",
+      "title": "MoE pruning plus quantization/recovery and expert specialization",
+      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+      "weight": 33,
+      "research_status": "not_investigated",
+      "research_outcome": null,
+      "implementation_status": "not_implemented",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Multi-axis runs outperform random expert and quantization baselines at equal budget."
+      ],
+      "dependencies": [
+        "moe.surgery",
+        "quantization.codecs",
+        "recovery.lora"
+      ],
+      "evidence_refs": [],
+      "source_refs": [],
+      "related_prs": [
+        736,
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Establish standalone expert surgery and baseline before combined trials.",
+      "limitations": [
+        "Dependent on valid MoE physical surgery."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "implementation_status": "not_implemented",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "recovery.lora",
+      "workstream": "recovery",
+      "title": "LoRA/QLoRA and short fine-tuning recovery",
+      "description": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "scope": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Compare no-repair and LoRA with accepted updates, held-out quality, time, peak resources and artifact cost."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.9-lora-repair-evidence.md",
+          "label": "v0.9-lora-repair-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.9-short-finetune-evidence.md",
+          "label": "v0.9-short-finetune-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Scale recovery studies and quantify compute/quality trade-off.",
+      "limitations": [
+        "Smoke evidence is not a frontier improvement."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.9-lora-repair-evidence.md",
+              "label": "v0.9-lora-repair-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.9-short-finetune-evidence.md",
+              "label": "v0.9-short-finetune-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "recovery.distill",
+      "workstream": "recovery",
+      "title": "Logit/feature distillation, calibration and immutable teacher",
+      "description": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "scope": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Teacher-based repair beats no-repair on independent task/quality gates at equal budget."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.9-distillation-repair-evidence.md",
+          "label": "v0.9-distillation-repair-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Validate accepted updates and diverse tasks.",
+      "limitations": [
+        "No scalable repair advantage demonstrated."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.9-distillation-repair-evidence.md",
+              "label": "v0.9-distillation-repair-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "recovery.joint",
+      "workstream": "recovery",
+      "title": "Learned recovery prediction and joint structural/quantization repair",
+      "description": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "scope": "LoRA/QLoRA, fine-tuning, distillation, calibration, learned repair/cost prediction, and joint structural/quantization recovery.",
+      "weight": 33,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Recovery utility exceeds compute, memory, latency and energy cost over no repair."
+      ],
+      "dependencies": [
+        "recovery.lora",
+        "recovery.distill",
+        "quantization.codecs",
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.9-distillation-repair-smoke.json",
+          "label": "v0.9-distillation-repair-smoke.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Estimate success/cost and test joint policies across models.",
+      "limitations": [
+        "No validated recovery cost model."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.9-distillation-repair-smoke.json",
+              "label": "v0.9-distillation-repair-smoke.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "architecture.coupling",
+      "workstream": "architecture",
+      "title": "Attention/MLP/depth/hidden/embedding coupling and adapters",
+      "description": "Attention, MLP, depth, hidden/embedding dimensions, low rank, structural transformations, multi-axis search and architecture constraints.",
+      "scope": "Attention, MLP, depth, hidden/embedding dimensions, low rank, structural transformations, multi-axis search and architecture constraints.",
+      "weight": 50,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "locally_validated",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Adapters enforce coupled dimensions and pass physical save/reload/quality regression."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "ARCHITECTURE.md",
+          "label": "ARCHITECTURE.md"
+        },
+        {
+          "path": "docs/research/v1.4-architecture-pareto-study-v1.json",
+          "label": "v1.4-architecture-pareto-study-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Add verified families and composite transformations.",
+      "limitations": [
+        "No multimodal/MoE inference from dense adapter support."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "locally_validated",
+          "evidence_refs": [
+            {
+              "path": "ARCHITECTURE.md",
+              "label": "ARCHITECTURE.md"
+            },
+            {
+              "path": "docs/research/v1.4-architecture-pareto-study-v1.json",
+              "label": "v1.4-architecture-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "architecture.transforms",
+      "workstream": "architecture",
+      "title": "Low rank, SliceGPT rotations, depth removal and multi-axis architecture search",
+      "description": "Attention, MLP, depth, hidden/embedding dimensions, low rank, structural transformations, multi-axis search and architecture constraints.",
+      "scope": "Attention, MLP, depth, hidden/embedding dimensions, low rank, structural transformations, multi-axis search and architecture constraints.",
+      "weight": 50,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Repeated equal-budget physical search improves feasible quality/size/performance frontier."
+      ],
+      "dependencies": [
+        "architecture.coupling"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.4-beam-evolutionary-v1.json",
+          "label": "v1.4-beam-evolutionary.json"
+        },
+        {
+          "path": "docs/research/v1.4-multi-axis-sequence-v1.json",
+          "label": "v1.4-multi-axis-sequence.json"
+        },
+        {
+          "path": "docs/research/v0.7-hf-low-rank-evidence.md",
+          "label": "v0.7-hf-low-rank-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Compare exact upstream transforms and test on held-out models.",
+      "limitations": [
+        "Research evidence is bounded, not broad support."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.4-beam-evolutionary-v1.json",
+              "label": "v1.4-beam-evolutionary.json"
+            },
+            {
+              "path": "docs/research/v1.4-multi-axis-sequence-v1.json",
+              "label": "v1.4-multi-axis-sequence.json"
+            },
+            {
+              "path": "docs/research/v0.7-hf-low-rank-evidence.md",
+              "label": "v0.7-hf-low-rank-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "search.controls",
+      "workstream": "search",
+      "title": "Random, magnitude, heuristic controls and deduplication",
+      "description": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "scope": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "weight": 34,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Each search claim includes equal-budget random, magnitude and no-guidance controls."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+          "label": "v0.8-q4-pruning-baseline-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.1-benchmark-protocol-v1.json",
+          "label": "v1.1-benchmark-protocol-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand matched baselines for operation-specific spaces.",
+      "limitations": [
+        "No universal winner; retain per-method findings."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+              "label": "v0.8-q4-pruning-baseline-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.1-benchmark-protocol-v1.json",
+              "label": "v1.1-benchmark-protocol-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "search.policies",
+      "workstream": "search",
+      "title": "Bayesian/evolutionary/beam/surrogate and active-learning acquisition",
+      "description": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "scope": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Paired multi-seed physical runs improve frontier or reduce required experiments."
+      ],
+      "dependencies": [
+        "search.controls",
+        "meta_surgeon.decision"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.4-beam-evolutionary-v1.json",
+          "label": "v1.4-beam-evolutionary.json"
+        },
+        {
+          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+          "label": "v0.8-q7-active-learning-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Test model-grouped unseen data, budgets and compute costs.",
+      "limitations": [
+        "Decision-level benefit is not yet established."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.4-beam-evolutionary-v1.json",
+              "label": "v1.4-beam-evolutionary.json"
+            },
+            {
+              "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+              "label": "v0.8-q7-active-learning-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "search.constraints",
+      "workstream": "search",
+      "title": "Pareto, budget/multifidelity, hardware and state-dependent sequential search",
+      "description": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "scope": "Random, magnitude/activation/gradient heuristics, Bayesian/evolutionary/beam/surrogate/learned search, active learning, Pareto, budget, hardware and sequential state.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Budget invariants plus measured deployable gains per cost against controls."
+      ],
+      "dependencies": [
+        "search.policies",
+        "hardware.resources",
+        "hardware.inference"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.3-hardware-objectives-v1.json",
+          "label": "v1.3-hardware-objectives-v1.json"
+        },
+        {
+          "path": "docs/research/v1.3-hardware-conditioned-surgeon-v1.json",
+          "label": "v1.3-hardware-conditioned-surgeon.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Measure consumer-hardware efficiency across repeated runs.",
+      "limitations": [
+        "Predicted costs do not prove measured acceleration."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.3-hardware-objectives-v1.json",
+              "label": "v1.3-hardware-objectives-v1.json"
+            },
+            {
+              "path": "docs/research/v1.3-hardware-conditioned-surgeon-v1.json",
+              "label": "v1.3-hardware-conditioned-surgeon.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "compatibility.families",
+      "workstream": "compatibility",
+      "title": "Dense Llama/Mistral/Qwen/SmolLM and explicit family/model cells",
+      "description": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "scope": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Each verified cell names checkpoint revision, operation, reload, quality/runtime and tests."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/architecture-compatibility.md",
+          "label": "architecture-compatibility.md"
+        },
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v3.json",
+          "label": "first-party-hf-acceptance-evidence-v3.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand exact named model cells only with physical evidence.",
+      "limitations": [
+        "Family name is not universal compatibility."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/architecture-compatibility.md",
+              "label": "architecture-compatibility.md"
+            },
+            {
+              "path": "docs/research/first-party-hf-acceptance-evidence-v3.json",
+              "label": "first-party-hf-acceptance-evidence-v3.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "compatibility.formats",
+      "workstream": "compatibility",
+      "title": "HF/safetensors, GGUF codecs, quantization and tensor layouts",
+      "description": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "scope": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Exact codec operations preserve untouched data, reload, runtime and quality gates."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.7-gguf-compatibility-evidence.md",
+          "label": "v0.7-gguf-compatibility-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.7-native-q4-k-m-mlp-proof.md",
+          "label": "v0.7-native-q4-k-m-mlp-proof.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Extend codec-specific validations, especially IQ formats.",
+      "limitations": [
+        "Fail closed on unsupported layouts; no blanket GGUF support."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.7-gguf-compatibility-evidence.md",
+              "label": "v0.7-gguf-compatibility-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-native-q4-k-m-mlp-proof.md",
+              "label": "v0.7-native-q4-k-m-mlp-proof.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "compatibility.boundaries",
+      "workstream": "compatibility",
+      "title": "MoE, multimodal, unsupported configs, load and validation boundaries",
+      "description": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "scope": "Representative dense/MoE/multimodal families, HF/safetensors/GGUF, quantization/layouts, operations, loading, unsupported boundaries.",
+      "weight": 33,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Unknown/unsupported coverage is explicit and never inferred from family detection."
+      ],
+      "dependencies": [
+        "compatibility.families",
+        "compatibility.formats"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/goal-reality-gap-matrix.md",
+          "label": "goal-reality-gap-matrix.md"
+        },
+        {
+          "path": "docs/research/iq-family-support-boundary.md",
+          "label": "iq-family-support-boundary.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Resolve high-value unknown model/format/operation cells.",
+      "limitations": [
+        "MoE PRs are not integrated; multimodal unverified."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/goal-reality-gap-matrix.md",
+              "label": "goal-reality-gap-matrix.md"
+            },
+            {
+              "path": "docs/research/iq-family-support-boundary.md",
+              "label": "iq-family-support-boundary.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "hardware.resources",
+      "workstream": "hardware",
+      "title": "CPU/CUDA/hybrid/offload, RAM/VRAM/peak use and model loading",
+      "description": "CPU/CUDA/offload/hybrid, RAM/VRAM/peak memory, loading, prefill/decode/TTFT/latency, bandwidth, kernels, consumer hardware and runtimes.",
+      "scope": "CPU/CUDA/offload/hybrid, RAM/VRAM/peak memory, loading, prefill/decode/TTFT/latency, bandwidth, kernels, consumer hardware and runtimes.",
+      "weight": 50,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Repeated runs record peak RSS/VRAM, load time, offload, ceilings and failures."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-consumer-scale-evidence.md",
+          "label": "v0.8-consumer-scale-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.3-hardware-profile-v1.json",
+          "label": "v1.3-hardware-profile-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Cover consumer GPU and CPU-only profiles with peaks.",
+      "limitations": [
+        "Hardware evidence is machine/configuration-specific."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-consumer-scale-evidence.md",
+              "label": "v0.8-consumer-scale-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.3-hardware-profile-v1.json",
+              "label": "v1.3-hardware-profile-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "hardware.inference",
+      "workstream": "hardware",
+      "title": "Prefill/decode throughput, TTFT, latency, bandwidth and kernels",
+      "description": "CPU/CUDA/offload/hybrid, RAM/VRAM/peak memory, loading, prefill/decode/TTFT/latency, bandwidth, kernels, consumer hardware and runtimes.",
+      "scope": "CPU/CUDA/offload/hybrid, RAM/VRAM/peak memory, loading, prefill/decode/TTFT/latency, bandwidth, kernels, consumer hardware and runtimes.",
+      "weight": 50,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Paired repeated source/candidate inference reports intervals and exact runtime configuration."
+      ],
+      "dependencies": [
+        "hardware.resources"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.7-llama-cpp-throughput-evidence.md",
+          "label": "v0.7-llama-cpp-throughput-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.2-deployment-benchmark-evidence-v1.json",
+          "label": "v1.2-deployment-benchmark-evidence-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Demonstrate reproducible model-scale improvement on consumer hardware.",
+      "limitations": [
+        "Parameter or disk reduction alone is not acceleration."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.7-llama-cpp-throughput-evidence.md",
+              "label": "v0.7-llama-cpp-throughput-evidence.md"
+            },
+            {
+              "path": "docs/research/v1.2-deployment-benchmark-evidence-v1.json",
+              "label": "v1.2-deployment-benchmark-evidence-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "benchmarking.quality",
+      "workstream": "benchmarking",
+      "title": "Perplexity, code, reasoning, language, instruction, long-context and generalization",
+      "description": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "scope": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Pinned independent tasks measure baseline/candidate quality and uncertainty for declared use."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-task-quality-acceptance-evidence-v1.json",
+          "label": "first-party-hf-task-quality-acceptance-evidence-v1.json"
+        },
+        {
+          "path": "docs/research/task-quality-code-exact-match-v1.jsonl",
+          "label": "task-quality-code-exact-match-v1.jsonl"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Expand task sizes and reasoning/language/long-context checks.",
+      "limitations": [
+        "Four-example exact-match checks do not substantiate broad task quality."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/first-party-hf-task-quality-acceptance-evidence-v1.json",
+              "label": "first-party-hf-task-quality-acceptance-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/task-quality-code-exact-match-v1.jsonl",
+              "label": "task-quality-code-exact-match-v1.jsonl"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "benchmarking.artifact",
+      "workstream": "benchmarking",
+      "title": "Physical size, parameters, reload, runtime, reliability and rollback",
+      "description": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "scope": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Bind source/output hashes, artifact reload, actual size, quality, failure and rollback evidence."
+      ],
+      "dependencies": [
+        "compatibility.formats"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v5.json",
+          "label": "first-party-hf-acceptance-evidence-v5.json"
+        },
+        {
+          "path": "docs/research/first-party-native-gguf-campaign-v1.json",
+          "label": "first-party-native-gguf-campaign-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Increase repetitions and exact format-cell coverage.",
+      "limitations": [
+        "Physical output/reload does not establish quality pass."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/first-party-hf-acceptance-evidence-v5.json",
+              "label": "first-party-hf-acceptance-evidence-v5.json"
+            },
+            {
+              "path": "docs/research/first-party-native-gguf-campaign-v1.json",
+              "label": "first-party-native-gguf-campaign-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "benchmarking.statistics",
+      "workstream": "benchmarking",
+      "title": "Independent splits/replays, significance, uncertainty and contamination prevention",
+      "description": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "scope": "Perplexity, coding/reasoning/language/instruction/long context, generalization, reload, performance/resources, statistics, independent replay and contamination.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Independent replay reproduces pinned results and contamination/leakage audits pass."
+      ],
+      "dependencies": [
+        "benchmarking.artifact",
+        "benchmarking.quality"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-benchmark-protocol-v1.json",
+          "label": "v1.1-benchmark-protocol-v1.json"
+        },
+        {
+          "path": "docs/research/v1.1-benchmark-contamination-license-audit-v1.json",
+          "label": "v1.1-benchmark-contamination-license-audit-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Add repeated independent optimizer superiority studies.",
+      "limitations": [
+        "A schema/protocol is not evidence of superiority."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-benchmark-protocol-v1.json",
+              "label": "v1.1-benchmark-protocol-v1.json"
+            },
+            {
+              "path": "docs/research/v1.1-benchmark-contamination-license-audit-v1.json",
+              "label": "v1.1-benchmark-contamination-license-audit-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "scientific_research.competitors",
+      "workstream": "scientific_research",
+      "title": "Literature and source investigation: Model Optimizer, llm-compressor, pruning, REAP, WANDA, SparseGPT, GGUF",
+      "description": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "scope": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "weight": 34,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Promising methods have pinned revisions/source paths/licenses and fair reproducible comparisons."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+          "label": "v1.1-unstructured-baseline-evidence-v1.json"
+        },
+        {
+          "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+          "label": "v1.1-structured-baseline-evidence-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Trace current upstream source and audit licenses before reuse.",
+      "limitations": [
+        "Existing availability studies are not performance comparisons."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+              "label": "v1.1-unstructured-baseline-evidence-v1.json"
+            },
+            {
+              "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+              "label": "v1.1-structured-baseline-evidence-v1.json"
+            }
+          ],
+          "reason": "Reassessed after separating source/availability review from an actual matched algorithm comparison."
+        }
+      ]
+    },
+    {
+      "id": "scientific_research.negative",
+      "workstream": "scientific_research",
+      "title": "Ablations, failures, negative hypotheses and independent research",
+      "description": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "scope": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "weight": 33,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Negative record includes falsifiable hypothesis, controls, artifacts, analysis and follow-up."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.0-scientific-results.md",
+          "label": "v1.0-scientific-results.md"
+        },
+        {
+          "path": "docs/research/v1.2-physical-pareto-study-v1.json",
+          "label": "v1.2-physical-pareto-study-v1.json"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Investigate random outperformance and transfer failures causally.",
+      "limitations": [
+        "Studies vary in scale and replication."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.0-scientific-results.md",
+              "label": "v1.0-scientific-results.md"
+            },
+            {
+              "path": "docs/research/v1.2-physical-pareto-study-v1.json",
+              "label": "v1.2-physical-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "scientific_research.emerging",
+      "workstream": "scientific_research",
+      "title": "GSQ/RCO, expert merging, recovery, meta-learning and novel methods",
+      "description": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "scope": "Literature/source review, replication, original methods, ablation, negative results, comparisons, generalization and emerging research.",
+      "weight": 33,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "New scoped methods include hypothesis, source pin/license and resource/test plan."
+      ],
+      "dependencies": [
+        "scientific_research.competitors",
+        "scientific_research.negative"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/goal.md",
+          "label": "goal.md"
+        },
+        {
+          "path": "ROADMAP.md",
+          "label": "ROADMAP.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Resolve GSQ/RCO provenance and maintain periodic literature review.",
+      "limitations": [
+        "Emerging avenue is not support or validated effect."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/goal.md",
+              "label": "goal.md"
+            },
+            {
+              "path": "ROADMAP.md",
+              "label": "ROADMAP.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "production_readiness.interfaces",
+      "workstream": "production_readiness",
+      "title": "CLI/Python/conversation and autonomous optimization boundaries",
+      "description": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "scope": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "weight": 34,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Interfaces use one bounded orchestrator; same request preserves constraints and canonical evidence."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/api-compatibility.md",
+          "label": "api-compatibility.md"
+        },
+        {
+          "path": "docs/release/v3.0-conversational-product-boundary.md",
+          "label": "v3.0-conversational-product-boundary.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Extend actual optimizer proof without expanding interface claims.",
+      "limitations": [
+        "UI maturity is not scientific optimizer effectiveness."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/api-compatibility.md",
+              "label": "api-compatibility.md"
+            },
+            {
+              "path": "docs/release/v3.0-conversational-product-boundary.md",
+              "label": "v3.0-conversational-product-boundary.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "production_readiness.safety",
+      "workstream": "production_readiness",
+      "title": "Transactions, immutable input, rollback, security, resource/error handling",
+      "description": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "scope": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Fault tests prove source immutability, bounded work and recovery in declared trust boundaries."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "ARCHITECTURE.md",
+          "label": "ARCHITECTURE.md"
+        },
+        {
+          "path": "docs/research/v0.7-atomic-safetensors-evidence.md",
+          "label": "v0.7-atomic-safetensors-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Extend regression tests and state process containment exclusions.",
+      "limitations": [
+        "Hostile process containment is not claimed."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "ARCHITECTURE.md",
+              "label": "ARCHITECTURE.md"
+            },
+            {
+              "path": "docs/research/v0.7-atomic-safetensors-evidence.md",
+              "label": "v0.7-atomic-safetensors-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    },
+    {
+      "id": "production_readiness.operations",
+      "workstream": "production_readiness",
+      "title": "Reproducibility, observability, docs/tests, packaging, deployment and maintenance",
+      "description": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "scope": "CLI/API/chat, autonomy, artifacts, verification, transaction/rollback, security, resources, errors, reproducibility, observability, docs, tests, packaging and deployment.",
+      "weight": 33,
+      "research_status": "physical_experiment_conducted",
+      "research_outcome": null,
+      "implementation_status": "integrated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "integrated_main",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "Clean environment reproduces bounded install/run; release boundary matches evidence."
+      ],
+      "dependencies": [
+        "production_readiness.interfaces",
+        "production_readiness.safety",
+        "benchmarking.statistics"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/release/v3.0-packaging-and-setup.md",
+          "label": "v3.0-packaging-and-setup.md"
+        },
+        {
+          "path": "docs/research/v1.0-windows-wsl-consumer-evidence.md",
+          "label": "v1.0-windows-wsl-consumer-evidence.md"
+        }
+      ],
+      "source_refs": [],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Validate wider runtime and maintenance matrix.",
+      "limitations": [
+        "Evidence-bounded release is not production-wide readiness."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "integrated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "integrated_main",
+          "evidence_refs": [
+            {
+              "path": "docs/release/v3.0-packaging-and-setup.md",
+              "label": "v3.0-packaging-and-setup.md"
+            },
+            {
+              "path": "docs/research/v1.0-windows-wsl-consumer-evidence.md",
+              "label": "v1.0-windows-wsl-consumer-evidence.md"
+            }
+          ],
+          "reason": "Initial conservative assessment against the pinned main commit."
+        }
+      ]
+    }
+  ],
+  "research_sources": [
+    {
+      "id": "wanda",
+      "project": "WANDA",
+      "url": "https://github.com/locuslab/wanda",
+      "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+      "license_spdx": "MIT",
+      "licence_status": "verified",
+      "licence_note": "Activation-aware pruning",
+      "method": "WANDA",
+      "relevance": "Activation scoring may beat random at matched sparsity.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "INTEGRATE/ADAPT",
+      "hypothesis": "Activation scoring may beat random at matched sparsity.",
+      "requirements": "Pinned runner, matched data/model, artifact, quality/performance/resources.",
+      "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
+      "remaining_investigation": "Run pinned executable against random/magnitude with physical outcomes.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
+          "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+          "licence_status": "verified",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "sparsegpt",
+      "project": "SparseGPT",
+      "url": "https://github.com/IST-DASLab/sparsegpt",
+      "pinned_revision": "147d2159dc4f3e9f73e47b32c04d7b3708f44436",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "Hessian-aware pruning",
+      "method": "SparseGPT",
+      "relevance": "Curvature update may improve quality at fixed sparsity.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "ADAPT/INTEGRATE",
+      "hypothesis": "Curvature update may improve quality at fixed sparsity.",
+      "requirements": "Source pin, calibration, equal sparsity, reload and held-out eval.",
+      "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
+      "remaining_investigation": "Run pinned implementation; measure consumer memory/time and quality.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
+          "pinned_revision": "147d2159dc4f3e9f73e47b32c04d7b3708f44436",
+          "licence_status": "verified",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "torch-pruning",
+      "project": "Torch-Pruning",
+      "url": "https://github.com/VainF/Torch-Pruning",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Dependency-aware structured pruning",
+      "method": "Torch-Pruning",
+      "relevance": "Dependency propagation may avoid invalid coupled edits.",
+      "research_status": "not_investigated",
+      "integration_approach": "ADAPT/REIMPLEMENT",
+      "hypothesis": "Dependency propagation may avoid invalid coupled edits.",
+      "requirements": "Source/license audit and physical architecture tests.",
+      "findings": "Not investigated.",
+      "remaining_investigation": "Inspect dependency graph and architecture tests.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "Not investigated.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "llm-pruner",
+      "project": "LLM-Pruner",
+      "url": "https://github.com/horseee/LLM-Pruner",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Structured LLM pruning/recovery",
+      "method": "LLM-Pruner",
+      "relevance": "Gradient-informed surgery may beat random/magnitude.",
+      "research_status": "not_investigated",
+      "integration_approach": "ADAPT",
+      "hypothesis": "Gradient-informed surgery may beat random/magnitude.",
+      "requirements": "Pin source, license, recovery budget and physical comparison.",
+      "findings": "Availability cells are not performance conclusions.",
+      "remaining_investigation": "Inspect scoring, tensor coupling and license.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "Availability cells are not performance conclusions.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "slice-gpt",
+      "project": "SliceGPT",
+      "url": "https://github.com/microsoft/TransformerCompression",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Rotation-based dimension reduction",
+      "method": "SliceGPT",
+      "relevance": "Rotation can reduce quality loss under width reduction.",
+      "research_status": "not_investigated",
+      "integration_approach": "REIMPLEMENT/INTEGRATE",
+      "hypothesis": "Rotation can reduce quality loss under width reduction.",
+      "requirements": "Source/license audit and reload/runtime tests.",
+      "findings": "No implementation comparison.",
+      "remaining_investigation": "Trace transform and exact architecture support.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "No implementation comparison.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "short-gpt",
+      "project": "ShortGPT",
+      "url": "https://github.com/RUCAIBox/ShortGPT",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Layer importance/depth pruning",
+      "method": "ShortGPT",
+      "relevance": "Hidden-state contribution predicts removable depth.",
+      "research_status": "not_investigated",
+      "integration_approach": "REIMPLEMENT/ADAPT",
+      "hypothesis": "Hidden-state contribution predicts removable depth.",
+      "requirements": "Pinned code, multiple seeds, tasks, runtime.",
+      "findings": "No implementation comparison.",
+      "remaining_investigation": "Trace scoring and compare with random layer removal.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "No implementation comparison.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "llm-compressor",
+      "project": "LLM Compressor",
+      "url": "https://github.com/vllm-project/llm-compressor",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Quantization/sparsity toolkit",
+      "method": "LLM Compressor",
+      "relevance": "Maintained adapter could provide strong PTQ baselines.",
+      "research_status": "not_investigated",
+      "integration_approach": "INTEGRATE",
+      "hypothesis": "Maintained adapter could provide strong PTQ baselines.",
+      "requirements": "Pinned model/data, runtime and consumer feasibility.",
+      "findings": "No adapter or result.",
+      "remaining_investigation": "Audit APIs, recipes, dependencies, licenses.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "No adapter or result.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "nvidia-model-optimizer",
+      "project": "NVIDIA Model Optimizer",
+      "url": "https://github.com/NVIDIA/Model-Optimizer",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Quantization, sparsity, distillation",
+      "method": "NVIDIA Model Optimizer",
+      "relevance": "Mature recipes may improve frontier on supported cells.",
+      "research_status": "not_investigated",
+      "integration_approach": "INTEGRATE",
+      "hypothesis": "Mature recipes may improve frontier on supported cells.",
+      "requirements": "Pinned recipes and fair hardware comparisons.",
+      "findings": "No adapter or result.",
+      "remaining_investigation": "Inspect licenses and source paths; test RTX 3060 feasibility.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "No adapter or result.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "reap",
+      "project": "REAP (Crucible implementation)",
+      "url": "https://github.com/peonist-ai/crucible",
+      "pinned_revision": "dacdb43eef0630de6dafe5c54bdbd2961ea6295c",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "The implementation is in packages/crucible and that package has its own Apache-2.0 LICENSE at the pinned revision. No source code copied.",
+      "method": "Router-weighted expert activation saliency: average selected-token gate weight multiplied by expert output activation L2 norm; prune lowest per layer. Grouped routers partition keep budget per group.",
+      "relevance": "Combined expert signals may improve quality retention.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "ADAPT or independently implement only after matched physical comparisons.",
+      "hypothesis": "Router-weighted activation saliency may retain more useful experts than router norm or random at equal expert count.",
+      "requirements": "Pinned method source, fixed calibration/held-out tokens, group routing constraints, random/router/activation controls, artifact reload and inference/resource measurements.",
+      "findings": "Inspected observer.compute_reap_scores and reap._select_experts. Score averages over tokens selecting each expert (not global frequency); grouped routing enforces equal group budgets. No ModelSurgeon comparative outcome is established.",
+      "remaining_investigation": "Audit all architecture and padding paths; reproduce quality and throughput against random/router/activation selection on same MoE checkpoint.",
+      "source_paths": [
+        "packages/crucible/crucible/methods/observer.py",
+        "packages/crucible/crucible/methods/reap.py",
+        "packages/crucible/crucible/methods/ream.py",
+        "packages/crucible/LICENSE"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Inspected observer.compute_reap_scores and reap._select_experts. Score averages over tokens selecting each expert (not global frequency); grouped routing enforces equal group budgets. No ModelSurgeon comparative outcome is established.",
+          "pinned_revision": "dacdb43eef0630de6dafe5c54bdbd2961ea6295c",
+          "licence_status": "verified",
+          "source_paths": [
+            "packages/crucible/crucible/methods/observer.py",
+            "packages/crucible/crucible/methods/reap.py",
+            "packages/crucible/crucible/methods/ream.py",
+            "packages/crucible/LICENSE"
+          ],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "llama-cpp",
+      "project": "llama.cpp",
+      "url": "https://github.com/ggml-org/llama.cpp",
+      "pinned_revision": "c7fc5094179bf8a9c73c18593db714f8da41a402",
+      "license_spdx": null,
+      "licence_status": "declared_unverified",
+      "licence_note": "Runtime revision recorded in benchmark evidence; source licence audit remains outstanding.",
+      "method": "llama.cpp",
+      "relevance": "Selective GGUF transforms may bound RAM and preserve untouched bytes.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "INTEGRATE external pinned runtime",
+      "hypothesis": "Selective GGUF transforms may bound RAM and preserve untouched bytes.",
+      "requirements": "Pin, codec tests, reload and deployment benchmarks.",
+      "findings": "Bounded GGUF validation and runtime evidence exists.",
+      "remaining_investigation": "Record exact source pin/license, expand codecs only with tests.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Bounded GGUF validation and runtime evidence exists.",
+          "pinned_revision": "c7fc5094179bf8a9c73c18593db714f8da41a402",
+          "licence_status": "declared_unverified",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "gsq-rco",
+      "project": "GSQ / RCO",
+      "url": "https://github.com/search?q=GSQ+RCO+quantization&type=repositories",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Sensitivity-aware quantization research",
+      "method": "GSQ / RCO",
+      "relevance": "Sensitivity precision allocation may improve size/quality frontier.",
+      "research_status": "not_investigated",
+      "integration_approach": "REIMPLEMENT after source identity",
+      "hypothesis": "Sensitivity precision allocation may improve size/quality frontier.",
+      "requirements": "Primary source, matched quantizer baseline.",
+      "findings": "No result claimed.",
+      "remaining_investigation": "Resolve paper/repository, source pin and license.",
+      "source_paths": [],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "No result claimed.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "reamon",
+      "project": "REAmon progress system",
+      "url": "https://github.com/xdCloudy/REAmon",
+      "pinned_revision": "d8e38630691e9cfb34d9a99864fa18fdc6c995fc",
+      "license_spdx": "MIT",
+      "licence_status": "verified",
+      "licence_note": "Weighted canonical progress JSON and generated docs",
+      "method": "Weighted canonical progress JSON and generated docs",
+      "relevance": "Canonical data plus check-only generation reduces drift.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "REIMPLEMENT independently",
+      "hypothesis": "Canonical data plus check-only generation reduces drift.",
+      "requirements": "Schema, evidence, deterministic output and CI stale check.",
+      "findings": "No source code copied; independent Python stdlib generator.",
+      "remaining_investigation": "Maintain tests and review scope additions.",
+      "source_paths": [
+        "tooling/reamon/update-product-progress.mjs",
+        "docs/REAMON_PROGRESS.json"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "No source code copied; independent Python stdlib generator.",
+          "pinned_revision": "d8e38630691e9cfb34d9a99864fa18fdc6c995fc",
+          "licence_status": "verified",
+          "source_paths": [
+            "tooling/reamon/update-product-progress.mjs",
+            "docs/REAMON_PROGRESS.json"
+          ],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "crucible",
+      "project": "Crucible (REAP / REAM)",
+      "url": "https://github.com/peonist-ai/crucible",
+      "pinned_revision": "dacdb43eef0630de6dafe5c54bdbd2961ea6295c",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "Package implementation and package LICENSE are in packages/crucible at the pinned commit; no code copied.",
+      "method": "MoE expert saliency pruning (REAP) and saliency-weighted expert merging (REAM).",
+      "relevance": "Concrete source for router/activation expert pruning and a candidate expert-merging baseline.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "ADAPT/INTEGRATE behind architecture adapter only if fair physical results justify it.",
+      "hypothesis": "Sequential saliency-weighted merging may preserve quality better than expert deletion alone, at added calibration and compute cost.",
+      "requirements": "Inspect merging math and assignment, isolate supported model layouts, compare prune-only/merge/no-repair on held-out quality and runtime costs.",
+      "findings": "REAP uses per-selected-token gate × activation norm; REAM forms saliency-weighted expert centroids with assignment and layerwise activation recomputation. No comparative ModelSurgeon result.",
+      "remaining_investigation": "Trace assignment, merge reconstruction, memory, numerical and grouped-router edge cases; reproduce on consumer-hardware compatible MoE.",
+      "source_paths": [
+        "packages/crucible/crucible/methods/reap.py",
+        "packages/crucible/crucible/methods/ream.py",
+        "packages/crucible/crucible/methods/assignment.py",
+        "packages/crucible/crucible/methods/observer.py",
+        "packages/crucible/LICENSE"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "REAP uses per-selected-token gate × activation norm; REAM forms saliency-weighted expert centroids with assignment and layerwise activation recomputation. No comparative ModelSurgeon result.",
+          "pinned_revision": "dacdb43eef0630de6dafe5c54bdbd2961ea6295c",
+          "licence_status": "verified",
+          "source_paths": [
+            "packages/crucible/crucible/methods/reap.py",
+            "packages/crucible/crucible/methods/ream.py",
+            "packages/crucible/crucible/methods/assignment.py",
+            "packages/crucible/crucible/methods/observer.py",
+            "packages/crucible/LICENSE"
+          ],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "moe-surgeon",
+      "project": "MoE-Surgeon",
+      "url": "https://github.com/netsky-lab/moe-surgeon",
+      "pinned_revision": "63fa2a96aef70f122546ad2d1fed5fd182b346f4",
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "GitHub repository metadata has no SPDX license; do not copy or add as dependency until an applicable code license is verified.",
+      "method": "Deterministic MoE expert frequency, router-mass, and combined pruning strategies.",
+      "relevance": "Potential baseline for stable scorer interfaces and auditable selection; adjacent to REAP but distinct scoring.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "REIMPLEMENT principles or compare as an isolated executable; no direct reuse pending license.",
+      "hypothesis": "Frequency/router-mass combinations may be stable, deterministic controls for REAP and random baselines.",
+      "requirements": "Inspect pinned source and tests, verify supported topologies, run matched expert counts and held-out physical inference measurements.",
+      "findings": "Inspected prune/strategies.py: deterministic strategy metadata declares frequency, router_mass, combined with fixed 0.7/0.3 weights and canonical tie-break. No physical ModelSurgeon comparison.",
+      "remaining_investigation": "Check complete repo notices, score normalization, stats aggregation, and runtime/model coverage before any incorporation.",
+      "source_paths": [
+        "src/moe_surgeon/prune/strategies.py",
+        "src/moe_surgeon/prune/planner.py",
+        "src/moe_surgeon/prune/apply.py"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Inspected prune/strategies.py: deterministic strategy metadata declares frequency, router_mass, combined with fixed 0.7/0.3 weights and canonical tie-break. No physical ModelSurgeon comparison.",
+          "pinned_revision": "63fa2a96aef70f122546ad2d1fed5fd182b346f4",
+          "licence_status": "unknown",
+          "source_paths": [
+            "src/moe_surgeon/prune/strategies.py",
+            "src/moe_surgeon/prune/planner.py",
+            "src/moe_surgeon/prune/apply.py"
+          ],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "minitron",
+      "project": "Minitron",
+      "url": "https://github.com/NVLabs/Minitron",
+      "pinned_revision": "fed740c91886155e1f272159ef662536bb673593",
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Pinned repository has README-only source and no SPDX code license; README describes model releases under NVIDIA Open Model License Agreement, which is not assumed to license code reuse.",
+      "method": "Homogeneous width/depth pruning followed by continued training and knowledge distillation.",
+      "relevance": "Established combined structured-pruning and recovery research for embedding, head, MLP, and depth axes.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "REIMPLEMENT from paper/independently implement; no code incorporation until code and license are identified.",
+      "hypothesis": "A uniform prune-then-distill baseline may retain quality better than no repair at moderate compression, at substantial training cost.",
+      "requirements": "Pin the paper/model/runtime, reproduce on supported small checkpoints, compare no-repair and distillation costs/quality; do not treat model license as code license.",
+      "findings": "Repository at pinned revision contains README and images, not the pruning implementation; README describes width/depth pruning followed by distillation and cites arXiv:2407.14679. No matched ModelSurgeon benchmark.",
+      "remaining_investigation": "Find an independently licensed reproducible implementation, audit actual data/training budget and compare on consumer hardware.",
+      "source_paths": [
+        "README.md"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "Repository at pinned revision contains README and images, not the pruning implementation; README describes width/depth pruning followed by distillation and cites arXiv:2407.14679. No matched ModelSurgeon benchmark.",
+          "pinned_revision": "fed740c91886155e1f272159ef662536bb673593",
+          "licence_status": "unknown",
+          "source_paths": [
+            "README.md"
+          ],
+          "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        }
+      ]
+    },
+    {
+      "id": "llm-surgeon",
+      "project": "LLM-Surgeon (Qualcomm)",
+      "url": "https://github.com/Qualcomm-AI-research/llm-surgeon",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Not yet independently audited; no code reuse or dependency until source license and revision are verified.",
+      "method": "LLM layer/head/neuron importance and structured compression",
+      "relevance": "Potential established baseline for llm layer/head/neuron importance and structured compression.",
+      "research_status": "not_investigated",
+      "research_outcome": null,
+      "integration_approach": "INTEGRATE or ADAPT only after source, license, hardware, and matched benchmark audit.",
+      "hypothesis": "Layerwise importance with reconstruction may outperform simple structural heuristics while preserving task quality.",
+      "requirements": "Pin source and license, trace tensor transforms and compare against random/magnitude with matched physical candidates.",
+      "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+      "remaining_investigation": "Resolve current upstream revision and SPDX coverage, inspect algorithm entry points/tests, then reproduce under the pinned benchmark protocol.",
+      "source_paths": [],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Added as an identified research avenue; exact revision and licensing review are pending."
+        }
+      ]
+    },
+    {
+      "id": "gptq",
+      "project": "GPTQ",
+      "url": "https://github.com/IST-DASLab/gptq",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Not yet independently audited; no code reuse or dependency until source license and revision are verified.",
+      "method": "Hessian-based post-training weight quantization",
+      "relevance": "Potential established baseline for hessian-based post-training weight quantization.",
+      "research_status": "not_investigated",
+      "research_outcome": null,
+      "integration_approach": "INTEGRATE or ADAPT only after source, license, hardware, and matched benchmark audit.",
+      "hypothesis": "Second-order calibration can reduce quantization error at equivalent bit width.",
+      "requirements": "Audit exact source/version/license; compare artifact size, perplexity/tasks, peak memory and runtime to established GGUF/HF quantizers.",
+      "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+      "remaining_investigation": "Resolve current upstream revision and SPDX coverage, inspect algorithm entry points/tests, then reproduce under the pinned benchmark protocol.",
+      "source_paths": [],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Added as an identified research avenue; exact revision and licensing review are pending."
+        }
+      ]
+    },
+    {
+      "id": "awq",
+      "project": "AWQ",
+      "url": "https://github.com/mit-han-lab/llm-awq",
+      "pinned_revision": null,
+      "license_spdx": null,
+      "licence_status": "unknown",
+      "licence_note": "Not yet independently audited; no code reuse or dependency until source license and revision are verified.",
+      "method": "Activation-aware weight quantization",
+      "relevance": "Potential established baseline for activation-aware weight quantization.",
+      "research_status": "not_investigated",
+      "research_outcome": null,
+      "integration_approach": "INTEGRATE or ADAPT only after source, license, hardware, and matched benchmark audit.",
+      "hypothesis": "Activation-aware scaling can improve low-bit quality at matched deployable size.",
+      "requirements": "Audit current source/version/license and run matched quantization with held-out quality and inference/resource measurements.",
+      "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+      "remaining_investigation": "Resolve current upstream revision and SPDX coverage, inspect algorithm entry points/tests, then reproduce under the pinned benchmark protocol.",
+      "source_paths": [],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "not_investigated",
+          "research_outcome": null,
+          "findings": "Not investigated in this inventory assessment; no measured result claimed.",
+          "pinned_revision": null,
+          "licence_status": "unknown",
+          "source_paths": [],
+          "reason": "Added as an identified research avenue; exact revision and licensing review are pending."
+        }
+      ]
+    }
+  ],
+  "compatibility_cells": [
+    {
+      "id": "hf-llama-mlp",
+      "architecture": "Llama",
+      "model_scope": "named tiny/pretrained checkpoints",
+      "format": "Hugging Face/safetensors",
+      "quantization": "FP16/BF16",
+      "operation": "MLP channel surgery",
+      "status": "verified",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v3.json",
+          "label": "first-party-hf-acceptance-evidence-v3.json"
+        }
+      ],
+      "limitations": [
+        "Exact tested checkpoints/configurations only."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "hf-mistral-mlp",
+      "architecture": "Mistral",
+      "model_scope": "named tiny/pretrained checkpoints",
+      "format": "Hugging Face/safetensors",
+      "quantization": "FP16/BF16",
+      "operation": "MLP channel surgery",
+      "status": "verified",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v3.json",
+          "label": "first-party-hf-acceptance-evidence-v3.json"
+        }
+      ],
+      "limitations": [
+        "Not all Mistral variants."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "hf-smollm-attn-layer",
+      "architecture": "SmolLM/SmolLM2",
+      "model_scope": "named 135M checkpoints",
+      "format": "Hugging Face/safetensors",
+      "quantization": "FP16/FP32",
+      "operation": "attention head and layer surgery",
+      "status": "experimental",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v4.json",
+          "label": "first-party-hf-acceptance-evidence-v4.json"
+        },
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v5.json",
+          "label": "first-party-hf-acceptance-evidence-v5.json"
+        }
+      ],
+      "limitations": [
+        "Some strict-gate failures retained."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "hf-qwen-mlp",
+      "architecture": "Qwen2/Qwen2.5",
+      "model_scope": "named 0.5B checkpoints",
+      "format": "Hugging Face/safetensors",
+      "quantization": "FP16/FP32",
+      "operation": "MLP surgery",
+      "status": "verified",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-acceptance-evidence-v3.json",
+          "label": "first-party-hf-acceptance-evidence-v3.json"
+        },
+        {
+          "path": "docs/research/first-party-hf-chat-task-quality-acceptance-evidence-v1.json",
+          "label": "first-party-hf-chat-task-quality-acceptance-evidence-v1.json"
+        }
+      ],
+      "limitations": [
+        "Small named checkpoint/task scope."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "gguf-llama-q4-mlp",
+      "architecture": "Llama",
+      "model_scope": "named Q4_K_M proof checkpoint",
+      "format": "GGUF",
+      "quantization": "Q4_K_M",
+      "operation": "bounded MLP channel surgery",
+      "status": "verified",
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.7-native-q4-k-m-mlp-proof.md",
+          "label": "v0.7-native-q4-k-m-mlp-proof.md"
+        }
+      ],
+      "limitations": [
+        "Pinned runtime/geometry and exact operation only."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "gguf-qwen-dense",
+      "architecture": "Dense Qwen",
+      "model_scope": "named dense Qwen target",
+      "format": "GGUF",
+      "quantization": "verified codecs only",
+      "operation": "bounded MLP optimizer path",
+      "status": "experimental",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-native-gguf-campaign-v1.json",
+          "label": "first-party-native-gguf-campaign-v1.json"
+        }
+      ],
+      "limitations": [
+        "Physical children failed quality gate."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "gguf-smollm-q4",
+      "architecture": "SmolLM2",
+      "model_scope": "named 135M fixture",
+      "format": "GGUF",
+      "quantization": "Q4_K_M",
+      "operation": "MLP surgery",
+      "status": "experimental",
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-native-gguf-campaign-v1.json",
+          "label": "first-party-native-gguf-campaign-v1.json"
+        }
+      ],
+      "limitations": [
+        "All measured candidates failed quality gate."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "gguf-qwen35-moe",
+      "architecture": "Qwen3.5 MoE",
+      "model_scope": "specific MoE checkpoint",
+      "format": "GGUF",
+      "quantization": "Q4_K_M",
+      "operation": "expert selection/slicing",
+      "status": "research_only",
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-structured-baseline-evidence-v1.json",
+          "label": "v1.1-structured-baseline-evidence-v1.json"
+        }
+      ],
+      "limitations": [
+        "PRs #736/#738 are unmerged; not main support."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "hf-gemma",
+      "architecture": "Gemma",
+      "model_scope": "no representative physical checkpoint",
+      "format": "Hugging Face/safetensors",
+      "quantization": "unknown",
+      "operation": "structural surgery",
+      "status": "unknown",
+      "evidence_refs": [
+        {
+          "path": "docs/architecture-compatibility.md",
+          "label": "architecture-compatibility.md"
+        }
+      ],
+      "limitations": [
+        "Architecture recognition is not physical support."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    },
+    {
+      "id": "multimodal",
+      "architecture": "Multimodal",
+      "model_scope": "no representative bounded cell",
+      "format": "HF or GGUF",
+      "quantization": "unknown",
+      "operation": "cross-modal surgery",
+      "status": "unsupported",
+      "evidence_refs": [
+        {
+          "path": "docs/research/goal-reality-gap-matrix.md",
+          "label": "goal-reality-gap-matrix.md"
+        }
+      ],
+      "limitations": [
+        "No multimodal surgery claim."
+      ],
+      "assessment_date": "2026-10-27",
+      "weight": 1
+    }
+  ],
+  "benchmark_records": [
+    {
+      "id": "cross-family-transfer",
+      "name": "Cross-family Meta-Surgeon",
+      "method": "learned vs heuristic",
+      "model_scope": "bounded Llama/Qwen/SmolLM",
+      "dataset": "pinned mutation corpus",
+      "split": "grouped held-out family",
+      "outcome": "negative",
+      "finding": "Held-out-family R-squared was negative; transfer advantage not established.",
+      "limitations": [
+        "Few model families."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q6-cross-family-transfer-evidence.md",
+          "label": "v0.8-q6-cross-family-transfer-evidence.md"
+        },
+        {
+          "path": "docs/research/v1.0-scientific-results.md",
+          "label": "v1.0-scientific-results.md"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "activation-random",
+      "name": "Activation scoring vs simple controls",
+      "method": "activation/random/magnitude",
+      "model_scope": "small HF models",
+      "dataset": "pinned calibration/test",
+      "split": "held-out mutations",
+      "outcome": "negative",
+      "finding": "Activation features did not show reliable gain over simple controls.",
+      "limitations": [
+        "Bounded cells."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q2-activation-feature-evidence.md",
+          "label": "v0.8-q2-activation-feature-evidence.md"
+        },
+        {
+          "path": "docs/research/v0.8-q4-pruning-baseline-evidence.md",
+          "label": "v0.8-q4-pruning-baseline-evidence.md"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "active-replay",
+      "name": "Active learning savings",
+      "method": "active vs random",
+      "model_scope": "Qwen replay",
+      "dataset": "retained study corpus",
+      "split": "offline replay",
+      "outcome": "inconclusive",
+      "finding": "Saved 38.4 experiments on average; broad quality advantage is unproven.",
+      "limitations": [
+        "Not a fresh physical multi-model campaign."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-active-learning-evidence.md",
+          "label": "v0.8-q7-active-learning-evidence.md"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "iterative-pruning",
+      "name": "Iterative pruning cost",
+      "method": "iterative vs single-step",
+      "model_scope": "bounded HF study",
+      "dataset": "pinned calibration/test",
+      "split": "held-out candidates",
+      "outcome": "negative",
+      "finding": "Delta improved -0.19473 to -0.20598, but study cost rose 1.76x with no latency gain.",
+      "limitations": [
+        "One bounded experiment."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q8-iterative-pruning-evidence.md",
+          "label": "v0.8-q8-iterative-pruning-evidence.md"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "hf-task-acceptance",
+      "name": "HF task quality acceptance",
+      "method": "candidate vs source",
+      "model_scope": "Qwen2.5-0.5B and SmolLM-135M",
+      "dataset": "four-example exact match",
+      "split": "recorded test split",
+      "outcome": "inconclusive",
+      "finding": "Qwen retained 4/4 but candidates failed perplexity; SmolLM baseline was inconclusive.",
+      "limitations": [
+        "Tiny task fixture."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-hf-task-quality-acceptance-evidence-v1.json",
+          "label": "first-party-hf-task-quality-acceptance-evidence-v1.json"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "native-gguf",
+      "name": "Native GGUF quality gate",
+      "method": "physical child vs source",
+      "model_scope": "SmolLM2-135M Q4_K_M",
+      "dataset": "pinned local text",
+      "split": "recorded campaign split",
+      "outcome": "negative",
+      "finding": "Three children reloaded but failed the declared quality gate; none promoted.",
+      "limitations": [
+        "One model/operation."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/first-party-native-gguf-campaign-v1.json",
+          "label": "first-party-native-gguf-campaign-v1.json"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "wanda-sparsegpt",
+      "name": "WANDA/SparseGPT availability",
+      "method": "pinned external baseline",
+      "model_scope": "100M Llama/500M Qwen",
+      "dataset": "baseline protocol",
+      "split": "3 seeds",
+      "outcome": "infeasible",
+      "finding": "24 cells remain unsupported because upstream executables are not bundled; this is not a performance result.",
+      "limitations": [
+        "No physical method comparison."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.1-unstructured-baseline-evidence-v1.json",
+          "label": "v1.1-unstructured-baseline-evidence-v1.json"
+        }
+      ],
+      "integrated_on_main": true,
+      "pull_requests": [],
+      "assessment_date": "2026-10-27"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "meta-surgeon-utility",
+      "description": "Learned Meta-Surgeon has no demonstrated reliable physical advantage over strong random/heuristic baselines on unseen models.",
+      "impact": "Central scientific goal remains unproven.",
+      "next_action": "Run preregistered equal-budget model-grouped physical comparisons with independent task and deployment measurements."
+    },
+    {
+      "id": "moe-evidence",
+      "description": "Qwen MoE expert surgery/REAP comparisons remain in open PRs.",
+      "impact": "No main-integrated MoE support or accepted quality/performance result.",
+      "next_action": "Complete matched methods and review dependency chain without counting branches as main."
+    },
+    {
+      "id": "upstream-baselines",
+      "description": "Upstream sparse/structured executables are not available in current test environment.",
+      "impact": "Comparative superiority claims lack measured established baselines.",
+      "next_action": "Audit licenses and implement pinned isolated adapters where appropriate."
+    }
+  ],
+  "priority_order": [
+    "meta_surgeon.decision",
+    "moe.selection",
+    "benchmarking.statistics",
+    "pruning.schedules",
+    "quantization.allocation"
+  ],
+  "retired_milestones": [],
+  "backlog_audit": {
+    "audit_date": "2026-10-27",
+    "main_commit": "6820c77c6c090bbbd7c821b16a39041f8c39c980",
+    "open_issue_count": 0,
+    "open_pull_request_count": 55,
+    "scope_note": "All 55 open PRs were enumerated; the following 20 optimization, evidence, and stacked-dependency PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.",
+    "notable_pull_requests": [
+      {
+        "number": 693,
+        "title": "Abstain on out-of-support Meta-Surgeon categories",
+        "head_branch": "codex/abstain-meta-unknown",
+        "base_branch": "main",
+        "relationship": "meta-surgeon support boundary",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 703,
+        "title": "Stream task-quality dataset loading",
+        "head_branch": "codex/stream-task-quality-dataset",
+        "base_branch": "main",
+        "relationship": "dataset dependency for #723",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 723,
+        "title": "Enable task-quality gates for native GGUF",
+        "head_branch": "codex/gguf-task-quality",
+        "base_branch": "codex/stream-task-quality-dataset",
+        "relationship": "stacked on #703",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 735,
+        "title": "Add activation-aware search baselines",
+        "head_branch": "codex/competitive-activation-baseline",
+        "base_branch": "main",
+        "relationship": "pruning baseline",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 736,
+        "title": "Add bounded Qwen3.5 MoE GGUF expert slicing",
+        "head_branch": "codex/qwen35moe-native-slice",
+        "base_branch": "main",
+        "relationship": "MoE physical surgery",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 737,
+        "title": "Plan GGUF quantization under exact byte budgets",
+        "head_branch": "codex/gguf-byte-budget-planner",
+        "base_branch": "main",
+        "relationship": "GGUF quantization planning",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 738,
+        "title": "Add sparse Qwen3.5 REAP scoring adapter",
+        "head_branch": "codex/qwen35moe-reap-scorer",
+        "base_branch": "main",
+        "relationship": "MoE expert scoring",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 746,
+        "title": "Add reproducible CUDA PyTorch setup",
+        "head_branch": "codex/hf-cuda-extra",
+        "base_branch": "main",
+        "relationship": "optional CUDA path",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 748,
+        "title": "Use immutable source model for distillation repair",
+        "head_branch": "codex/source-teacher-distillation",
+        "base_branch": "codex/acceptance-repair-arms",
+        "relationship": "stacked on #749",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 749,
+        "title": "Reject distillation repairs with no accepted update",
+        "head_branch": "codex/acceptance-repair-arms",
+        "base_branch": "main",
+        "relationship": "repair acceptance",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 764,
+        "title": "Weight gradient features by causal token count",
+        "head_branch": "codex/token-weighted-gradient-sensitivity",
+        "base_branch": "main",
+        "relationship": "Meta-Surgeon feature quality",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 765,
+        "title": "Calculate surrogate hypervolume improvement",
+        "head_branch": "codex/exact-surrogate-hypervolume",
+        "base_branch": "main",
+        "relationship": "surrogate search",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 766,
+        "title": "Cross-fit probability calibration selection",
+        "head_branch": "codex/crossfit-safety-calibration",
+        "base_branch": "main",
+        "relationship": "Meta-Surgeon calibration",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 767,
+        "title": "Prevent ranking study evidence leakage",
+        "head_branch": "codex/fix-ranking-objective-leakage",
+        "base_branch": "main",
+        "relationship": "Meta-Surgeon evaluation integrity",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 768,
+        "title": "Abstain on numeric extrapolation",
+        "head_branch": "codex/abstain-meta-numeric",
+        "base_branch": "codex/abstain-meta-unknown",
+        "relationship": "stacked on #693",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 769,
+        "title": "Normalize diversity feature distances",
+        "head_branch": "codex/normalize-diversity-distance",
+        "base_branch": "main",
+        "relationship": "diversity acquisition base",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 770,
+        "title": "Integrate feature diversity into acquisition",
+        "head_branch": "codex/integrate-diversity-acquisition",
+        "base_branch": "codex/normalize-diversity-distance",
+        "relationship": "stacked on #769",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 771,
+        "title": "Compare feature diversity in active learning",
+        "head_branch": "codex/evaluate-feature-diversity-acquisition",
+        "base_branch": "codex/integrate-diversity-acquisition",
+        "relationship": "stacked on #770",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 772,
+        "title": "Enforce integer search budgets",
+        "head_branch": "codex/strict-search-budget-integers",
+        "base_branch": "main",
+        "relationship": "search budget correctness",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 773,
+        "title": "Separate calibration and held-out splits",
+        "head_branch": "codex/fix-pruning-calibration-split",
+        "base_branch": "main",
+        "relationship": "pruning evaluation integrity",
+        "status": "open",
+        "integrated_on_main": false
+      }
+    ],
+    "dependency_chains": [
+      [
+        769,
+        770,
+        771
+      ],
+      [
+        693,
+        768
+      ],
+      [
+        749,
+        748
+      ],
+      [
+        703,
+        723
+      ]
+    ],
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. Recheck the 55-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration."
+  }
+}
