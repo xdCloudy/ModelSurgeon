@@ -9,6 +9,7 @@ closed instead of being represented as estimates.
 
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import math
@@ -106,10 +107,6 @@ def _digest_file(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return "sha256:" + digest.hexdigest()
-
-
-def _raw_digest_file(path: Path) -> str:
-    return _digest_file(path).removeprefix("sha256:")
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -299,20 +296,26 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
         return path
 
-    def _calibration(self) -> Path:
+    def _calibration(self) -> tuple[Path, str]:
         calibration = _mapping(self._resolved().get("calibration"), "calibration")
         path = _path(calibration.get("dataset"), "calibration.dataset")
         if not path.is_file():
             raise NativeGGUFOptimizeRuntimeError(
                 f"calibration.dataset must name an existing UTF-8 text file: {path}"
             )
+        digest = hashlib.sha256()
+        decoder = codecs.getincrementaldecoder("utf-8")()
         try:
-            path.read_text(encoding="utf-8")
+            with path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    decoder.decode(chunk)
+                    digest.update(chunk)
+                decoder.decode(b"", final=True)
         except UnicodeDecodeError as error:
             raise NativeGGUFOptimizeRuntimeError(
                 "calibration.dataset must be valid UTF-8"
             ) from error
-        return path
+        return path, digest.hexdigest()
 
     def _hardware(self, probe_path: Path | None = None) -> Mapping[str, object]:
         if self.runtime_hardware is None:
@@ -371,7 +374,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         if self.manifest is not None:
             return self.manifest
         calibration = _mapping(self._resolved().get("calibration"), "calibration")
-        path = self._calibration()
+        path, calibration_digest = self._calibration()
         dataset_revision = calibration.get("dataset_revision")
         if not isinstance(dataset_revision, str) or not dataset_revision.strip():
             raise NativeGGUFOptimizeRuntimeError(
@@ -379,7 +382,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
         self.manifest = LlamaCppPerplexityManifest(
             path,
-            _raw_digest_file(path),
+            calibration_digest,
             _integer(calibration.get("samples"), 512, "calibration.samples"),
             "local-text",
             dataset_revision,
@@ -1377,7 +1380,20 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             return "oom"
         if "timeout" in text or "timed out" in text:
             return "timeout"
+        if (
+            "no measured gguf candidate met" in text
+            or "deployment measurements failed a declared hard constraint" in text
+        ):
+            return "inconclusive"
+        if (
+            "not fully measured" in text
+            or "no measured gguf candidate has complete declared pareto objectives" in text
+            or "no published gguf artifact is available" in text
+        ):
+            return "unknown"
         if "unsupported" in text:
+            return "unsupported"
+        if "no representable native gguf mlp candidates exist" in text:
             return "unsupported"
         if "unknown" in text or "unavailable" in text:
             return "unknown"
@@ -1420,22 +1436,37 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             alternatives=alternatives,
         )
 
-    def _unsupported(self, stage: OptimizeStage, reason: str) -> StageResult:
+    def _boundary_outcome(self, stage: OptimizeStage, reason: str) -> StageResult:
+        classification = self._failure_classification(reason)
+        if classification in {"oom", "timeout", "runtime_failure"}:
+            return self._failed(stage, NativeGGUFOptimizeRuntimeError(reason))
+        if classification == "unknown":
+            evidence_outcome = OptimizationEvidenceOutcome.UNKNOWN
+            workflow_outcome = WorkflowOutcome.UNKNOWN
+            status = "unknown"
+        elif classification == "inconclusive":
+            evidence_outcome = OptimizationEvidenceOutcome.INCONCLUSIVE
+            workflow_outcome = WorkflowOutcome.UNKNOWN
+            status = "inconclusive"
+        else:
+            evidence_outcome = OptimizationEvidenceOutcome.UNSUPPORTED
+            workflow_outcome = WorkflowOutcome.UNSUPPORTED
+            status = "unsupported"
         try:
             reference = self._publish_evidence(
                 stage=stage.value,
                 state_id="boundary:" + stage.value,
-                outcome=OptimizationEvidenceOutcome.UNSUPPORTED,
-                failure={"reason": reason, "classification": self._failure_classification(reason)},
+                outcome=evidence_outcome,
+                failure={"reason": reason, "classification": classification},
                 lineage={"boundary": True},
             )
         except Exception:
             reference = None
         return StageResult(
-            WorkflowOutcome.UNSUPPORTED,
-            "unsupported_"
+            workflow_outcome,
+            status + "_"
             + hashlib.sha256(f"{self.plan.plan_id}:{stage.value}:{reason}".encode()).hexdigest(),
-            _canonical({"status": "unsupported", "reason": reason, "evidence": reference}),
+            _canonical({"status": status, "reason": reason, "evidence": reference}),
             complete=True,
         )
 
@@ -1526,7 +1557,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 )
             if stage is OptimizeStage.CAPABILITY:
                 if self.discovery.family not in {ModelFamily.LLAMA, ModelFamily.QWEN}:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage,
                         "native GGUF MLP optimization does not support family "
                         f"{self.discovery.family.value}",
@@ -1554,7 +1585,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             if stage is OptimizeStage.CANDIDATE_GENERATION:
                 self.candidates = self.candidates or self._generate_candidates()
                 if not self.candidates:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "no representable native GGUF MLP candidates exist"
                     )
                 return self._result(
@@ -1611,7 +1642,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     _mapping(self._resolved().get("repair"), "repair").get("method", "none")
                     != "none"
                 ):
-                    return self._unsupported(stage, "native GGUF repair is not implemented")
+                    return self._boundary_outcome(stage, "native GGUF repair is not implemented")
                 return self._result(
                     stage,
                     {
@@ -1631,7 +1662,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     )
                     != "none"
                 ):
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "native GGUF additional quantization is not implemented"
                     )
                 return self._result(
@@ -1660,14 +1691,14 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 )
             if stage is OptimizeStage.PARETO:
                 if self.artifact_digest is None or self.selected is None:
-                    return self._unsupported(stage, "no published GGUF artifact is available")
+                    return self._boundary_outcome(stage, "no published GGUF artifact is available")
                 if self.deployment_constraints_passed is not True:
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "deployment measurements failed a declared hard constraint"
                     )
                 frontier = self.measured_frontier or self._frontier()
                 if frontier.get("status") != "measured":
-                    return self._unsupported(
+                    return self._boundary_outcome(
                         stage, "GGUF Pareto objectives were not fully measured"
                     )
                 raw_frontier_ids = frontier.get("frontier_candidate_ids", ())
@@ -1703,7 +1734,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 )
             raise NativeGGUFOptimizeRuntimeError(f"unsupported optimize stage: {stage.value}")
         except NativeGGUFOptimizeRuntimeError as error:
-            return self._unsupported(stage, str(error))
+            return self._boundary_outcome(stage, str(error))
         except Exception as error:
             return self._failed(stage, error)
 

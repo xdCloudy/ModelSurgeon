@@ -2,11 +2,32 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.config import CalibrationConfig, ModelConfig, RuntimeConfig, Settings
 from modelsurgeon.first_party_optimize_runtime import build_first_party_optimize_runtime
 from modelsurgeon.native_gguf_optimize_runtime import NativeGGUFOptimizeRuntime
 from modelsurgeon.optimization import build_optimize_plan
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        ("no measured GGUF candidate met the declared quality-retention floor", "inconclusive"),
+        ("deployment measurements failed a declared hard constraint", "inconclusive"),
+        ("GGUF Pareto objectives were not fully measured", "unknown"),
+        ("no measured GGUF candidate has complete declared Pareto objectives", "unknown"),
+        ("no published GGUF artifact is available", "unknown"),
+        ("unsupported quantization layout", "unsupported"),
+        ("no representable native GGUF MLP candidates exist", "unsupported"),
+        ("llama-perplexity timed out", "timeout"),
+        ("out of memory while loading the model", "oom"),
+        ("writer raised an unexpected error", "runtime_failure"),
+    ],
+)
+def test_native_boundary_failure_classification(detail: str, expected: str) -> None:
+    assert NativeGGUFOptimizeRuntime._failure_classification(detail) == expected
 
 
 def test_first_party_builder_selects_native_gguf_runtime() -> None:
