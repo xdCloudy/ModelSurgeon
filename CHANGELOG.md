@@ -6,7 +6,11 @@
     causal target equally across calibration chunks, matching the corpus-level
     loss used for perplexity and preventing a short final chunk from skewing
     first-order sensitivity estimates. Each chunk now backpropagates before the
-    next forward pass, bounding activation-graph memory to one sequence chunk.
+  next forward pass, bounding activation-graph memory to one sequence chunk.
+  Where PyTorch supports per-parameter gradient dtypes, low-precision model
+  weights now accumulate gradients in float32; this prevents chunk-wise
+  rounding from changing boundary channel selections while preserving the
+  configured forward precision.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

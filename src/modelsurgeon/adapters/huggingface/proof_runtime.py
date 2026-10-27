@@ -1097,6 +1097,14 @@ class HuggingFaceMLPProofRuntime:
             id(parameter): bool(parameter.requires_grad) for parameter in self.model.parameters()
         }
         requested_parameter_ids = {id(item) for item in requested_parameters}
+        supports_gradient_dtype = all(
+            hasattr(parameter, "grad_dtype") for parameter in requested_parameters
+        )
+        original_gradient_dtypes = (
+            tuple((parameter, parameter.grad_dtype) for parameter in requested_parameters)
+            if supports_gradient_dtype
+            else ()
+        )
         for parameter in self.model.parameters():
             parameter.requires_grad_(id(parameter) in requested_parameter_ids)
 
@@ -1232,6 +1240,14 @@ class HuggingFaceMLPProofRuntime:
                 self._torch.cuda.synchronize(self._input_device)
 
         try:
+            self.model.zero_grad(set_to_none=True)
+            # Keep low-precision model weights for the forward pass, but avoid
+            # rounding every chunk's accumulated parameter gradient back to the
+            # weight dtype. Older PyTorch versions without grad_dtype retain the
+            # native accumulation behavior.
+            if supports_gradient_dtype:
+                for parameter in requested_parameters:
+                    parameter.grad_dtype = self._torch.float32
             report = collect_memory_telemetry(
                 "hf-mlp-channel-gradient-collection",
                 operation,
@@ -1244,6 +1260,8 @@ class HuggingFaceMLPProofRuntime:
             )
         finally:
             self.model.zero_grad(set_to_none=True)
+            for parameter, gradient_dtype in original_gradient_dtypes:
+                parameter.grad_dtype = gradient_dtype
             for parameter in self.model.parameters():
                 parameter.requires_grad_(original_requires_grad[id(parameter)])
         if len(holder) != 1 or len(token_holder) != 1:

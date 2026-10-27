@@ -125,7 +125,12 @@ def main() -> int:
     parser.add_argument("--calibration-text", required=True, type=Path)
     parser.add_argument("--sequence-length", type=int, default=128)
     parser.add_argument("--max-tokens", type=int, default=1024)
-    parser.add_argument("--layer", type=int, default=0)
+    parser.add_argument(
+        "--layer",
+        action="append",
+        type=int,
+        help="MLP layer to include; repeat for a full-model or multi-layer measurement",
+    )
     parser.add_argument("--seed", type=int, default=20261026)
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument(
@@ -137,7 +142,13 @@ def main() -> int:
     parser.add_argument("--local-files-only", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if args.sequence_length < 2 or args.max_tokens < 2 or args.layer < 0 or args.repeat < 1:
+    layers = tuple(args.layer or (0,))
+    if (
+        args.sequence_length < 2
+        or args.max_tokens < 2
+        or any(layer < 0 for layer in layers)
+        or args.repeat < 1
+    ):
         parser.error("sequence length, token budget, repeat count, and layer must be positive")
     if not args.calibration_text.is_file():
         parser.error("calibration text must be an existing file")
@@ -159,15 +170,32 @@ def main() -> int:
             tool_revision="gradient-graph-memory-benchmark-v1",
         )
     )
-    selected_parameters = tuple(runtime._projection_weights(args.layer))
+    parameters_by_layer = {
+        layer: tuple(runtime._projection_weights(layer)) for layer in layers
+    }
+    selected_parameters = tuple(
+        parameter for parameters in parameters_by_layer.values() for parameter in parameters
+    )
     selected_ids = {id(parameter) for parameter in selected_parameters}
     original_requires_grad = tuple(
         (parameter, bool(parameter.requires_grad)) for parameter in runtime.model.parameters()
     )
-    weights_cpu = tuple(
-        parameter.detach().float().cpu().clone() for parameter in selected_parameters
+    supports_gradient_dtype = all(
+        hasattr(parameter, "grad_dtype") for parameter in selected_parameters
     )
+    original_gradient_dtypes = (
+        tuple((parameter, parameter.grad_dtype) for parameter in selected_parameters)
+        if supports_gradient_dtype
+        else ()
+    )
+    weights_cpu_by_layer = {
+        layer: tuple(parameter.detach().float().cpu().clone() for parameter in parameters)
+        for layer, parameters in parameters_by_layer.items()
+    }
     try:
+        if supports_gradient_dtype:
+            for parameter in selected_parameters:
+                parameter.grad_dtype = torch.float32
         for parameter, _ in original_requires_grad:
             parameter.requires_grad_(id(parameter) in selected_ids)
         total_tokens = sum(len(chunk) - 1 for chunk in runtime._chunks)
@@ -216,42 +244,51 @@ def main() -> int:
                 gradients_allclose = gradients_allclose and torch.allclose(
                     retained, streamed, rtol=1e-4, atol=1e-6
                 )
-            retained_scores = _first_order_removal_scores(
-                weights_cpu, gradients_by_mode["retained_graphs"]
-            )
-            streamed_scores = _first_order_removal_scores(
-                weights_cpu, gradients_by_mode["streamed_backward"]
-            )
-            score_difference = (retained_scores - streamed_scores).abs()
-            maximum_first_order_difference = max(
-                maximum_first_order_difference, float(score_difference.max())
-            )
-            score_maximum_absolute_value = max(
-                score_maximum_absolute_value,
-                float(torch.maximum(retained_scores.abs(), streamed_scores.abs()).max()),
-            )
-            score_denominator = torch.maximum(
-                retained_scores.abs(), streamed_scores.abs()
-            ).clamp_min(1e-12)
-            maximum_relative_first_order_difference = max(
-                maximum_relative_first_order_difference,
-                float((score_difference / score_denominator).max()),
-            )
-            first_order_scores_allclose = first_order_scores_allclose and torch.allclose(
-                retained_scores, streamed_scores, rtol=1e-4, atol=1e-6
-            )
-            minimum_score_spearman = min(
-                minimum_score_spearman,
-                _spearman_correlation(retained_scores, streamed_scores),
-            )
-            minimum_top_1_percent_overlap = min(
-                minimum_top_1_percent_overlap,
-                _top_fraction_overlap(retained_scores, streamed_scores, 0.01),
-            )
-            minimum_top_5_percent_overlap = min(
-                minimum_top_5_percent_overlap,
-                _top_fraction_overlap(retained_scores, streamed_scores, 0.05),
-            )
+            gradient_offsets = {layer: index * 3 for index, layer in enumerate(layers)}
+            for layer in layers:
+                offset = gradient_offsets[layer]
+                retained_layer_gradients = gradients_by_mode["retained_graphs"][
+                    offset : offset + 3
+                ]
+                streamed_layer_gradients = gradients_by_mode["streamed_backward"][
+                    offset : offset + 3
+                ]
+                retained_scores = _first_order_removal_scores(
+                    weights_cpu_by_layer[layer], retained_layer_gradients
+                )
+                streamed_scores = _first_order_removal_scores(
+                    weights_cpu_by_layer[layer], streamed_layer_gradients
+                )
+                score_difference = (retained_scores - streamed_scores).abs()
+                maximum_first_order_difference = max(
+                    maximum_first_order_difference, float(score_difference.max())
+                )
+                score_maximum_absolute_value = max(
+                    score_maximum_absolute_value,
+                    float(torch.maximum(retained_scores.abs(), streamed_scores.abs()).max()),
+                )
+                score_denominator = torch.maximum(
+                    retained_scores.abs(), streamed_scores.abs()
+                ).clamp_min(1e-12)
+                maximum_relative_first_order_difference = max(
+                    maximum_relative_first_order_difference,
+                    float((score_difference / score_denominator).max()),
+                )
+                first_order_scores_allclose = first_order_scores_allclose and torch.allclose(
+                    retained_scores, streamed_scores, rtol=1e-4, atol=1e-6
+                )
+                minimum_score_spearman = min(
+                    minimum_score_spearman,
+                    _spearman_correlation(retained_scores, streamed_scores),
+                )
+                minimum_top_1_percent_overlap = min(
+                    minimum_top_1_percent_overlap,
+                    _top_fraction_overlap(retained_scores, streamed_scores, 0.01),
+                )
+                minimum_top_5_percent_overlap = min(
+                    minimum_top_5_percent_overlap,
+                    _top_fraction_overlap(retained_scores, streamed_scores, 0.05),
+                )
 
         def summary(records: list[dict[str, object]]) -> dict[str, object]:
             return {
@@ -285,7 +322,11 @@ def main() -> int:
             "device": torch.cuda.get_device_name(0),
             "torch_version": torch.__version__,
             "dtype": args.dtype,
-            "layer": args.layer,
+            "gradient_accumulation_dtype": (
+                "float32" if supports_gradient_dtype else "parameter_default"
+            ),
+            "layer": layers[0] if len(layers) == 1 else None,
+            "layers": list(layers),
             "sequence_length": args.sequence_length,
             "max_tokens": args.max_tokens,
             "chunks": len(runtime._chunks),
@@ -318,6 +359,8 @@ def main() -> int:
         for parameter, requires_grad in original_requires_grad:
             parameter.requires_grad_(requires_grad)
         runtime.model.zero_grad(set_to_none=True)
+        for parameter, gradient_dtype in original_gradient_dtypes:
+            parameter.grad_dtype = gradient_dtype
     return 0
 
 
