@@ -5708,8 +5708,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
-    "open_pull_request_count": 58,
-    "scope_note": "All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
+    "open_pull_request_count": 59,
+    "scope_note": "All 59 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history and stacked #778 for bounded REAP evidence. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -5934,6 +5934,15 @@
         "head_branch": "codex/clarify-structural-surrogate-evidence",
         "base_branch": "codex/progress-inventory-refinement-20261027",
         "relationship": "stacked on #776; structural feature-path selector evaluation guard",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 778,
+        "title": "Track bounded Qwen3.5 REAP outcomes",
+        "head_branch": "codex/reap-progress-evidence",
+        "base_branch": "codex/clarify-structural-surrogate-evidence",
+        "relationship": "stacked on #777; records bounded CPU-only REAP experiments",
         "status": "open",
         "integrated_on_main": false
       }

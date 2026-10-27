@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 58 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 59 open PRs.
 
-All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
+All 59 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history and stacked #778 for bounded REAP evidence. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -47,6 +47,7 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#775: Prototype bounded KFAC structured removal costs](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system` | `codex/kfac-structured-sensitivity` | stacked on progress system PR #774; CPU-only research primitive | No |
 | [#776: Expand evidence-backed research milestones](https://github.com/xdCloudy/ModelSurgeon/pull/776) | `main` | `codex/progress-inventory-refinement-20261027` | expanded progress inventory foundation | No |
 | [#777: Fix structural Meta-Surgeon test-set selection](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027` | `codex/clarify-structural-surrogate-evidence` | stacked on #776; structural feature-path selector evaluation guard | No |
+| [#778: Track bounded Qwen3.5 REAP outcomes](https://github.com/xdCloudy/ModelSurgeon/pull/778) | `codex/clarify-structural-surrogate-evidence` | `codex/reap-progress-evidence` | stacked on #777; records bounded CPU-only REAP experiments | No |
 
 ## Triage
 

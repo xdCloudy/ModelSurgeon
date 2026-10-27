@@ -76,7 +76,7 @@ Current package version: **`1.0.0` (evidence-bounded research release)**. The v3
 **Learned Meta-Surgeon:** `████░░░░░░░░░░░░░░░░` 21.7%
 **Research coverage:** 49.9% · **Optimization effectiveness:** 6.0% · **Model compatibility:** 36.1% · **Production readiness:** 34.0%
 
-Assessment date: **2026-10-27** against main `589c609e1571`. Only evidence present on the assessed main commit contributes; open PRs are tracked but not counted as integrated. Backlog snapshot: **0 open issues / 58 open PRs**. Negative research can be complete while effectiveness remains zero. See the [scoring rules](docs/progress/README.md#scoring-method) and [PR backlog](docs/progress/PR_BACKLOG.md).
+Assessment date: **2026-10-27** against main `589c609e1571`. Only evidence present on the assessed main commit contributes; open PRs are tracked but not counted as integrated. Backlog snapshot: **0 open issues / 59 open PRs**. Negative research can be complete while effectiveness remains zero. See the [scoring rules](docs/progress/README.md#scoring-method) and [PR backlog](docs/progress/PR_BACKLOG.md).
 
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness | Details |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
