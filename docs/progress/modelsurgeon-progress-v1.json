@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.7",
+  "scope_version": "1.2.8",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer. Scope version 1.2.8 adds a pinned MIT WANDA source audit and an independently implemented structured activation-score baseline. On Qwen2.5-0.5B, KFAC ranks best across two short train calibration windows, but all candidate artifacts fail the quality gate and channel overlap across windows is low; no reproduction of original unstructured WANDA is claimed.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -65,6 +65,12 @@
       "scope_version": "1.2.7",
       "change": "Split a bounded Qwen2.5-0.5B KFAC physical replication into an independent milestone. It ranks KFAC ahead of magnitude and three random masks in one short held-out cell but fails the declared quality gate and requires a 14.97 GB planned workspace.",
       "previous_scope_version": "1.2.6"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.8",
+      "change": "Audited pinned WANDA source and MIT license; added an independent structured channel-level activation baseline and a second disjoint Qwen2 calibration-window comparison. KFAC ranked first twice but all candidates fail the quality gate; low mask overlap prevents claiming stable selections.",
+      "previous_scope_version": "1.2.7"
     }
   ],
   "workstreams": [
@@ -4462,7 +4468,7 @@
       "workstream": "pruning",
       "title": "KFAC singleton-additive channel selection on Qwen2.5-0.5B",
       "description": "Bounded CPU physical replication of KFAC, magnitude and random globally shared MLP-channel selection on one Qwen2.5 dense checkpoint.",
-      "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; 256 WikiText-2 train calibration target tokens; 1,024 WikiText-2 held-out target tokens; 64 globally shared MLP channels removed across 24 layers; one KFAC and magnitude selection plus three random seeds; no recovery.",
+      "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; two disjoint 256-target-token WikiText-2 train calibration windows at offsets 0 and 1,024; one shared 1,024-target-token WikiText-2 held-out prefix; 64 globally shared MLP channels removed across 24 layers; KFAC, independently implemented WANDA-style channel aggregation, magnitude and three fixed random masks; no recovery.",
       "weight": 1,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
@@ -4476,11 +4482,11 @@
         "readiness"
       ],
       "research_questions": [
-        "For this exact Qwen2.5-0.5B CPU cell, does KFAC singleton-additive selection produce a quality-gated physical channel-removal result that beats magnitude and random selection?"
+        "On this exact Qwen2.5-0.5B cell, does KFAC channel ranking beat a WANDA-derived activation score, magnitude and random selection across two independent calibration windows while meeting the held-out quality gate?"
       ],
       "acceptance_criteria": [
-        "Research comparison is complete when pinned model/data revisions, disjoint calibration and held-out token hashes, matched 64-channel candidate selections, artifact hashes and reload-logit checks, held-out perplexity and bounded resource costs are recorded.",
-        "Effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 and demonstrates physical size or resource benefit; no candidate currently passes this gate."
+        "Research comparison is complete when pinned model/data revisions, two disjoint calibration input hashes, held-out hash, matched channel budgets, KFAC/WANDA-style/magnitude/random masks, serialized artifact hashes and reload-logit checks, held-out outcomes and resource costs are recorded.",
+        "Effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 and demonstrates physical resource benefit; no candidate currently passes this gate."
       ],
       "dependencies": [
         "pruning.kfac_physical_pilot"
@@ -4489,10 +4495,15 @@
         {
           "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
           "label": "Qwen2.5-0.5B KFAC physical comparison"
+        },
+        {
+          "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+          "label": "Qwen KFAC/WANDA calibration-window comparison"
         }
       ],
       "source_refs": [
-        "llm-surgeon"
+        "llm-surgeon",
+        "wanda"
       ],
       "related_prs": [
         775,
@@ -4500,15 +4511,19 @@
       ],
       "related_commits": [
         "e9246f19d7503c85c33e6ae2e867304bf72ebf3a",
-        "98a70facbec556d2e3191c78443cf27e7f75d565"
+        "98a70facbec556d2e3191c78443cf27e7f75d565",
+        "741843998409aea19bbd004125be7e78c876a35b",
+        "6003b49306db43a77c8617155d2e85304ccc7d10"
       ],
-      "remaining_work": "Repeat with longer independent calibration and held-out samples; compare activation and gradient selection; repeat KFAC selections with multiple calibration seeds; measure task quality, inference latency and end-to-end resource cost; test another model family before claiming transfer.",
+      "remaining_work": "Repeat with longer independent held-out data and more calibration windows; quantify per-channel score/rank stability; run WANDA and activation baselines on additional architectures and cut ratios; measure task quality, inference latency and resource cost; test compensation/recovery as separate controlled arms.",
       "limitations": [
-        "One Qwen2.5-0.5B checkpoint, one short calibration prefix and one short held-out prefix; no statistical uncertainty or task metrics.",
-        "KFAC is the lowest-PPL candidate among the five tested, but its +0.5358 PPL delta fails the <=0.05 gate; this does not establish quality-preserving effectiveness.",
-        "Scoring takes 140.36 seconds and process peak RSS is 11,653,767,168 bytes; planned workspace is 14,965,814,784 bytes under an explicit 16 GiB cap.",
+        "One Qwen2.5-0.5B checkpoint, two short 256-token calibration windows and one reused 1,024-token held-out prefix; no statistical uncertainty or task metrics.",
+        "KFAC is best on the short held-out prefix in both windows but both KFAC candidates fail the <=0.05 PPL gate; the result is not quality-preserving effectiveness.",
+        "KFAC selected only 7 of 64 channels in common across calibration windows; WANDA-style activation scoring selected 10 of 64 in common. Similar aggregate PPL does not imply stable channel identity.",
+        "Scoring takes 88-121 seconds and peak RSS is 11.62-12.14 GB; planned workspace is 14,965,814,784 bytes under an explicit 16 GiB cap.",
         "64 shared channels remove 0.8357% of parameters and 0.8323% of exact artifact bytes; no inference-speed improvement is established.",
-        "Adapter and physical comparison are in open PR #780 stacked on #775 and are not integrated into main."
+        "The activation baseline independently aggregates the published WANDA score into a structured channel score; it is not a reproduction of original unstructured WANDA pruning.",
+        "Adapter and physical comparisons are in open PR #780 stacked on #775 and are not integrated into main."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -4526,6 +4541,39 @@
             }
           ],
           "reason": "Completed one CPU physical replication on a pinned Qwen2 checkpoint. KFAC ranked best among magnitude and three random selections, but its held-out delta was +0.5358 and all candidates failed the strict quality gate. The planned workspace was 14.97 GB and peak RSS was 11.65 GB."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+              "label": "Qwen2.5-0.5B KFAC physical comparison"
+            },
+            {
+              "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+              "label": "Qwen KFAC/WANDA calibration-window comparison"
+            }
+          ],
+          "reason": "Added a pinned WANDA source audit, a structured activation-score baseline, and a second disjoint Qwen2 train calibration window. KFAC ranked best on both short test-prefix comparisons, but all methods failed the quality gate and KFAC channel overlap across windows was only 7/64."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.8",
+          "previous": {
+            "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; 256 WikiText-2 train calibration target tokens; 1,024 WikiText-2 held-out target tokens; 64 globally shared MLP channels removed across 24 layers; one KFAC and magnitude selection plus three random seeds; no recovery.",
+            "research_questions": [
+              "For this exact Qwen2.5-0.5B CPU cell, does KFAC singleton-additive selection produce a quality-gated physical channel-removal result that beats magnitude and random selection?"
+            ],
+            "weight": 1
+          },
+          "reason": "Expanded the exact Qwen2.5 cell to include the pinned WANDA-style activation baseline and a second disjoint calibration window; model scope and held-out split remain fixed."
         }
       ]
     }
@@ -4538,16 +4586,19 @@
       "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
       "license_spdx": "MIT",
       "licence_status": "verified",
-      "licence_note": "Activation-aware pruning",
-      "method": "WANDA",
-      "relevance": "Activation scoring may beat random at matched sparsity.",
+      "licence_note": "Pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6 LICENSE declares MIT; preserve the 2023 CMU Locus Lab copyright and notice if any code is reused. No code was copied.",
+      "method": "WANDA ranks weights using absolute weight magnitude multiplied by the L2 norm of the corresponding calibration input activation, comparing within each output row. The pinned lib/prune.py collects activation statistics and forms abs(weight) * sqrt(scaler_row).",
+      "relevance": "Strong activation-aware baseline against magnitude for channel importance; a structured channel-level aggregation can be compared within ModelSurgeon without conflating it with original unstructured per-weight pruning.",
       "research_status": "prior_art_reviewed",
-      "integration_approach": "INTEGRATE/ADAPT",
+      "integration_approach": "REIMPLEMENT the score mathematically; no external code copied. ModelSurgeon currently sums |down_proj weight| times calibration input-channel L2 norm across outputs and layers to rank a shared MLP channel.",
       "hypothesis": "Activation scoring may beat random at matched sparsity.",
-      "requirements": "Pinned runner, matched data/model, artifact, quality/performance/resources.",
-      "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
-      "remaining_investigation": "Run pinned executable against random/magnitude with physical outcomes.",
-      "source_paths": [],
+      "requirements": "Pinned model/data; independent calibration windows; matched channel budget; physical BF16 artifact reload; random/magnitude/KFAC controls; quality gate, task/runtime/resource metrics. Original WANDA compares individual weights per output and is not identical to this structured adaptation.",
+      "findings": "At pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6, lib/prune.py computes per-weight abs(W) * sqrt(scaler_row); LICENSE is MIT; no code was copied. In PR #780, an independently implemented sum across down_proj outputs/layers ranked below KFAC but above magnitude on one Qwen2.5-0.5B held-out prefix at two 256-token calibration windows. All candidates failed the <=0.05 PPL gate. The structured activation selector shared only 10/64 channels across windows; this is not an original WANDA reproduction or an effectiveness result.",
+      "remaining_investigation": "Compare the same WANDA-derived structural score across longer held-out data, more calibration windows, Llama and additional architectures; test original unstructured WANDA separately under matched physical artifact/runtime conditions; record task quality and resource trade-offs.",
+      "source_paths": [
+        "lib/prune.py",
+        "LICENSE"
+      ],
       "research_outcome": null,
       "assessment_date": "2026-10-27",
       "history": [
@@ -4560,6 +4611,19 @@
           "licence_status": "verified",
           "source_paths": [],
           "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+          "licence_status": "verified",
+          "source_paths": [
+            "lib/prune.py",
+            "LICENSE"
+          ],
+          "findings": "At pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6, lib/prune.py computes per-weight abs(W) * sqrt(scaler_row); LICENSE is MIT; no code was copied. In PR #780, an independently implemented sum across down_proj outputs/layers ranked below KFAC but above magnitude on one Qwen2.5-0.5B held-out prefix at two 256-token calibration windows. All candidates failed the <=0.05 PPL gate. The structured activation selector shared only 10/64 channels across windows; this is not an original WANDA reproduction or an effectiveness result.",
+          "reason": "Inspected the exact pinned WANDA score entry point and MIT notice. Compared an independent structured channel-level score against KFAC, magnitude and random on two Qwen2 calibration windows; no source code was reused and no original unstructured WANDA reproduction is claimed."
         }
       ]
     },
@@ -6121,6 +6185,33 @@
       "integrated_on_main": false,
       "pull_requests": [
         779
+      ],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "qwen25-kfac-wanda-calibration-pilot",
+      "name": "Qwen2.5 KFAC versus WANDA-style activation channel comparison",
+      "method": "physical structured MLP channel selection; KFAC vs independently implemented WANDA-style activation, magnitude and random",
+      "model_scope": "Qwen/Qwen2.5-0.5B at pinned revision; 64 shared MLP channels",
+      "dataset": "Salesforce/WikiText pinned train/test revisions",
+      "split": "Two 256-token train calibration windows at offsets 0 and 1024; shared 1024-token test prefix",
+      "outcome": "inconclusive",
+      "finding": "KFAC ranked lowest held-out PPL in both calibration windows (+0.5358 and +0.5100), ahead of WANDA-style activation (+0.7958 and +1.2324), magnitude (+1.7622), and three random masks. Every candidate failed the <=0.05 gate. KFAC masks overlapped 7/64 channels across windows; WANDA-style masks 10/64. Scoring cost 88-121 seconds and peak RSS 11.62-12.14 GB.",
+      "limitations": [
+        "One Qwen2 checkpoint, short reused held-out prefix, two short calibration windows, no statistical uncertainty or task/latency measurements.",
+        "WANDA score was independently aggregated for structured channels; original unstructured WANDA was not reproduced.",
+        "All candidates failed the quality gate; this is not quality-preserving effectiveness."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+          "label": "Qwen KFAC/WANDA calibration-window comparison"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        775,
+        780
       ],
       "assessment_date": "2026-10-27"
     }
