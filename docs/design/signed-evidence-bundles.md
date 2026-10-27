@@ -17,3 +17,5 @@ Redacted paths and external references are explicit index entries and lower the
 bundle claim to `bounded_reproducibility`.  They cannot silently appear as
 missing members or be treated as reproducible local bytes.  Index rendering
 contains no signing secret, and the verifier enforces member and byte limits.
+Reproducibility-package JSON files, including the index and decision evidence,
+are capped at 64 MiB during writing and verification before JSON parsing.
