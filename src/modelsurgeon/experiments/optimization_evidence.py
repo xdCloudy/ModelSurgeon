@@ -13,6 +13,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
+from modelsurgeon._file_lock import exclusive_file_lock
 from modelsurgeon.experiments.identity import canonical_identity_json
 
 OPTIMIZATION_EVIDENCE_SCHEMA_VERSION = 1
@@ -92,10 +93,14 @@ class OptimizationEvidenceRecord:
         _optional_mapping(self.measurement, "measurement")
         _optional_mapping(self.artifact, "artifact")
         _optional_mapping(self.failure, "failure")
-        if self.outcome in {
-            OptimizationEvidenceOutcome.ACCEPTED,
-            OptimizationEvidenceOutcome.REJECTED,
-        } and self.measurement is None:
+        if (
+            self.outcome
+            in {
+                OptimizationEvidenceOutcome.ACCEPTED,
+                OptimizationEvidenceOutcome.REJECTED,
+            }
+            and self.measurement is None
+        ):
             raise OptimizationEvidenceError(
                 "accepted or rejected evidence requires a real measurement"
             )
@@ -150,9 +155,7 @@ class OptimizationEvidenceStore:
 
     @staticmethod
     def _encoded(record: OptimizationEvidenceRecord) -> bytes:
-        return (
-            canonical_identity_json(record.to_record()) + "\n"
-        ).encode("utf-8")
+        return (canonical_identity_json(record.to_record()) + "\n").encode("utf-8")
 
     @staticmethod
     def _digest(encoded: bytes) -> str:
@@ -219,14 +222,15 @@ class OptimizationEvidenceStore:
                             ) from None
                 finally:
                     temporary.unlink(missing_ok=True)
-            entries = self._manifest()
-            previous = entries.get(record.observation_id)
-            if previous is not None and previous != digest:
-                raise OptimizationEvidenceError(
-                    "optimization evidence manifest identity conflicts with content"
-                )
-            entries[record.observation_id] = digest
-            self._write_manifest(entries)
+            with exclusive_file_lock(self.root / ".manifest.lock"):
+                entries = self._manifest()
+                previous = entries.get(record.observation_id)
+                if previous is not None and previous != digest:
+                    raise OptimizationEvidenceError(
+                        "optimization evidence manifest identity conflicts with content"
+                    )
+                entries[record.observation_id] = digest
+                self._write_manifest(entries)
         return PublishedOptimizationEvidence(record.observation_id, path, digest)
 
 
