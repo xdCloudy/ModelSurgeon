@@ -6,6 +6,9 @@ Each row reports the cumulative mean negative log-likelihood through the
 mean NLLs, pair chunks by their common offset, then resample contiguous blocks
 of paired chunks. This estimates within-corpus uncertainty for fixed artifacts;
 it does not estimate variation across models, calibration samples, or datasets.
+The default CLI retains the original REAP/router/random comparison. Named
+inputs permit other matched candidate/baseline comparisons without changing
+the bootstrap implementation.
 """
 
 from __future__ import annotations
@@ -46,8 +49,7 @@ def _read(path: Path) -> tuple[list[int], list[float], float, str]:
     cumulative_nll = [row[2] for row in rows]
     chunk_nll = [cumulative_nll[0]]
     chunk_nll.extend(
-        (index + 1) * cumulative_nll[index]
-        - index * cumulative_nll[index - 1]
+        (index + 1) * cumulative_nll[index] - index * cumulative_nll[index - 1]
         for index in range(1, len(cumulative_nll))
     )
     total_ppl = math.exp(cumulative_nll[-1])
@@ -57,12 +59,27 @@ def _read(path: Path) -> tuple[list[int], list[float], float, str]:
     return offsets, chunk_nll, total_ppl, hashlib.sha256(raw).hexdigest()
 
 
+def _named_input(value: str) -> tuple[str, Path]:
+    name, separator, path = value.partition("=")
+    if not separator or not name or not path or any(char.isspace() for char in name):
+        raise argparse.ArgumentTypeError("expected NAME=PATH with a non-empty name and path")
+    return name, Path(path)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reap", type=Path, required=True)
-    parser.add_argument("--router-norm", type=Path, required=True)
-    parser.add_argument("--random-20261026", type=Path, required=True)
-    parser.add_argument("--random-20261027", type=Path, required=True)
+    parser.add_argument("--reap", type=Path)
+    parser.add_argument("--router-norm", type=Path)
+    parser.add_argument("--random-20261026", type=Path)
+    parser.add_argument("--random-20261027", type=Path)
+    parser.add_argument("--candidate", type=_named_input, help="candidate NAME=PATH")
+    parser.add_argument(
+        "--baseline",
+        type=_named_input,
+        action="append",
+        default=[],
+        help="baseline NAME=PATH (repeatable)",
+    )
     parser.add_argument("--bootstrap-samples", type=int, default=20_000)
     parser.add_argument("--block-chunks", type=int, default=10)
     parser.add_argument("--seed", type=int, default=20_261_027)
@@ -71,12 +88,33 @@ def main() -> int:
     if args.bootstrap_samples < 1 or args.block_chunks < 1:
         parser.error("bootstrap-samples and block-chunks must be positive")
 
-    inputs = {
+    legacy = {
         "reap": args.reap,
         "router_norm": args.router_norm,
         "random_20261026": args.random_20261026,
         "random_20261027": args.random_20261027,
     }
+    if args.candidate is not None:
+        if any(path is not None for path in legacy.values()):
+            parser.error("named candidate/baseline inputs cannot be mixed with legacy inputs")
+        if not args.baseline:
+            parser.error("named candidate input requires at least one --baseline NAME=PATH")
+        candidate, candidate_path = args.candidate
+        inputs = {candidate: candidate_path}
+        for baseline, path in args.baseline:
+            if baseline in inputs:
+                parser.error(f"duplicate PPL input name: {baseline}")
+            inputs[baseline] = path
+    else:
+        if args.baseline:
+            parser.error("--baseline requires --candidate NAME=PATH")
+        if any(path is None for path in legacy.values()):
+            parser.error(
+                "provide all four legacy inputs or use --candidate NAME=PATH and "
+                "one or more --baseline NAME=PATH options"
+            )
+        candidate = "reap"
+        inputs = {name: path for name, path in legacy.items() if path is not None}
     offsets_by_method: dict[str, list[int]] = {}
     losses: dict[str, list[float]] = {}
     metrics: dict[str, dict[str, float | str | int]] = {}
@@ -92,35 +130,32 @@ def main() -> int:
         }
     lengths = {len(rows) for rows in losses.values()}
     if len(lengths) != 1:
-        parser.error("all four PPL logs must contain the same number of chunks")
-    if any(offsets != offsets_by_method["reap"] for offsets in offsets_by_method.values()):
-        parser.error("all four PPL logs must contain the same chunk offsets")
+        parser.error("all PPL logs must contain the same number of chunks")
+    if any(offsets != offsets_by_method[candidate] for offsets in offsets_by_method.values()):
+        parser.error("all PPL logs must contain the same chunk offsets")
 
     count = lengths.pop()
     rng = random.Random(args.seed)
     comparisons = []
     ppl_by_method = {
-        method: float(values["perplexity_recovered"])
-        for method, values in metrics.items()
+        method: float(values["perplexity_recovered"]) for method, values in metrics.items()
     }
-    for baseline in ("router_norm", "random_20261026", "random_20261027"):
-        observed = ppl_by_method["reap"] - ppl_by_method[baseline]
+    for baseline in (name for name in inputs if name != candidate):
+        observed = ppl_by_method[candidate] - ppl_by_method[baseline]
         samples: list[float] = []
         for _ in range(args.bootstrap_samples):
             indices: list[int] = []
             while len(indices) < count:
                 start = rng.randrange(count)
-                indices.extend(
-                    (start + offset) % count for offset in range(args.block_chunks)
-                )
+                indices.extend((start + offset) % count for offset in range(args.block_chunks))
             indices = indices[:count]
-            reap_nll = sum(losses["reap"][index] for index in indices) / count
+            candidate_nll = sum(losses[candidate][index] for index in indices) / count
             baseline_nll = sum(losses[baseline][index] for index in indices) / count
-            samples.append(math.exp(reap_nll) - math.exp(baseline_nll))
+            samples.append(math.exp(candidate_nll) - math.exp(baseline_nll))
         samples.sort()
         comparisons.append(
             {
-                "candidate": "reap",
+                "candidate": candidate,
                 "baseline": baseline,
                 "observed_delta_ppl": observed,
                 "moving_block_percentile_95_ci_delta_ppl": [
