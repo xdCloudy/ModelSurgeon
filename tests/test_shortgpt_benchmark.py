@@ -4,7 +4,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from tools.benchmark_shortgpt_depth import _limitations, _measure_perplexity, _model_identifier
+from tools.benchmark_shortgpt_depth import (
+    _limitations,
+    _measure_perplexity,
+    _model_identifier,
+    _validated_random_seeds,
+    run,
+)
 
 torch = pytest.importorskip("torch")
 
@@ -37,6 +43,21 @@ def test_local_model_outside_hugging_face_cache_requires_explicit_identity(
 
     with pytest.raises(ValueError, match="--model-identifier is required"):
         _model_identifier(str(model_path), model_path, None)
+
+
+def test_random_seed_plan_requires_unique_nonnegative_integer_seeds() -> None:
+    assert _validated_random_seeds([11, 23, 47]) == (11, 23, 47)
+    with pytest.raises(ValueError, match="unique"):
+        _validated_random_seeds([11, 11, 47])
+    with pytest.raises(ValueError, match="nonnegative integers"):
+        _validated_random_seeds([11, -1, 47])
+    with pytest.raises(ValueError, match="nonnegative integers"):
+        _validated_random_seeds([11, True, 47])
+
+
+def test_programmatic_runner_rejects_duplicate_random_seeds_before_setup() -> None:
+    with pytest.raises(ValueError, match="unique"):
+        run(SimpleNamespace(random_seeds=(11, 11, 47)))
 
 
 class _TinyCausalLM(torch.nn.Module):

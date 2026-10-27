@@ -11,6 +11,7 @@ import platform
 import random
 import statistics
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,17 @@ def _limitations(random_seed_count: int) -> list[str]:
         "Timed evaluation excludes model loading and candidate surgery costs.",
         "Scores use WikiText-2 train tokens; quality uses its held-out test split.",
     ]
+
+
+def _validated_random_seeds(value: object) -> tuple[int, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)) or not value:
+        raise ValueError("random seeds must be a nonempty sequence of unique nonnegative integers")
+    seeds = tuple(value)
+    if any(isinstance(seed, bool) or not isinstance(seed, int) or seed < 0 for seed in seeds):
+        raise ValueError("random seeds must be nonnegative integers")
+    if len(seeds) != len(set(seeds)):
+        raise ValueError("random seeds must be unique")
+    return seeds
 
 
 def _token_chunks(
@@ -205,6 +217,7 @@ def _evaluate_removal(
 
 
 def run(args: argparse.Namespace) -> dict[str, object]:
+    random_seeds = _validated_random_seeds(getattr(args, "random_seeds", None))
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -262,7 +275,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     )
     random_results: list[dict[str, object]] = []
     random_layers: list[int] = []
-    for seed in args.random_seeds:
+    for seed in random_seeds:
         layer = random.Random(seed).randrange(len(model.model.layers))
         random_layers.append(layer)
         candidate, result = _evaluate_removal(
@@ -374,7 +387,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 for item in influence_order
             ],
             "weight_magnitude_layer_order": magnitude_order,
-            "random_seeds": args.random_seeds,
+            "random_seeds": random_seeds,
             "random_selected_layers": random_layers,
         },
         "candidates": {
@@ -382,7 +395,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "weight_magnitude": method_results["weight_magnitude"],
             "random": random_results,
         },
-        "limitations": _limitations(len(args.random_seeds)),
+        "limitations": _limitations(len(random_seeds)),
     }
 
 
@@ -402,6 +415,10 @@ def main() -> None:
     parser.add_argument("--cpu-threads", type=int, default=2)
     parser.add_argument("--random-seeds", type=int, nargs="+", default=[11, 23, 47])
     args = parser.parse_args()
+    try:
+        args.random_seeds = list(_validated_random_seeds(args.random_seeds))
+    except ValueError as error:
+        parser.error(str(error))
     if (
         min(
             args.calibration_tokens,

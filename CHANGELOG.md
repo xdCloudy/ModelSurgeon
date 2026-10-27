@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Reject duplicate, negative, and non-integer random seeds in the ShortGPT
+    depth benchmark so repeated random selections cannot inflate the reported
+    control count.
+
   - Extended the ShortGPT physical benchmark to run with explicit CPU or
     CUDA-auto placement and repeated synchronized prefill-throughput samples.
     Added a pinned Qwen2.5-0.5B RTX 3060 evaluation: the candidate reloaded and
