@@ -74,8 +74,17 @@ class OptimizationEvidenceRecord:
             self.stage,
             self.state_id,
         )
-        if any(not value.strip() for value in required):
+        if any(not isinstance(value, str) or not value.strip() for value in required):
             raise OptimizationEvidenceError("evidence identity fields are required")
+        if (
+            len(self.observation_id) > 128
+            or not self.observation_id.isascii()
+            or not self.observation_id[0].isalnum()
+            or any(
+                not (character.isalnum() or character in "._-") for character in self.observation_id
+            )
+        ):
+            raise OptimizationEvidenceError("evidence observation ID is not a safe path name")
         if self.schema_version != OPTIMIZATION_EVIDENCE_SCHEMA_VERSION:
             raise OptimizationEvidenceError("unsupported optimization evidence schema")
         for label, value in (
@@ -92,10 +101,14 @@ class OptimizationEvidenceRecord:
         _optional_mapping(self.measurement, "measurement")
         _optional_mapping(self.artifact, "artifact")
         _optional_mapping(self.failure, "failure")
-        if self.outcome in {
-            OptimizationEvidenceOutcome.ACCEPTED,
-            OptimizationEvidenceOutcome.REJECTED,
-        } and self.measurement is None:
+        if (
+            self.outcome
+            in {
+                OptimizationEvidenceOutcome.ACCEPTED,
+                OptimizationEvidenceOutcome.REJECTED,
+            }
+            and self.measurement is None
+        ):
             raise OptimizationEvidenceError(
                 "accepted or rejected evidence requires a real measurement"
             )
@@ -150,9 +163,7 @@ class OptimizationEvidenceStore:
 
     @staticmethod
     def _encoded(record: OptimizationEvidenceRecord) -> bytes:
-        return (
-            canonical_identity_json(record.to_record()) + "\n"
-        ).encode("utf-8")
+        return (canonical_identity_json(record.to_record()) + "\n").encode("utf-8")
 
     @staticmethod
     def _digest(encoded: bytes) -> str:
@@ -195,6 +206,8 @@ class OptimizationEvidenceStore:
         digest = self._digest(encoded)
         with self._lock:
             self.observation_root.mkdir(parents=True, exist_ok=True)
+            if self.observation_root.is_symlink() or not self.observation_root.is_dir():
+                raise OptimizationEvidenceError("optimization evidence directory is unsafe")
             path = self.observation_root / f"{record.observation_id}.json"
             if path.exists() or path.is_symlink():
                 if path.is_symlink() or not path.is_file() or path.read_bytes() != encoded:
