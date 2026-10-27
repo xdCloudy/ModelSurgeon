@@ -16,6 +16,7 @@ from modelsurgeon.config import Settings
 
 _ENV_PREFIX = "MODELSURGEON_"
 _ENV_DELIMITER = "__"
+MAX_CONFIG_FILE_BYTES = 4 * 1024 * 1024
 _SECRET_KEY = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|authorization|bearer|credential|password|secret|token)"
 )
@@ -128,9 +129,17 @@ def load_config_file(path: Path) -> dict[str, object]:
     if not path.is_file():
         raise ConfigurationFileError(f"configuration file does not exist: {path}")
     try:
-        text = path.read_text(encoding="utf-8")
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_CONFIG_FILE_BYTES + 1)
+        if len(payload) > MAX_CONFIG_FILE_BYTES:
+            raise ConfigurationFileError(
+                f"configuration file exceeds the {MAX_CONFIG_FILE_BYTES}-byte limit: {path}"
+            )
+        text = payload.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ConfigurationFileError(f"configuration file is not valid UTF-8: {path}") from exc
+    except OSError as exc:
+        raise ConfigurationFileError(f"configuration file could not be read: {path}") from exc
 
     try:
         if path.suffix.lower() == ".toml":
