@@ -219,8 +219,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     model_load_seconds = time.perf_counter() - model_start
     source_parameter_count = sum(int(parameter.numel()) for parameter in source_model.parameters())
     intermediate_size = int(source_model.config.intermediate_size)
-    if args.removed_channels >= intermediate_size:
-        raise ValueError("removed_channels must be smaller than the MLP intermediate width")
+    removal_counts = sorted(set(args.removed_channels))
+    if any(count >= intermediate_size for count in removal_counts):
+        raise ValueError("removed channel counts must be smaller than the MLP intermediate width")
 
     with PeakRSS() as peak_rss:
         scoring_start = time.perf_counter()
@@ -237,26 +238,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         if not np.isfinite(kfac_scores).all() or not np.isfinite(magnitude_scores).all():
             raise ValueError("candidate scores must be finite")
 
-        selected: dict[str, tuple[int, ...]] = {
-            "kfac_singleton_additive": tuple(
-                sorted(
-                    int(value)
-                    for value in np.argsort(kfac_scores, kind="stable")[: args.removed_channels]
-                )
-            ),
-            "magnitude_l2": tuple(
-                sorted(
-                    int(value)
-                    for value in np.argsort(magnitude_scores, kind="stable")[
-                        : args.removed_channels
-                    ]
-                )
-            ),
-        }
-        for seed in args.random_seeds:
-            selected[f"random_seed_{seed}"] = tuple(
-                sorted(random.Random(seed).sample(range(intermediate_size), args.removed_channels))
+        selected: dict[str, tuple[int, ...]] = {}
+        kfac_order = np.argsort(kfac_scores, kind="stable")
+        magnitude_order = np.argsort(magnitude_scores, kind="stable")
+        for count in removal_counts:
+            selected[f"kfac_singleton_additive_{count}"] = tuple(
+                sorted(int(value) for value in kfac_order[:count])
             )
+            selected[f"magnitude_l2_{count}"] = tuple(
+                sorted(int(value) for value in magnitude_order[:count])
+            )
+        for seed in args.random_seeds:
+            random_order = random.Random(seed).sample(range(intermediate_size), intermediate_size)
+            for count in removal_counts:
+                selected[f"random_seed_{seed}_{count}"] = tuple(sorted(random_order[:count]))
 
         evaluation_start = time.perf_counter()
         baseline = _evaluate(source_model, evaluation_chunks)
@@ -285,7 +280,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 candidate_model.save_pretrained(artifact_dir, safe_serialization=True)
                 tokenizer.save_pretrained(artifact_dir)
                 artifact_record = _directory_record(artifact_dir)
-                candidate_evaluation = _evaluate(candidate_model, evaluation_chunks)
+                with torch.inference_mode():
+                    expected_logits = candidate_model(
+                        input_ids=evaluation_chunks[0], use_cache=False
+                    ).logits
                 del candidate_model
                 gc.collect()
                 reloaded_model = AutoModelForCausalLM.from_pretrained(
@@ -295,6 +293,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     low_cpu_mem_usage=True,
                 )
                 reloaded_model.to("cpu")
+                with torch.inference_mode():
+                    actual_logits = reloaded_model(
+                        input_ids=evaluation_chunks[0], use_cache=False
+                    ).logits
+                reload_max_logit_error = float(
+                    torch.max(torch.abs(expected_logits - actual_logits)).item()
+                )
+                if not torch.allclose(expected_logits, actual_logits, rtol=1e-5, atol=1e-6):
+                    raise AssertionError("saved and reloaded logits differ")
+                del expected_logits, actual_logits
                 reload_evaluation = _evaluate(reloaded_model, evaluation_chunks)
                 del reloaded_model
                 gc.collect()
@@ -307,21 +315,15 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 "parameter_reduction_fraction": (-surgery.parameter_delta / source_parameter_count),
                 "surgery_seconds": surgery_seconds,
                 "end_to_end_method_seconds": time.perf_counter() - method_start,
-                "candidate": candidate_evaluation,
                 "reloaded": reload_evaluation,
+                "reload_max_logit_error": reload_max_logit_error,
                 "candidate_perplexity_delta": (
-                    float(candidate_evaluation["perplexity"]) - float(baseline["perplexity"])
+                    float(reload_evaluation["perplexity"]) - float(baseline["perplexity"])
                 ),
                 "quality_gate_passed": abs(
-                    float(candidate_evaluation["perplexity"]) - float(baseline["perplexity"])
+                    float(reload_evaluation["perplexity"]) - float(baseline["perplexity"])
                 )
                 <= args.max_ppl_delta,
-                "reload_matches_candidate_ppl": math.isclose(
-                    float(candidate_evaluation["perplexity"]),
-                    float(reload_evaluation["perplexity"]),
-                    rel_tol=1e-6,
-                    abs_tol=1e-6,
-                ),
                 "artifact": artifact_record,
             }
         peak_rss_bytes = peak_rss.peak_bytes
@@ -379,7 +381,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "peak_rss_bytes": peak_rss_bytes,
         },
         "protocol": {
-            "removed_channels": args.removed_channels,
+            "removed_channel_counts": removal_counts,
             "quality_gate_absolute_ppl_delta": args.max_ppl_delta,
             "random_seeds": args.random_seeds,
             "measurement_repeats": 1,
@@ -426,9 +428,9 @@ def main() -> None:
     parser.add_argument("--dataset-revision", default="b08601e04326c79dfdd32d625aee71d232d685c3")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--calibration-tokens", type=int, default=256)
-    parser.add_argument("--evaluation-tokens", type=int, default=512)
+    parser.add_argument("--evaluation-tokens", type=int, default=2048)
     parser.add_argument("--sequence-length", type=int, default=129)
-    parser.add_argument("--removed-channels", type=int, default=64)
+    parser.add_argument("--removed-channels", type=int, nargs="+", default=[8, 16, 32, 64])
     parser.add_argument("--random-seeds", type=int, nargs="+", default=[11, 29, 47])
     parser.add_argument("--seed", type=int, default=11)
     parser.add_argument("--torch-threads", type=int, default=2)
@@ -442,7 +444,6 @@ def main() -> None:
             args.calibration_tokens,
             args.evaluation_tokens,
             args.sequence_length,
-            args.removed_channels,
             args.torch_threads,
         )
     ):
@@ -451,6 +452,8 @@ def main() -> None:
         )
     if any(seed < 0 for seed in args.random_seeds):
         parser.error("random seeds must be nonnegative")
+    if any(value <= 0 for value in args.removed_channels):
+        parser.error("removed channel counts must be positive")
     report = run(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
@@ -463,7 +466,7 @@ def main() -> None:
                 "baseline_perplexity": report["baseline"]["perplexity"],
                 "scoring_seconds": report["scoring"]["seconds"],
                 "candidate_perplexities": {
-                    name: value["candidate"]["perplexity"]
+                    name: value["reloaded"]["perplexity"]
                     for name, value in report["candidates"].items()
                 },
                 "peak_rss_bytes": report["environment"]["peak_rss_bytes"],
