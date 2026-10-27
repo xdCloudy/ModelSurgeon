@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.4",
+  "scope_version": "1.2.5",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -47,6 +47,12 @@
       "scope_version": "1.2.4",
       "change": "Split one bounded Qwen2.5 block-influence depth-selection experiment into its own negative-result milestone and recorded a separately pinned MIT source reference; no open-PR work is counted as integrated.",
       "previous_scope_version": "1.2.3"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.5",
+      "change": "Added a bounded negative Qwen2.5 first-order gradient depth-sensitivity experiment and pinned Taylor-pruning literature provenance; updated the open-PR snapshot. No unmerged code is counted as integrated.",
+      "previous_scope_version": "1.2.4"
     }
   ],
   "workstreams": [
@@ -391,7 +397,7 @@
       "title": "Structured/dependency-aware channel, MLP, head, layer, width, depth and rank surgery",
       "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
       "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
-      "weight": 17,
+      "weight": 12,
       "research_status": "physical_experiment_conducted",
       "research_outcome": null,
       "implementation_status": "physically_benchmarked",
@@ -1043,6 +1049,76 @@
             }
           ],
           "reason": "Pinned CPU and pre-existing RTX 3060 experiment in open PR #735: ShortGPT increased WikiText-2 test perplexity by about 6.0, worse than magnitude and two of three random candidates; artifacts reloaded but every candidate failed the quality gate."
+        }
+      ]
+    },
+    {
+      "id": "pruning.depth_gradient_sensitivity",
+      "workstream": "pruning",
+      "title": "First-order gradient sensitivity for transformer depth removal",
+      "description": "Compare a block-output first-order directional derivative and absolute per-token contribution against ShortGPT, magnitude, and random layer selection in one pinned physical cell.",
+      "scope": "Single CPU-only Qwen/Qwen2.5-0.5B one-layer-removal pilot with 256 calibration tokens and 508 held-out WikiText targets. This bounded experiment does not establish cross-model effectiveness, general quality preservation, integration, or runtime gain.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "In this pinned one-layer Qwen2.5-0.5B cell, do signed or absolute first-order gradient sensitivity rankings improve held-out perplexity over matched magnitude, ShortGPT, and random layer choices?"
+      ],
+      "acceptance_criteria": [
+        "Record pinned model and dataset revisions, calibration and test hashes, exact scoring methods, matched parameter reduction, held-out outcomes, measurement cost, artifact hashes, and save/reload results; conclude only for this single pilot cell."
+      ],
+      "dependencies": [
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+          "label": "Bounded gradient depth-sensitivity pilot"
+        }
+      ],
+      "source_refs": [
+        "molchanov-taylor-pruning-2019"
+      ],
+      "related_prs": [
+        779
+      ],
+      "related_commits": [
+        "ad254dc980d80260449f25e7c27e50915fc9940f"
+      ],
+      "remaining_work": "Use an efficient scorer and longer independent calibration/test contexts; repeat across model families and seeds; compare against WANDA/ShortGPT and task metrics; measure surgery cost, peak memory, loading and autoregressive decode before claiming practical advantage.",
+      "limitations": [
+        "One model, one small calibration split, one random seed, and 508 held-out targets provide a descriptive low-powered pilot only.",
+        "Signed first-order sensitivity selected layer 0 and produced perplexity 56,977.40 versus baseline 23.2089; it is catastrophically harmful in this cell.",
+        "Absolute sensitivity selected layer 11 and tied magnitude exactly at perplexity 25.1388; no advantage was measured.",
+        "Scoring 256 calibration tokens took 623.36 seconds; the full CPU pilot took 915.08 seconds. A larger CPU attempt was stopped after 56 minutes without results.",
+        "Candidates saved and reloaded, but no task quality gate, statistical uncertainty, inference speed comparison, or deployment benefit was established.",
+        "Implementation remains experimental in open PR #779, stacked on open PR #735; it is not integrated on main."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+              "label": "Bounded gradient depth-sensitivity pilot"
+            }
+          ],
+          "reason": "One CPU-only pinned-model pilot found the signed score severely harmful and the absolute score tied magnitude, at substantial scoring cost. The conclusion is restricted to this tested cell."
         }
       ]
     },
@@ -5224,6 +5300,44 @@
           "reason": "Added distinct from the older unlicensed short-gpt source record so attribution and license status are precise."
         }
       ]
+    },
+    {
+      "id": "molchanov-taylor-pruning-2019",
+      "project": "Importance Estimation for Neural Network Pruning (Molchanov et al., CVPR 2019)",
+      "url": "https://github.com/NVlabs/Taylor_pruning",
+      "paper_url": "https://openaccess.thecvf.com/content_CVPR_2019/papers/Molchanov_Importance_Estimation_for_Neural_Network_Pruning_CVPR_2019_paper.pdf",
+      "pinned_revision": "4b70120a8903494cdb565cd8ca97509543fd2862",
+      "license_spdx": "CC-BY-NC-SA-4.0",
+      "licence_status": "verified",
+      "licence_note": "Pinned upstream pruning_engine.py includes an NVIDIA copyright notice and CC BY-NC-SA 4.0 terms. Non-commercial/share-alike terms are incompatible with direct incorporation into ModelSurgeon’s Apache-2.0 distribution; no code was copied.",
+      "method": "First- and second-order Taylor estimates for pruning units; pinned pruning_engine.py exposes Taylor-weight, Taylor-output, Taylor-gate and second-order gate variants with iterative pruning settings.",
+      "relevance": "Provides prior art for estimating loss sensitivity to removal; the ModelSurgeon pilot applies an independently implemented block-output directional estimate to transformer-layer deletion, a distinct and much coarser intervention.",
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "integration_approach": "REIMPLEMENT",
+      "hypothesis": "A first-order loss directional estimate at transformer block outputs may rank whole-layer deletion better than magnitude, ShortGPT, or random selection under a bounded calibration budget.",
+      "requirements": "Pinned transformer checkpoint; disjoint calibration and held-out data; matched one-layer surgery; physical artifact reload; task, resource, and runtime measurements; repeated seeds and model cells.",
+      "findings": "The CVPR paper reports Taylor saliency results on CNN filter pruning. The pinned pruning_engine.py implements multiple Taylor criteria. Its file header states CC BY-NC-SA 4.0, so direct incorporation into ModelSurgeon’s Apache-2.0 distribution is unsuitable. ModelSurgeon’s independent single Qwen2.5 pilot is negative for its tested variants: signed sensitivity is severely harmful, while absolute contribution ties magnitude at substantial scoring cost. This does not reproduce or refute the paper’s CNN results.",
+      "remaining_investigation": "Inspect the pinned upstream implementation and licensing before any reuse; test scalable aggregation, alternative Taylor estimators, longer contexts, multiple seeds and architectures against equal-budget baselines.",
+      "source_paths": [
+        "pruning_engine.py"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "The CVPR paper reports Taylor saliency results on CNN filter pruning. The pinned pruning_engine.py implements multiple Taylor criteria. Its file header states CC BY-NC-SA 4.0, so direct incorporation into ModelSurgeon’s Apache-2.0 distribution is unsuitable. ModelSurgeon’s independent single Qwen2.5 pilot is negative for its tested variants: signed sensitivity is severely harmful, while absolute contribution ties magnitude at substantial scoring cost. This does not reproduce or refute the paper’s CNN results.",
+          "pinned_revision": "4b70120a8903494cdb565cd8ca97509543fd2862",
+          "licence_status": "verified",
+          "source_paths": [
+            "pruning_engine.py"
+          ],
+          "reason": "Reviewed the primary CVPR paper and pinned pruning_engine.py entry point; confirmed the source file declares CC BY-NC-SA 4.0. That restriction is incompatible with direct incorporation into the Apache-2.0 distribution, so no upstream code was reused."
+        }
+      ],
+      "reason": "The primary paper and pinned repository were identified. The repository has no LICENSE file at the audited revision; source implementation was not reused."
     }
   ],
   "compatibility_cells": [
@@ -5766,6 +5880,31 @@
       "integrated_on_main": true,
       "pull_requests": [],
       "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "qwen25-gradient-depth-cpu-pilot-2026-10-27",
+      "name": "Qwen2.5 first-order gradient depth-sensitivity CPU pilot",
+      "method": "signed and absolute first-order block-output sensitivity; ShortGPT, magnitude, and random controls",
+      "model_scope": "Qwen/Qwen2.5-0.5B@060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "dataset": "Salesforce/wikitext@b08601e04326c79dfdd32d625aee71d232d685c3",
+      "split": "256 calibration tokens; 508 held-out target tokens; one run; random seed 11",
+      "outcome": "negative",
+      "finding": "Signed sensitivity selected layer 0 and increased held-out PPL from 23.2089 to 56,977.3954. Absolute sensitivity selected layer 11 and tied magnitude at PPL 25.1388. The scorer took 623.36 seconds; all candidate edits reduced parameters by 3.02% and gradient candidates saved/reloaded.",
+      "limitations": [
+        "Single CPU-only model and short split; one seed and one repeat; no task gate, uncertainty, decode-speed, or deployment-gain evidence.",
+        "Gradient scoring cost is high relative to this bounded result."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+          "label": "Bounded pilot protocol, findings, and immutable raw report link"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        779
+      ],
+      "assessment_date": "2026-10-27"
     }
   ],
   "blockers": [
@@ -5942,8 +6081,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
-    "open_pull_request_count": 59,
-    "scope_note": "All 59 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history and stacked #778 for bounded REAP evidence. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
+    "open_pull_request_count": 60,
+    "scope_note": "All 60 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774, stacked progress PRs #776–#778, and gradient depth-sensitivity PR #779 stacked on #735. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -6145,6 +6284,15 @@
         "merged_at": "2026-10-27T10:42:00Z"
       },
       {
+        "number": 779,
+        "title": "Add gradient sensitivity depth-pruning baseline",
+        "head_branch": "codex/gradient-depth-sensitivity",
+        "base_branch": "codex/competitive-activation-baseline",
+        "relationship": "stacked on #735; CPU-only bounded gradient depth-sensitivity comparison",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
         "number": 775,
         "title": "Prototype bounded KFAC structured removal costs",
         "head_branch": "codex/kfac-structured-sensitivity",
@@ -6206,8 +6354,12 @@
       [
         776,
         777
+      ],
+      [
+        735,
+        779
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated."
   }
 }

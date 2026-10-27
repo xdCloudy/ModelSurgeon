@@ -1,6 +1,6 @@
 # Production readiness matrix
 
-Assessment: 2026-10-27 · overall project readiness dimension: **33.9%** · production-readiness workstream maturity: **52.6%**.
+Assessment: 2026-10-27 · overall project readiness dimension: **33.8%** · production-readiness workstream maturity: **52.6%**.
 
 A release boundary, UI workflow, mock, schema, CI pass, or local experiment does not establish production optimizer readiness. The optimizer must prove physical quality-preserving results, resource behavior, artifact safety, and reproducibility within its declared support scope.
 

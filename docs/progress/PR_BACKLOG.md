@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 59 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 60 open PRs.
 
-All 59 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history and stacked #778 for bounded REAP evidence. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
+All 60 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774, stacked progress PRs #776–#778, and gradient depth-sensitivity PR #779 stacked on #735. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -18,6 +18,7 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#703](https://github.com/xdCloudy/ModelSurgeon/pull/703) → [#723](https://github.com/xdCloudy/ModelSurgeon/pull/723) | `codex/stream-task-quality-dataset → codex/gguf-task-quality` |
 | [#774](https://github.com/xdCloudy/ModelSurgeon/pull/774) → [#775](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system → codex/kfac-structured-sensitivity` |
 | [#776](https://github.com/xdCloudy/ModelSurgeon/pull/776) → [#777](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027 → codex/clarify-structural-surrogate-evidence` |
+| [#735](https://github.com/xdCloudy/ModelSurgeon/pull/735) → [#779](https://github.com/xdCloudy/ModelSurgeon/pull/779) | `codex/competitive-activation-baseline → codex/gradient-depth-sensitivity` |
 
 ## Notable open and dependency PRs
 
@@ -48,9 +49,10 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#776: Expand evidence-backed research milestones](https://github.com/xdCloudy/ModelSurgeon/pull/776) | `main` | `codex/progress-inventory-refinement-20261027` | expanded progress inventory foundation | No |
 | [#777: Fix structural Meta-Surgeon test-set selection](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027` | `codex/clarify-structural-surrogate-evidence` | stacked on #776; structural feature-path selector evaluation guard | No |
 | [#778: Track bounded Qwen3.5 REAP outcomes](https://github.com/xdCloudy/ModelSurgeon/pull/778) | `codex/clarify-structural-surrogate-evidence` | `codex/reap-progress-evidence` | stacked on #777; records bounded CPU-only REAP experiments | No |
+| [#779: Add gradient sensitivity depth-pruning baseline](https://github.com/xdCloudy/ModelSurgeon/pull/779) | `codex/competitive-activation-baseline` | `codex/gradient-depth-sensitivity` | stacked on #735; CPU-only bounded gradient depth-sensitivity comparison | No |
 
 ## Triage
 
-Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration.
+Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated.
 
 Re-fetch and re-audit the live backlog before later review or branch integration. Respect normal CI and approval requirements; this inventory does not authorize merging or bypass review.
