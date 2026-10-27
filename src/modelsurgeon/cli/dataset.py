@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib
+import os
+import shutil
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Protocol, runtime_checkable
@@ -75,28 +78,39 @@ def generate_dataset(
         GroupedSplitConfig(split_mode, split_seed),
     )
     by_id = {example.example_id: example for example in built.examples}
-    output.mkdir(parents=True)
-    for partition in SplitPartition:
-        examples = [by_id[item] for item in split.example_ids(partition)]
-        (output / f"{partition.value}.jsonl").write_text(
-            "".join(canonical_identity_json(item.to_record()) + "\n" for item in examples),
-            encoding="utf-8",
-            newline="\n",
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = output.with_name(f".{output.name}.partial-{uuid.uuid4().hex}")
+    staging.mkdir()
+    try:
+        for partition in SplitPartition:
+            examples = [by_id[item] for item in split.example_ids(partition)]
+            (staging / f"{partition.value}.jsonl").write_text(
+                "".join(canonical_identity_json(item.to_record()) + "\n" for item in examples),
+                encoding="utf-8",
+                newline="\n",
+            )
+        record = {
+            "schema_version": DATASET_COMMAND_SCHEMA_VERSION,
+            "record_type": "generated_dataset",
+            "campaign_progress": execution.progress.to_record(),
+            "resumed": resume,
+            "build": built.to_record(),
+            "validation": validation.to_record(),
+            "split": split.to_record(),
+            "partitions": {
+                partition.value: f"{partition.value}.jsonl" for partition in SplitPartition
+            },
+        }
+        (staging / "manifest.json").write_text(
+            canonical_identity_json(record) + "\n", encoding="utf-8", newline="\n"
         )
-    record = {
-        "schema_version": DATASET_COMMAND_SCHEMA_VERSION,
-        "record_type": "generated_dataset",
-        "campaign_progress": execution.progress.to_record(),
-        "resumed": resume,
-        "build": built.to_record(),
-        "validation": validation.to_record(),
-        "split": split.to_record(),
-        "partitions": {partition.value: f"{partition.value}.jsonl" for partition in SplitPartition},
-    }
-    (output / "manifest.json").write_text(
-        canonical_identity_json(record) + "\n", encoding="utf-8", newline="\n"
-    )
-    return record
+        if output.exists() or output.is_symlink():
+            raise DatasetCommandError(f"output already exists: {output}")
+        os.replace(staging, output)
+        return record
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 def generate_dataset_command(
