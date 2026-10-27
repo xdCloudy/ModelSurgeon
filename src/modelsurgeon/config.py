@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from modelsurgeon.adapters import ModelFamily, ModelFormat
 from modelsurgeon.provider_kind import ProviderKind
-from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_ROWS
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_EXAMPLES
 
 
 class TaskQualitySpecError(ValueError):
@@ -152,20 +152,17 @@ class CalibrationConfig(StrictConfigModel):
 class TaskQualityConfig(StrictConfigModel):
     """Optional real task-quality benchmark for hard quality preservation."""
 
-    method: Literal["none", "code_exact_match"] = "none"
+    method: Literal["none", "code_exact_match", "multiple_choice_accuracy"] = "none"
     dataset: Path | None = None
     dataset_revision: str | None = None
     split: str = "test"
     max_new_tokens: int = Field(default=128, gt=0)
-    max_samples: int | None = Field(
-        default=None, gt=0, le=MAX_TASK_QUALITY_ROWS, strict=True
-    )
+    max_input_tokens: int = Field(default=4096, gt=0, le=8192)
+    max_samples: int | None = Field(default=None, gt=0, le=MAX_TASK_QUALITY_EXAMPLES, strict=True)
 
     @field_validator("dataset", "dataset_revision")
     @classmethod
-    def reject_blank_task_quality_values(
-        cls, value: Path | str | None
-    ) -> Path | str | None:
+    def reject_blank_task_quality_values(cls, value: Path | str | None) -> Path | str | None:
         if value is not None and not str(value).strip():
             raise ValueError("task-quality values cannot be blank")
         return value
@@ -233,9 +230,7 @@ class SearchConfig(StrictConfigModel):
 
     scopes: tuple[
         Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
-    ] = (
-        "mlp_channel",
-    )
+    ] = ("mlp_channel",)
     max_surgery_steps: int | None = Field(default=None, gt=0)
     low_rank_rank: int = Field(default=4, ge=1, le=64)
 
@@ -246,9 +241,7 @@ class SearchConfig(StrictConfigModel):
         value: tuple[
             Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
         ],
-    ) -> tuple[
-        Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...
-    ]:
+    ) -> tuple[Literal["mlp_channel", "attention_head", "transformer_layer", "low_rank"], ...]:
         if not value or len(value) != len(set(value)):
             raise ValueError("search scopes must be non-empty and unique")
         return value
@@ -269,8 +262,7 @@ class RepairConfig(StrictConfigModel):
     @classmethod
     def validate_target_modules(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         if value != tuple(sorted(set(value))) or any(
-            not item.strip() or any(not part for part in item.split("."))
-            for item in value
+            not item.strip() or any(not part for part in item.split(".")) for item in value
         ):
             raise ValueError("repair.target_modules must be sorted, unique canonical paths")
         return value

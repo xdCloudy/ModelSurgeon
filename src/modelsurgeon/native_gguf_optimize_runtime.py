@@ -12,6 +12,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import subprocess
+import tempfile
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -56,6 +58,12 @@ from modelsurgeon.evaluation.quality_gate import (
     QualityGateError,
     evaluate_perplexity_quality_gate,
 )
+from modelsurgeon.evaluation.task_quality import (
+    CodeExactMatchDataset,
+    TaskQualityEvaluationError,
+    evaluate_code_exact_match_with_generator,
+    evaluate_code_quality_gate,
+)
 from modelsurgeon.experiments import (
     OptimizationEvidenceOutcome,
     OptimizationEvidenceRecord,
@@ -94,6 +102,26 @@ from modelsurgeon.surgery.native_mlp_plan import NativeGGUFMLPRemovalPlan
 
 class NativeGGUFOptimizeRuntimeError(RuntimeError):
     """Raised when the explicit GGUF optimizer contract cannot be executed."""
+
+
+_MAX_TASK_QUALITY_TRANSCRIPT_BYTES = 1_048_576
+
+
+def _extract_llama_cli_completion(prompt: str, transcript: str) -> str:
+    """Extract the single-turn assistant text from llama-cli's output transcript."""
+
+    normalized_prompt = prompt.replace("\r\n", "\n").replace("\r", "\n")
+    normalized_transcript = transcript.replace("\r\n", "\n").replace("\r", "\n")
+    marker = f"User:\n{normalized_prompt}\n\nAssistant:\n"
+    start = normalized_transcript.rfind(marker)
+    if start < 0:
+        raise NativeGGUFOptimizeRuntimeError(
+            "GGUF task-quality runtime returned an unrecognized transcript"
+        )
+    completion = normalized_transcript[start + len(marker) :].strip()
+    if not completion:
+        raise NativeGGUFOptimizeRuntimeError("GGUF task-quality runtime returned no text")
+    return completion
 
 
 def _canonical(value: object) -> str:
@@ -211,6 +239,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         self.source_state: GGUFSourceState | None = None
         self.manifest: LlamaCppPerplexityManifest | None = None
         self.baseline: Mapping[str, object] | None = None
+        self.task_quality_dataset: CodeExactMatchDataset | None = None
         self.candidates: tuple[_GgufCandidate, ...] = ()
         self.measurements: dict[str, Mapping[str, object]] = {}
         self.selected: _GgufCandidate | None = None
@@ -229,9 +258,19 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         return _mapping(self.plan.resolved_config, "resolved configuration")
 
     def _quality_gate(
-        self, baseline_perplexity: float, candidate_perplexity: float
+        self,
+        baseline_perplexity: float,
+        candidate_perplexity: float,
+        baseline_task_quality: Mapping[str, object] | None = None,
+        candidate_task_quality: Mapping[str, object] | None = None,
     ) -> Mapping[str, object]:
         constraints = _mapping(self._resolved().get("constraints"), "constraints")
+        task_config = _mapping(self._resolved().get("task_quality", {}), "task_quality")
+        task_enabled = task_config.get("method", "none") != "none"
+        if task_enabled and (baseline_task_quality is None or candidate_task_quality is None):
+            raise NativeGGUFOptimizeRuntimeError(
+                "configured task-quality evaluation produced incomplete evidence"
+            )
         raw_max_delta = constraints.get("max_perplexity_delta")
         max_delta = (
             None
@@ -239,7 +278,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             else _number(raw_max_delta, "constraints.max_perplexity_delta")
         )
         try:
-            return evaluate_perplexity_quality_gate(
+            perplexity_gate = evaluate_perplexity_quality_gate(
                 baseline_perplexity,
                 candidate_perplexity,
                 min_quality_retention_ratio=_number(
@@ -249,15 +288,68 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 max_perplexity_delta=max_delta,
                 profile_max_perplexity_delta=self.plan.quality_profile.max_perplexity_delta,
             )
+            if baseline_task_quality is None and candidate_task_quality is None:
+                return perplexity_gate
+            if baseline_task_quality is None or candidate_task_quality is None:
+                raise NativeGGUFOptimizeRuntimeError(
+                    "configured task-quality evaluation produced incomplete evidence"
+                )
+            baseline_dataset = _mapping(
+                baseline_task_quality.get("dataset"), "baseline task-quality dataset"
+            )
+            candidate_dataset = _mapping(
+                candidate_task_quality.get("dataset"), "candidate task-quality dataset"
+            )
+            baseline_dataset_digest = baseline_dataset.get("digest")
+            candidate_dataset_digest = candidate_dataset.get("digest")
+            if (
+                not isinstance(baseline_dataset_digest, str)
+                or not baseline_dataset_digest.strip()
+                or not isinstance(candidate_dataset_digest, str)
+                or not candidate_dataset_digest.strip()
+            ):
+                raise NativeGGUFOptimizeRuntimeError(
+                    "task-quality dataset evidence is missing its content digest"
+                )
+            if baseline_dataset_digest != candidate_dataset_digest:
+                raise NativeGGUFOptimizeRuntimeError(
+                    "baseline and candidate task-quality datasets have different digests"
+                )
+            task_gate = evaluate_code_quality_gate(
+                _number(
+                    baseline_task_quality.get("exact_match_accuracy"),
+                    "baseline.task_quality.exact_match_accuracy",
+                ),
+                _number(
+                    candidate_task_quality.get("exact_match_accuracy"),
+                    "candidate.task_quality.exact_match_accuracy",
+                ),
+                min_quality_retention_ratio=_number(
+                    constraints.get("min_quality_retention_ratio", 0.98),
+                    "constraints.min_quality_retention_ratio",
+                ),
+            )
+            combined = dict(perplexity_gate)
+            combined["task_quality_gate"] = task_gate
+            combined["accepted"] = bool(perplexity_gate["accepted"]) and bool(task_gate["accepted"])
+            reasons = list(cast(list[str], perplexity_gate["rejection_reasons"]))
+            reasons.extend(
+                f"task quality: {reason}"
+                for reason in cast(list[str], task_gate["rejection_reasons"])
+            )
+            combined["rejection_reasons"] = reasons
+            return combined
         except QualityGateError as error:
+            raise NativeGGUFOptimizeRuntimeError(str(error)) from error
+        except TaskQualityEvaluationError as error:
             raise NativeGGUFOptimizeRuntimeError(str(error)) from error
 
     def _runtime(self) -> Mapping[str, object]:
         task_quality = _mapping(self._resolved().get("task_quality", {}), "task_quality")
-        if task_quality.get("method", "none") != "none":
+        method = task_quality.get("method", "none")
+        if method not in ("none", "code_exact_match"):
             raise NativeGGUFOptimizeRuntimeError(
-                "native GGUF task-quality benchmarks are unsupported; use a runtime with "
-                "a task evaluator or disable task_quality"
+                f"native GGUF task-quality method is unsupported: {method!r}"
             )
         runtime = _mapping(self._resolved().get("runtime"), "runtime")
         required = ("llama_cli", "llama_perplexity", "llama_bench", "expected_revision")
@@ -626,6 +718,134 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             )
         return record
 
+    def _task_quality(self, path: Path) -> Mapping[str, object] | None:
+        config = _mapping(self._resolved().get("task_quality", {}), "task_quality")
+        if config.get("method", "none") == "none":
+            return None
+        if config.get("method") != "code_exact_match":
+            raise NativeGGUFOptimizeRuntimeError(
+                f"native GGUF task-quality method is unsupported: {config.get('method')!r}"
+            )
+        dataset_path = config.get("dataset")
+        if not isinstance(dataset_path, str) or not dataset_path.strip():
+            raise NativeGGUFOptimizeRuntimeError(
+                "task_quality.dataset must be set for code_exact_match"
+            )
+        max_samples = config.get("max_samples")
+        raw_revision = config.get("dataset_revision")
+        dataset_revision: str | None = raw_revision if isinstance(raw_revision, str) else None
+        if self.task_quality_dataset is None:
+            try:
+                self.task_quality_dataset = CodeExactMatchDataset.load(
+                    dataset_path,
+                    revision=dataset_revision,
+                    split=str(config.get("split", "test")),
+                    max_samples=(
+                        _integer(max_samples, 1, "task_quality.max_samples")
+                        if max_samples is not None
+                        else None
+                    ),
+                )
+            except TaskQualityEvaluationError as error:
+                raise NativeGGUFOptimizeRuntimeError(str(error)) from error
+        dataset = self.task_quality_dataset
+        max_new_tokens = _integer(
+            config.get("max_new_tokens", 128), 1, "task_quality.max_new_tokens"
+        )
+        runtime = self._runtime()
+        validation_config, _, _ = self._tool_config()
+        executable = str(runtime["llama_cli"])
+        timeout = validation_config.timeout_seconds
+        context_size = _integer(runtime.get("context_size"), 512, "runtime.context_size")
+        threads = validation_config.threads
+        gpu_layers = validation_config.gpu_layers
+
+        def generate(prompt: str) -> str:
+            try:
+                with tempfile.TemporaryDirectory(prefix="modelsurgeon-task-quality-") as directory:
+                    transcript_path = Path(directory) / "transcript.txt"
+                    command = [
+                        executable,
+                        "-m",
+                        str(path),
+                        "-c",
+                        str(context_size),
+                        "-n",
+                        str(max_new_tokens),
+                        "--temp",
+                        "0",
+                        "--top-p",
+                        "1",
+                        "--reasoning",
+                        "off",
+                        "--no-display-prompt",
+                        "--simple-io",
+                        "--log-disable",
+                        "--no-perf",
+                        "--single-turn",
+                        "--output",
+                        str(transcript_path),
+                        "-p",
+                        prompt,
+                        "-t",
+                        str(threads),
+                    ]
+                    if gpu_layers:
+                        command.extend(("-ngl", str(gpu_layers)))
+                    completed = subprocess.run(
+                        command,
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=timeout,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    )
+                    if completed.returncode != 0:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            f"GGUF task-quality runtime failed with status {completed.returncode}"
+                        )
+                    try:
+                        transcript_size = transcript_path.stat().st_size
+                    except OSError as error:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime returned no text"
+                        ) from error
+                    if transcript_size <= 0:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime returned no text"
+                        )
+                    if transcript_size > _MAX_TASK_QUALITY_TRANSCRIPT_BYTES:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime transcript exceeded the output limit"
+                        )
+                    try:
+                        transcript = transcript_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                    except OSError as error:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF task-quality runtime transcript could not be read"
+                        ) from error
+                    return _extract_llama_cli_completion(prompt, transcript)
+            except subprocess.TimeoutExpired as error:
+                raise NativeGGUFOptimizeRuntimeError(
+                    "GGUF task-quality generation timed out"
+                ) from error
+            except OSError as error:
+                raise NativeGGUFOptimizeRuntimeError(
+                    "GGUF task-quality runtime could not start"
+                ) from error
+
+        try:
+            measurement = evaluate_code_exact_match_with_generator(
+                dataset,
+                generate,
+                max_new_tokens=max_new_tokens,
+            )
+        except TaskQualityEvaluationError as error:
+            raise NativeGGUFOptimizeRuntimeError(str(error)) from error
+        return measurement.to_record()
+
     def _throughput(self, path: Path) -> Mapping[str, object]:
         _, _, config = self._tool_config()
         report = benchmark_gguf_throughput(path, config=config)
@@ -695,6 +915,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         assert self.source_path is not None and self.discovery is not None
         validation = self._validate(self.source_path)
         quality = self._quality(self.source_path)
+        task_quality = self._task_quality(self.source_path)
         throughput = self._throughput(self.source_path)
         quality_record = self._compact_quality(quality)
         throughput_record = self._compact_throughput(throughput)
@@ -714,6 +935,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "storage_bytes": self.discovery.storage_bytes,
             "disk_bytes": self.source_path.stat().st_size,
             "validation": validation,
+            "task_quality": task_quality,
             "quality": quality_record,
             "throughput": throughput_record,
             "hardware_inventory": dict(self._hardware(self.source_path.parent)),
@@ -795,11 +1017,18 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         quality = self._quality(destination)
         throughput = self._throughput(destination)
         baseline = self._baseline_measurement()
+        candidate_task_quality = self._task_quality(destination)
         candidate_quality = _mapping(quality.get("candidate"), "candidate quality")
         generation = _mapping(throughput.get("generation"), "candidate generation")
         perplexity = _number(candidate_quality.get("perplexity"), "candidate.perplexity")
         baseline_ppl = _number(baseline["perplexity"], "baseline.perplexity")
-        quality_gate = self._quality_gate(baseline_ppl, perplexity)
+        baseline_task_quality = baseline.get("task_quality")
+        quality_gate = self._quality_gate(
+            baseline_ppl,
+            perplexity,
+            baseline_task_quality if isinstance(baseline_task_quality, Mapping) else None,
+            candidate_task_quality,
+        )
         baseline_parameters = _integer(
             baseline.get("parameter_count"), 1, "baseline.parameter_count"
         )
@@ -812,6 +1041,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "measurement_authority": "physical_reloaded_gguf_external_runtime",
             "baseline_perplexity": baseline_ppl,
             "candidate_perplexity": perplexity,
+            "baseline_task_quality": baseline_task_quality,
+            "candidate_task_quality": candidate_task_quality,
             "perplexity_delta": perplexity - baseline_ppl,
             "quality_retention_ratio": quality_gate["quality_retention_ratio"],
             "quality_gate": quality_gate,
@@ -982,9 +1213,13 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             candidate_value = measurement.get("candidate_perplexity")
             if baseline_value is None or candidate_value is None:
                 return False
+            baseline_task_value = measurement.get("baseline_task_quality")
+            candidate_task_value = measurement.get("candidate_task_quality")
             quality_gate = self._quality_gate(
                 _number(baseline_value, "baseline_perplexity"),
                 _number(candidate_value, "candidate_perplexity"),
+                baseline_task_value if isinstance(baseline_task_value, Mapping) else None,
+                candidate_task_value if isinstance(candidate_task_value, Mapping) else None,
             )
         if quality_gate.get("accepted") is not True:
             return False
@@ -1184,21 +1419,24 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     )
                 peak = throughput.peak_rss_bytes or 0
                 quality_baseline = _mapping(quality.get("baseline"), "sequence quality baseline")
-                quality_candidate = _mapping(
-                    quality.get("candidate"), "sequence quality candidate"
-                )
+                quality_candidate = _mapping(quality.get("candidate"), "sequence quality candidate")
+                baseline = self._baseline_measurement()
+                baseline_task_quality = baseline.get("task_quality")
+                candidate_task_quality = self._task_quality(destination)
                 baseline_perplexity = _number(
                     quality_baseline.get("perplexity"), "sequence.baseline_perplexity"
                 )
                 candidate_perplexity = _number(
                     quality_candidate.get("perplexity"), "sequence.candidate_perplexity"
                 )
-                quality_gate = self._quality_gate(baseline_perplexity, candidate_perplexity)
-                throughput_record = throughput.to_record()
-                generation = _mapping(
-                    throughput_record.get("generation"), "sequence generation"
+                quality_gate = self._quality_gate(
+                    baseline_perplexity,
+                    candidate_perplexity,
+                    baseline_task_quality if isinstance(baseline_task_quality, Mapping) else None,
+                    candidate_task_quality,
                 )
-                baseline = self._baseline_measurement()
+                throughput_record = throughput.to_record()
+                generation = _mapping(throughput_record.get("generation"), "sequence generation")
                 candidate_latency = _number(
                     _number(generation.get("average_latency_ns"), "sequence latency") / 1e9,
                     "sequence.candidate_median_seconds",
@@ -1206,6 +1444,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 measurement = {
                     "baseline_perplexity": baseline_perplexity,
                     "candidate_perplexity": candidate_perplexity,
+                    "baseline_task_quality": baseline_task_quality,
+                    "candidate_task_quality": candidate_task_quality,
                     "perplexity_delta": quality_gate["perplexity_delta"],
                     "quality_retention_ratio": quality_gate["quality_retention_ratio"],
                     "quality_gate": quality_gate,
@@ -1310,6 +1550,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         if self.artifact is None or self.artifact_digest is None:
             raise NativeGGUFOptimizeRuntimeError("deployment requires a published GGUF artifact")
         quality = self._quality(self.artifact)
+        task_quality = self._task_quality(self.artifact)
         throughput = self._throughput(self.artifact)
         measurement = self.measurements.get(self.selected.candidate_id if self.selected else "", {})
         baseline = self._baseline_measurement()
@@ -1327,7 +1568,12 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         )
         candidate_ppl = _number(candidate.get("perplexity"), "deployment.perplexity")
         quality_gate = self._quality_gate(
-            _number(baseline["perplexity"], "baseline.perplexity"), candidate_ppl
+            _number(baseline["perplexity"], "baseline.perplexity"),
+            candidate_ppl,
+            baseline_task_quality
+            if isinstance((baseline_task_quality := baseline.get("task_quality")), Mapping)
+            else None,
+            task_quality,
         )
         quality_delta = _number(quality_gate["perplexity_delta"], "deployment.perplexity_delta")
         constraints = _mapping(self._resolved().get("constraints"), "constraints")
@@ -1358,6 +1604,7 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 "disk_bytes": self.artifact.stat().st_size,
                 "peak_ram_bytes": throughput.get("peak_rss_bytes"),
                 "peak_vram_bytes": throughput.get("peak_vram_bytes"),
+                "task_quality": task_quality,
             },
             "quality": self._compact_quality(quality),
             "quality_gate": quality_gate,

@@ -29,7 +29,10 @@ from modelsurgeon.adapters.huggingface.loader import (
 from modelsurgeon.cli.experiment import ResolvedExperiment, SingleMutationExperimentResult
 from modelsurgeon.evaluation.task_quality import (
     CodeExactMatchDataset,
+    MultipleChoiceDataset,
     evaluate_code_exact_match,
+    evaluate_multiple_choice_accuracy,
+    validate_task_quality_generation_budget,
 )
 from modelsurgeon.evaluation.tiered import (
     EscalationAction,
@@ -99,13 +102,12 @@ from modelsurgeon.surgery.serialization import (
 )
 from modelsurgeon.surgery.target_resolution import MutationTargetResolver
 from modelsurgeon.surgery.transaction import InMemoryMutationTransaction
-from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_ROWS
+from modelsurgeon.task_quality_limits import MAX_TASK_QUALITY_EXAMPLES
 
 HF_MLP_PROOF_RUNTIME_VERSION = "1"
 HF_MLP_FEATURE_EXTRACTOR = "hf_mlp_channel"
 HF_MLP_FEATURE_EXTRACTOR_VERSION = "1"
 HF_MLP_EVALUATOR_VERSION = "hf_mlp_perplexity_v1"
-_MAX_CALIBRATION_TEXT_BYTES = 64 * 1024 * 1024
 
 
 class HuggingFaceMLPProofError(ValueError):
@@ -129,9 +131,11 @@ class HuggingFaceMLPProofConfig:
     seed: int = 42
     tool_revision: str | None = None
     task_quality_dataset: Path | None = None
+    task_quality_method: str = "code_exact_match"
     task_quality_revision: str | None = None
     task_quality_split: str = "test"
     task_quality_max_new_tokens: int = 128
+    task_quality_max_input_tokens: int = 4096
     task_quality_max_samples: int | None = None
 
     def __post_init__(self) -> None:
@@ -163,25 +167,36 @@ class HuggingFaceMLPProofConfig:
             )
         if not self.task_quality_split.strip():
             raise HuggingFaceMLPProofError("task-quality split cannot be blank")
-        if self.task_quality_max_new_tokens <= 0:
-            raise HuggingFaceMLPProofError("task-quality max_new_tokens must be positive")
+        if self.task_quality_method not in {
+            "none",
+            "code_exact_match",
+            "multiple_choice_accuracy",
+        }:
+            raise HuggingFaceMLPProofError("unsupported task-quality method")
         if (
-            self.task_quality_max_samples is not None
-            and (
-                not isinstance(self.task_quality_max_samples, int)
-                or isinstance(self.task_quality_max_samples, bool)
-                or self.task_quality_max_samples <= 0
-            )
+            self.task_quality_dataset is None
+            and self.task_quality_method == "multiple_choice_accuracy"
+        ):
+            raise HuggingFaceMLPProofError("multiple-choice task-quality method requires a dataset")
+        if self.task_quality_dataset is not None and self.task_quality_method == "none":
+            raise HuggingFaceMLPProofError("task-quality dataset requires an enabled method")
+        if not 1 <= self.task_quality_max_input_tokens <= 8192:
+            raise HuggingFaceMLPProofError("task-quality max_input_tokens must be within 1..8192")
+        if self.task_quality_method == "code_exact_match":
+            try:
+                validate_task_quality_generation_budget(
+                    self.task_quality_max_new_tokens,
+                    sample_count=self.task_quality_max_samples,
+                )
+            except ValueError as error:
+                raise HuggingFaceMLPProofError(str(error)) from error
+        if self.task_quality_max_samples is not None and (
+            not isinstance(self.task_quality_max_samples, int)
+            or isinstance(self.task_quality_max_samples, bool)
+            or not 1 <= self.task_quality_max_samples <= MAX_TASK_QUALITY_EXAMPLES
         ):
             raise HuggingFaceMLPProofError(
-                "task-quality max_samples must be a positive integer"
-            )
-        if (
-            self.task_quality_max_samples is not None
-            and self.task_quality_max_samples > MAX_TASK_QUALITY_ROWS
-        ):
-            raise HuggingFaceMLPProofError(
-                f"task-quality max_samples cannot exceed {MAX_TASK_QUALITY_ROWS}"
+                f"task-quality max_samples must be within 1..{MAX_TASK_QUALITY_EXAMPLES}"
             )
 
 
@@ -483,16 +498,11 @@ def _tool_revision(explicit: str | None) -> str:
 
 def _read_calibration_text(path: Path) -> tuple[str, str]:
     try:
-        with path.open("rb") as stream:
-            payload = stream.read(_MAX_CALIBRATION_TEXT_BYTES + 1)
+        payload = path.read_bytes()
     except OSError as error:
         raise HuggingFaceMLPProofError(f"cannot read calibration text: {error}") from error
     if not payload:
         raise HuggingFaceMLPProofError("calibration text cannot be empty")
-    if len(payload) > _MAX_CALIBRATION_TEXT_BYTES:
-        raise HuggingFaceMLPProofError(
-            f"calibration text exceeds the {_MAX_CALIBRATION_TEXT_BYTES}-byte limit"
-        )
     try:
         text = payload.decode("utf-8")
     except UnicodeDecodeError as error:
@@ -665,11 +675,20 @@ class HuggingFaceMLPProofRuntime:
         self._task_quality_dataset = (
             None
             if config.task_quality_dataset is None
-            else CodeExactMatchDataset.load(
-                config.task_quality_dataset,
-                revision=config.task_quality_revision,
-                split=config.task_quality_split,
-                max_samples=config.task_quality_max_samples,
+            else (
+                CodeExactMatchDataset.load(
+                    config.task_quality_dataset,
+                    revision=config.task_quality_revision,
+                    split=config.task_quality_split,
+                    max_samples=config.task_quality_max_samples,
+                )
+                if config.task_quality_method == "code_exact_match"
+                else MultipleChoiceDataset.load(
+                    config.task_quality_dataset,
+                    revision=config.task_quality_revision,
+                    split=config.task_quality_split,
+                    max_samples=config.task_quality_max_samples,
+                )
             )
         )
         text, text_revision = _read_calibration_text(config.calibration_text)
@@ -677,8 +696,6 @@ class HuggingFaceMLPProofRuntime:
             text,
             add_special_tokens=False,
             return_attention_mask=False,
-            truncation=True,
-            max_length=config.max_tokens,
         )
         if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
             raise HuggingFaceMLPProofError("tokenizer did not return an input_ids mapping")
@@ -765,9 +782,18 @@ class HuggingFaceMLPProofRuntime:
                 None
                 if self._task_quality_dataset is None
                 else {
-                    "method": "code_exact_match",
+                    "method": self.config.task_quality_method,
                     "dataset": self._task_quality_dataset.to_record(),
-                    "max_new_tokens": self.config.task_quality_max_new_tokens,
+                    "max_new_tokens": (
+                        self.config.task_quality_max_new_tokens
+                        if self.config.task_quality_method == "code_exact_match"
+                        else None
+                    ),
+                    "max_input_tokens": (
+                        self.config.task_quality_max_input_tokens
+                        if self.config.task_quality_method == "multiple_choice_accuracy"
+                        else None
+                    ),
                 }
             ),
         }
@@ -827,14 +853,33 @@ class HuggingFaceMLPProofRuntime:
     def _task_quality_record(self, model: Any) -> dict[str, object]:
         if self._task_quality_dataset is None:
             return {}
-        measurement = evaluate_code_exact_match(
-            model,
-            self._tokenizer,
-            self._torch,
-            self._task_quality_dataset,
-            max_new_tokens=self.config.task_quality_max_new_tokens,
-        )
-        return {"task_quality": measurement.to_record()}
+        if self.config.task_quality_method == "multiple_choice_accuracy":
+            if not isinstance(self._task_quality_dataset, MultipleChoiceDataset):
+                raise HuggingFaceMLPProofError(
+                    "multiple-choice method loaded an incompatible task dataset"
+                )
+            multiple_choice_measurement = evaluate_multiple_choice_accuracy(
+                model,
+                self._tokenizer,
+                self._torch,
+                self._task_quality_dataset,
+                max_input_tokens=self.config.task_quality_max_input_tokens,
+                input_device=self._resolve_input_device(),
+            )
+            return {"task_quality": multiple_choice_measurement.to_record()}
+        else:
+            if not isinstance(self._task_quality_dataset, CodeExactMatchDataset):
+                raise HuggingFaceMLPProofError(
+                    "code exact-match method loaded an incompatible task dataset"
+                )
+            code_measurement = evaluate_code_exact_match(
+                model,
+                self._tokenizer,
+                self._torch,
+                self._task_quality_dataset,
+                max_new_tokens=self.config.task_quality_max_new_tokens,
+            )
+            return {"task_quality": code_measurement.to_record()}
 
     def measure_model(self, model: Any, *, repetitions: int = 1) -> dict[str, object]:
         """Measure a reloaded compatible model on the exact proof corpus.

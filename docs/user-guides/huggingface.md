@@ -15,6 +15,34 @@ uv run modelsurgeon --help
 
 Keep downloaded models, generated checkpoints, logs, and reports below an ignored work/ or artifacts/ directory. Never use the source model directory as an output directory. The source checkpoint is an immutable input and every published artifact must have a different path.
 
+## Optional code exact-match task-quality guard
+
+For a local JSONL coding benchmark, configure `task_quality.method: code_exact_match` and set `task_quality.dataset` to the file path. Each row contains `id`, `prompt`, and `reference` string fields. The loader streams the file and caps it at 256 MiB, 8 MiB per row, and 100,000 rows. Evaluation retains at most 4,096 examples. Set `task_quality.max_samples` to retain only the first N examples for evaluation; the loader validates every row and the recorded digest covers the complete file, so any dataset change updates its provenance.
+
+## Optional multiple-choice task-quality guard
+
+For a local finite-choice benchmark, add this block to the resolved optimize configuration:
+
+~~~yaml
+task_quality:
+  method: multiple_choice_accuracy
+  dataset: ./benchmarks/choices.jsonl
+  dataset_revision: benchmark-commit-or-digest
+  split: test
+  max_samples: 256
+  max_input_tokens: 4096
+~~~
+
+Each UTF-8 JSONL row has this shape:
+
+~~~json
+{"id":"question-1","prompt":"What is 2 + 2? Answer:","choices":[" 3"," 4"," 5"],"answer_index":1}
+~~~
+
+`answer_index` is zero-based. The runtime scores each complete choice continuation by summed conditional token log-likelihood and selects the highest-scoring choice. Include appropriate whitespace in each choice because it is part of the continuation. The runtime records the dataset digest, predicted and correct indices, and per-choice scores, then applies the same declared task-quality retention threshold as code exact match. It performs no generation for this metric.
+
+This evaluator is bounded to 4,096 examples, 16 choices per example, 16 MiB of JSONL, 16,384 total model forwards, one million total scored input tokens, and at most 8,192 tokens per prompt-choice pair. Its default per-sequence limit is 4,096 tokens. The code path has numerical unit coverage; a real-model optimization campaign has not yet validated its task-quality retention behavior.
+
 ## 2. Pin and inspect a model
 
 Use an immutable Hub commit rather than a moving branch or tag. The revision below is a placeholder; replace it with the commit you actually selected and record it with the result.

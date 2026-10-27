@@ -47,7 +47,7 @@ from modelsurgeon.evaluation.quality_gate import (
 )
 from modelsurgeon.evaluation.task_quality import (
     TaskQualityEvaluationError,
-    evaluate_code_quality_gate,
+    evaluate_task_quality_gate,
 )
 from modelsurgeon.experiments.candidates import (
     CandidateEnumeratorConfig,
@@ -322,16 +322,37 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             raise FirstPartyOptimizeRuntimeError(
                 "configured task-quality evaluation produced incomplete evidence"
             )
+        metric = baseline_task.get("metric")
+        if not isinstance(metric, str) or candidate_task.get("metric") != metric:
+            raise FirstPartyOptimizeRuntimeError(
+                "task-quality measurements use different or unknown metrics"
+            )
+        if (
+            baseline_task.get("measurement_authority") != "physical_model_evaluation"
+            or candidate_task.get("measurement_authority") != "physical_model_evaluation"
+        ):
+            raise FirstPartyOptimizeRuntimeError(
+                "task-quality gate requires physically measured baseline and candidate scores"
+            )
+        score_key = {
+            "code_exact_match": "exact_match_accuracy",
+            "multiple_choice_accuracy": "accuracy",
+        }.get(metric)
+        if score_key is None:
+            raise FirstPartyOptimizeRuntimeError(
+                f"unsupported task-quality metric: {metric!r}"
+            )
         try:
-            task_gate = evaluate_code_quality_gate(
+            task_gate = evaluate_task_quality_gate(
                 _number(
-                    baseline_task.get("exact_match_accuracy"),
-                    "baseline.task_quality.exact_match_accuracy",
+                    baseline_task.get(score_key),
+                    f"baseline.task_quality.{score_key}",
                 ),
                 _number(
-                    candidate_task.get("exact_match_accuracy"),
-                    "candidate.task_quality.exact_match_accuracy",
+                    candidate_task.get(score_key),
+                    f"candidate.task_quality.{score_key}",
                 ),
+                metric=metric,
                 min_quality_retention_ratio=_number(
                     _mapping(
                         _mapping(self.plan.resolved_config, "resolved configuration").get(
@@ -962,18 +983,18 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "task_quality",
         )
         task_method = task_quality.get("method", "none")
-        if task_method not in {"none", "code_exact_match"}:
+        if task_method not in {"none", "code_exact_match", "multiple_choice_accuracy"}:
             raise FirstPartyOptimizeRuntimeError(
                 f"unsupported task_quality.method: {task_method!r}"
             )
         task_dataset = task_quality.get("dataset")
-        if task_method == "code_exact_match" and not isinstance(task_dataset, str):
+        if task_method != "none" and not isinstance(task_dataset, str):
             raise FirstPartyOptimizeRuntimeError(
-                "task_quality.dataset is required for code_exact_match"
+                f"task_quality.dataset is required for {task_method}"
             )
         if task_method == "none" and task_dataset is not None:
             raise FirstPartyOptimizeRuntimeError(
-                "task_quality.dataset requires task_quality.method=code_exact_match"
+                "task_quality.dataset requires an enabled task-quality method"
             )
         task_dataset_path = (
             None
@@ -994,6 +1015,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 safe_perplexity_delta=self.plan.quality_profile.max_perplexity_delta or 0.05,
                 seed=_integer(calibration_config.get("seed"), 0, "calibration.seed"),
                 task_quality_dataset=task_dataset_path,
+                task_quality_method=str(task_method),
                 task_quality_revision=(
                     None
                     if task_method == "none"
@@ -1009,6 +1031,11 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     task_quality.get("max_new_tokens", 128),
                     1,
                     "task_quality.max_new_tokens",
+                ),
+                task_quality_max_input_tokens=_integer(
+                    task_quality.get("max_input_tokens", 4096),
+                    4096,
+                    "task_quality.max_input_tokens",
                 ),
                 task_quality_max_samples=(
                     None
