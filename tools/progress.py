@@ -771,7 +771,11 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         ):
             stream_milestone_weights[milestone["workstream"]] += milestone["weight"]
     for workstream in workstreams:
-        if isinstance(workstream, dict) and isinstance(workstream.get("id"), str) and stream_milestone_weights[workstream["id"]] != 100:
+        if (
+            isinstance(workstream, dict)
+            and isinstance(workstream.get("id"), str)
+            and stream_milestone_weights[workstream["id"]] != 100
+        ):
             err(
                 f"milestone weights for {workstream['id']} must total 100; got {stream_milestone_weights[workstream['id']]}"
             )
@@ -810,14 +814,24 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
             if key not in cell:
                 err(f"compatibility cell missing {key}: {cell.get('id')}")
         for key in (
-            "id", "architecture", "model_scope", "format", "quantization", "operation",
-            "hardware_backend", "runtime", "recovery_method", "assessment_date",
+            "id",
+            "architecture",
+            "model_scope",
+            "format",
+            "quantization",
+            "operation",
+            "hardware_backend",
+            "runtime",
+            "recovery_method",
+            "assessment_date",
         ):
             if not _is_text(cell.get(key)):
                 err(f"compatibility cell {cell.get('id')} needs a non-empty {key}")
         if not isinstance(cell.get("weight"), int) or cell["weight"] <= 0:
             err(f"compatibility cell {cell.get('id')} needs a positive integer weight")
-        if not isinstance(cell.get("evidence_refs"), list) or not isinstance(cell.get("limitations"), list):
+        if not isinstance(cell.get("evidence_refs"), list) or not isinstance(
+            cell.get("limitations"), list
+        ):
             err(f"compatibility cell {cell.get('id')} evidence_refs and limitations must be arrays")
         if (
             not isinstance(cell.get("status"), str)
@@ -831,11 +845,17 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         if cell.get("theoretical_status") not in {"plausible", "unknown", "unsupported"}:
             err(f"compatibility cell {cell.get('id')} has an invalid theoretical_status")
         if cell.get("implementation_level") not in {
-            "not_implemented", "in_pr", "experimental", "integrated_main"
+            "not_implemented",
+            "in_pr",
+            "experimental",
+            "integrated_main",
         }:
             err(f"compatibility cell {cell.get('id')} has an invalid implementation_level")
         if cell.get("validation_level") not in {
-            "not_tested", "synthetic", "physical", "independent_reproduction"
+            "not_tested",
+            "synthetic",
+            "physical",
+            "independent_reproduction",
         }:
             err(f"compatibility cell {cell.get('id')} has an invalid validation_level")
         if cell.get("status") == "verified" and (
@@ -953,8 +973,22 @@ def validate(data: dict[str, Any], root: Path = ROOT) -> list[str]:
                 continue
             if not isinstance(item.get("number"), int) or item.get("number", 0) <= 0:
                 err("notable PR number must be a positive integer")
-            if item.get("status") != "open" or item.get("integrated_on_main") is not False:
-                err(f"notable PR #{item.get('number')} must remain pending and not integrated")
+            status = item.get("status")
+            integrated = item.get("integrated_on_main")
+            if status == "open":
+                if integrated is not False:
+                    err(f"open PR #{item.get('number')} cannot be marked integrated")
+            elif status == "merged":
+                if integrated is not True:
+                    err(f"merged PR #{item.get('number')} must be marked integrated")
+                if not re.fullmatch(r"[0-9a-f]{40}", str(item.get("merge_commit", ""))):
+                    err(f"merged PR #{item.get('number')} needs a full merge commit")
+                if not re.fullmatch(
+                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", str(item.get("merged_at", ""))
+                ):
+                    err(f"merged PR #{item.get('number')} needs a UTC merged_at timestamp")
+            else:
+                err(f"notable PR #{item.get('number')} status must be open or merged")
         for chain in _as_list(backlog.get("dependency_chains")):
             if not isinstance(chain, list) or len(chain) < 2:
                 err("backlog dependency chains need at least two PR numbers")
@@ -1344,17 +1378,20 @@ def render_backlog(data: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## Notable open optimizer and evidence PRs",
+            "## Notable open and dependency PRs",
             "",
             "| PR | Base | Branch | Area / relationship | Integrated on main |",
             "| --- | --- | --- | --- | --- |",
         ]
     )
     for item in sorted(audit["notable_pull_requests"], key=lambda row: row["number"]):
+        integrated = (
+            "Yes" if item.get("status") == "merged" and item.get("integrated_on_main") else "No"
+        )
         lines.append(
             f"| [#{item['number']}: {_markdown(item['title'])}](https://github.com/xdCloudy/ModelSurgeon/pull/{item['number']}) | "
             f"`{_markdown(item['base_branch'])}` | `{_markdown(item['head_branch'])}` | "
-            f"{_markdown(item['relationship'])} | No |"
+            f"{_markdown(item['relationship'])} | {integrated} |"
         )
     lines.extend(
         [
@@ -1429,6 +1466,27 @@ def render_progress_overview(data: dict[str, Any], scores: dict[str, Any]) -> st
         if item["dependencies"]:
             deps = ", ".join(f"`{dep}`" for dep in item["dependencies"])
             lines.append(f"| `{item['id']}` — {_markdown(item['title'])} | {deps} |")
+    retired = data.get("retired_milestones", [])
+    if retired:
+        lines.extend(
+            [
+                "",
+                "## Retired scope identifiers",
+                "",
+                "Retired IDs remain traceable; their complete former records and histories stay in the canonical JSON.",
+                "",
+                "| Former ID | Retired | Superseded by | Former research result | Reason |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for item in retired:
+            archived = item.get("archived_record", {})
+            superseded = ", ".join(f"`{value}`" for value in item.get("superseded_by", [])) or "—"
+            outcome = archived.get("research_outcome") or "Open"
+            lines.append(
+                f"| `{_markdown(item['id'])}` | {_markdown(item['retired_date'])} | {superseded} | "
+                f"{_label(str(outcome))} | {_markdown(item['reason'])} |"
+            )
     lines.extend(
         ["", "## Current blockers", "", "| Blocker | Impact | Next action |", "| --- | --- | --- |"]
     )
