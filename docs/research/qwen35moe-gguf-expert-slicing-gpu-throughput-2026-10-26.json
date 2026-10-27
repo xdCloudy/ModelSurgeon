@@ -1,0 +1,472 @@
+{
+  "date": "2026-10-26",
+  "interpretation": {
+    "claim": "Position-balanced llama-bench comparison of the source and the exact 252-expert router-norm artifact already evaluated in the PR full-split quality report.",
+    "conclusion": "This is a single partially GPU-offloaded consumer-workstation benchmark. It does not establish a broadly generalizable speed benefit or a quality result.",
+    "inference_speed_measured": true,
+    "limitations": [
+      "Only one model, one exact artifact pair, and one workstation were measured.",
+      "Eight of 41 model layers were offloaded to the RTX 3060; this is a mixed CPU/GPU deployment, not full GPU residency.",
+      "llama-bench uses synthetic benchmark workloads; task quality was not remeasured.",
+      "No model-load latency, TTFT, RAM/VRAM peak, energy, or other serving workload was measured.",
+      "The paired t interval is descriptive for 12 order-balanced rounds and one environment; it is not evidence of generalization."
+    ],
+    "quality_gate_applied": false
+  },
+  "local_run_manifest_sha256": "55d555b66aa904959c5cc996eb41f76c5bb2f2791421fa51ff99ca6fb3ee68ca",
+  "model": {
+    "architecture": "qwen35moe",
+    "identifier": "Endy-Qwen3.6-CyberSec-35B-A3B-Q4_K_M",
+    "router_norm_252": {
+      "bytes": 21399217408,
+      "bytes_removed": 314245088,
+      "disk_reduction_fraction": 0.014472361930203,
+      "retained_experts_per_block": 252,
+      "sha256": "06969df1ce0505ad2f7d506497c9f5f9731c3a3887d07351ccafbd3edd7d3fe3"
+    },
+    "source": {
+      "bytes": 21713462496,
+      "sha256": "ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1"
+    },
+    "source_license": "AGPL-3.0; weights not redistributed",
+    "source_revision": "eed558458ca9ff6972063c486c7f1ab9e0b0c93e"
+  },
+  "record_type": "qwen35moe_gguf_expert_slicing_gpu_deployment_comparison",
+  "rounds": [
+    {
+      "pair": 1,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.4173
+        ],
+        "generation_tokens_per_second": 18.417291,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          277.64
+        ],
+        "prompt_tokens_per_second": 277.639816
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          17.7295
+        ],
+        "generation_tokens_per_second": 17.729474,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          292.043
+        ],
+        "prompt_tokens_per_second": 292.043464
+      },
+      "source_first": true
+    },
+    {
+      "pair": 2,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.3734
+        ],
+        "generation_tokens_per_second": 18.373395,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          284.762
+        ],
+        "prompt_tokens_per_second": 284.762017
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.8756
+        ],
+        "generation_tokens_per_second": 18.875599,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          287.186
+        ],
+        "prompt_tokens_per_second": 287.186195
+      },
+      "source_first": true
+    },
+    {
+      "pair": 3,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.547
+        ],
+        "generation_tokens_per_second": 18.547008,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          283.88
+        ],
+        "prompt_tokens_per_second": 283.879792
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          17.8565
+        ],
+        "generation_tokens_per_second": 17.856486,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          291.389
+        ],
+        "prompt_tokens_per_second": 291.389354
+      },
+      "source_first": false
+    },
+    {
+      "pair": 4,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.9603
+        ],
+        "generation_tokens_per_second": 17.960345,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          302.38
+        ],
+        "prompt_tokens_per_second": 302.3798
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          17.8018
+        ],
+        "generation_tokens_per_second": 17.801794,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          272.6
+        ],
+        "prompt_tokens_per_second": 272.600193
+      },
+      "source_first": true
+    },
+    {
+      "pair": 5,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.1677
+        ],
+        "generation_tokens_per_second": 18.167688,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          293.843
+        ],
+        "prompt_tokens_per_second": 293.843081
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          17.4361
+        ],
+        "generation_tokens_per_second": 17.436085,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          293.747
+        ],
+        "prompt_tokens_per_second": 293.746515
+      },
+      "source_first": true
+    },
+    {
+      "pair": 6,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.8885
+        ],
+        "generation_tokens_per_second": 17.888484,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          307.222
+        ],
+        "prompt_tokens_per_second": 307.222464
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          17.4781
+        ],
+        "generation_tokens_per_second": 17.478146,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          293.371
+        ],
+        "prompt_tokens_per_second": 293.371108
+      },
+      "source_first": false
+    },
+    {
+      "pair": 7,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.3076
+        ],
+        "generation_tokens_per_second": 17.307609,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          294.289
+        ],
+        "prompt_tokens_per_second": 294.289152
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          16.8888
+        ],
+        "generation_tokens_per_second": 16.888844,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          299.46
+        ],
+        "prompt_tokens_per_second": 299.459581
+      },
+      "source_first": true
+    },
+    {
+      "pair": 8,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.7555
+        ],
+        "generation_tokens_per_second": 17.755548,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          304.428
+        ],
+        "prompt_tokens_per_second": 304.428356
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.9834
+        ],
+        "generation_tokens_per_second": 18.983412,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          308.455
+        ],
+        "prompt_tokens_per_second": 308.455383
+      },
+      "source_first": false
+    },
+    {
+      "pair": 9,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.578
+        ],
+        "generation_tokens_per_second": 18.577979,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          305.587
+        ],
+        "prompt_tokens_per_second": 305.586862
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.3326
+        ],
+        "generation_tokens_per_second": 18.332636,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          286.487
+        ],
+        "prompt_tokens_per_second": 286.486761
+      },
+      "source_first": true
+    },
+    {
+      "pair": 10,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.3908
+        ],
+        "generation_tokens_per_second": 17.390801,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          296.225
+        ],
+        "prompt_tokens_per_second": 296.224554
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.0598
+        ],
+        "generation_tokens_per_second": 18.0598,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          294.753
+        ],
+        "prompt_tokens_per_second": 294.753039
+      },
+      "source_first": false
+    },
+    {
+      "pair": 11,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          17.772
+        ],
+        "generation_tokens_per_second": 17.772014,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          279.117
+        ],
+        "prompt_tokens_per_second": 279.116513
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.2659
+        ],
+        "generation_tokens_per_second": 18.265853,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          266.59
+        ],
+        "prompt_tokens_per_second": 266.590397
+      },
+      "source_first": false
+    },
+    {
+      "pair": 12,
+      "router_norm_252": {
+        "generation_sample_tokens_per_second": [
+          18.2318
+        ],
+        "generation_tokens_per_second": 18.231823,
+        "model_n_params": 34989016192,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "first",
+        "prompt_sample_tokens_per_second": [
+          297.603
+        ],
+        "prompt_tokens_per_second": 297.602769
+      },
+      "source": {
+        "generation_sample_tokens_per_second": [
+          18.5122
+        ],
+        "generation_tokens_per_second": 18.512241,
+        "model_n_params": 35505251456,
+        "model_type": "qwen35moe 35B.A3B Q4_K - Medium",
+        "position": "second",
+        "prompt_sample_tokens_per_second": [
+          292.154
+        ],
+        "prompt_tokens_per_second": 292.153949
+      },
+      "source_first": false
+    }
+  ],
+  "runtime": {
+    "backends": "CUDA",
+    "batch": 512,
+    "build": 11804,
+    "cache_type_k": "f16",
+    "cache_type_v": "f16",
+    "commit": "c7fc50941",
+    "cpu": "Intel Core i5-14600K",
+    "generation_tokens": 128,
+    "gpu": "NVIDIA GeForce RTX 3060 12 GB",
+    "gpu_layers": 8,
+    "measured_repetitions_per_process": 1,
+    "microbatch": 512,
+    "name": "llama.cpp llama-bench",
+    "order_balance": {
+      "candidate_first": 6,
+      "source_first": 6
+    },
+    "order_shuffle_seed": 7362026,
+    "prompt_tokens": 512,
+    "rounds_per_artifact": 12,
+    "statistic": "mean paired candidate/source throughput ratio minus one; paired t interval, 95%, df=11, t*=2.201",
+    "threads": 8,
+    "version": "0.7.0-dev",
+    "warmup": true
+  },
+  "schema_version": 1,
+  "summary": {
+    "generation_128": {
+      "candidate_mean_tokens_per_second": 18.03249875,
+      "mean_candidate_to_source_percent": 0.16227055985095773,
+      "pair_percent_changes": [
+        3.8795115974675776,
+        -2.660599009334763,
+        3.867065446135376,
+        0.8906461899289342,
+        4.195913245433247,
+        2.3477204046699285,
+        2.4795361956093664,
+        -6.468089087462259,
+        1.3382854489665252,
+        -3.704354422529599,
+        -2.703618604617053,
+        -1.5147706860557886
+      ],
+      "paired_t_interval_95_percent": [
+        -2.0535194154074583,
+        2.378060535109374
+      ],
+      "source_mean_tokens_per_second": 18.018364166666668
+    },
+    "prompt_512": {
+      "candidate_mean_tokens_per_second": 293.914598,
+      "mean_candidate_to_source_percent": 1.501925652207145,
+      "pair_percent_changes": [
+        -4.932022036281547,
+        -0.8441136942533012,
+        -2.577157297242927,
+        10.92427949968473,
+        0.032873921925502536,
+        4.721445166986249,
+        -1.726586600680513,
+        -1.3055460277053954,
+        6.667009998413143,
+        0.4992365829347811,
+        4.69863736314553,
+        1.865050949559488
+      ],
+      "paired_t_interval_95_percent": [
+        -1.3471772321406659,
+        4.3510285365549555
+      ],
+      "source_mean_tokens_per_second": 289.85299491666666
+    }
+  }
+}

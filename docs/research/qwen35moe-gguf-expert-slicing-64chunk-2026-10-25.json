@@ -1,0 +1,162 @@
+{
+  "dataset": {
+    "archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+    "chunks_requested_and_processed_per_artifact": 64,
+    "context_size": 512,
+    "license": "CC BY-SA / GFDL as reported by dataset card; text not redistributed",
+    "name": "WikiText-2 raw",
+    "repository": "ggml-org/ci mirror of Salesforce/wikitext:wikitext-2-raw-v1",
+    "sampling": "first 64 consecutive full-size contexts; not a random sample or the full test split",
+    "split": "test",
+    "text_sha256": "173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08",
+    "tokens_scored_per_artifact": 32768
+  },
+  "date": "2026-10-25",
+  "interpretation": {
+    "all_candidates_have_higher_mean_ppl_than_source": true,
+    "claim": "On this one contiguous 64-window WikiText-2 prefix, the router-norm candidate has a slightly better mean PPL than equal-size random pruning, but all reported uncertainty bands overlap. This does not demonstrate a reliable ranking advantage, full-test quality retention, generalization, or inference-speed improvement.",
+    "inference_speed_measured": false,
+    "point_estimate_ppl_retention_threshold_0_98_exceeded_by_both": true,
+    "quality_gate_applied": false,
+    "router_norm_point_estimate_better_than_random": true,
+    "router_norm_ppl_delta_vs_random": -0.033500000000000085
+  },
+  "limitations": [
+    "One Qwen3.6-derived qwen35moe checkpoint; this does not establish Qwen3.5 or other Qwen-family support.",
+    "The 64 contexts are a contiguous prefix, not the full WikiText-2 test split.",
+    "Only one random selection was evaluated; no independent seeds were repeated.",
+    "Reported uncertainty is not a formal confidence interval and no significance test was run.",
+    "No cybersecurity task-quality or deployment-throughput measurement was performed.",
+    "The local model declares AGPL-3.0; model weights and dataset text are not redistributed."
+  ],
+  "model": {
+    "architecture": "qwen35moe",
+    "blocks": 41,
+    "identifier": "Endy-Qwen3.6-CyberSec-35B-A3B-Q4_K_M",
+    "source_experts_per_block": 256,
+    "source_license": "AGPL-3.0",
+    "source_repository": "endystrike/Endy-Qwen3.6-CyberSec-35B-A3B",
+    "source_revision": "eed558458ca9ff6972063c486c7f1ab9e0b0c93e",
+    "top_k": 8
+  },
+  "provenance": {
+    "corpus_archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+    "external_log_directory": "local-only evaluation output; raw logs are not redistributed",
+    "repository": "https://github.com/xdCloudy/ModelSurgeon",
+    "research_report": "docs/research/qwen35moe-gguf-expert-slicing-v1.md",
+    "source_revision": "93b138b39b957e8ef98b553c6f9e08087929296a"
+  },
+  "record_type": "qwen35moe_gguf_expert_slicing_64_window_followup",
+  "results": [
+    {
+      "artifact": "source",
+      "chunks_processed": 64,
+      "elapsed_seconds": 274.34,
+      "experts_retained_per_block": 256,
+      "file_bytes": 21713462496,
+      "perplexity": 6.4083,
+      "perplexity_delta_vs_source": 0.0,
+      "ppl_retention_source_over_candidate": 1.0,
+      "reported_uncertainty": 0.11895,
+      "return_code": 0,
+      "sha256": "ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1",
+      "size_reduction_bytes": 0,
+      "size_reduction_percent": 0.0,
+      "stderr_sha256": "03fae2809213f5e99cc3b44757d6fa52c476752c7e9a824d683f28bcde79f5bc",
+      "stdout_sha256": "5b1d938fc5ec697673659baa94d99031fdc7ab400134a4ab3d668145cfc24198",
+      "tokens_scored": 32768
+    },
+    {
+      "artifact": "router_norm_252",
+      "chunks_processed": 64,
+      "elapsed_seconds": 228.32,
+      "experts_retained_per_block": 252,
+      "file_bytes": 21399217408,
+      "perplexity": 6.4863,
+      "perplexity_delta_vs_source": 0.07800000000000029,
+      "ppl_retention_source_over_candidate": 0.9879746542713103,
+      "reported_uncertainty": 0.12059,
+      "return_code": 0,
+      "sha256": "06969df1ce0505ad2f7d506497c9f5f9731c3a3887d07351ccafbd3edd7d3fe3",
+      "size_reduction_bytes": 314245088,
+      "size_reduction_percent": 1.4472361930202953,
+      "stderr_sha256": "204f8f3ed4814c13928da0b0f69ead80c358ebfdde6c3c4f397d7d61a48459d7",
+      "stdout_sha256": "ab3ee51894fff68659814eac920ee35c38f818fc031a582f8b125e1d23d9080f",
+      "tokens_scored": 32768
+    },
+    {
+      "artifact": "random_252_seed_20261025",
+      "chunks_processed": 64,
+      "elapsed_seconds": 236.27,
+      "experts_retained_per_block": 252,
+      "file_bytes": 21399217408,
+      "perplexity": 6.5198,
+      "perplexity_delta_vs_source": 0.11150000000000038,
+      "ppl_retention_source_over_candidate": 0.9828982484125279,
+      "reported_uncertainty": 0.12151,
+      "return_code": 0,
+      "sha256": "17bbf662f37f0b454583c4847bb1adce3af1b1f45478697ec48b609de7a1042d",
+      "size_reduction_bytes": 314245088,
+      "size_reduction_percent": 1.4472361930202953,
+      "stderr_sha256": "076993d019ea1b75422895175bccaf7a7fc41993f53f7222e75a35a4de5c3e8a",
+      "stdout_sha256": "0bf2df8fa6fd8d7b7d5a398b1c567b97f6a829bc7724010b447b433f3a562245",
+      "tokens_scored": 32768
+    }
+  ],
+  "runtime": {
+    "build": 11804,
+    "command_template": [
+      "llama-perplexity.exe",
+      "-m",
+      "<artifact.gguf>",
+      "-f",
+      "wiki.test.raw",
+      "-c",
+      "512",
+      "-b",
+      "512",
+      "-ub",
+      "256",
+      "-t",
+      "12",
+      "-ngl",
+      "0",
+      "--chunks",
+      "64",
+      "--no-warmup",
+      "--ppl-output-type",
+      "1",
+      "--log-colors",
+      "off"
+    ],
+    "commit": "c7fc50941",
+    "device": "CPU",
+    "hardware": {
+      "cpu": "Intel Core i5-14600K",
+      "gpu_used": false,
+      "system_ram_bytes": 68719476736
+    },
+    "name": "llama.cpp llama-perplexity",
+    "settings": {
+      "batch": 512,
+      "context": 512,
+      "gpu_layers": 0,
+      "log_colors": "off",
+      "microbatch": 256,
+      "ppl_output_type": 1,
+      "warmup": false
+    },
+    "threads": 12,
+    "version": "0.7.0-dev"
+  },
+  "schema_version": 1,
+  "uncertainty": {
+    "independent_seed_repeats": 0,
+    "is_formal_confidence_interval": false,
+    "method": "Gaussian-logit error propagation",
+    "reported_as": "llama.cpp reported PPL +/- uncertainty",
+    "reported_bands_source_overlap": true,
+    "router_vs_random_bands_overlap": true,
+    "source": "https://github.com/ggml-org/llama.cpp/blob/c7fc50941/tools/perplexity/README.md"
+  }
+}

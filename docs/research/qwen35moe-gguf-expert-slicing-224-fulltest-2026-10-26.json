@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "record_type": "qwen35moe_gguf_expert_slicing_224_expert_full_test_comparison",
+  "date": "2026-10-26",
+  "status": "completed_source_router_norm_and_two_seeded_random_full_splits",
+  "interpretation": {
+    "claim": "Three 224-of-256 expert-per-layer Qwen3.5-family GGUF candidates (router norm and two predeclared random seeds) were evaluated on the complete pinned WikiText-2 raw test split using the same CPU runtime settings. All failed the configured 98% point-estimate PPL-retention floor.",
+    "quality_gate_applied": false,
+    "promotion_recommended": false,
+    "inference_speed_measured": false,
+    "ranking_conclusion": "The two random candidates have PPL point estimates 1.2113 and 1.1955 below router-norm selection on this one model and corpus; their PPLs differ by 0.0158. The llama.cpp propagated uncertainty bands for these candidates do not overlap, but are not formal confidence intervals. Two seeds on one model and corpus do not establish general ranking superiority.",
+    "limitations": [
+      "The configured point-estimate PPL retention floor is 0.98; all three 224-expert candidates fall below it.",
+      "The reported plus/minus values are llama.cpp propagated uncertainties, not formal confidence intervals or a significance test.",
+      "This is one model, one dataset, one router-norm selection, and two random seeds. It does not establish task-quality retention or general ranking superiority.",
+      "No throughput, latency, model load time, peak RAM/VRAM, or energy measurement was made for these 224-expert artifacts.",
+      "llama.cpp reports some model tensors as unused while evaluating this architecture. Runs completed with return code 0, but runtime and task compatibility beyond this PPL evaluation remain unverified."
+    ]
+  },
+  "model": {
+    "identifier": "Endy-Qwen3.6-CyberSec-35B-A3B-Q4_K_M",
+    "architecture": "qwen35moe",
+    "source_repository": "endystrike/Endy-Qwen3.6-CyberSec-35B-A3B",
+    "source_revision": "eed558458ca9ff6972063c486c7f1ab9e0b0c93e",
+    "license": "AGPL-3.0; model weights remain local and are not redistributed",
+    "source_artifact": {
+      "bytes": 21713462496,
+      "sha256": "ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1",
+      "perplexity": 6.709,
+      "reported_uncertainty": 0.04243,
+      "result_manifest": "qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json"
+    },
+    "retention_floor": {
+      "metric": "source_perplexity / candidate_perplexity",
+      "minimum": 0.98,
+      "source": "PR #736 configured minimum quality retention ratio"
+    },
+    "candidates": [
+      {
+        "selection": "router_norm_top_224_per_layer",
+        "retained_experts_per_block": 224,
+        "blocks": 41,
+        "bytes": 19199501568,
+        "sha256": "3c76db1ba5dd1f7ad3dc12fc41590a6da9519a27d79a74597adaf0e0635ec869",
+        "perplexity": 8.7952,
+        "reported_uncertainty": 0.05828,
+        "point_estimate_perplexity_retention": 0.7628024376932873,
+        "retention_floor_passed": false,
+        "generation_script_sha256": "7a99b2e1258c31a887759fc4870c4c3d445ee257424f335a8549a18e4c5d954d",
+        "artifact_generation": "Regenerated with PR #736's native GGUF expert-surgery code; deterministic artifact hash matched the previously generated local candidate."
+      },
+      {
+        "selection": "random_seed_20261026",
+        "seed": 20261026,
+        "retained_experts_per_block": 224,
+        "blocks": 41,
+        "selection_protocol": "One random.Random(seed) instance; for each layer in ascending order sample 224 distinct IDs from range(256), then sort retained IDs.",
+        "bytes": 19199501568,
+        "sha256": "31eb9fb5d6cd01a567cbc5ca7292fafadb42b76b401766cdaa1259163c44508c",
+        "perplexity": 7.5839,
+        "reported_uncertainty": 0.04910,
+        "point_estimate_perplexity_retention": 0.8846371919460964,
+        "retention_floor_passed": false,
+        "generation_script_sha256": "909108bbbbfc072f6b36112d3004146b0ab0e11b1665fe5db2640630b253607f"
+      },
+      {
+        "selection": "random_seed_20261027",
+        "seed": 20261027,
+        "retained_experts_per_block": 224,
+        "blocks": 41,
+        "selection_protocol": "One random.Random(seed) instance; for each layer in ascending order sample 224 distinct IDs from range(256), then sort retained IDs.",
+        "bytes": 19199501568,
+        "sha256": "afd48dc46cf7e3146349d872d2212e1f0040a0623609b5d24ce92b47631f3d61",
+        "perplexity": 7.5997,
+        "reported_uncertainty": 0.04912,
+        "point_estimate_perplexity_retention": 0.8827980051844151,
+        "retention_floor_passed": false,
+        "generation_script_sha256": "fdac5a2e38edf5443ddd16d9846864afaa2aec63dd2ee851f1257884319a0a81"
+      }
+    ],
+    "size_comparison": {
+      "bytes_removed_per_candidate": 2513960928,
+      "disk_reduction_fraction": 0.1157789057578042,
+      "retained_expert_fraction": 0.875
+    }
+  },
+  "dataset": {
+    "name": "WikiText-2 raw",
+    "repository": "ggml-org/ci mirror of Salesforce/wikitext:wikitext-2-raw-v1",
+    "archive_revision": "927b3642933080f1b0e811e2f916e14c292992f9",
+    "split": "test",
+    "archive_sha256": "ef7edb566e3e2b2d31b29c1fdb0c89a4cc683597484c3dc2517919c615435a11",
+    "text_sha256": "173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08",
+    "text_bytes": 1290590,
+    "chunks_processed": 580,
+    "tokens_scored": 296960,
+    "license": "CC BY-SA / GFDL as reported by dataset card; text not redistributed"
+  },
+  "runtime": {
+    "name": "llama.cpp llama-perplexity",
+    "version": "0.7.0-dev",
+    "build": 11804,
+    "commit": "c7fc50941",
+    "device": "CPU",
+    "hardware": {
+      "cpu": "Intel Core i5-14600K",
+      "system_ram_bytes": 68719476736,
+      "gpu_used": false
+    },
+    "settings": {
+      "context": 512,
+      "batch": 512,
+      "microbatch": 256,
+      "threads": 12,
+      "gpu_layers": 0,
+      "warmup": false,
+      "ppl_output_type": 1,
+      "chunks": -1
+    },
+    "return_code": 0,
+    "command_template": [
+      "llama-perplexity.exe", "-m", "<artifact.gguf>", "-f", "wiki.test.raw",
+      "-c", "512", "-b", "512", "-ub", "256", "-t", "12", "-ngl", "0",
+      "--chunks", "-1", "--no-warmup", "--ppl-output-type", "1", "--log-colors", "off"
+    ]
+  },
+  "results": [
+    {
+      "artifact": "source",
+      "status": "completed_reused_exact_pinned_baseline",
+      "perplexity": 6.709,
+      "reported_uncertainty": 0.04243,
+      "chunks_processed": 580,
+      "tokens_scored": 296960,
+      "source_manifest": "qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json"
+    },
+    {
+      "artifact": "router_norm_224",
+      "status": "completed",
+      "return_code": 0,
+      "chunks_processed": 580,
+      "tokens_scored": 296960,
+      "perplexity": 8.7952,
+      "reported_uncertainty": 0.05828,
+      "stdout_sha256": "6993dba4e8c3101325d9acbbef2de385de913b74b98af51967c1eecc18ea3425",
+      "stderr_sha256": "92f139e8e4c36131bbd1a9ebe1c47a7cd1301a2c92fbb00c97bc0d8c49c7d23d"
+    },
+    {
+      "artifact": "random_224_seed_20261026",
+      "status": "completed",
+      "return_code": 0,
+      "chunks_processed": 580,
+      "tokens_scored": 296960,
+      "perplexity": 7.5839,
+      "reported_uncertainty": 0.04910,
+      "ppl_point_estimate_difference_vs_router_norm_224": -1.2113,
+      "stdout_sha256": "abc0b7625ec190b8f0066d7ebb2c70a72809884c3b7bc0701b8cd7990076d8e1",
+      "stderr_sha256": "4a6e6a450f6afd7c1887384a5ad93bd36c2e534c59f9bcd805c9a659bfd27c7a"
+    },
+    {
+      "artifact": "random_224_seed_20261027",
+      "status": "completed",
+      "return_code": 0,
+      "chunks_processed": 580,
+      "output_rows": 580,
+      "tokens_scored": 296960,
+      "perplexity": 7.5997,
+      "reported_uncertainty": 0.04912,
+      "ppl_point_estimate_difference_vs_router_norm_224": -1.1955,
+      "ppl_point_estimate_difference_vs_random_224_seed_20261026": 0.0158,
+      "stdout_sha256": "c4dd321870526dadcf9e2b8f977030c93d0e9af1091d4cd1f5efdf9549258167",
+      "stderr_sha256": "b63174de3d18e9c167b1465393c79e14319479687feae789574b83dc49c42668"
+    }
+  ],
+  "provenance": {
+    "repository": "https://github.com/xdCloudy/ModelSurgeon",
+    "tested_revisions": [
+      "16df3fc0266e817989f3078f65696b4d30a3bf50",
+      "9d08cca6f3bb0b0e3fa91268169662a04389bf31"
+    ],
+    "pr": 736,
+    "source_code": "ModelSurgeon's in-tree native GGUF expert-pruning implementation; no third-party source code was incorporated by this experiment.",
+    "random_20261027_generation": "The second random artifact used PR #736's in-tree GGUF pruning code at 9d08cca6f3bb0b0e3fa91268169662a04389bf31; the first two artifacts were generated at 16df3fc0266e817989f3078f65696b4d30a3bf50. The pruning implementation was unchanged between these revisions.",
+    "raw_logs": "local-only evaluation output; model weights, generated GGUF artifacts, and dataset text are not redistributed"
+  }
+}

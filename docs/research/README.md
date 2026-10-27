@@ -2,6 +2,11 @@
 
 Store bounded spike outcomes, hypotheses, protocols, negative results and follow-up decisions here. Every record identifies immutable model/dataset revisions, seeds, hardware and software.
 
+- [Qwen MoE expert slicing 64-window quality follow-up](qwen35moe-gguf-expert-slicing-64chunk-2026-10-25.json)
+- [Qwen MoE full-test baseline and resource-limited comparison](qwen35moe-gguf-expert-slicing-fulltest-2026-10-25.json)
+- [Qwen MoE full-test three-way comparison](qwen35moe-gguf-expert-slicing-fulltest-router-norm-2026-10-26.json)
+- [Qwen MoE GPU deployment throughput comparison](qwen35moe-gguf-expert-slicing-gpu-throughput-2026-10-26.md)
+
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
 
@@ -47,3 +52,4 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
+- [Qwen3.6-derived MoE GGUF 224-expert stress study](qwen35moe-gguf-expert-slicing-224-fulltest-2026-10-26.md) — complete held-out perplexity comparison of router-norm and equal-size random 224-expert slices; both fail the configured 98% quality-retention floor.

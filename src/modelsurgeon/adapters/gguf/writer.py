@@ -6,7 +6,7 @@ import hashlib
 import os
 import secrets
 import struct
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -150,15 +150,10 @@ def _validated_metadata(
     keys = [entry.key for entry in metadata]
     if len(keys) != len(set(keys)):
         raise GGUFWriteError("GGUF metadata keys must be unique")
-    alignment_entry = next(
-        (entry for entry in metadata if entry.key == "general.alignment"), None
-    )
+    alignment_entry = next((entry for entry in metadata if entry.key == "general.alignment"), None)
     if alignment_entry is None:
         return (*metadata, GGUFWriteMetadata("general.alignment", GGUFValueType.UINT32, alignment))
-    if (
-        alignment_entry.value_type is not GGUFValueType.UINT32
-        or alignment_entry.value != alignment
-    ):
+    if alignment_entry.value_type is not GGUFValueType.UINT32 or alignment_entry.value != alignment:
         raise GGUFWriteError("general.alignment must match the writer alignment")
     return metadata
 
@@ -242,6 +237,7 @@ def write_gguf_transactionally(
     version: int = 3,
     byte_order: ByteOrder = ByteOrder.LITTLE,
     alignment: int = 32,
+    staging_validator: Callable[[Path, GGUFWriteResult], None] | None = None,
 ) -> GGUFWriteResult:
     """Stream a validated staging file, fsync it, then atomically publish it."""
 
@@ -297,10 +293,17 @@ def write_gguf_transactionally(
             actual = validation.container
             if actual.file_size != layout.total_bytes or tuple(
                 (item.name, item.data_offset, item.byte_size) for item in actual.tensors
-            ) != tuple(
-                (item.name, item.data_offset, item.byte_size) for item in layout.tensors
-            ):
+            ) != tuple((item.name, item.data_offset, item.byte_size) for item in layout.tensors):
                 raise GGUFWriteError("staged GGUF offsets or sizes failed validation")
+        staged_result = GGUFWriteResult(
+            staging,
+            layout.total_bytes,
+            digest.hexdigest(),
+            layout.tensors,
+            tuple(tensor_digests),
+        )
+        if staging_validator is not None:
+            staging_validator(staging, staged_result)
         try:
             os.link(staging, output)
         except FileExistsError as error:
