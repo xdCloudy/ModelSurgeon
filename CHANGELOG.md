@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+  - Changed safe-mutation calibrator comparison to stratified, deterministic
+    out-of-fold Brier/ECE measurements. The selected Platt or isotonic transform
+    is then refit on the full validation set; selection evidence records the
+    fold protocol and uses a revised selection-record schema. At least two
+    groups from each class are required for ModelSurgeon matrices so related
+    observations stay in one fold and every training complement retains both
+    outcomes. Direct fitting without group IDs keeps the row-wise protocol.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

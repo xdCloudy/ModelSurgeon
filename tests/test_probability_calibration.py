@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import inspect
+from copy import deepcopy
 
 import pytest
 
 from modelsurgeon.surgeon.calibration import (
     CalibrationMethod,
+    CalibrationSelection,
     IsotonicCalibrator,
     PlattCalibrator,
     ProbabilityCalibrationError,
+    _stratified_group_fold_indices,
     calibration_metrics,
     calibrator_from_record,
     fit_isotonic_calibrator,
@@ -42,17 +45,123 @@ def test_isotonic_calibration_pools_violations_and_round_trips() -> None:
 
 def test_selection_records_validation_evidence_and_fixed_reliability_bins() -> None:
     selection = fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4)
+    assert fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4) == selection
     record = selection.to_record()
 
     assert selection.calibrator.method in {CalibrationMethod.PLATT, CalibrationMethod.ISOTONIC}
+    assert selection.calibrator.method is CalibrationMethod.PLATT
     assert {candidate.method for candidate in selection.candidates} == {
         CalibrationMethod.PLATT,
         CalibrationMethod.ISOTONIC,
     }
     assert all(len(candidate.metrics.reliability_curve) == 4 for candidate in selection.candidates)
     assert record["fit_partition"] == "validation"
-    assert record["selection_rule"] == "minimum_brier_then_ece_then_method"
+    assert record["schema_version"] == 2
+    assert record["evaluation_partition"] == "validation_out_of_fold"
+    assert record["fold_assignment"] == "stratified_round_robin_v1"
+    assert record["cross_validation_folds"] == 4
+    assert record["selection_rule"] == "minimum_cross_fitted_brier_then_ece_then_method"
     assert "test_labels" not in inspect.signature(fit_probability_calibrator).parameters
+    assert CalibrationSelection.from_record(record) == selection
+
+    fitted_metrics = calibration_metrics(
+        LABELS, selection.calibrator.calibrate(PROBABILITIES), bins=4
+    )
+    selected_metrics = next(
+        candidate.metrics
+        for candidate in selection.candidates
+        if candidate.method is selection.calibrator.method
+    )
+    assert selected_metrics.brier_score != pytest.approx(fitted_metrics.brier_score)
+
+
+def test_grouped_crossfit_keeps_group_rows_together_and_records_protocol() -> None:
+    labels = LABELS
+    groups = tuple(f"group-{index // 2}" for index in range(len(labels)))
+    group_indices: dict[str, list[int]] = {}
+    group_class_counts: dict[str, list[int]] = {}
+    class_counts = (labels.count(0), labels.count(1))
+    for index, (label, group) in enumerate(zip(labels, groups, strict=True)):
+        group_indices.setdefault(group, []).append(index)
+        counts = group_class_counts.setdefault(group, [0, 0])
+        counts[label] += 1
+    class_group_counts = tuple(
+        sum(counts[label] > 0 for counts in group_class_counts.values()) for label in (0, 1)
+    )
+    folds = min(5, *class_group_counts)
+    assigned_folds = _stratified_group_fold_indices(
+        group_indices, group_class_counts, class_counts, folds
+    )
+    fold_by_row = {index: fold for fold, indices in enumerate(assigned_folds) for index in indices}
+    for group, indices in group_indices.items():
+        assert len({fold_by_row[index] for index in indices}) == 1, group
+
+    selection = fit_probability_calibrator(PROBABILITIES, labels, group_ids=groups)
+    assert selection.group_aware_folds
+    assert selection.cross_validation_folds == folds
+    assert selection.to_record()["fold_assignment"] == "stratified_group_greedy_v1"
+    assert CalibrationSelection.from_record(selection.to_record()) == selection
+
+
+def test_grouped_crossfit_fails_closed_without_two_groups_per_class() -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="two examples or groups per class"):
+        fit_probability_calibrator(
+            (0.1, 0.2, 0.8, 0.9),
+            (0, 0, 1, 1),
+            group_ids=("one-negative-group", "one-negative-group", "positive-a", "positive-b"),
+        )
+
+
+def test_grouped_crossfit_preserves_class_support_for_mixed_and_pure_groups() -> None:
+    selection = fit_probability_calibrator(
+        (0.05, 0.15, 0.25, 0.35, 0.65, 0.75, 0.85),
+        (0, 0, 0, 0, 1, 0, 1),
+        group_ids=("mixed", "mixed", "mixed", "mixed", "mixed", "negative", "positive"),
+    )
+
+    assert selection.group_aware_folds
+    assert selection.cross_validation_folds == 2
+
+
+def test_manually_constructed_selection_does_not_claim_fold_provenance() -> None:
+    selection = CalibrationSelection(
+        fit_platt_calibrator(PROBABILITIES, LABELS),
+        (),
+        len(PROBABILITIES),
+        reliability_bins=4,
+    )
+
+    record = selection.to_record()
+    assert record["cross_validation_folds"] == 0
+    assert record["evaluation_partition"] == "unspecified"
+    assert record["fold_assignment"] == "unspecified"
+    assert CalibrationSelection.from_record(record) == selection
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("schema_version",), 2.0),
+        (("fit_partition",), "test"),
+        (("fold_assignment",), "random"),
+        (("cross_validation_folds",), 1),
+        (("candidates", 0, "metrics", "expected_calibration_error"), 0.9),
+        (("candidates", 0, "metrics", "reliability_curve", 0, "count"), -1),
+        (("calibrator", "method"), "unknown"),
+    ],
+)
+def test_selection_record_rejects_inconsistent_or_malformed_evidence(
+    path: tuple[str | int, ...], value: object
+) -> None:
+    record = fit_probability_calibrator(PROBABILITIES, LABELS, reliability_bins=4).to_record()
+    malformed = deepcopy(record)
+    target: object = malformed
+    for key in path[:-1]:
+        target = target[key]  # type: ignore[index]
+    target[path[-1]] = value  # type: ignore[index]
+
+    with pytest.raises(ProbabilityCalibrationError):
+        CalibrationSelection.from_record(malformed)
 
 
 def test_calibration_metrics_keep_empty_bins_explicit() -> None:
@@ -64,6 +173,34 @@ def test_calibration_metrics_keep_empty_bins_explicit() -> None:
     assert metrics.reliability_curve[-1].mean_probability is None
 
 
+@pytest.mark.parametrize("bins", (True, 1.5, "4"))
+def test_calibration_bin_counts_require_positive_integers(bins: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        calibration_metrics(LABELS, PROBABILITIES, bins=bins)  # type: ignore[arg-type]
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        fit_probability_calibrator(
+            PROBABILITIES,
+            LABELS,
+            reliability_bins=bins,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("max_iterations", (True, 1.5, "10"))
+def test_platt_iteration_limit_requires_positive_integer(max_iterations: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        fit_platt_calibrator(
+            PROBABILITIES,
+            LABELS,
+            max_iterations=max_iterations,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("tolerance", (True, "1e-10", float("inf"), 10**400))
+def test_platt_tolerance_requires_finite_positive_number(tolerance: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive and finite"):
+        fit_platt_calibrator(PROBABILITIES, LABELS, tolerance=tolerance)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     ("probabilities", "labels"),
     [
@@ -73,6 +210,7 @@ def test_calibration_metrics_keep_empty_bins_explicit() -> None:
         ((-0.1, 0.8), (0, 1)),
         ((0.2, 0.8), (0, 2)),
         ((0.2, 0.8), (1, 1)),
+        ((0.2, 0.3, 0.8), (0, 0, 1)),
     ],
 )
 def test_fitting_fails_closed_for_malformed_or_single_class_inputs(

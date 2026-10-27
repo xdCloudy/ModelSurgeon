@@ -16,9 +16,11 @@ from typing import Any, Final, cast
 
 import numpy as np
 
+from .calibration import CalibrationSelection, fit_probability_calibrator
 from .matrix import SurgeonMatrix
 
 MODEL_SCHEMA_VERSION: Final[int] = 1
+LOGISTIC_MODEL_SCHEMA_VERSION: Final[int] = 2
 
 
 class SurgeonModelError(ValueError):
@@ -371,19 +373,48 @@ class LogisticSurgeonModel:
     epochs: int
     positive_weight: float
     validation_log_loss: float | None = None
-    schema_version: int = MODEL_SCHEMA_VERSION
+    schema_version: int = LOGISTIC_MODEL_SCHEMA_VERSION
+    calibration_selection: CalibrationSelection | None = None
+    calibration_status: str = "not_requested"
+
+    def __post_init__(self) -> None:
+        allowed_statuses = {
+            "not_requested",
+            "not_safe_mutation_target",
+            "skipped_nonuniform_validation_weights",
+            "skipped_insufficient_validation_classes",
+            "skipped_insufficient_validation_groups",
+            "fitted",
+        }
+        if (
+            isinstance(self.schema_version, bool)
+            or not isinstance(self.schema_version, int)
+            or self.schema_version not in {1, LOGISTIC_MODEL_SCHEMA_VERSION}
+        ):
+            raise SurgeonModelError("logistic model schema version is incompatible")
+        if self.calibration_status not in allowed_statuses:
+            raise SurgeonModelError("logistic calibration status is unsupported")
+        if (self.calibration_status == "fitted") != (self.calibration_selection is not None):
+            raise SurgeonModelError("logistic calibration status and evidence disagree")
+        if self.schema_version == 1 and self.calibration_selection is not None:
+            raise SurgeonModelError("legacy logistic model schema cannot contain calibration")
 
     def predict_proba(self, rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
         for row in rows:
             if len(row) != len(self.coefficients):
                 raise SurgeonModelError("logistic inference feature width is incompatible")
-        return tuple(_sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows)
+        probabilities = tuple(
+            _sigmoid(self.intercept + _dot(self.coefficients, row)) for row in rows
+        )
+        if self.calibration_selection is None:
+            return probabilities
+        return self.calibration_selection.calibrator.calibrate(probabilities)
 
     def predict(self, rows: Sequence[Sequence[float]]) -> tuple[bool, ...]:
         return tuple(value >= self.config.threshold for value in self.predict_proba(rows))
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "schema_version": self.schema_version,
             "kind": "logistic",
             "feature_names": list(self.feature_names),
@@ -395,10 +426,24 @@ class LogisticSurgeonModel:
             "positive_weight": self.positive_weight,
             "validation_log_loss": self.validation_log_loss,
         }
+        if self.schema_version >= LOGISTIC_MODEL_SCHEMA_VERSION:
+            record["calibration_selection"] = (
+                None
+                if self.calibration_selection is None
+                else self.calibration_selection.to_record()
+            )
+            record["calibration_status"] = self.calibration_status
+        return record
 
     @classmethod
     def from_record(cls, value: dict[str, object]) -> LogisticSurgeonModel:
-        if value.get("kind") != "logistic" or value.get("schema_version") != MODEL_SCHEMA_VERSION:
+        schema_version = value.get("schema_version")
+        if (
+            value.get("kind") != "logistic"
+            or isinstance(schema_version, bool)
+            or not isinstance(schema_version, int)
+            or schema_version not in {MODEL_SCHEMA_VERSION, LOGISTIC_MODEL_SCHEMA_VERSION}
+        ):
             raise SurgeonModelError("persisted logistic model kind/schema is incompatible")
         try:
             feature_names = tuple(cast(list[str], value["feature_names"]))
@@ -415,6 +460,18 @@ class LogisticSurgeonModel:
             )
             validation_raw = value.get("validation_log_loss")
             validation = None if validation_raw is None else float(cast(float, validation_raw))
+            calibration_selection: CalibrationSelection | None = None
+            calibration_status = "not_requested"
+            if schema_version >= LOGISTIC_MODEL_SCHEMA_VERSION:
+                raw_selection = value.get("calibration_selection")
+                if raw_selection is not None:
+                    if not isinstance(raw_selection, dict):
+                        raise TypeError("calibration_selection must be an object or null")
+                    calibration_selection = CalibrationSelection.from_record(raw_selection)
+                raw_status = value.get("calibration_status")
+                if not isinstance(raw_status, str):
+                    raise TypeError("calibration_status must be a string")
+                calibration_status = raw_status
             return cls(
                 feature_names,
                 str(value["target_name"]),
@@ -424,6 +481,9 @@ class LogisticSurgeonModel:
                 int(cast(int, value["epochs"])),
                 float(cast(float, value["positive_weight"])),
                 validation,
+                int(schema_version),
+                calibration_selection,
+                calibration_status,
             )
         except (KeyError, TypeError, ValueError) as error:
             raise SurgeonModelError("persisted logistic model fields are malformed") from error
@@ -525,16 +585,52 @@ def train_logistic(
         previous = loss
 
     validation_loss: float | None = None
+    calibration_selection: CalibrationSelection | None = None
+    calibration_status = "not_requested"
     if validation is not None:
         val_x, val_y, val_weights = _measured_rows(validation)
         if any(value not in (0.0, 1.0) for value in val_y):
             raise SurgeonModelError("validation classification targets must be 0/1")
         val_labels = tuple(int(value) for value in val_y)
-        validation_loss = _log_loss(
-            tuple(_sigmoid(intercept + _dot(coefficients, row)) for row in val_x),
-            val_labels,
-            val_weights,
+        raw_validation_probabilities = tuple(
+            _sigmoid(intercept + _dot(coefficients, row)) for row in val_x
         )
+        validation_loss = _log_loss(raw_validation_probabilities, val_labels, val_weights)
+        if train.target_name != "safe_mutation":
+            calibration_status = "not_safe_mutation_target"
+        elif len(set(val_weights)) != 1:
+            calibration_status = "skipped_nonuniform_validation_weights"
+        else:
+            class_counts = (val_labels.count(0), val_labels.count(1))
+            if min(class_counts) < 2:
+                calibration_status = "skipped_insufficient_validation_classes"
+            else:
+                validation_group_ids = tuple(
+                    group_id
+                    for group_id, mask in zip(
+                        validation.group_ids, validation.target_mask, strict=True
+                    )
+                    if mask
+                )
+                class_group_counts = tuple(
+                    len(
+                        {
+                            group_id
+                            for group_id, label in zip(
+                                validation_group_ids, val_labels, strict=True
+                            )
+                            if label == target
+                        }
+                    )
+                    for target in (0, 1)
+                )
+                if min(class_group_counts) < 2:
+                    calibration_status = "skipped_insufficient_validation_groups"
+                else:
+                    calibration_selection = fit_probability_calibrator(
+                        raw_validation_probabilities, val_labels, group_ids=validation_group_ids
+                    )
+                    calibration_status = "fitted"
     return LogisticSurgeonModel(
         train.feature_names,
         train.target_name,
@@ -544,6 +640,9 @@ def train_logistic(
         epochs,
         positive_weight,
         validation_loss,
+        LOGISTIC_MODEL_SCHEMA_VERSION,
+        calibration_selection,
+        calibration_status,
     )
 
 
