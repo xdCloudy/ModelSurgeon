@@ -135,6 +135,42 @@ def test_expert_projection_chunks_bound_route_batch_and_preserve_scores(monkeypa
     assert max(observed_route_batches) <= 2
 
 
+def test_token_chunks_bound_route_index_and_projection_batches(monkeypatch) -> None:
+    torch.manual_seed(20261029)
+    module = TinyExperts(num_experts=3)
+    hidden = torch.randn(7, 3)
+    indices = torch.zeros((7, 1), dtype=torch.int64)
+    weights = torch.ones((7, 1))
+    valid_mask = torch.ones(7, dtype=torch.bool)
+    expected_scores, expected_counts = dense_reference(module, hidden, indices, weights, valid_mask)
+
+    observed_route_batches: list[int] = []
+    original_linear = torch.nn.functional.linear
+
+    def track_linear(input, weight, bias=None):
+        observed_route_batches.append(input.shape[0])
+        return original_linear(input, weight, bias)
+
+    monkeypatch.setattr(torch.nn.functional, "linear", track_linear)
+    observer = Qwen35MoeReapObserver(
+        num_layers=1,
+        num_experts=3,
+        max_routes_per_expert_batch=16,
+        max_tokens_per_update=3,
+    )
+    observer.update(0, module, hidden, indices, weights, valid_token_mask=valid_mask)
+    result = observer.report()
+
+    assert result.routed_counts_by_layer == (tuple(expected_counts),)
+    for actual, expected in zip(result.scores_by_layer[0], expected_scores, strict=True):
+        if expected is None:
+            assert actual is None
+        else:
+            assert actual == pytest.approx(expected, abs=1e-6)
+    assert len(observed_route_batches) == 6
+    assert max(observed_route_batches) == 3
+
+
 @pytest.mark.parametrize("invalid_limit", [0, -1, 1.5, True])
 def test_route_batch_limit_must_be_a_positive_integer(invalid_limit: object) -> None:
     with pytest.raises(Qwen35MoeReapError, match="max_routes_per_expert_batch"):
@@ -143,6 +179,33 @@ def test_route_batch_limit_must_be_a_positive_integer(invalid_limit: object) -> 
             num_experts=3,
             max_routes_per_expert_batch=invalid_limit,
         )
+
+
+@pytest.mark.parametrize("invalid_limit", [0, -1, 1.5, True])
+def test_token_update_limit_must_be_a_positive_integer(invalid_limit: object) -> None:
+    with pytest.raises(Qwen35MoeReapError, match="max_tokens_per_update"):
+        Qwen35MoeReapObserver(
+            num_layers=1,
+            num_experts=3,
+            max_tokens_per_update=invalid_limit,
+        )
+
+
+def test_invalid_later_token_chunk_does_not_partially_update_observer() -> None:
+    module = TinyExperts(num_experts=3)
+    observer = Qwen35MoeReapObserver(
+        num_layers=1,
+        num_experts=3,
+        max_tokens_per_update=1,
+    )
+    hidden = torch.ones(2, 3)
+    indices = torch.tensor([[0], [3]])
+    weights = torch.ones(2, 1)
+
+    with pytest.raises(Qwen35MoeReapError, match="in range"):
+        observer.update(0, module, hidden, indices, weights, valid_token_mask=None)
+
+    assert observer.report().routed_counts_by_layer == ((0, 0, 0),)
 
 
 def test_unseen_experts_are_none_and_counts_accumulate_across_batches() -> None:

@@ -143,8 +143,10 @@ class Qwen35MoeReapObserver:
     :meth:`update`, or register hooks on the per-layer ``mlp.experts`` modules.
     When using hooks, a mask provider is mandatory so callers explicitly choose
     how padding tokens are handled. Return ``None`` only for batches where every
-    routed token is valid. Projection work is chunked by expert, with at most
-    ``max_routes_per_expert_batch`` routes processed at once (default 1,024).
+    routed token is valid. Route indexing is chunked to at most
+    ``max_tokens_per_update`` tokens (default 1,024), and projection work is
+    chunked by expert to at most ``max_routes_per_expert_batch`` routes at once
+    (default 1,024).
     """
 
     def __init__(
@@ -153,6 +155,7 @@ class Qwen35MoeReapObserver:
         num_layers: int,
         num_experts: int,
         max_routes_per_expert_batch: int = 1024,
+        max_tokens_per_update: int = 1024,
     ) -> None:
         if isinstance(num_layers, bool) or not isinstance(num_layers, int) or num_layers < 1:
             raise Qwen35MoeReapError("num_layers must be a positive integer")
@@ -164,9 +167,16 @@ class Qwen35MoeReapObserver:
             or max_routes_per_expert_batch < 1
         ):
             raise Qwen35MoeReapError("max_routes_per_expert_batch must be a positive integer")
+        if (
+            isinstance(max_tokens_per_update, bool)
+            or not isinstance(max_tokens_per_update, int)
+            or max_tokens_per_update < 1
+        ):
+            raise Qwen35MoeReapError("max_tokens_per_update must be a positive integer")
         self.num_layers = num_layers
         self.num_experts = num_experts
         self.max_routes_per_expert_batch = max_routes_per_expert_batch
+        self.max_tokens_per_update = max_tokens_per_update
         self._weighted_sums = [[0.0] * num_experts for _ in range(num_layers)]
         self._routed_counts = [[0] * num_experts for _ in range(num_layers)]
         self._handles: list[Any] = []
@@ -255,17 +265,7 @@ class Qwen35MoeReapObserver:
         if gate_up_proj.dtype != hidden_states.dtype or down_proj.dtype != hidden_states.dtype:
             raise Qwen35MoeReapError("expert weights and hidden states must share a dtype")
 
-        invalid_index = ((top_k_index < 0) | (top_k_index >= self.num_experts)).any()
-        if top_k_index.shape[1] > 1:
-            ordered = torch.sort(top_k_index, dim=-1).values
-            duplicate_index = (ordered[:, 1:] == ordered[:, :-1]).any()
-        else:
-            duplicate_index = torch.zeros((), dtype=torch.bool, device=top_k_index.device)
-        if valid_token_mask is None:
-            valid_token_mask = torch.ones(
-                token_count, dtype=torch.bool, device=hidden_states.device
-            )
-        elif (
+        if valid_token_mask is not None and (
             not torch.is_tensor(valid_token_mask)
             or valid_token_mask.shape != (token_count,)
             or valid_token_mask.dtype != torch.bool
@@ -274,74 +274,109 @@ class Qwen35MoeReapObserver:
             raise Qwen35MoeReapError(
                 "valid_token_mask must be a bool tensor matching routed tokens and device"
             )
-        assert valid_token_mask is not None
-
-        normalized_weights = top_k_weights.float()
         weight_tolerance = float(torch.finfo(top_k_weights.dtype).eps) * top_k_index.shape[1]
-        weight_sums = normalized_weights.sum(dim=-1)
-        invalid_weight = (
-            ~torch.isfinite(top_k_weights) | (top_k_weights < 0) | (top_k_weights > 1)
-        ).any() | (
-            ~torch.isfinite(weight_sums) | ((weight_sums - 1.0).abs() > weight_tolerance)
-        ).any()
-        if bool((invalid_index | duplicate_index).item()):
-            raise Qwen35MoeReapError("expert indices must be in range and unique per token")
-        if bool(invalid_weight.item()):
-            raise Qwen35MoeReapError(
-                "router weights must be finite probabilities normalized per token"
-            )
 
-        batch_sums = torch.zeros(self.num_experts, dtype=torch.float64, device=hidden_states.device)
-        has_nonfinite_output = torch.zeros((), dtype=torch.bool, device=hidden_states.device)
+        update_sums = [0.0] * self.num_experts
+        update_counts = [0] * self.num_experts
         with torch.inference_mode():
             top_k = top_k_index.shape[1]
-            valid_route_positions = torch.nonzero(
-                valid_token_mask.repeat_interleave(top_k), as_tuple=True
-            )[0]
-            expert_ids = top_k_index.reshape(-1)[valid_route_positions].to(torch.int64)
-            route_order = torch.argsort(expert_ids, stable=True)
-            sorted_route_positions = valid_route_positions[route_order]
-            route_counts = torch.bincount(expert_ids, minlength=self.num_experts).cpu().tolist()
+            for token_start in range(0, token_count, self.max_tokens_per_update):
+                token_stop = min(token_start + self.max_tokens_per_update, token_count)
+                chunk_indices = top_k_index[token_start:token_stop]
+                chunk_weights = top_k_weights[token_start:token_stop]
+                chunk_hidden = hidden_states[token_start:token_stop]
+                chunk_token_count = token_stop - token_start
 
-            start = 0
-            for expert, routed_count in enumerate(route_counts):
-                stop = start + routed_count
-                expert_routes = sorted_route_positions[start:stop]
-                start = stop
-                if routed_count == 0:
-                    continue
-
-                for route_start in range(0, routed_count, self.max_routes_per_expert_batch):
-                    route_stop = min(route_start + self.max_routes_per_expert_batch, routed_count)
-                    route_chunk = expert_routes[route_start:route_stop]
-                    token_indices = torch.div(route_chunk, top_k, rounding_mode="floor")
-                    top_k_positions = torch.remainder(route_chunk, top_k)
-
-                    projected = functional.linear(
-                        hidden_states[token_indices], gate_up_proj[expert]
+                invalid_index = ((chunk_indices < 0) | (chunk_indices >= self.num_experts)).any()
+                if top_k > 1:
+                    ordered = torch.sort(chunk_indices, dim=-1).values
+                    duplicate_index = (ordered[:, 1:] == ordered[:, :-1]).any()
+                else:
+                    duplicate_index = torch.zeros((), dtype=torch.bool, device=chunk_indices.device)
+                normalized_weights = chunk_weights.float()
+                weight_sums = normalized_weights.sum(dim=-1)
+                invalid_weight = (
+                    ~torch.isfinite(chunk_weights) | (chunk_weights < 0) | (chunk_weights > 1)
+                ).any() | (
+                    ~torch.isfinite(weight_sums) | ((weight_sums - 1.0).abs() > weight_tolerance)
+                ).any()
+                if bool((invalid_index | duplicate_index).item()):
+                    raise Qwen35MoeReapError("expert indices must be in range and unique per token")
+                if bool(invalid_weight.item()):
+                    raise Qwen35MoeReapError(
+                        "router weights must be finite probabilities normalized per token"
                     )
-                    gate, up = projected.chunk(2, dim=-1)
-                    intermediate = act_fn(gate) * up
-                    expert_output = functional.linear(intermediate, down_proj[expert])
-                    output_norm = torch.linalg.vector_norm(expert_output.float(), ord=2, dim=-1)
-                    weighted_norm = (
-                        output_norm * top_k_weights[token_indices, top_k_positions].float()
-                    )
-                    has_nonfinite_output |= (~torch.isfinite(weighted_norm)).any()
-                    batch_sums[expert] += weighted_norm.sum(dtype=torch.float64)
 
-        batch_values = (
-            torch.cat((batch_sums, has_nonfinite_output.reshape(1).to(torch.float64)))
-            .cpu()
-            .tolist()
-        )
-        if bool(batch_values[-1]):
-            raise Qwen35MoeReapError("expert output saliency became non-finite")
+                if valid_token_mask is None:
+                    valid_route_positions = torch.arange(
+                        chunk_token_count * top_k, device=chunk_indices.device
+                    )
+                else:
+                    chunk_mask = valid_token_mask[token_start:token_stop]
+                    valid_route_positions = torch.nonzero(
+                        chunk_mask.repeat_interleave(top_k), as_tuple=True
+                    )[0]
+                expert_ids = chunk_indices.reshape(-1)[valid_route_positions].to(torch.int64)
+                route_order = torch.argsort(expert_ids, stable=True)
+                sorted_route_positions = valid_route_positions[route_order]
+                route_counts = torch.bincount(expert_ids, minlength=self.num_experts).cpu().tolist()
+                chunk_sums = torch.zeros(
+                    self.num_experts, dtype=torch.float64, device=hidden_states.device
+                )
+                has_nonfinite_output = torch.zeros(
+                    (), dtype=torch.bool, device=hidden_states.device
+                )
+
+                route_start = 0
+                for expert, routed_count in enumerate(route_counts):
+                    route_stop = route_start + routed_count
+                    expert_routes = sorted_route_positions[route_start:route_stop]
+                    route_start = route_stop
+                    if routed_count == 0:
+                        continue
+
+                    for expert_route_start in range(
+                        0, routed_count, self.max_routes_per_expert_batch
+                    ):
+                        expert_route_stop = min(
+                            expert_route_start + self.max_routes_per_expert_batch,
+                            routed_count,
+                        )
+                        route_chunk = expert_routes[expert_route_start:expert_route_stop]
+                        token_indices = torch.div(route_chunk, top_k, rounding_mode="floor")
+                        top_k_positions = torch.remainder(route_chunk, top_k)
+
+                        projected = functional.linear(
+                            chunk_hidden[token_indices], gate_up_proj[expert]
+                        )
+                        gate, up = projected.chunk(2, dim=-1)
+                        intermediate = act_fn(gate) * up
+                        expert_output = functional.linear(intermediate, down_proj[expert])
+                        output_norm = torch.linalg.vector_norm(expert_output.float(), ord=2, dim=-1)
+                        weighted_norm = (
+                            output_norm * chunk_weights[token_indices, top_k_positions].float()
+                        )
+                        has_nonfinite_output |= (~torch.isfinite(weighted_norm)).any()
+                        chunk_sums[expert] += weighted_norm.sum(dtype=torch.float64)
+
+                chunk_values = (
+                    torch.cat((chunk_sums, has_nonfinite_output.reshape(1).to(torch.float64)))
+                    .cpu()
+                    .tolist()
+                )
+                if bool(chunk_values[-1]):
+                    raise Qwen35MoeReapError("expert output saliency became non-finite")
+                for expert, (weighted_sum, routed_count) in enumerate(
+                    zip(chunk_values[:-1], route_counts, strict=True)
+                ):
+                    update_sums[expert] += float(weighted_sum)
+                    update_counts[expert] += int(routed_count)
+
         for expert, (weighted_sum, routed_count) in enumerate(
-            zip(batch_values[:-1], route_counts, strict=True)
+            zip(update_sums, update_counts, strict=True)
         ):
-            self._weighted_sums[layer][expert] += float(weighted_sum)
-            self._routed_counts[layer][expert] += int(routed_count)
+            self._weighted_sums[layer][expert] += weighted_sum
+            self._routed_counts[layer][expert] += routed_count
 
     def register_hooks(
         self,

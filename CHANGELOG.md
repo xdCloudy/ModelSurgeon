@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Bounded Qwen3.5 REAP route indexing to 1,024 tokens per update by default,
+    in addition to the existing per-expert projection batch limit. Invalid data
+    in a later token chunk leaves observer totals unchanged.
+
   - Bounded Qwen3.5 REAP expert projection batches to 1,024 routed tokens by default;
     callers can lower the positive integer limit to fit their calibration hardware.
     This caps per-expert projection intermediates independently of the total routed

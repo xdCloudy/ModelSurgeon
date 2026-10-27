@@ -87,17 +87,19 @@ those final values verbatim; it does not accept router logits or apply a
 second normalization. Its score uses the unweighted expert output before
 applying the selected router weight, matching REAP's observation semantics.
 
-The implementation compacts valid routes, sorts by expert, and transfers the
-per-expert route counts once before processing bounded expert slices. It limits
-each expert's projection batch to 1,024 routed tokens by default, with a
-positive-integer override for smaller hardware budgets. This bounds projection
-intermediates independently of total routes in the calibration batch; route
-index bookkeeping still scales linearly with the batch's routed-token count.
-It avoids discovering route positions with a separate data-dependent `where`
-operation for every expert and avoids materializing a tensor of every selected
-expert weight. The structural reduction in route-discovery synchronizations is
-not a measured CUDA latency result; current host VRAM availability prevented
-an RTX 3060 timing run.
+The implementation processes at most 1,024 routed tokens per update chunk by
+default (`max_tokens_per_update`) and at most 1,024 routes per expert projection
+chunk (`max_routes_per_expert_batch`). Both are positive-integer overrides for
+smaller hardware budgets. Route-index bookkeeping and projection intermediates
+are therefore bounded by their respective chunk limits rather than the full
+calibration batch. Per-expert route counts are transferred once per token
+chunk. An update accumulates scores locally and commits only after all chunks
+are valid, so invalid data or non-finite output in a later chunk does not leave
+partial observer state. The implementation avoids discovering route positions
+with a separate data-dependent `where` operation for every expert and avoids
+materializing a tensor of every selected expert weight. The structural
+reduction in route-discovery synchronizations is not a measured CUDA latency
+result; current host VRAM availability prevented an RTX 3060 timing run.
 
 Padding is deliberately explicit: hook registration requires a mask provider.
 Returning `None` means every routed token in that call is valid. The caller is
