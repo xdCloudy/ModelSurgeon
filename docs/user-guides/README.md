@@ -4,7 +4,7 @@ These guides describe the two supported ModelSurgeon workflows from installation
 
 - [Hugging Face and safetensors](huggingface.md): inspect a pinned model, run a bounded first experiment, and publish a physically edited checkpoint.
 - [Native GGUF](native-gguf.md): validate a pinned quantized model, perform a bounded Q4_K_M edit, resume an interrupted write, and validate the result with llama.cpp.
-- [Stable Python API and notebook](python-api.md): build a deterministic read-only plan without hidden downloads, source overwrite, or credentials.
+- [Stable Python API and notebook](python-api.md): build a deterministic read-only plan or execute a bounded first-party campaign with explicit approvals and durable state.
 - [Consumer troubleshooting](troubleshooting.md): interpret supported, unknown, unsupported, and failed outcomes and recover safely.
 - [Hardware and quality profiles](profiles.md): choose the bounded CPU, low-VRAM, and quality envelopes used by the planner.
 - [Bounded conversational journey](conversational-journey.md): interpret, preview, approve, run, pause/resume, and explain a campaign using canonical typed state and evidence.

@@ -55,6 +55,65 @@ rollback policy, and uncertainties. `plan_id` and `resume_token` are stable
 for equivalent inputs. Treat a plan with `unknown`, `unsupported`, or `failed`
 outcome as evidence, not as permission to execute.
 
+## Execute a first-party campaign
+
+For a real Hugging Face campaign, install the optional model dependencies and
+use `execute_first_party_optimize`. Planning stays read-only; execution loads
+the pinned model, runs the approval-bound orchestrator, and writes run state
+and new artifacts to the configured output locations. It never overwrites the
+source model. For native GGUF, follow the separate [native GGUF guide](native-gguf.md).
+
+```bash
+uv sync --extra dev --extra hf --locked
+```
+
+Review the exact executable plan first, then pass only the approval codes you
+have explicitly accepted. If approvals are missing, execution returns a
+durable paused run without loading or mutating the source.
+
+```python
+from modelsurgeon.config import ModelConfig, Settings
+from modelsurgeon.optimization import build_optimize_plan
+
+settings = Settings(
+    model=ModelConfig(
+        path="models/tiny-supported",
+        revision="sha256:replace-with-an-immutable-revision",
+    )
+)
+options = {
+    "preset": "balanced",
+    "hardware_profile": "cpu-small",
+    "quality_profile": "balanced",
+}
+plan = build_optimize_plan(settings, **options, dry_run=False)
+if not plan.executable:
+    raise RuntimeError(f"plan is not executable: {plan.outcome.value}: {plan.uncertainties}")
+print(plan.canonical_json())  # Review inputs, budgets, approvals, and uncertainties first.
+```
+
+Only after reviewing that output and explicitly accepting each approval, run
+the campaign in a separate notebook cell. If using a separate script, recreate
+the same `settings` and `options` values there:
+
+```python
+from modelsurgeon.optimization import execute_first_party_optimize
+
+run = execute_first_party_optimize(
+    settings,
+    "work/quickstart/optimize-run.json",
+    **options,
+    approvals=("plan_review", "source_model", "resource_budget", "artifact_write"),
+)
+print(run.outcome.value)
+```
+
+To resume an interrupted run, use the same settings, options, state path, and
+approved codes, and set `resume=True`. Keep the state file and its
+content-addressed artifacts together as the audit record. See the
+[`unified optimize plan` contract](../design/unified-optimize-plan.md) for
+the persisted fields, approval semantics, and native GGUF requirements.
+
 No conversational provider is needed for this API. `Settings()` selects the
 explicit `provider.kind=none` mode; callers that need to inspect provider
 availability can use `modelsurgeon.providers.provider_diagnostics(settings)`.
