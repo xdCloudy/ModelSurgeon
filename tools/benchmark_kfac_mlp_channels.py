@@ -170,10 +170,10 @@ def _load_model(model_path: Path) -> Any:
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         local_files_only=True,
-        torch_dtype=torch.float32,
+        dtype=torch.float32,
         low_cpu_mem_usage=True,
     )
-    model.to("cpu")
+    model.to(device="cpu", dtype=torch.float32)
     return model
 
 
@@ -298,7 +298,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     torch_dtype=torch.float32,
                     low_cpu_mem_usage=True,
                 )
-                reloaded_model.to("cpu")
+                reloaded_model.to(device="cpu", dtype=torch.float32)
                 with torch.inference_mode():
                     actual_logits = reloaded_model(
                         input_ids=evaluation_chunks[0], use_cache=False
