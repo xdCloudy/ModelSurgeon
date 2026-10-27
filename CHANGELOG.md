@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - Normalize each numeric feature across the candidate pool and selected centers
+    before computing active-learning diversity distances. This prevents unit-scale
+    differences from dominating farthest-first selection and lets acquisition measure
+    coverage from candidates already selected in earlier policy phases.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
