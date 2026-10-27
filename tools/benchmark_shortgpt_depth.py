@@ -18,6 +18,9 @@ from typing import Any
 from modelsurgeon.adapters.huggingface.block_influence import (
     measure_huggingface_block_influence,
 )
+from modelsurgeon.adapters.huggingface.layer_sensitivity import (
+    measure_huggingface_layer_sensitivity,
+)
 from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceDType,
     HuggingFaceLoadRequest,
@@ -38,6 +41,18 @@ def _sha256(path: Path) -> str:
 
 def _directory_bytes(path: Path) -> int:
     return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+
+def _artifact_manifest(path: Path) -> list[dict[str, object]]:
+    return [
+        {
+            "path": item.relative_to(path).as_posix(),
+            "bytes": item.stat().st_size,
+            "sha256": _sha256(item),
+        }
+        for item in sorted(path.rglob("*"))
+        if item.is_file()
+    ]
 
 
 def _model_identifier(model_argument: str, model_path: Path, explicit: str | None) -> str:
@@ -82,6 +97,8 @@ def _limitations(random_seed_count: int) -> list[str]:
         "Prefill throughput on short contexts does not establish autoregressive decode speed.",
         "Timed evaluation excludes model loading and candidate surgery costs.",
         "Scores use WikiText-2 train tokens; quality uses its held-out test split.",
+        "First-order gradient scores are local loss approximations; nonlinear downstream effects "
+        "are measured only by physical deletion.",
     ]
 
 
@@ -236,6 +253,7 @@ def _evaluate_removal(
 
 
 def run(args: argparse.Namespace) -> dict[str, object]:
+    benchmark_started = time.perf_counter()
     random_seeds = _validated_random_seeds(getattr(args, "random_seeds", None))
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -274,12 +292,27 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         sequence_length=args.sequence_length,
         max_tokens=args.evaluation_tokens,
     )
+    block_score_started = time.perf_counter()
     influence = measure_huggingface_block_influence(
         model,
         calibration_chunks,
         input_device=model.get_input_embeddings().weight.device,
     )
+    block_score_seconds = time.perf_counter() - block_score_started
     influence_order = sorted(influence, key=lambda item: (item.score, item.layer_index))
+    gradient_score_started = time.perf_counter()
+    sensitivity = measure_huggingface_layer_sensitivity(
+        model,
+        calibration_chunks,
+        input_device=model.get_input_embeddings().weight.device,
+    )
+    gradient_score_seconds = time.perf_counter() - gradient_score_started
+    sensitivity_order = sorted(
+        sensitivity, key=lambda item: (item.predicted_nll_delta, item.layer_index)
+    )
+    absolute_sensitivity_order = sorted(
+        sensitivity, key=lambda item: (item.absolute_token_sensitivity, item.layer_index)
+    )
     magnitude_scores = _layer_magnitude_scores(model)
     magnitude_order = sorted(
         range(len(model.model.layers)), key=lambda index: (magnitude_scores[index], index)
@@ -313,6 +346,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     method_results: dict[str, dict[str, object]] = {}
     for method, layer_index in (
         ("shortgpt_block_influence", influence_order[0].layer_index),
+        ("first_order_gradient_sensitivity", sensitivity_order[0].layer_index),
+        (
+            "first_order_gradient_absolute_sensitivity",
+            absolute_sensitivity_order[0].layer_index,
+        ),
         ("weight_magnitude", magnitude_order[0]),
     ):
         candidate, result = _evaluate_removal(
@@ -325,8 +363,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
         result["perplexity_delta"] = float(result["perplexity"]) - float(baseline["perplexity"])
         method_results[method] = result
-        if method == "shortgpt_block_influence":
-            artifact = output / "shortgpt-artifact"
+        if method in (
+            "shortgpt_block_influence",
+            "first_order_gradient_sensitivity",
+            "first_order_gradient_absolute_sensitivity",
+        ):
+            artifact = output / f"{method}-artifact"
             candidate.save_pretrained(artifact, safe_serialization=True)
             tokenizer.save_pretrained(artifact)
             del candidate
@@ -349,6 +391,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 - float(baseline["perplexity"]),
                 "parameter_count": _parameter_count(reloaded),
                 "disk_bytes": _directory_bytes(artifact),
+                "files": _artifact_manifest(artifact),
                 "finite_logits": True,
             }
             del reloaded
@@ -401,9 +444,33 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "selection": {
             "metric": "mean(1 - cosine(block_input, block_output))",
+            "first_order_gradient_metric": (
+                "mean(grad(sum calibration next-token NLL, block_output) * "
+                "(block_input - block_output))"
+            ),
+            "first_order_gradient_absolute_metric": (
+                "mean(abs(sum_hidden(grad(sum calibration next-token NLL, block_output) * "
+                "(block_input - block_output))))"
+            ),
             "shortgpt_layer_order": [
                 {"layer_index": item.layer_index, "score": item.score, "tokens": item.token_count}
                 for item in influence_order
+            ],
+            "first_order_gradient_layer_order": [
+                {
+                    "layer_index": item.layer_index,
+                    "predicted_nll_delta": item.predicted_nll_delta,
+                    "tokens": item.token_count,
+                }
+                for item in sensitivity_order
+            ],
+            "first_order_gradient_absolute_layer_order": [
+                {
+                    "layer_index": item.layer_index,
+                    "absolute_token_sensitivity": item.absolute_token_sensitivity,
+                    "tokens": item.token_count,
+                }
+                for item in absolute_sensitivity_order
             ],
             "weight_magnitude_layer_order": magnitude_order,
             "random_seeds": random_seeds,
@@ -411,10 +478,21 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "candidates": {
             "shortgpt_block_influence": method_results["shortgpt_block_influence"],
+            "first_order_gradient_sensitivity": method_results["first_order_gradient_sensitivity"],
+            "first_order_gradient_absolute_sensitivity": method_results[
+                "first_order_gradient_absolute_sensitivity"
+            ],
             "weight_magnitude": method_results["weight_magnitude"],
             "random": random_results,
         },
         "limitations": _limitations(len(random_seeds)),
+        "optimization_runtime": {
+            "block_influence_scoring_seconds": block_score_seconds,
+            "first_order_gradient_scoring_seconds": gradient_score_seconds,
+            "total_benchmark_seconds": time.perf_counter() - benchmark_started,
+            "cpu_threads": args.cpu_threads,
+            "device": str(model.get_input_embeddings().weight.device),
+        },
     }
 
 
