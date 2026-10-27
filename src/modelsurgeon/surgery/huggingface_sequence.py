@@ -7,6 +7,7 @@ import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -107,6 +108,7 @@ class HuggingFaceCumulativeRun:
     failed_mutation_id: str | None = None
     failed_evaluation: Mapping[str, object] | None = None
     schema_version: int = HUGGINGFACE_CUMULATIVE_SCHEMA_VERSION
+    failed_artifact: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != HUGGINGFACE_CUMULATIVE_SCHEMA_VERSION:
@@ -115,6 +117,8 @@ class HuggingFaceCumulativeRun:
             raise HuggingFaceCumulativeError("failure reason requires a failed stage")
         if self.failed_index is not None and not self.failure_reason:
             raise HuggingFaceCumulativeError("failed stage requires a failure reason")
+        if self.failed_index is None and self.failed_artifact is not None:
+            raise HuggingFaceCumulativeError("failed artifact requires a failed stage")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -127,6 +131,9 @@ class HuggingFaceCumulativeRun:
             "failed_mutation_id": self.failed_mutation_id,
             "failed_evaluation": (
                 None if self.failed_evaluation is None else dict(self.failed_evaluation)
+            ),
+            "failed_artifact": (
+                None if self.failed_artifact is None else dict(self.failed_artifact)
             ),
         }
 
@@ -171,6 +178,37 @@ def _file_identity(path: Path) -> tuple[str, int]:
     if size <= 0:
         raise HuggingFaceCumulativeError("publisher returned an empty artifact")
     return digest.hexdigest(), size
+
+
+def _directory_identity(path: Path) -> tuple[str, int]:
+    """Return a deterministic identity for a partially published directory."""
+    if not path.is_dir() or path.is_symlink():
+        raise HuggingFaceCumulativeError("publisher output is not a regular directory")
+    records: list[dict[str, object]] = []
+    total_size = 0
+    for entry in sorted(path.rglob("*")):
+        if entry.is_symlink():
+            raise HuggingFaceCumulativeError("publisher output contains a symbolic link")
+        if entry.is_dir():
+            continue
+        if not entry.is_file():
+            raise HuggingFaceCumulativeError("publisher output contains a non-regular file")
+        digest = hashlib.sha256()
+        size = 0
+        with entry.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        records.append(
+            {
+                "path": entry.relative_to(path).as_posix(),
+                "digest": digest.hexdigest(),
+                "size_bytes": size,
+            }
+        )
+        total_size += size
+    identity = hashlib.sha256(_canonical(records).encode()).hexdigest()
+    return identity, total_size
 
 
 def _remove_child(path: Path) -> None:
@@ -291,6 +329,7 @@ def run_huggingface_cumulative_sequence(
     failure_reason: str | None = None
     failed_mutation_id: str | None = None
     failed_evaluation: Mapping[str, object] | None = None
+    failed_artifact: dict[str, object] | None = None
     cumulative_parameter_delta = 0
     cumulative_storage_delta = 0
     edit_order: list[str] = []
@@ -302,9 +341,11 @@ def run_huggingface_cumulative_sequence(
         candidate = copy.deepcopy(accepted_model)
         before = _snapshot(accepted_model)
         child = root / f"{sequence_id}.stage-{index:02d}-{edit.mutation_id}"
+        artifact_path = child
         try:
             edit.apply(candidate)
             published = publish(candidate, child)
+            artifact_path = published
             digest, size_bytes = _file_identity(published)
             reloaded = reload(published)
             if generate(reloaded) is not True:
@@ -341,7 +382,29 @@ def run_huggingface_cumulative_sequence(
                 edit_order=tuple(edit_order),
             )
         except Exception as error:
+            if artifact_path.is_file() or artifact_path.is_dir():
+                failed_artifact = {"path": str(artifact_path)}
+                identity = _file_identity if artifact_path.is_file() else _directory_identity
+                if artifact_path.is_dir():
+                    failed_artifact["artifact_type"] = "directory"
+                try:
+                    failed_digest, failed_size = identity(artifact_path)
+                except Exception:
+                    if artifact_path.is_file():
+                        with suppress(OSError):
+                            failed_artifact["size_bytes"] = artifact_path.stat().st_size
+                    failed_artifact["digest_status"] = "unavailable"
+                else:
+                    failed_artifact.update(
+                        {
+                            "digest": failed_digest,
+                            "size_bytes": failed_size,
+                            "digest_status": "complete",
+                        }
+                    )
             _remove_child(child)
+            if failed_artifact is not None:
+                failed_artifact["retained"] = artifact_path.exists()
             failed_index = index
             failure_reason = str(error) or error.__class__.__name__
             failed_mutation_id = edit.mutation_id
@@ -385,6 +448,7 @@ def run_huggingface_cumulative_sequence(
         accepted_model,
         failed_mutation_id,
         failed_evaluation,
+        failed_artifact=failed_artifact,
     )
 
 
