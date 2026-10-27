@@ -256,7 +256,7 @@ def test_added_methods_and_meta_surgeon_questions_are_independently_scoped() -> 
 def test_backlog_records_merged_progress_foundation_without_counting_it_open() -> None:
     data = load_data()
     audit = data["backlog_audit"]
-    assert audit["open_pull_request_count"] == 60
+    assert audit["open_pull_request_count"] == 61
     foundation = next(item for item in audit["notable_pull_requests"] if item["number"] == 774)
     assert foundation["status"] == "merged"
     assert foundation["integrated_on_main"] is True
@@ -281,6 +281,11 @@ def test_backlog_records_merged_progress_foundation_without_counting_it_open() -
     assert gradient_depth["status"] == "open"
     assert gradient_depth["base_branch"] == activation_baseline["head_branch"]
     assert gradient_depth["integrated_on_main"] is False
+    kfac_physical = next(item for item in audit["notable_pull_requests"] if item["number"] == 780)
+    assert kfac_physical["status"] == "open"
+    assert kfac_physical["base_branch"] == "codex/kfac-structured-sensitivity"
+    assert kfac_physical["integrated_on_main"] is False
+    assert [775, 780] in audit["dependency_chains"]
     assert "| Yes |" in progress.render_backlog(data)
     assert progress.validate(data, ROOT) == []
 

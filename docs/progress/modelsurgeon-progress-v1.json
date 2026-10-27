@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.5",
+  "scope_version": "1.2.6",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -53,6 +53,12 @@
       "scope_version": "1.2.5",
       "change": "Added a bounded negative Qwen2.5 first-order gradient depth-sensitivity experiment and pinned Taylor-pruning literature provenance; updated the open-PR snapshot. No unmerged code is counted as integrated.",
       "previous_scope_version": "1.2.4"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.6",
+      "change": "Added a separately weighted, bounded KFAC singleton-additive physical channel-removal comparison milestone; recorded mixed baseline results and failed quality gates without claiming optimization effectiveness. Refreshed the PR backlog for stacked PR #780.",
+      "previous_scope_version": "1.2.5"
     }
   ],
   "workstreams": [
@@ -397,7 +403,7 @@
       "title": "Structured/dependency-aware channel, MLP, head, layer, width, depth and rank surgery",
       "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
       "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
-      "weight": 12,
+      "weight": 10,
       "research_status": "physical_experiment_conducted",
       "research_outcome": null,
       "implementation_status": "physically_benchmarked",
@@ -498,6 +504,16 @@
       ],
       "research_questions": [
         "Within this milestone's declared scope, does evidence establish that named exact cells save, reload and meet declared quality/task/resource gates."
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.6",
+          "previous": {
+            "weight": 12
+          },
+          "reason": "Separated the newly completed bounded KFAC-versus-magnitude/random physical channel-removal comparison into its own evidence-scoped milestone; does not change the prior MLP/head/layer evidence."
+        }
       ]
     },
     {
@@ -4348,6 +4364,82 @@
           "reason": "Split from the former Q1–Q3 aggregate after auditing the individual report; the result is limited to this experiment and its measured outcome."
         }
       ]
+    },
+    {
+      "id": "pruning.kfac_physical_pilot",
+      "workstream": "pruning",
+      "title": "KFAC singleton-additive MLP channel ranking physical comparison",
+      "description": "Bounded CPU Hugging Face Llama-family gated-MLP KFAC cost adapter and physical comparison against magnitude and random channel selection.",
+      "scope": "One pinned HuggingFaceTB/SmolLM2-135M checkpoint (Llama architecture), FP32 safetensors, CPU; one 256-target-token WikiText-2 calibration prefix; one 2,048-target-token held-out prefix; globally shared 8/16/32/64 MLP-channel removals; one KFAC and magnitude selection plus three random seeds per removal count; no compensation or repair.",
+      "weight": 2,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this exact SmolLM2-135M CPU cell, does additive singleton KFAC selection yield a quality-gated physical channel-removal result better than magnitude and random selection at equal parameter budgets?"
+      ],
+      "acceptance_criteria": [
+        "Research comparison is complete when pinned model/data revisions, disjoint calibration and held-out token hashes, all four removal budgets, KFAC/magnitude/three random selections, artifact hashes, reload-logit checks and held-out perplexity are recorded.",
+        "Optimization effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 while physically reducing parameters and artifact bytes; no candidate currently meets this gate."
+      ],
+      "dependencies": [
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-smollm2-mlp-physical-comparison-2026-10-27.md",
+          "label": "Bounded KFAC physical comparison"
+        }
+      ],
+      "source_refs": [
+        "llm-surgeon"
+      ],
+      "related_prs": [
+        775,
+        780
+      ],
+      "related_commits": [
+        "59125b9a16c67295c9debcc644b4bca3ee8c45b0",
+        "36c842d",
+        "1732ae0",
+        "bc3ffa3",
+        "e9246f19d7503c85c33e6ae2e867304bf72ebf3a"
+      ],
+      "remaining_work": "Run longer independent calibration/evaluation and repeated seeds; compare with activation and first-order gradient selection; test cross-model transfer; add compensation/recovery only as a separate controlled arm; measure repeated prompt/decode latency and resource cost before considering quality-preserving effectiveness.",
+      "limitations": [
+        "One small dense model and one calibration/evaluation prefix; a single run per score selection; no confidence intervals or task metrics.",
+        "All tested cuts failed the fixed <=0.05 held-out perplexity gate. KFAC beat magnitude at all four cuts, but some random candidates beat KFAC at 8 and 16 channels.",
+        "Largest tested cut removes 2.4665% of total parameters and 2.3842% of source disk bytes with native BF16 serialization; no speed or memory improvement is established.",
+        "Costs are additive singleton proxies and omit channel interactions, cross-layer coupling, compensation and repair.",
+        "Implementation and benchmark are in open PR #780 stacked on open PR #775, not integrated on main.",
+        "Earlier FP32-export pilot reports are retained in PR #780 but invalid for artifact-size comparisons; the native-storage sweep supersedes those size measurements."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-smollm2-mlp-physical-comparison-2026-10-27.md",
+              "label": "Bounded KFAC physical comparison"
+            }
+          ],
+          "reason": "Completed one CPU physical comparison on a pinned dense Llama-family model using FP32 arithmetic and the source BF16 storage dtype for serialized artifacts. KFAC ranked ahead of magnitude on held-out PPL at four cuts but not every random candidate; every candidate failed the predeclared quality gate. The implementation remains open-PR experimental work."
+        }
+      ]
     }
   ],
   "research_sources": [
@@ -4930,8 +5022,8 @@
       "integration_approach": "ADAPT mathematical scoring and compensation behind ModelSurgeon architecture adapters; do not adopt standalone optimizer as-is.",
       "hypothesis": "Bounded KFAC cost estimates and local compensation may lower held-out loss increase versus random, magnitude, activation, and first-order gradient selections at equal physical parameter removal.",
       "requirements": "Pinned OPT/LLaMA paths use calibration forward/backward/Fisher statistics, layerwise matrix factors, eigendecomposition/inverse-based compensation, PyTorch 2.1 and Transformers 4.34.1; assess factor storage and current-stack compatibility before physical evaluation.",
-      "findings": "At pinned revision, surgeon.py loads OPT/LLaMA; sparsify.py computes per-module structured costs and one global threshold; curvature.py implements identity/activation/KFAC paths; pruner.py estimates removal costs and can compensate surviving weights; threshold.py accounts for row/column overlap. Exact LICENSE is BSD-3-Clause-Clear. No ModelSurgeon KFAC collector, physical comparison, or code reuse exists.",
-      "remaining_investigation": "Validate KFAC quadratic cost and compensation against exact tiny dense calculations; build bounded factor collection for one supported HF architecture; compare same-size physical removals against random/magnitude/activation/gradient on held-out data and measure memory/time. Preserve attribution if any source code is adapted.",
+      "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded.",
+      "remaining_investigation": "Validate compensation and coupled structural effects; run longer held-out and repeated-seed comparisons against activation and gradient baselines across additional architectures; assess measured deployment benefit. Preserve the pinned BSD-3-Clause-Clear license if adapting upstream code; PR #780 independently implements its bounded scorer and copies no source.",
       "source_paths": [
         "surgeon.py",
         "sparsify.py",
@@ -4972,6 +5064,25 @@
             "LICENSE"
           ],
           "reason": "Pinned source-code and license audit recorded in docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md; research remains at prior-art review until isolated and physical comparisons are run."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+          "licence_status": "verified",
+          "source_paths": [
+            "surgeon.py",
+            "sparsify.py",
+            "curvature.py",
+            "pruner.py",
+            "threshold.py",
+            "modelutils.py",
+            "requirements.txt",
+            "LICENSE"
+          ],
+          "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded.",
+          "reason": "Recorded bounded physical comparison as downstream ModelSurgeon evidence while preserving upstream-source review status and BSD-3-Clause-Clear provenance."
         }
       ]
     },
@@ -6081,8 +6192,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
-    "open_pull_request_count": 60,
-    "scope_note": "All 60 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually, including merged #774, stacked progress PRs #776–#778, and gradient depth-sensitivity PR #779 stacked on #735. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
+    "open_pull_request_count": 61,
+    "scope_note": "All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -6284,15 +6395,6 @@
         "merged_at": "2026-10-27T10:42:00Z"
       },
       {
-        "number": 779,
-        "title": "Add gradient sensitivity depth-pruning baseline",
-        "head_branch": "codex/gradient-depth-sensitivity",
-        "base_branch": "codex/competitive-activation-baseline",
-        "relationship": "stacked on #735; CPU-only bounded gradient depth-sensitivity comparison",
-        "status": "open",
-        "integrated_on_main": false
-      },
-      {
         "number": 775,
         "title": "Prototype bounded KFAC structured removal costs",
         "head_branch": "codex/kfac-structured-sensitivity",
@@ -6327,6 +6429,24 @@
         "relationship": "stacked on #777; records bounded CPU-only REAP experiments",
         "status": "open",
         "integrated_on_main": false
+      },
+      {
+        "number": 779,
+        "title": "Add gradient sensitivity depth-pruning baseline",
+        "head_branch": "codex/gradient-depth-sensitivity",
+        "base_branch": "codex/competitive-activation-baseline",
+        "relationship": "stacked on #735; CPU-only bounded gradient depth-sensitivity comparison",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 780,
+        "title": "Compare KFAC channel costs against pruning baselines",
+        "head_branch": "codex/kfac-physical-pilot",
+        "base_branch": "codex/kfac-structured-sensitivity",
+        "relationship": "stacked on #775; CPU physical MLP channel comparison and bounded adapter",
+        "status": "open",
+        "integrated_on_main": false
       }
     ],
     "dependency_chains": [
@@ -6358,8 +6478,12 @@
       [
         735,
         779
+      ],
+      [
+        775,
+        780
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated. PR #780 records one bounded CPU KFAC channel-removal comparison stacked on #775; all tested cuts miss the PPL gate, so the result does not establish quality-preserving effectiveness or integration."
   }
 }

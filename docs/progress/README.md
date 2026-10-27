@@ -1,8 +1,8 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.5`.
+Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.6`.
 
-Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness.
+Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
@@ -11,10 +11,10 @@ Overall weighted completion: **29.0%**. This is the defined, versioned scope sco
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 50.5% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Research coverage | 50.6% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
 | Implementation maturity | 39.0% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 5.9% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 33.8% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Production readiness | 33.7% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
 | Representative compatibility coverage | 36.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
@@ -28,7 +28,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.7% | 48.9% | 40.2% | 3.6% | 35.0% |
-| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 22.8% | 49.2% | 24.8% | 2.2% | 18.2% |
+| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 22.9% | 50.0% | 24.8% | 2.0% | 17.8% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 7.1% | 21.9% | 3.0% | 1.0% | 3.0% |
 | [Model recovery and repair](FEATURE_MATRIX.md#recovery) | 6% | 18.0% | 46.0% | 10.0% | 6.7% | 10.0% |
@@ -83,6 +83,7 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 | `meta_surgeon.features_static` — Q1 static weight-feature baseline | `meta_surgeon.data` |
 | `meta_surgeon.features_activation` — Q2 activation-feature ablation | `meta_surgeon.features_static` |
 | `meta_surgeon.features_gradient` — Q3 gradient-feature ablation | `meta_surgeon.features_activation` |
+| `pruning.kfac_physical_pilot` — KFAC singleton-additive MLP channel ranking physical comparison | `pruning.physical` |
 
 ## Retired scope identifiers
 
