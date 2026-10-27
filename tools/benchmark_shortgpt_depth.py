@@ -55,6 +55,25 @@ def _model_identifier(model_argument: str, model_path: Path, explicit: str | Non
     )
 
 
+def _resolve_model_path(model_argument: str, revision: str) -> Path:
+    supplied_path = Path(model_argument).expanduser()
+    if supplied_path.exists():
+        return supplied_path.resolve()
+    try:
+        from huggingface_hub import snapshot_download
+
+        snapshot = snapshot_download(
+            repo_id=model_argument,
+            revision=revision,
+            local_files_only=True,
+        )
+    except Exception as error:
+        raise ValueError(
+            "--model must be a local checkpoint path or a locally cached Hugging Face ID"
+        ) from error
+    return Path(snapshot).resolve()
+
+
 def _limitations(random_seed_count: int) -> list[str]:
     return [
         "One pinned model and one removed layer; cross-model generalization is untested.",
@@ -224,7 +243,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     torch.set_num_threads(args.cpu_threads)
     if args.device_map == "auto" and not torch.cuda.is_available():
         raise ValueError("device-map auto requires an available CUDA device in this benchmark")
-    model_path = Path(args.model).expanduser().resolve()
+    model_path = _resolve_model_path(args.model, args.revision)
     calibration_path = Path(args.calibration_text).expanduser().resolve()
     evaluation_path = Path(args.evaluation_text).expanduser().resolve()
     output = Path(args.output_directory).expanduser().resolve()

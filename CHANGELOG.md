@@ -4,7 +4,8 @@
 
   - Reject duplicate, negative, and non-integer random seeds in the ShortGPT
     depth benchmark so repeated random selections cannot inflate the reported
-    control count.
+    control count. Resolve model IDs only from their pinned local Hugging Face
+    cache before loading, matching the benchmark's local-first behavior.
 
   - Extended the ShortGPT physical benchmark to run with explicit CPU or
     CUDA-auto placement and repeated synchronized prefill-throughput samples.
