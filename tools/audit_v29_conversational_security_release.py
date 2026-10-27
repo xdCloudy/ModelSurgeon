@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
+try:
     from tools.audit_adversarial_resistance import audit_corpus
 except ModuleNotFoundError:  # pragma: no cover - direct ``python tools/...`` execution
     from audit_adversarial_resistance import audit_corpus
@@ -94,8 +99,7 @@ def _array(value: object, label: str) -> list[Any]:
 
 def _relative_file(root: Path, value: object, label: str) -> None:
     raw = _text(value, label)
-    path = Path(raw)
-    if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+    if not is_repository_file(root, raw):
         raise ConversationalSecurityReleaseAuditError(f"{label} references a missing file")
 
 

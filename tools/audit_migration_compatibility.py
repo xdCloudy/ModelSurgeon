@@ -7,6 +7,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.repository_paths import is_repository_file
+except ModuleNotFoundError:
+    from repository_paths import is_repository_file
+
 from modelsurgeon.migration import migrate_record, migration_matrix_records
 
 
@@ -30,8 +35,8 @@ def _files(root: Path, value: object, label: str) -> None:
     if not isinstance(value, list) or not value:
         raise MigrationCompatibilityAuditError(f"{label} must be a non-empty array")
     for index, item in enumerate(value):
-        relative = Path(_text(item, f"{label}[{index}]"))
-        if relative.is_absolute() or ".." in relative.parts or not (root / relative).is_file():
+        relative = _text(item, f"{label}[{index}]")
+        if not is_repository_file(root, relative):
             raise MigrationCompatibilityAuditError(
                 f"{label}[{index}] references a missing or unsafe repository path"
             )
