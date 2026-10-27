@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - EvalPlus physical-study reports now record the ModelSurgeon Git revision and
+    worktree cleanliness, plus a privacy-preserving digest/count of changed paths.
+    Older report artifacts retain their original schema and are not retroactively
+    attributed to a source revision.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

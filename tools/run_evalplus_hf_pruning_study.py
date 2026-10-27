@@ -149,6 +149,51 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _source_tree_provenance() -> dict[str, object]:
+    """Capture the runner's Git revision and a privacy-preserving worktree state."""
+
+    root = Path(__file__).resolve().parents[1]
+
+    def git_output(*arguments: str) -> bytes | None:
+        try:
+            result = run_bounded_process(
+                ("git", *arguments),
+                b"",
+                timeout_seconds=10.0,
+                stdout_limit=4 * 1024 * 1024,
+                stderr_limit=16 * 1024,
+                total_output_limit=4 * 1024 * 1024,
+                cwd=root,
+                env=sanitized_subprocess_environment(),
+            )
+        except (OSError, RuntimeError, ValueError):
+            return None
+        if (
+            result.returncode != 0
+            or result.timed_out
+            or result.output_exceeded
+            or result.resource_exceeded
+        ):
+            return None
+        return result.stdout
+
+    revision_output = git_output("rev-parse", "--verify", "HEAD")
+    revision = None
+    if revision_output is not None:
+        candidate = revision_output.decode("ascii", errors="ignore").strip().lower()
+        if len(candidate) in (40, 64) and all(
+            character in "0123456789abcdef" for character in candidate
+        ):
+            revision = candidate
+    status = git_output("status", "--porcelain=v1", "--untracked-files=all", "-z")
+    return {
+        "git_revision": revision,
+        "worktree_clean": None if status is None else not status,
+        "changed_path_count": None if status is None else max(0, len(status.split(b"\0")) - 1),
+        "status_sha256": None if status is None else hashlib.sha256(status).hexdigest(),
+    }
+
+
 def _artifact_manifest(path: Path) -> dict[str, object]:
     records = [
         {
@@ -704,6 +749,7 @@ def _build_pruned_candidate(
 
 
 def run(args: argparse.Namespace) -> dict[str, object]:
+    source_provenance = _source_tree_provenance()
     # Avoid the optional hf_xet extension: standard Hub downloads work on this Windows setup.
     os.environ["HF_HUB_DISABLE_XET"] = "1"
     import torch
@@ -836,7 +882,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     source_score = float(source_eval["plus_pass_at_1"])
     candidate_score = float(candidate_eval["plus_pass_at_1"])
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "protocol": (
             "physical-mlp-pruning-"
             f"{getattr(args, 'evalplus_dataset', 'humaneval')!s}plus-pass-at-1-v3"
@@ -887,6 +933,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "evalplus_docker_image": args.evalplus_image,
             "evalplus_docker_image_id": image_identity["image_id"],
             "device": torch.cuda.get_device_name(0),
+        },
+        "implementation": {
+            "name": "ModelSurgeon",
+            **source_provenance,
         },
         "run_parameters": {
             "channel_scorer": args.channel_scorer,

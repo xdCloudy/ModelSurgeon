@@ -7,6 +7,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
+import tools.run_evalplus_hf_pruning_study as study
 from tools.run_evalplus_hf_pruning_study import (
     _activation_output_energy_channels,
     _activation_weighted_channels,
@@ -17,6 +18,7 @@ from tools.run_evalplus_hf_pruning_study import (
     _low_magnitude_channels,
     _prepare_workspace,
     _repair_prediction_checkpoint,
+    _source_tree_provenance,
     _summarize_generation_metrics,
     _workspace_identity,
 )
@@ -366,6 +368,77 @@ def test_workspace_refuses_unmarked_nonempty_directory(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="without a study manifest"):
         _prepare_workspace(workspace, args)
+
+
+def test_source_provenance_records_revision_and_hashes_dirty_paths(monkeypatch) -> None:
+    outputs = iter(
+        (
+            b"a" * 40 + b"\n",
+            b" M tools/run_evalplus_hf_pruning_study.py\0?? tests/new_test.py\0",
+        )
+    )
+    commands: list[tuple[str, ...]] = []
+
+    def _run(command, payload, **kwargs):
+        commands.append(tuple(command))
+        assert payload == b""
+        assert kwargs["cwd"] == Path(study.__file__).resolve().parents[1]
+        return SimpleNamespace(
+            returncode=0,
+            stdout=next(outputs),
+            timed_out=False,
+            output_exceeded=False,
+            resource_exceeded=False,
+        )
+
+    monkeypatch.setattr(study, "run_bounded_process", _run)
+
+    provenance = _source_tree_provenance()
+
+    assert provenance == {
+        "git_revision": "a" * 40,
+        "worktree_clean": False,
+        "changed_path_count": 2,
+        "status_sha256": hashlib.sha256(
+            b" M tools/run_evalplus_hf_pruning_study.py\0?? tests/new_test.py\0"
+        ).hexdigest(),
+    }
+    assert commands == [
+        ("git", "rev-parse", "--verify", "HEAD"),
+        ("git", "status", "--porcelain=v1", "--untracked-files=all", "-z"),
+    ]
+
+
+def test_source_provenance_marks_git_state_unavailable_on_command_failure(monkeypatch) -> None:
+    calls = 0
+
+    def _run(command, payload, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=b"b" * 40 + b"\n",
+                timed_out=False,
+                output_exceeded=False,
+                resource_exceeded=False,
+            )
+        return SimpleNamespace(
+            returncode=128,
+            stdout=b"",
+            timed_out=False,
+            output_exceeded=False,
+            resource_exceeded=False,
+        )
+
+    monkeypatch.setattr(study, "run_bounded_process", _run)
+
+    assert _source_tree_provenance() == {
+        "git_revision": "b" * 40,
+        "worktree_clean": None,
+        "changed_path_count": None,
+        "status_sha256": None,
+    }
 
 
 def test_mbpp_workspace_identity_pins_its_dataset_release() -> None:
