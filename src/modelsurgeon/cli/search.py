@@ -35,6 +35,8 @@ from modelsurgeon.search.resume import (
 )
 
 SEARCH_COMMAND_SCHEMA_VERSION = 1
+MAX_SEARCH_CONFIG_BYTES = 64 * 1024 * 1024
+MAX_SEARCH_CONFIG_ITEMS = 100_000
 
 
 class SearchCommandError(RuntimeError):
@@ -121,6 +123,10 @@ def _integer(value: object, label: str) -> int:
 def _string_tuple(value: object, label: str, prefix: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise SearchCommandError(f"{label} must be a list")
+    if len(value) > MAX_SEARCH_CONFIG_ITEMS:
+        raise SearchCommandError(
+            f"{label} exceeds {MAX_SEARCH_CONFIG_ITEMS} entries"
+        )
     result = tuple(_text(item, label, prefix) for item in value)
     if result != tuple(sorted(set(result))):
         raise SearchCommandError(f"{label} must be sorted and unique")
@@ -130,6 +136,8 @@ def _string_tuple(value: object, label: str, prefix: str) -> tuple[str, ...]:
 def _objective_observations(value: object) -> tuple[ObjectiveObservation, ...]:
     if not isinstance(value, list) or not value:
         raise SearchCommandError("candidate objective observations must be non-empty")
+    if len(value) > len(OptimizeMetric):
+        raise SearchCommandError("candidate has too many objective observations")
     result: list[ObjectiveObservation] = []
     for raw in value:
         record = _exact(raw, {"metric", "value", "baseline_value"}, "objective observation")
@@ -147,6 +155,8 @@ def _objective_observations(value: object) -> tuple[ObjectiveObservation, ...]:
 def _constraint_observations(value: object) -> tuple[ConstraintObservation, ...]:
     if not isinstance(value, list) or not value:
         raise SearchCommandError("candidate constraint observations must be non-empty")
+    if len(value) > len(ConstraintMetric):
+        raise SearchCommandError("candidate has too many constraint observations")
     result: list[ConstraintObservation] = []
     for raw in value:
         record = _exact(raw, {"metric", "value", "baseline"}, "constraint observation")
@@ -192,8 +202,19 @@ def load_search_spec(path: Path) -> _SearchSpec:
     """Load a strict search plan and materialize its policy identity."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        with path.open("rb") as config_file:
+            payload = config_file.read(MAX_SEARCH_CONFIG_BYTES + 1)
+    except OSError as error:
+        raise SearchCommandError(f"cannot read search config: {error}") from error
+    if len(payload) > MAX_SEARCH_CONFIG_BYTES:
+        raise SearchCommandError(
+            f"search config exceeds {MAX_SEARCH_CONFIG_BYTES} bytes"
+        )
+    try:
+        raw = json.loads(payload.decode("utf-8"))
+    except UnicodeDecodeError as error:
+        raise SearchCommandError("search config must be UTF-8") from error
+    except json.JSONDecodeError as error:
         raise SearchCommandError(f"cannot read search config: {error}") from error
     record = _exact(
         raw,
@@ -250,6 +271,10 @@ def load_search_spec(path: Path) -> _SearchSpec:
     candidates_raw = record.get("candidates")
     if not isinstance(candidates_raw, list) or not candidates_raw:
         raise SearchCommandError("search config requires a non-empty candidate pool")
+    if len(candidates_raw) > MAX_SEARCH_CONFIG_ITEMS:
+        raise SearchCommandError(
+            f"search config exceeds {MAX_SEARCH_CONFIG_ITEMS} candidates"
+        )
     candidates = tuple(_candidate_spec(item) for item in candidates_raw)
     candidate_ids = tuple(item.candidate.candidate_id for item in candidates)
     state_ids = tuple(item.candidate_state_id for item in candidates)
