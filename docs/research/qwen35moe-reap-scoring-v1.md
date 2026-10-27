@@ -4,11 +4,14 @@ Status: experimental calibration adapter. It is not connected to candidate
 selection, structural surgery, or autonomous optimization. One full
 WikiText-2 test comparison on a single Qwen3.5-family GGUF found REAP better
 than router norm and two random 12.5% cuts, but the candidate failed the
-98% quality-retention gate. A separate train/validation profile comparison
-found only 0.257 mean Jaccard between the per-layer bottom-12.5% REAP sets.
-These are one-cell results: REAP has not been promoted and its generalization,
-latency, and resource effects remain unproven. See the [quality comparison](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md)
-and [calibration-stability record](qwen35moe-reap-calibration-stability-2026-10-27.md).
+98% quality-retention gate. Disjoint same-domain profiles also had only 0.266
+mean Jaccard between the per-layer bottom-12.5% REAP sets. An equal-weight
+two-profile cut changed held-out PPL by -0.0042 versus single-profile REAP,
+with a paired 95% interval spanning zero; both cuts failed the gate. These are
+one-cell results: REAP has not been promoted and its generalization, latency,
+and resource effects remain unproven. See the [quality comparison](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md),
+[calibration-stability record](qwen35moe-reap-calibration-stability-2026-10-27.md),
+and [multi-profile outcome](qwen35moe-reap-multiprofile-outcome-2026-10-27.md).
 
 ## Acquisition decision
 

@@ -1,0 +1,30 @@
+0.03.371.240 W model has unused tensor blk.40.attn_norm.weight (size = 8192 bytes) -- ignoring
+0.03.371.261 W model has unused tensor blk.40.post_attention_norm.weight (size = 8192 bytes) -- ignoring
+0.03.371.284 W model has unused tensor blk.40.attn_q.weight (size = 9437184 bytes) -- ignoring
+0.03.371.292 W model has unused tensor blk.40.attn_k.weight (size = 589824 bytes) -- ignoring
+0.03.371.299 W model has unused tensor blk.40.attn_v.weight (size = 860160 bytes) -- ignoring
+0.03.371.328 W model has unused tensor blk.40.attn_output.weight (size = 4718592 bytes) -- ignoring
+0.03.371.336 W model has unused tensor blk.40.attn_q_norm.weight (size = 1024 bytes) -- ignoring
+0.03.371.344 W model has unused tensor blk.40.attn_k_norm.weight (size = 1024 bytes) -- ignoring
+0.03.371.352 W model has unused tensor blk.40.ffn_gate_inp.weight (size = 1835008 bytes) -- ignoring
+0.03.371.367 W model has unused tensor blk.40.ffn_down_exps.weight (size = 192675840 bytes) -- ignoring
+0.03.371.384 W model has unused tensor blk.40.ffn_gate_exps.weight (size = 132120576 bytes) -- ignoring
+0.03.371.392 W model has unused tensor blk.40.ffn_up_exps.weight (size = 132120576 bytes) -- ignoring
+0.03.371.405 W model has unused tensor blk.40.ffn_gate_inp_shexp.weight (size = 8192 bytes) -- ignoring
+0.03.371.414 W model has unused tensor blk.40.ffn_gate_shexp.weight (size = 589824 bytes) -- ignoring
+0.03.371.425 W model has unused tensor blk.40.ffn_up_shexp.weight (size = 589824 bytes) -- ignoring
+0.03.371.434 W model has unused tensor blk.40.ffn_down_shexp.weight (size = 860160 bytes) -- ignoring
+0.03.371.443 W model has unused tensor blk.40.nextn.eh_proj.weight (size = 4718592 bytes) -- ignoring
+0.03.371.453 W model has unused tensor blk.40.nextn.enorm.weight (size = 8192 bytes) -- ignoring
+0.03.371.465 W model has unused tensor blk.40.nextn.hnorm.weight (size = 8192 bytes) -- ignoring
+0.03.371.502 W model has unused tensor blk.40.nextn.shared_head_norm.weight (size = 8192 bytes) -- ignoring
+0.06.712.884 W warning: PrefetchVirtualMemory failed: Not enough memory resources are available to process this command.
+
+
+0.06.790.718 I cmn          init: llama threadpool init, n_threads = 12
+0.06.791.023 I 
+0.06.791.218 I system_info: n_threads = 12 (n_threads_batch = 12) / 20 | CUDA : ARCHS = 750,800,860,890,900,1200,1210 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.06.791.368 I perplexity: tokenizing the input ..
+0.07.262.732 I perplexity: tokenization took 471.35 ms
+0.07.263.584 I perplexity: calculating perplexity over 580 chunks, n_ctx=512, batch_size=512, n_seq=1
+2.39.126.613 I perplexity: 151.86 seconds per pass - ETA 40.59.539.012 I Final estimate: PPL = 6.9008 +/- 0.04386
