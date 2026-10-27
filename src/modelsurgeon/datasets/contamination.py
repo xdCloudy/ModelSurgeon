@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-CONTAMINATION_AUDIT_SCHEMA_VERSION: Final[int] = 1
-CONTAMINATION_PROTOCOL_REVISION: Final[str] = "contamination-audit-v1"
+CONTAMINATION_AUDIT_SCHEMA_VERSION: Final[int] = 2
+CONTAMINATION_PROTOCOL_REVISION: Final[str] = "contamination-audit-v2"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -56,25 +57,48 @@ def _sha256(value: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ContaminationPolicy:
-    """Deterministic matching thresholds and pairwise resource ceilings."""
+    """Deterministic matching thresholds and item/pair resource ceilings."""
 
     ngram_size: int = 5
     near_jaccard_threshold: float = 0.8
     max_items: int = 100_000
     max_pair_comparisons: int = 1_000_000
     license_safe_only: bool = True
+    max_item_bytes: int = 1_000_000
+    max_total_text_bytes: int = 64 * 1024 * 1024
 
     def __post_init__(self) -> None:
-        if self.ngram_size < 1 or not 0.0 < self.near_jaccard_threshold <= 1.0:
+        if (
+            isinstance(self.ngram_size, bool)
+            or not isinstance(self.ngram_size, int)
+            or self.ngram_size < 1
+            or isinstance(self.near_jaccard_threshold, bool)
+            or not isinstance(self.near_jaccard_threshold, (int, float))
+            or not 0.0 < self.near_jaccard_threshold <= 1.0
+            or not math.isfinite(self.near_jaccard_threshold)
+        ):
             raise ContaminationAuditError("invalid contamination matching threshold")
-        if self.max_items <= 0 or self.max_pair_comparisons <= 0:
+        limits = (
+            self.max_items,
+            self.max_item_bytes,
+            self.max_total_text_bytes,
+            self.max_pair_comparisons,
+        )
+        if any(
+            isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
+            for limit in limits
+        ):
             raise ContaminationAuditError("contamination resource limits must be positive")
+        if not isinstance(self.license_safe_only, bool):
+            raise ContaminationAuditError("license_safe_only must be a boolean")
 
     def to_record(self) -> dict[str, object]:
         return {
             "ngram_size": self.ngram_size,
             "near_jaccard_threshold": self.near_jaccard_threshold,
             "max_items": self.max_items,
+            "max_item_bytes": self.max_item_bytes,
+            "max_total_text_bytes": self.max_total_text_bytes,
             "max_pair_comparisons": self.max_pair_comparisons,
             "license_safe_only": self.license_safe_only,
         }
@@ -130,17 +154,20 @@ class CorpusItem:
     def __post_init__(self) -> None:
         _require_text(self.item_id, "item_id")
         _require_text(self.corpus_id, "item corpus_id")
-        if not self.text:
+        if not self.text.strip():
             raise ContaminationAuditError("corpus item text cannot be empty")
         if len(set(self.ancestry_ids)) != len(self.ancestry_ids):
             raise ContaminationAuditError("item ancestry IDs must be unique")
 
     @property
     def text_digest(self) -> str:
-        return _sha256(self.text)
+        return _sha256(self._normalized_text())
+
+    def _normalized_text(self) -> str:
+        return " ".join(self.text.split())
 
     def shingles(self, size: int) -> frozenset[str]:
-        normalized = " ".join(self.text.split())
+        normalized = self._normalized_text()
         tokens = normalized.split(" ")
         if len(tokens) <= size:
             return frozenset((normalized,))
@@ -290,6 +317,42 @@ def audit_corpora(
             0,
             ContaminationStatus.UNKNOWN,
         )
+    total_text_bytes = 0
+    limited_item: CorpusItem | None = None
+    limit_reason = ""
+    for item in sorted(items, key=lambda value: (value.corpus_id, value.item_id)):
+        if len(item.text) > selected.max_item_bytes:
+            limited_item = item
+            limit_reason = "item text exceeds audit byte limit"
+            break
+        item_bytes = len(item.text.encode("utf-8"))
+        if item_bytes > selected.max_item_bytes:
+            limited_item = item
+            limit_reason = "item text exceeds audit byte limit"
+            break
+        total_text_bytes += item_bytes
+        if total_text_bytes > selected.max_total_text_bytes:
+            limited_item = item
+            limit_reason = "total item text exceeds audit byte limit"
+            break
+    if limited_item is not None:
+        finding = ContaminationFinding(
+            FindingKind.RESOURCE_LIMIT,
+            FindingAction.LIMITATION,
+            limited_item.item_id,
+            None,
+            (limited_item.corpus_id,),
+            None,
+            limit_reason,
+        )
+        return ContaminationAuditReport(
+            sources,
+            selected,
+            (finding,),
+            0,
+            0,
+            ContaminationStatus.UNKNOWN,
+        )
     source_by_id = {source.corpus_id: source for source in sources}
     declared_item_sources = {item.corpus_id for item in items}
     if len(source_by_id) != len(sources) or declared_item_sources - set(source_by_id):
@@ -328,76 +391,78 @@ def audit_corpora(
                         "source license was not auditable under the safe-only policy",
                 )
             )
-    exact: dict[str, list[CorpusItem]] = defaultdict(list)
-    for item in items:
-        exact[item.text_digest].append(item)
-    for same in exact.values():
-        for index, left in enumerate(same):
-            for right in same[index + 1 :]:
-                if left.corpus_id == right.corpus_id:
-                    continue
-                ids = tuple(sorted((left.corpus_id, right.corpus_id)))
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.EXACT_OVERLAP,
-                        FindingAction.BLOCK,
-                        left.item_id,
-                        right.item_id,
-                        ids,
-                        1.0,
-                        "identical normalized text digest across corpus boundaries",
-                    )
-                )
     pair_count = 0
-    shingles = {item.item_id: item.shingles(selected.ngram_size) for item in items}
-    for index, left in enumerate(items):
-        for right in items[index + 1 :]:
-            if left.corpus_id == right.corpus_id:
-                continue
-            pair_count += 1
-            if pair_count > selected.max_pair_comparisons:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.RESOURCE_LIMIT,
-                        FindingAction.LIMITATION,
-                        None,
-                        None,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        None,
-                        "near-duplicate comparison budget exhausted",
-                    )
-                )
+    shingles = {id(item): item.shingles(selected.ngram_size) for item in items}
+    items_by_corpus: dict[str, list[CorpusItem]] = defaultdict(list)
+    for item in items:
+        items_by_corpus[item.corpus_id].append(item)
+    corpus_ids = sorted(items_by_corpus)
+    resource_limited = False
+    for index, left_corpus_id in enumerate(corpus_ids):
+        for right_corpus_id in corpus_ids[index + 1 :]:
+            corpus_pair = (left_corpus_id, right_corpus_id)
+            for left in items_by_corpus[left_corpus_id]:
+                for right in items_by_corpus[right_corpus_id]:
+                    if pair_count >= selected.max_pair_comparisons:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.RESOURCE_LIMIT,
+                                FindingAction.LIMITATION,
+                                None,
+                                None,
+                                corpus_pair,
+                                None,
+                                "cross-corpus comparison budget exhausted",
+                            )
+                        )
+                        resource_limited = True
+                        break
+                    pair_count += 1
+                    if left.text_digest == right.text_digest:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.EXACT_OVERLAP,
+                                FindingAction.BLOCK,
+                                left.item_id,
+                                right.item_id,
+                                corpus_pair,
+                                1.0,
+                                "identical normalized text digest across corpus boundaries",
+                            )
+                        )
+                    else:
+                        score = _near_score(shingles[id(left)], shingles[id(right)])
+                        if score >= selected.near_jaccard_threshold:
+                            findings.append(
+                                ContaminationFinding(
+                                    FindingKind.NEAR_OVERLAP,
+                                    FindingAction.MOVE,
+                                    left.item_id,
+                                    right.item_id,
+                                    corpus_pair,
+                                    score,
+                                    "bounded token-shingle Jaccard overlap exceeds threshold",
+                                )
+                            )
+                    shared_ancestry = set(left.ancestry_ids) & set(right.ancestry_ids)
+                    if shared_ancestry:
+                        findings.append(
+                            ContaminationFinding(
+                                FindingKind.ANCESTRY_OVERLAP,
+                                FindingAction.BLOCK,
+                                left.item_id,
+                                right.item_id,
+                                corpus_pair,
+                                None,
+                                f"shared model ancestry: {','.join(sorted(shared_ancestry))}",
+                            )
+                        )
+                if resource_limited:
+                    break
+            if resource_limited:
                 break
-            score = _near_score(shingles[left.item_id], shingles[right.item_id])
-            if score >= selected.near_jaccard_threshold and left.text_digest != right.text_digest:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.NEAR_OVERLAP,
-                        FindingAction.MOVE,
-                        left.item_id,
-                        right.item_id,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        score,
-                        "bounded token-shingle Jaccard overlap exceeds threshold",
-                    )
-                )
-        if pair_count > selected.max_pair_comparisons:
+        if resource_limited:
             break
-    for index, left in enumerate(items):
-        for right in items[index + 1 :]:
-            shared = set(left.ancestry_ids) & set(right.ancestry_ids)
-            if left.corpus_id != right.corpus_id and shared:
-                findings.append(
-                    ContaminationFinding(
-                        FindingKind.ANCESTRY_OVERLAP,
-                        FindingAction.BLOCK,
-                        left.item_id,
-                        right.item_id,
-                        tuple(sorted((left.corpus_id, right.corpus_id))),
-                        None,
-                        f"shared model ancestry: {','.join(sorted(shared))}",
-                    )
-                )
     findings.sort(key=lambda item: item.finding_id)
     blocking = any(item.action in {FindingAction.BLOCK, FindingAction.MOVE} for item in findings)
     limited = any(
