@@ -1,6 +1,7 @@
 # ShortGPT depth pruning on Qwen2.5-0.5B
 
-Date: 2026-10-26  
+Date: 2026-10-26
+
 Purpose: check whether activation-aware ShortGPT layer selection transfers to a second model family and verify that the pruned Hugging Face artifact reloads.
 
 ## Result
