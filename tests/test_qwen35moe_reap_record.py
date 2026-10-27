@@ -12,6 +12,7 @@ def _record() -> dict[str, Any]:
     return {
         "schema_version": 1,
         "metric": "mean_router_weighted_expert_output_l2",
+        "router_weight_semantics": "qwen35_top_k_weights_renormalized_per_token",
         "scores_by_layer": [[0.25, None], [0.5, 0.75]],
         "routed_counts_by_layer": [[3, 0], [2, 1]],
     }
@@ -33,6 +34,7 @@ def test_reap_score_record_round_trips_without_torch() -> None:
         ("schema_version", 1.0),
         ("schema_version", 2),
         ("metric", "unknown"),
+        ("router_weight_semantics", "full_softmax_probabilities"),
         ("scores_by_layer", []),
         ("scores_by_layer", [[0.25, None], [0.5]]),
         ("routed_counts_by_layer", [[3, 0], [2]]),

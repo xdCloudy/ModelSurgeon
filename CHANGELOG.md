@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+  - Score records from the Qwen3.5 REAP adapter now encode that the observed
+    router weights are the model's selected top-k probabilities renormalized
+    per token. This distinguishes them from REAP's default full-softmax scoring.
+
   - Bounded Qwen3.5 REAP route indexing to 1,024 tokens per update by default,
     in addition to the existing per-expert projection batch limit. Invalid data
     in a later token chunk leaves observer totals unchanged.

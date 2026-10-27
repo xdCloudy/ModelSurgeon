@@ -61,6 +61,17 @@ the generic observer's optional renormalization again is unnecessary. The
 new router-contract test verifies this path against a direct expert-output
 reference.
 
+This is a Qwen-weighted REAP-style variant, not a numerical reproduction of
+REAP's default score. At the pinned REAP revision,
+`MoETransformerObserverConfig.renormalize_router_weights` defaults to `False`,
+so its default score uses full-softmax probabilities for selected experts;
+Qwen3.5's expert boundary instead supplies the selected probabilities
+renormalized to sum to one for each token. Every serialized score record now
+includes `router_weight_semantics: qwen35_top_k_weights_renormalized_per_token`
+so later comparisons can distinguish the observed weighting policy. A fair
+comparison should either reproduce the matching REAP renormalized mode or
+report the full-softmax and Qwen-renormalized variants separately.
+
 REAP's separate
 [`src/reap/prune.py:prune`](https://github.com/CerebrasResearch/reap/blob/1970473c51ca3caeb98c10392f15b3a08a672974/src/reap/prune.py)
 uses per-layer low-score selection and mutates architecture-specific expert

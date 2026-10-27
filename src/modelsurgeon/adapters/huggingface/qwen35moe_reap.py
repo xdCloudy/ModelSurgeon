@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Any
 
+_REAP_METRIC = "mean_router_weighted_expert_output_l2"
+_ROUTER_WEIGHT_SEMANTICS = "qwen35_top_k_weights_renormalized_per_token"
+
 
 class Qwen35MoeReapError(ValueError):
     """A Qwen3.5 MoE calibration batch violates the supported tensor contract."""
@@ -35,7 +38,8 @@ class Qwen35MoeReapResult:
 
         return {
             "schema_version": 1,
-            "metric": "mean_router_weighted_expert_output_l2",
+            "metric": _REAP_METRIC,
+            "router_weight_semantics": _ROUTER_WEIGHT_SEMANTICS,
             "scores_by_layer": [list(layer) for layer in self.scores_by_layer],
             "routed_counts_by_layer": [list(layer) for layer in self.routed_counts_by_layer],
         }
@@ -47,6 +51,7 @@ class Qwen35MoeReapResult:
         required = {
             "schema_version",
             "metric",
+            "router_weight_semantics",
             "scores_by_layer",
             "routed_counts_by_layer",
         }
@@ -56,7 +61,8 @@ class Qwen35MoeReapResult:
             or isinstance(record.get("schema_version"), bool)
             or not isinstance(record.get("schema_version"), int)
             or record.get("schema_version") != 1
-            or record.get("metric") != "mean_router_weighted_expert_output_l2"
+            or record.get("metric") != _REAP_METRIC
+            or record.get("router_weight_semantics") != _ROUTER_WEIGHT_SEMANTICS
         ):
             raise Qwen35MoeReapError("unsupported or malformed Qwen3.5 REAP score record")
 
