@@ -13,11 +13,13 @@ import hmac
 import json
 import os
 import re
+import stat
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PurePosixPath
-from typing import Final
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import BinaryIO, Final
 
 SIGNED_EVIDENCE_SCHEMA_VERSION: Final[int] = 1
 SIGNATURE_ALGORITHM: Final[str] = "hmac-sha256"
@@ -63,7 +65,12 @@ def _digest(value: object, label: str) -> str:
 
 def _path(value: object, label: str) -> str:
     result = _text(value, label)
-    if "\\" in result or result.startswith("/") or PurePosixPath(result).is_absolute():
+    if (
+        "\\" in result
+        or result.startswith("/")
+        or PurePosixPath(result).is_absolute()
+        or PureWindowsPath(result).drive
+    ):
         raise SignedEvidenceError(f"{label} must be a relative POSIX path")
     parts = PurePosixPath(result).parts
     if not parts or any(part in {"", ".", ".."} for part in parts):
@@ -76,12 +83,14 @@ class EvidenceBundleLimits:
     max_members: int = 10_000
     max_total_bytes: int = 1 << 40
     chunk_bytes: int = _DEFAULT_CHUNK_BYTES
+    max_entries: int = 100_000
 
     def __post_init__(self) -> None:
         for label, value in (
             ("maximum members", self.max_members),
             ("maximum total bytes", self.max_total_bytes),
             ("chunk bytes", self.chunk_bytes),
+            ("maximum filesystem entries", self.max_entries),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise SignedEvidenceError(f"{label} must be a positive integer")
@@ -91,6 +100,7 @@ class EvidenceBundleLimits:
             "max_members": self.max_members,
             "max_total_bytes": self.max_total_bytes,
             "chunk_bytes": self.chunk_bytes,
+            "max_entries": self.max_entries,
         }
 
 
@@ -349,14 +359,97 @@ class EvidenceVerification:
         }
 
 
-def _file_digest(path: Path, chunk_bytes: int) -> tuple[str, int]:
+def _stream_digest(stream: BinaryIO, chunk_bytes: int) -> tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
-    with path.open("rb") as stream:
-        while chunk := stream.read(chunk_bytes):
-            digest.update(chunk)
-            size += len(chunk)
+    while chunk := stream.read(chunk_bytes):
+        digest.update(chunk)
+        size += len(chunk)
     return digest.hexdigest(), size
+
+
+def _is_symlink_or_junction(path: Path) -> bool:
+    return path.is_symlink() or path.is_junction()
+
+
+def _resolved_real_directory(root: Path) -> Path | None:
+    """Resolve a directory only after rejecting symlinks in its path."""
+
+    try:
+        absolute = root.absolute()
+        current = Path(absolute.anchor)
+        for part in absolute.parts[1:]:
+            current = current / part
+            if _is_symlink_or_junction(current):
+                return None
+        resolved = absolute.resolve(strict=True)
+        return resolved if resolved.is_dir() else None
+    except (OSError, RuntimeError):
+        return None
+
+
+def _open_bundle_member(root: Path, member_path: str) -> BinaryIO | None:
+    """Open a member without following path-component symlinks where supported."""
+
+    parts = member_path.split("/")
+    if (
+        os.name == "posix"
+        and os.open in os.supports_dir_fd
+        and hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
+    ):
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        directory_fd = os.open(root.anchor, directory_flags)
+        try:
+            for part in root.parts[1:]:
+                next_fd = os.open(part, directory_flags, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            for part in parts[:-1]:
+                next_fd = os.open(part, directory_flags, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            member_fd = os.open(
+                parts[-1],
+                os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0),
+                dir_fd=directory_fd,
+            )
+            try:
+                if not stat.S_ISREG(os.fstat(member_fd).st_mode):
+                    return None
+                stream = os.fdopen(member_fd, "rb")
+                member_fd = -1
+                return stream
+            finally:
+                if member_fd >= 0:
+                    os.close(member_fd)
+        finally:
+            os.close(directory_fd)
+
+    path = root / Path(*parts)
+    try:
+        current = root
+        for part in parts:
+            current = current / part
+            if _is_symlink_or_junction(current):
+                return None
+        resolved_path = path.resolve(strict=True)
+        resolved_path.relative_to(root)
+        member_fd = os.open(
+            resolved_path,
+            os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0),
+        )
+        try:
+            if not stat.S_ISREG(os.fstat(member_fd).st_mode):
+                return None
+            stream = os.fdopen(member_fd, "rb")
+            member_fd = -1
+            return stream
+        finally:
+            if member_fd >= 0:
+                os.close(member_fd)
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 def _merkle_root(members: tuple[EvidenceBundleMember, ...]) -> str:
@@ -387,28 +480,41 @@ def build_evidence_bundle(
 ) -> EvidenceBundleIndex:
     """Hash a directory without loading member contents into memory."""
 
-    resolved = Path(root).absolute().resolve(strict=False)
-    if not resolved.is_dir() or resolved.is_symlink():
+    resolved = _resolved_real_directory(Path(root))
+    if resolved is None:
         raise SignedEvidenceError("bundle root must be a real directory")
     active_limits = limits or EvidenceBundleLimits()
     role_map = {} if roles is None else dict(roles)
     members: list[EvidenceBundleMember] = []
     total = 0
-    for candidate in sorted(resolved.rglob("*")):
-        if candidate.is_symlink():
-            raise SignedEvidenceError("bundle trees cannot contain symbolic links")
-        if not candidate.is_file():
+    scanned_entries = 0
+    for candidate in resolved.rglob("*"):
+        scanned_entries += 1
+        if scanned_entries > active_limits.max_entries:
+            raise SignedEvidenceError("bundle exceeds its filesystem entry limit")
+        if _is_symlink_or_junction(candidate):
+            raise SignedEvidenceError("bundle trees cannot contain symbolic links or junctions")
+        if candidate.is_dir():
             continue
+        if not candidate.is_file():
+            raise SignedEvidenceError("bundle trees may contain only regular files and directories")
         relative = candidate.relative_to(resolved).as_posix()
         path = _path(relative, "bundle member path")
         if len(members) >= active_limits.max_members:
             raise SignedEvidenceError("bundle exceeds its member limit")
-        digest, size = _file_digest(candidate, active_limits.chunk_bytes)
+        try:
+            stream = _open_bundle_member(resolved, path)
+            if stream is None:
+                raise SignedEvidenceError(f"bundle member is not a regular file: {path}")
+            with stream:
+                digest, size = _stream_digest(stream, active_limits.chunk_bytes)
+        except OSError as error:
+            raise SignedEvidenceError(f"cannot read bundle member {path}: {error}") from error
         total += size
         if total > active_limits.max_total_bytes:
             raise SignedEvidenceError("bundle exceeds its byte limit")
         members.append(EvidenceBundleMember(path, digest, size, role_map.get(path, "artifact")))
-    ordered = tuple(members)
+    ordered = tuple(sorted(members, key=lambda item: item.path))
     if not ordered:
         raise SignedEvidenceError("bundle root contains no regular files")
     index = EvidenceBundleIndex(
@@ -477,8 +583,9 @@ def verify_evidence_bundle(
 
     active_limits = limits or EvidenceBundleLimits()
     issues: list[str] = []
-    resolved = Path(root).absolute().resolve(strict=False)
-    if not resolved.is_dir() or resolved.is_symlink():
+    bundle_root = Path(root).absolute()
+    resolved = _resolved_real_directory(bundle_root)
+    if resolved is None:
         issues.append("bundle root is missing or not a real directory")
         return EvidenceVerification(
             EvidenceVerificationStatus.FAILED,
@@ -490,13 +597,39 @@ def verify_evidence_bundle(
         )
     checked_bytes = 0
     checked_members = 0
+    if len(index.members) > active_limits.max_members:
+        issues.append("verification member limit exceeded")
+        return EvidenceVerification(
+            EvidenceVerificationStatus.FAILED,
+            index.bundle_id,
+            tuple(issues),
+            0,
+            0,
+            index.claim_strength,
+        )
     expected_paths = {item.path for item in index.members}
+    actual_paths: set[str] = set()
+    scanned_entries = 0
     try:
-        actual_paths = {
-            candidate.relative_to(resolved).as_posix()
-            for candidate in resolved.rglob("*")
-            if candidate.is_file() and not candidate.is_symlink()
-        }
+        for candidate in resolved.rglob("*"):
+            scanned_entries += 1
+            if scanned_entries > active_limits.max_entries:
+                issues.append("verification filesystem entry limit exceeded")
+                break
+            relative = candidate.relative_to(resolved).as_posix()
+            if _is_symlink_or_junction(candidate):
+                issues.append(f"bundle contains a symbolic link or junction: {relative}")
+                break
+            elif candidate.is_dir():
+                continue
+            elif candidate.is_file():
+                if len(actual_paths) >= active_limits.max_members:
+                    issues.append("bundle inventory member limit exceeded")
+                    break
+                actual_paths.add(relative)
+            else:
+                issues.append(f"bundle contains a non-regular entry: {relative}")
+                break
     except OSError as error:
         issues.append(f"cannot enumerate bundle: {error}")
         actual_paths = set()
@@ -511,11 +644,13 @@ def verify_evidence_bundle(
         if checked_members >= active_limits.max_members:
             issues.append("verification member limit exceeded")
             break
-        path = resolved / Path(*member.path.split("/"))
-        if not path.is_file() or path.is_symlink():
-            continue
         try:
-            digest, size = _file_digest(path, active_limits.chunk_bytes)
+            stream = _open_bundle_member(bundle_root, member.path)
+            if stream is None:
+                issues.append(f"cannot read {member.path}: path is unsafe or not a regular file")
+                continue
+            with stream:
+                digest, size = _stream_digest(stream, active_limits.chunk_bytes)
         except OSError as error:
             issues.append(f"cannot read {member.path}: {error}")
             continue
@@ -579,9 +714,15 @@ def render_evidence_bundle_index(index: EvidenceBundleIndex) -> str:
 
 
 def write_evidence_bundle_index(index: EvidenceBundleIndex, path: str | Path) -> None:
-    """Write an index atomically enough for inspection outside the content tree."""
+    """Atomically write an index without following a pre-planted temp symlink."""
 
     destination = Path(path)
-    temporary = destination.with_name(destination.name + ".partial")
-    temporary.write_text(render_evidence_bundle_index(index), encoding="utf-8")
-    os.replace(temporary, destination)
+    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.partial")
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            stream.write(render_evidence_bundle_index(index))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
