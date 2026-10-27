@@ -10,6 +10,7 @@ import pytest
 
 from modelsurgeon.adapters.gguf import (
     GGUFDiskEstimate,
+    GGUFTensorReadLimits,
     GGUFValueType,
     GGUFWriteMetadata,
     GGUFWriteTensor,
@@ -186,6 +187,50 @@ def test_qwen35moe_saliency_selection_feeds_layerwise_gguf_slicing(tmp_path: Pat
                     for index in range(256)
                 )
             )
+
+
+def test_qwen35moe_slicing_respects_small_chunk_limit_and_preserves_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import modelsurgeon.adapters.gguf.qwen35moe_surgery as surgery
+
+    source_path = tmp_path / "source.gguf"
+    normal_path = tmp_path / "normal.gguf"
+    bounded_path = tmp_path / "bounded.gguf"
+    _write(source_path)
+    retained = {0: (0, 2, 3), 1: (0, 1, 3)}
+    with open_gguf(source_path) as source:
+        normal_disk = preflight_gguf_disk(
+            normal_path,
+            tmp_path,
+            GGUFDiskEstimate(source_path.stat().st_size, 0),
+        )
+        normal = execute_qwen35moe_expert_pruning(
+            source, retained, normal_path, normal_disk
+        )
+
+        original_reader = surgery.GGUFTensorReader
+
+        def small_chunk_reader(source: Any) -> Any:
+            return original_reader(
+                source,
+                limits=GGUFTensorReadLimits(max_chunk_bytes=420),
+            )
+
+        monkeypatch.setattr(surgery, "GGUFTensorReader", small_chunk_reader)
+        bounded_disk = preflight_gguf_disk(
+            bounded_path,
+            tmp_path,
+            GGUFDiskEstimate(source_path.stat().st_size, 0),
+        )
+        bounded = execute_qwen35moe_expert_pruning(
+            source, retained, bounded_path, bounded_disk
+        )
+
+    assert normal.output_layout == bounded.output_layout
+    assert bounded.peak_payload_buffer_bytes <= 420
+    assert normal_path.read_bytes() == bounded_path.read_bytes()
 
 
 def test_qwen35moe_saliency_selection_refuses_unsupported_or_incomplete_scores(
