@@ -416,11 +416,17 @@ def fit_platt_calibrator(
 
     _validate_inputs(validation_probabilities, validation_labels, require_both_classes=True)
     _validate_positive_integer(max_iterations, "Platt maximum iteration count")
+    try:
+        tolerance_value = float(tolerance)
+    except (OverflowError, TypeError, ValueError) as error:
+        raise ProbabilityCalibrationError(
+            "Platt optimization bounds must be positive and finite"
+        ) from error
     if (
         isinstance(tolerance, bool)
         or not isinstance(tolerance, (int, float))
-        or not math.isfinite(tolerance)
-        or tolerance <= 0.0
+        or not math.isfinite(tolerance_value)
+        or tolerance_value <= 0.0
     ):
         raise ProbabilityCalibrationError("Platt optimization bounds must be positive and finite")
     logits = tuple(_logit(value) for value in validation_probabilities)
@@ -461,7 +467,7 @@ def fit_platt_calibrator(
         ) / determinant
         slope -= delta_slope
         intercept -= delta_intercept
-        if max(abs(delta_slope), abs(delta_intercept)) <= tolerance:
+        if max(abs(delta_slope), abs(delta_intercept)) <= tolerance_value:
             break
     return PlattCalibrator(slope=slope, intercept=intercept)
 
