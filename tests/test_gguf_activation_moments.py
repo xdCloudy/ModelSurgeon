@@ -91,6 +91,7 @@ def test_loads_legacy_flat_collector_provenance(tmp_path: Path) -> None:
     [
         (lambda item: item.update(source_sha256="c" * 64), "different source"),
         (lambda item: item.update(schema_version=2), "unsupported"),
+        (lambda item: item.update(schema_version=True), "unsupported"),
         (lambda item: item["calibration"].pop("split"), "needs split"),
         (lambda item: item["calibration"].update(text_sha256="bad"), "SHA-256"),
         (lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(input_axis=True), "axis"),
@@ -102,6 +103,12 @@ def test_loads_legacy_flat_collector_provenance(tmp_path: Path) -> None:
         (
             lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(
                 second_moments=[float("nan")]
+            ),
+            "finite",
+        ),
+        (
+            lambda item: item["tensors"]["blk.0.ffn_down.weight"].update(
+                second_moments=[10**400]
             ),
             "finite",
         ),

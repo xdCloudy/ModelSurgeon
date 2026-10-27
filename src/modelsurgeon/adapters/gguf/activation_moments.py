@@ -35,7 +35,14 @@ def load_gguf_activation_moments(
     if len(payload) > max_file_bytes:
         raise ValueError("activation moment manifest exceeds its configured file limit")
     record = json.loads(payload, object_pairs_hook=_unique_object)
-    if not isinstance(record, dict) or record.get("schema_version") != 1:
+    if not isinstance(record, dict):
+        raise ValueError("unsupported activation moment manifest schema")
+    schema_version = record.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != 1
+    ):
         raise ValueError("unsupported activation moment manifest schema")
     if record.get("source_sha256") != expected_source_sha256.removeprefix("sha256:"):
         raise ValueError("activation moments were calibrated for a different source GGUF")
@@ -89,17 +96,26 @@ def load_gguf_activation_moments(
             raise ValueError(f"activation moments for {name!r} need a positive sample count")
         if not isinstance(values, list) or not values:
             raise ValueError(f"activation moments for {name!r} need a non-empty vector")
-        if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
-            or value < 0
-            for value in values
-        ):
-            raise ValueError(f"activation moments for {name!r} must be finite and non-negative")
+        normalized_values: list[float] = []
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"activation moments for {name!r} must be finite and non-negative"
+                )
+            try:
+                normalized = float(value)
+            except (OverflowError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f"activation moments for {name!r} must be finite and non-negative"
+                ) from error
+            if not math.isfinite(normalized) or normalized < 0:
+                raise ValueError(
+                    f"activation moments for {name!r} must be finite and non-negative"
+                )
+            normalized_values.append(normalized)
         validated[name] = {
             "input_axis": axis,
             "sample_count": sample_count,
-            "second_moments": values,
+            "second_moments": normalized_values,
         }
     return validated, calibration
