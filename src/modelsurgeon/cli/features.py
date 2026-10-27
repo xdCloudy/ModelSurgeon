@@ -15,6 +15,7 @@ from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.features.cache import FeaturePartitionCache, FeaturePartitionKey
 from modelsurgeon.features.schema import FeatureRecord
 from modelsurgeon.graph import ComponentId
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 FEATURE_COMMAND_SCHEMA_VERSION = 1
 
@@ -309,10 +310,8 @@ def run_feature_plan(
 
 
 def _write_output(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(payload + "\n")
+        atomic_write_text(path, payload + "\n", replace_existing=False)
     except FileExistsError as error:
         raise FeatureCommandError(f"output already exists: {path}") from error
 

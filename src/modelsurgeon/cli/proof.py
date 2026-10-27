@@ -42,6 +42,7 @@ from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.schema import ExperimentRecord, MutationExampleRecord
 from modelsurgeon.features.cache import FeaturePartition
 from modelsurgeon.graph import ComponentGraph
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 
 class FirstSurgeonProofError(ValueError):
@@ -200,8 +201,7 @@ def run_first_surgeon_proof(
 
 def _write_new(path: Path, payload: str) -> None:
     try:
-        with path.open("x", encoding="utf-8", newline="\n") as stream:
-            stream.write(payload)
+        atomic_write_text(path, payload, replace_existing=False)
     except FileExistsError as error:
         raise FirstSurgeonProofError(f"proof output already exists: {path}") from error
     except OSError as error:

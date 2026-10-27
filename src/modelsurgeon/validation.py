@@ -20,6 +20,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from modelsurgeon.utils.atomic_files import atomic_write_text
+
 HOSTILE_FUZZ_SCHEMA_VERSION = "1.0"
 HOSTILE_FUZZ_PROTOCOL_REVISION = "hostile-fuzz-v1"
 
@@ -161,9 +163,11 @@ class HostileFuzzCorpus:
         return record
 
     def write_manifest(self, path: str | Path) -> None:
-        destination = Path(path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(json.dumps(self.to_record(), indent=2) + "\n", encoding="utf-8")
+        atomic_write_text(
+            path,
+            json.dumps(self.to_record(), indent=2) + "\n",
+            replace_existing=True,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,8 +199,10 @@ class HostileFuzzCampaignReport:
 
     @property
     def counts(self) -> dict[str, int]:
-        return {outcome.value: sum(result.outcome is outcome for result in self.results)
-                for outcome in HostileOutcome}
+        return {
+            outcome.value: sum(result.outcome is outcome for result in self.results)
+            for outcome in HostileOutcome
+        }
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -214,9 +220,7 @@ class ParserTarget(Protocol):
     def __call__(self, payload: bytes) -> object: ...
 
 
-def _case_id(
-    kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome
-) -> str:
+def _case_id(kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome) -> str:
     material = f"{kind.value}:{seed}:{expected.value}:".encode() + payload
     return f"{kind.value}-{hashlib.sha256(material).hexdigest()[:20]}"
 

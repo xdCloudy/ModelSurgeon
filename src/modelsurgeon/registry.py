@@ -5,9 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import shutil
-import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -21,6 +19,7 @@ from modelsurgeon.experiments.artifacts import (
     ContentAddressedArtifactStore,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 REGISTRY_SCHEMA_VERSION = 1
 REGISTRY_BUNDLE_SCHEMA_VERSION = 1
@@ -254,19 +253,15 @@ class LocalArtifactRegistry:
             "artifacts": [self._artifacts[key].to_record() for key in sorted(self._artifacts)],
             "aliases": {key: self._aliases[key] for key in sorted(self._aliases)},
             "leases": [self._leases[key].to_record() for key in sorted(self._leases)],
-            "references": {
-                key: list(self._references[key]) for key in sorted(self._references)
-            },
+            "references": {key: list(self._references[key]) for key in sorted(self._references)},
         }
 
     def _save_catalog(self) -> None:
-        temporary = self.catalog_path.with_name(f".catalog-{uuid.uuid4().hex}.partial")
-        temporary.write_text(canonical_identity_json(self._catalog_record()), encoding="utf-8")
-        try:
-            os.replace(temporary, self.catalog_path)
-        finally:
-            if temporary.exists():
-                temporary.unlink()
+        atomic_write_text(
+            self.catalog_path,
+            canonical_identity_json(self._catalog_record()),
+            replace_existing=True,
+        )
 
     def resolve(self, reference: str) -> RegistryArtifact:
         digest = self._aliases.get(reference, reference)
@@ -333,9 +328,7 @@ class LocalArtifactRegistry:
             accepted=bool(metadata.get("accepted", False)),
             externally_unresolved=bool(metadata.get("externally_unresolved", False)),
             lineage=cast(Iterable[str], metadata.get("lineage", ())),
-            signature=(
-                None if metadata.get("signature") is None else str(metadata["signature"])
-            ),
+            signature=(None if metadata.get("signature") is None else str(metadata["signature"])),
             expected_digest=str(stored.metadata.digest),
         )
 
@@ -533,9 +526,8 @@ class LocalArtifactRegistry:
             raise RegistryError("registry bundle schema version is unsupported")
         artifact_raw = manifest.get("artifact")
         artifact = _record_from_raw(artifact_raw)
-        if (
-            manifest.get("payload_digest") != artifact.digest
-            or manifest.get("payload_size") != len(payload)
+        if manifest.get("payload_digest") != artifact.digest or manifest.get("payload_size") != len(
+            payload
         ):
             raise RegistryError("registry bundle payload digest or size is inconsistent")
         actual_digest = f"sha256:{hashlib.sha256(payload).hexdigest()}"

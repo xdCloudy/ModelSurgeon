@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
-import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -27,6 +26,7 @@ from modelsurgeon.evaluation.deployment_benchmark import (
     render_deployment_protocol,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 DEPLOYMENT_CLI_SCHEMA_VERSION = 1
 
@@ -46,10 +46,14 @@ def _read_json(path: Path) -> dict[str, object]:
 
 
 def _write_new(path: Path, payload: Mapping[str, object]) -> None:
-    if path.exists():
-        raise DeploymentCommandError(f"refusing to overwrite immutable file: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(canonical_identity_json(payload) + "\n", encoding="utf-8")
+    try:
+        atomic_write_text(
+            path,
+            canonical_identity_json(payload) + "\n",
+            replace_existing=False,
+        )
+    except FileExistsError as error:
+        raise DeploymentCommandError(f"refusing to overwrite immutable file: {path}") from error
 
 
 def _string(value: object, label: str) -> str:
@@ -280,10 +284,11 @@ def _state_from_record(raw: Mapping[str, object], plan: DeploymentPlan) -> Deplo
 
 
 def _save_state(path: Path, state: DeploymentState) -> None:
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.unlink(missing_ok=True)
-    temporary.write_text(canonical_identity_json(state.to_record()) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    atomic_write_text(
+        path,
+        canonical_identity_json(state.to_record()) + "\n",
+        replace_existing=True,
+    )
 
 
 def build_deployment_plan(

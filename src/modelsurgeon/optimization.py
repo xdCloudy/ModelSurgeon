@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from modelsurgeon.adapters import ModelFormat
 from modelsurgeon.config import Settings
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.utils.atomic_files import atomic_write_text
 
 if TYPE_CHECKING:
     from modelsurgeon.optimization_orchestrator import OptimizeRun
@@ -613,12 +614,32 @@ def build_optimize_plan(
     )
 
 
+def write_optimize_artifact(
+    path: Path,
+    contents: str,
+    *,
+    artifact_kind: str,
+    allow_overwrite: bool = False,
+) -> None:
+    """Atomically persist a JSON artifact, refusing concurrent clobbers by default."""
+
+    try:
+        atomic_write_text(path, contents, replace_existing=allow_overwrite)
+    except FileExistsError as error:
+        raise OptimizePlanError(
+            f"refusing to overwrite existing {artifact_kind} artifact: {path}"
+        ) from error
+
+
 def write_optimize_plan(path: Path, plan: OptimizePlan, *, allow_overwrite: bool = False) -> None:
     """Persist a plan as a new JSON artifact without mutating model sources."""
 
-    if path.exists() and not allow_overwrite:
-        raise OptimizePlanError(f"refusing to overwrite existing plan artifact: {path}")
-    path.write_text(plan.canonical_json() + "\n", encoding="utf-8", newline="\n")
+    write_optimize_artifact(
+        path,
+        plan.canonical_json() + "\n",
+        artifact_kind="plan",
+        allow_overwrite=allow_overwrite,
+    )
 
 
 def execute_first_party_optimize(
