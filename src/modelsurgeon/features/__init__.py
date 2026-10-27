@@ -47,6 +47,14 @@ from modelsurgeon.features.interaction_features import (
     InteractionFeatureValue,
     extract_interaction_features,
 )
+from modelsurgeon.features.kfac_sensitivity import (
+    KFAC_SENSITIVITY_VERSION,
+    KroneckerSensitivityError,
+    KroneckerSensitivityReport,
+    LinearRemovalAxis,
+    StructuredRemovalCost,
+    score_structured_linear_removals,
+)
 from modelsurgeon.features.layer_similarity import (
     LAYER_SIMILARITY_EXTRACTOR_VERSION,
     LayerPair,
@@ -136,6 +144,7 @@ __all__ = [
     "GRADIENT_FEATURE_EXTRACTOR_VERSION",
     "INTERACTION_FEATURE_EXTRACTOR_VERSION",
     "INTERACTION_FEATURE_PHASE",
+    "KFAC_SENSITIVITY_VERSION",
     "LAYER_SIMILARITY_EXTRACTOR_VERSION",
     "META_FEATURE_PROTOCOL_REVISION",
     "META_FEATURE_SCHEMA_VERSION",
@@ -183,11 +192,14 @@ __all__ = [
     "InteractionFeatureKind",
     "InteractionFeatureRecord",
     "InteractionFeatureValue",
+    "KroneckerSensitivityError",
+    "KroneckerSensitivityReport",
     "LayerPair",
     "LayerSimilarity",
     "LayerSimilarityConfig",
     "LayerSimilarityError",
     "LayerSummary",
+    "LinearRemovalAxis",
     "MetaFeatureCompatibility",
     "MetaFeatureConfig",
     "MetaFeatureCoverageReport",
@@ -205,6 +217,7 @@ __all__ = [
     "RandomizedSpectralFeatures",
     "RandomizedSpectralOutcome",
     "RandomizedWorkspacePlan",
+    "StructuredRemovalCost",
     "TopologyFeatureError",
     "TopologyFeatures",
     "WeightDistribution",
@@ -229,4 +242,5 @@ __all__ = [
     "generate_cosine_candidates",
     "plan_randomized_spectral_workspace",
     "rank_duplicate_channels",
+    "score_structured_linear_removals",
 ]

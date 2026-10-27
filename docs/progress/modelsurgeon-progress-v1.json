@@ -3109,6 +3109,88 @@
           "reason": "Pinned PruneNet policy-learning source review is a comparator only; no autonomous ModelSurgeon policy is implemented or validated."
         }
       ]
+    },
+    {
+      "id": "pruning.kfac",
+      "workstream": "pruning",
+      "title": "Kronecker-factored structured sensitivity",
+      "description": "Bounded KFAC second-moment collection and local structured-removal cost estimation, followed by coupled MLP candidate evaluation and optional compensation.",
+      "scope": "Trace LLM-Surgeon KFAC; independently score row and column removals from raw activation and output-gradient second moments; collect factors within memory budgets; aggregate coupled gate/up/down MLP channel costs; optionally compensate surviving weights; evaluate physical held-out outcomes.",
+      "weight": 5,
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "implementation_status": "experimental",
+      "effectiveness_status": "not_assessed",
+      "readiness_status": "not_assessed",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "acceptance_criteria": [
+        "The KFAC row and column quadratic score agrees with dense Kronecker Hessian calculations on deterministic small cases, including grouped removals and invalid numerical inputs.",
+        "A bounded collector records raw second moments from independent calibration observations and reports actual peak workspace, observation counts, numerical checks, and provenance.",
+        "An architecture adapter scores all coupled projections for one explicitly named Hugging Face MLP architecture without mutating weights or bypassing the optimization orchestrator.",
+        "At equal physical parameter removal, repeated held-out comparisons include no-repair KFAC, random seeds, magnitude, activation, and first-order gradient baselines under the existing quality gate.",
+        "Every passing artifact reloads successfully; quality uncertainty, optimization time, peak RAM/VRAM, artifact bytes, and inference outcomes are recorded. Compensation is assessed as a separate arm and never inferred from uncorrected scores."
+      ],
+      "dependencies": [
+        "scientific_research.competitors",
+        "pruning.physical",
+        "benchmarking.quality"
+      ],
+      "evidence_refs": [
+        {
+          "path": "src/modelsurgeon/features/kfac_sensitivity.py",
+          "label": "Uncompensated CPU KFAC row/column cost prototype"
+        },
+        {
+          "path": "tests/test_kfac_sensitivity.py",
+          "label": "Dense Kronecker parity and input/budget tests"
+        },
+        {
+          "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
+          "label": "Pinned source audit, acquisition decision, and experiment plan"
+        }
+      ],
+      "source_refs": [
+        "llm-surgeon"
+      ],
+      "related_prs": [],
+      "related_commits": [],
+      "remaining_work": "Collect bounded raw second moments; add coupled MLP channel aggregation and optimizer integration behind an architecture adapter; run a small pinned pretrained CPU evaluation before any hardware-scale study.",
+      "limitations": [
+        "The current function accepts precomputed factors and computes only uncompensated linear row/column group costs; it does not collect factors or represent the coupled gate/up/down path.",
+        "No full positive-semidefinite test, pretrained model result, physical artifact result, quality gain, runtime gain, or memory gain exists.",
+        "The upstream implementation supports only its traced OPT/LLaMA paths and uses an older framework stack; no universal architecture support is implied."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [
+            {
+              "path": "src/modelsurgeon/features/kfac_sensitivity.py",
+              "label": "Uncompensated CPU KFAC row/column cost prototype"
+            },
+            {
+              "path": "tests/test_kfac_sensitivity.py",
+              "label": "Dense Kronecker parity and input/budget tests"
+            },
+            {
+              "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
+              "label": "Pinned source audit, acquisition decision, and experiment plan"
+            }
+          ],
+          "reason": "Scoped as a new method milestone after pinned source review and an independently implemented tiny CPU formula prototype; no physical effectiveness or readiness is inferred."
+        }
+      ]
     }
   ],
   "research_sources": [
@@ -4710,4 +4792,4 @@
     ],
     "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 is the progress-system base and remains open; #775 is stacked on #774. Neither branch is integrated. Recheck all 57 open PRs for duplicates and dependencies before integration; stacked PRs require base-to-head review."
   }
-}
+}\n
