@@ -170,7 +170,7 @@ def _load_model(model_path: Path) -> Any:
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         local_files_only=True,
-        torch_dtype=torch.float32,
+        torch_dtype="auto",
         low_cpu_mem_usage=True,
     )
     model.to("cpu")
@@ -289,7 +289,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 reloaded_model = AutoModelForCausalLM.from_pretrained(
                     artifact_dir,
                     local_files_only=True,
-                    torch_dtype=torch.float32,
+                    torch_dtype="auto",
                     low_cpu_mem_usage=True,
                 )
                 reloaded_model.to("cpu")
@@ -347,6 +347,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 for item in sorted(model_path.glob("*.safetensors"))
             ],
             "parameter_count": source_parameter_count,
+            "parameter_dtypes": sorted(
+                {str(parameter.dtype) for parameter in source_model.parameters()}
+            ),
             "model_type": source_model.config.model_type,
             "layer_count": int(source_model.config.num_hidden_layers),
             "hidden_size": int(source_model.config.hidden_size),
