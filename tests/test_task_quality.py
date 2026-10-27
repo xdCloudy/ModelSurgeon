@@ -235,6 +235,54 @@ def test_multiple_choice_uses_teacher_forced_log_likelihood_and_retains_scores(
     assert row["dataset"]["digest"].startswith("sha256:")
 
 
+def test_multiple_choice_retokenized_prompt_boundary_uses_real_combined_tokens(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "choices.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "case-1",
+                "prompt": "abc",
+                "choices": [" A", " B"],
+                "answer_index": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dataset = MultipleChoiceDataset.load(path)
+
+    class BoundaryTokenizer:
+        bos_token_id = 1
+        eos_token_id = 2
+
+        def __call__(self, text: str, **_: object) -> dict[str, list[int]]:
+            return {
+                "input_ids": {
+                    "abc": [10, 11],
+                    "abc A": [20, 21, 22],
+                    "abc B": [20, 21, 23],
+                }[text]
+            }
+
+    class RecordingModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.ones(1))
+            self.sequences: list[tuple[int, ...]] = []
+
+        def forward(self, *, input_ids: torch.Tensor) -> object:
+            self.sequences.append(tuple(int(token) for token in input_ids[0].tolist()))
+            logits = torch.zeros((1, input_ids.shape[1], 32), device=input_ids.device)
+            return type("Output", (), {"logits": logits})()
+
+    model = RecordingModel()
+    evaluate_multiple_choice_accuracy(model, BoundaryTokenizer(), torch, dataset)
+
+    assert model.sequences == [(1, 20, 21, 22), (1, 20, 21, 23)]
+
+
 def test_multiple_choice_dataset_rejects_invalid_choices_and_gates_zero_baseline(
     tmp_path: Path,
 ) -> None:

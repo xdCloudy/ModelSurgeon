@@ -513,9 +513,13 @@ def _choice_tokens(
     continuation = prompt[len(context) :] + choice
     context_ids = _encoded_ids(tokenizer, context, torch)
     combined_ids = _encoded_ids(tokenizer, context + continuation, torch)
-    if len(combined_ids) < len(context_ids):
-        raise TaskQualityEvaluationError("tokenizer returned an incomplete choice sequence")
-    continuation_ids = combined_ids[len(context_ids) :]
+    shared_prefix_length = 0
+    for context_id, combined_id in zip(context_ids, combined_ids, strict=False):
+        if context_id != combined_id:
+            break
+        shared_prefix_length += 1
+    context_ids = combined_ids[:shared_prefix_length]
+    continuation_ids = combined_ids[shared_prefix_length:]
     if not context_ids:
         prefix_token = getattr(tokenizer, "bos_token_id", None)
         if not isinstance(prefix_token, int):
