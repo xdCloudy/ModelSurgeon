@@ -1,0 +1,819 @@
+{
+  "limitations": [
+    "One model revision, pruning severity, calibration sample budget, and greedy generation per HumanEval+ task.",
+    "HumanEval+ may be present in model training data; contamination is not ruled out.",
+    "Runtime is one generation pass per arm, includes prompt prefill, and is not repeated decode-only timing.",
+    "Output-energy scoring matched magnitude quality here but had lower one-pass throughput; no general ranking claim follows from this single model and setting.",
+    "Task-quality differences need replication on more models, tasks, pruning severities, and seeds."
+  ],
+  "method_provenance": {
+    "calibration_dataset_license": "CC-BY-SA-4.0",
+    "competitive_reference": "ModelSurgeon PR #735; WANDA (MIT) informed activation calibration; output-energy ranking is an independent structural adaptation.",
+    "reuse": "No third-party source code copied. Output-energy score ranks calibrated post-gated activation RMS squared times matching down-projection column L2 norm squared, summed across layers.",
+    "wanda_license": "MIT",
+    "wanda_repository": "https://github.com/locuslab/wanda",
+    "wanda_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6"
+  },
+  "paired_controls": {
+    "channels_removed_per_layer": 256,
+    "cuda_runtime_version": "12.8",
+    "dataset_sha256": "b6ed6a3a7e560bad75038eb9e72029ace2d26592e04b3f0596b4b75a55529465",
+    "device": "NVIDIA GeForce RTX 3060",
+    "evalplus_docker_image_id": "sha256:fbebe3a482ae3220fa4ba5ac3054f6f5391a58c9ca220916e50e59398b953a9a",
+    "evalplus_source_revision": "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2",
+    "layer_count": 24,
+    "model_revision": "ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
+    "python_version": "3.12.14",
+    "source_generated_samples_sha256": "b1948e606c8746e6ce66e38aa5db8bf798cd838c7f09a1a525aacbbcf1d74d87",
+    "source_samples_identical": true,
+    "task_count": 164,
+    "torch_version": "2.11.0+cu128"
+  },
+  "protocol": "paired-qwen-humanevalplus-mlp-scorer-comparison-v2",
+  "results": {
+    "magnitude": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 44.063502,
+      "median_generation_latency_seconds": 1.436094,
+      "p95_generation_latency_seconds": 5.683109,
+      "plus_pass_at_1": 0.3048780487804878,
+      "plus_passes": 50,
+      "quality_delta_percentage_points": -11.585365853658535,
+      "removed_channel_count": 256
+    },
+    "activation_weighted": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 45.075994,
+      "median_generation_latency_seconds": 1.39051,
+      "p95_generation_latency_seconds": 5.297026,
+      "plus_pass_at_1": 0.2865853658536585,
+      "plus_passes": 47,
+      "quality_delta_percentage_points": -13.414634146341465,
+      "removed_channel_count": 256,
+      "removed_channel_overlap_with_magnitude": 11
+    },
+    "activation_output_energy": {
+      "artifact_bytes": 966494163,
+      "artifact_reduction_bytes": 33110070,
+      "generated_tokens_per_second": 39.396848,
+      "median_generation_latency_seconds": 1.484035,
+      "p95_generation_latency_seconds": 4.959954,
+      "plus_pass_at_1": 0.3048780487804878,
+      "plus_passes": 50,
+      "quality_delta_percentage_points": -11.585365853658535,
+      "removed_channel_count": 256,
+      "removed_channel_overlap_with_magnitude": 12
+    },
+    "activation_weighted_minus_magnitude": {
+      "artifact_bytes": 0,
+      "generated_tokens_per_second": 1.0124920000000017,
+      "generated_tokens_per_second_relative_percent": 2.297801931403459,
+      "median_generation_latency_delta_seconds": -0.04558400000000007,
+      "p95_generation_latency_delta_seconds": -0.3860830000000002,
+      "plus_passes": -3,
+      "quality_delta_percentage_points": -1.8292682926829293,
+      "removed_channel_overlap": 11
+    },
+    "activation_output_energy_minus_magnitude": {
+      "artifact_bytes": 0,
+      "generated_tokens_per_second": -4.666654000000001,
+      "generated_tokens_per_second_relative_percent": -10.590746963325795,
+      "median_generation_latency_delta_seconds": 0.04794100000000001,
+      "p95_generation_latency_delta_seconds": -0.7231550000000002,
+      "plus_passes": 0,
+      "quality_delta_percentage_points": 0.0,
+      "removed_channel_overlap": 12
+    }
+  },
+  "schema_version": 2,
+  "source_reports": [
+    {
+      "method": "magnitude",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_magnitude_cuda128.json",
+      "sha256_lf_normalized": "17f6dc0a17b50619b8bc971bacdf71d80e9b3da7f89736c561e9df826d23335c"
+    },
+    {
+      "method": "activation_weighted",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_weighted.json",
+      "sha256_lf_normalized": "b80b6a7c422c1059c470899a5fc3d18e250ea673ae6f768ad5e0710caeb932ae"
+    },
+    {
+      "method": "activation_output_energy",
+      "path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_activation_output_energy.json",
+      "sha256_lf_normalized": "157d847fbe83265b6716b8b2be8f35bded3ad5f395835ddb65cebcfc175a8a7a"
+    }
+  ],
+  "paired_inference": {
+    "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_paired_statistics.json",
+    "report_sha256_lf_normalized": "4a5c96b1ddac2ecf3d5eaf49ab675d0133e337435fe4ab3059ac09fb8ce75659",
+    "method": {
+      "bootstrap": "paired percentile bootstrap over benchmark tasks",
+      "bootstrap_samples": 20000,
+      "bootstrap_seed": 20261026,
+      "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    },
+    "run_metadata": {
+      "magnitude": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 44.063502,
+        "candidate_median_generation_latency_seconds": 1.436094,
+        "candidate_p95_generation_latency_seconds": 5.683109
+      },
+      "activation_weighted": {
+        "channel_scorer": "activation_weighted",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 47,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 45.075994,
+        "candidate_median_generation_latency_seconds": 1.39051,
+        "candidate_p95_generation_latency_seconds": 5.297026
+      },
+      "activation_output_energy": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 39.396848,
+        "candidate_median_generation_latency_seconds": 1.484035,
+        "candidate_p95_generation_latency_seconds": 4.959954
+      }
+    },
+    "comparisons": [
+      {
+        "left": "source",
+        "right": "magnitude",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.2682926829268295,
+          18.902439024390244
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 29,
+          "right_only_pass": 10
+        },
+        "both_pass": 40,
+        "neither_pass": 85,
+        "mcnemar_exact_two_sided_p_value": 0.0033778479119064286
+      },
+      {
+        "left": "source",
+        "right": "activation_weighted",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 47,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 117,
+          "pass": 47
+        },
+        "left_minus_right_percentage_points": 13.414634146341463,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          6.097560975609756,
+          21.341463414634145
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 33,
+          "right_only_pass": 11
+        },
+        "both_pass": 36,
+        "neither_pass": 84,
+        "mcnemar_exact_two_sided_p_value": 0.0012600338162656044
+      },
+      {
+        "left": "magnitude",
+        "right": "activation_weighted",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 47,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 117,
+          "pass": 47
+        },
+        "left_minus_right_percentage_points": 1.829268292682927,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -4.878048780487805,
+          8.536585365853659
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 14
+        },
+        "both_pass": 33,
+        "neither_pass": 100,
+        "mcnemar_exact_two_sided_p_value": 0.720100131817162,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 11,
+          "jaccard_similarity": 0.021956087824351298
+        }
+      },
+      {
+        "left": "source",
+        "right": "activation_output_energy",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.878048780487805,
+          18.29268292682927
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 27,
+          "right_only_pass": 8
+        },
+        "both_pass": 42,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.001878225477412343
+      },
+      {
+        "left": "magnitude",
+        "right": "activation_output_energy",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 0.0,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -6.7073170731707314,
+          6.7073170731707314
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 17
+        },
+        "both_pass": 33,
+        "neither_pass": 97,
+        "mcnemar_exact_two_sided_p_value": 1.0,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 12,
+          "jaccard_similarity": 0.024
+        }
+      }
+    ]
+  },
+  "calibration_sensitivity": {
+    "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_calibration_sensitivity.json",
+    "report_sha256_lf_normalized": "0cd6bd8e935fe76e32083bf08fe3d48cd8f011d8de24b53a781c9847ee5efea7",
+    "method": {
+      "bootstrap": "paired percentile bootstrap over benchmark tasks",
+      "bootstrap_samples": 20000,
+      "bootstrap_seed": 20261026,
+      "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes"
+    },
+    "run_metadata": {
+      "output_energy_2048": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 2048,
+        "calibration_token_ids_sha256": "739fca102724cb371ca6890d4009ded37ccecdc3e10b515b2a6521f8f0613fdc",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 39.396848,
+        "candidate_median_generation_latency_seconds": 1.484035,
+        "candidate_p95_generation_latency_seconds": 4.959954
+      },
+      "output_energy_8192": {
+        "channel_scorer": "activation_output_energy",
+        "calibration_tokens": 8192,
+        "calibration_token_ids_sha256": "52765211c4e14b32bb7fe44f5790c77370764454de7dc6c735f759538e5cd472",
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 43.334448,
+        "candidate_median_generation_latency_seconds": 1.536729,
+        "candidate_p95_generation_latency_seconds": 4.229107
+      }
+    },
+    "comparisons": [
+      {
+        "left": "source",
+        "right": "output_energy_2048",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.878048780487805,
+          18.29268292682927
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 27,
+          "right_only_pass": 8
+        },
+        "both_pass": 42,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.001878225477412343
+      },
+      {
+        "left": "source",
+        "right": "output_energy_8192",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          3.048780487804878,
+          20.121951219512194
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 36,
+          "right_only_pass": 17
+        },
+        "both_pass": 33,
+        "neither_pass": 78,
+        "mcnemar_exact_two_sided_p_value": 0.012660335802414213
+      },
+      {
+        "left": "output_energy_2048",
+        "right": "output_energy_8192",
+        "task_count": 164,
+        "left_plus_passes": 50,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 0.0,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -6.7073170731707314,
+          6.097560975609756
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 15,
+          "right_only_pass": 15
+        },
+        "both_pass": 35,
+        "neither_pass": 99,
+        "mcnemar_exact_two_sided_p_value": 1.0,
+        "removed_channel_selection": {
+          "left_count": 256,
+          "right_count": 256,
+          "overlap_count": 164,
+          "jaccard_similarity": 0.47126436781609193
+        }
+      }
+    ],
+    "finding": "Fourfold calibration-token increase changed the selected channel set substantially but did not change observed pass count or artifact size."
+  },
+  "pruning_severity": {
+    "report_path": "reports/benchmarks/qwen25_coder_05b_humanevalplus_mlp_pruning_severity_comparison.json",
+    "report_sha256_lf_normalized": "52519af893db3dbc523802922d938ea5ce5736995d94ed77d5712e3d4a44e585",
+    "method": {
+      "bootstrap": "paired percentile bootstrap over benchmark tasks",
+      "bootstrap_samples": 20000,
+      "bootstrap_seed": 20261026,
+      "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
+      "comparison_scope": "all candidate pairs"
+    },
+    "run_metadata": {
+      "magnitude_64": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 60,
+        "candidate_artifact_bytes": 991266771,
+        "candidate_generated_tokens_per_second": 37.322341,
+        "candidate_median_generation_latency_seconds": 1.417477,
+        "candidate_p95_generation_latency_seconds": 4.95821
+      },
+      "magnitude_128": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 63,
+        "candidate_artifact_bytes": 983009235,
+        "candidate_generated_tokens_per_second": 38.513639,
+        "candidate_median_generation_latency_seconds": 1.449293,
+        "candidate_p95_generation_latency_seconds": 5.915379
+      },
+      "magnitude_192": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 56,
+        "candidate_artifact_bytes": 974751699,
+        "candidate_generated_tokens_per_second": 43.066286,
+        "candidate_median_generation_latency_seconds": 1.297447,
+        "candidate_p95_generation_latency_seconds": 4.322913
+      },
+      "magnitude_256": {
+        "channel_scorer": "magnitude",
+        "calibration_tokens": null,
+        "calibration_token_ids_sha256": null,
+        "candidate_plus_passes": 50,
+        "candidate_artifact_bytes": 966494163,
+        "candidate_generated_tokens_per_second": 44.063502,
+        "candidate_median_generation_latency_seconds": 1.436094,
+        "candidate_p95_generation_latency_seconds": 5.683109
+      }
+    },
+    "comparisons": [
+      {
+        "left": "source",
+        "right": "magnitude_64",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 60,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "left_minus_right_percentage_points": 5.487804878048781,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          0.0,
+          11.585365853658537
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 17,
+          "right_only_pass": 8
+        },
+        "both_pass": 52,
+        "neither_pass": 87,
+        "mcnemar_exact_two_sided_p_value": 0.10775214433670044
+      },
+      {
+        "left": "source",
+        "right": "magnitude_128",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 63,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 101,
+          "pass": 63
+        },
+        "left_minus_right_percentage_points": 3.658536585365854,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -3.048780487804878,
+          10.365853658536585
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 18,
+          "right_only_pass": 12
+        },
+        "both_pass": 51,
+        "neither_pass": 83,
+        "mcnemar_exact_two_sided_p_value": 0.361594608053565
+      },
+      {
+        "left": "source",
+        "right": "magnitude_192",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 56,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 108,
+          "pass": 56
+        },
+        "left_minus_right_percentage_points": 7.926829268292683,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          1.829268292682927,
+          14.634146341463415
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 22,
+          "right_only_pass": 9
+        },
+        "both_pass": 47,
+        "neither_pass": 86,
+        "mcnemar_exact_two_sided_p_value": 0.029449373483657837
+      },
+      {
+        "left": "source",
+        "right": "magnitude_256",
+        "task_count": 164,
+        "left_plus_passes": 69,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 95,
+          "pass": 69
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 11.585365853658537,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          4.2682926829268295,
+          18.902439024390244
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 29,
+          "right_only_pass": 10
+        },
+        "both_pass": 40,
+        "neither_pass": 85,
+        "mcnemar_exact_two_sided_p_value": 0.0033778479119064286
+      },
+      {
+        "left": "magnitude_64",
+        "right": "magnitude_128",
+        "task_count": 164,
+        "left_plus_passes": 60,
+        "right_plus_passes": 63,
+        "left_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "right_plus_status_counts": {
+          "fail": 101,
+          "pass": 63
+        },
+        "left_minus_right_percentage_points": -1.829268292682927,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -7.317073170731708,
+          3.658536585365854
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 10,
+          "right_only_pass": 13
+        },
+        "both_pass": 50,
+        "neither_pass": 91,
+        "mcnemar_exact_two_sided_p_value": 0.6776394844055176,
+        "removed_channel_selection": {
+          "left_count": 64,
+          "right_count": 128,
+          "overlap_count": 64,
+          "jaccard_similarity": 0.5
+        }
+      },
+      {
+        "left": "magnitude_64",
+        "right": "magnitude_192",
+        "task_count": 164,
+        "left_plus_passes": 60,
+        "right_plus_passes": 56,
+        "left_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "right_plus_status_counts": {
+          "fail": 108,
+          "pass": 56
+        },
+        "left_minus_right_percentage_points": 2.4390243902439024,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -3.658536585365854,
+          8.536585365853659
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 16,
+          "right_only_pass": 12
+        },
+        "both_pass": 44,
+        "neither_pass": 92,
+        "mcnemar_exact_two_sided_p_value": 0.5715881884098053,
+        "removed_channel_selection": {
+          "left_count": 64,
+          "right_count": 192,
+          "overlap_count": 64,
+          "jaccard_similarity": 0.3333333333333333
+        }
+      },
+      {
+        "left": "magnitude_64",
+        "right": "magnitude_256",
+        "task_count": 164,
+        "left_plus_passes": 60,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 104,
+          "pass": 60
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 6.097560975609756,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -0.6097560975609756,
+          12.804878048780488
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 21,
+          "right_only_pass": 11
+        },
+        "both_pass": 39,
+        "neither_pass": 93,
+        "mcnemar_exact_two_sided_p_value": 0.11018416518345475,
+        "removed_channel_selection": {
+          "left_count": 64,
+          "right_count": 256,
+          "overlap_count": 64,
+          "jaccard_similarity": 0.25
+        }
+      },
+      {
+        "left": "magnitude_128",
+        "right": "magnitude_192",
+        "task_count": 164,
+        "left_plus_passes": 63,
+        "right_plus_passes": 56,
+        "left_plus_status_counts": {
+          "fail": 101,
+          "pass": 63
+        },
+        "right_plus_status_counts": {
+          "fail": 108,
+          "pass": 56
+        },
+        "left_minus_right_percentage_points": 4.2682926829268295,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -1.829268292682927,
+          10.975609756097562
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 18,
+          "right_only_pass": 11
+        },
+        "both_pass": 45,
+        "neither_pass": 90,
+        "mcnemar_exact_two_sided_p_value": 0.26493089646101,
+        "removed_channel_selection": {
+          "left_count": 128,
+          "right_count": 192,
+          "overlap_count": 128,
+          "jaccard_similarity": 0.6666666666666666
+        }
+      },
+      {
+        "left": "magnitude_128",
+        "right": "magnitude_256",
+        "task_count": 164,
+        "left_plus_passes": 63,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 101,
+          "pass": 63
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 7.926829268292683,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          1.2195121951219512,
+          14.634146341463415
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 22,
+          "right_only_pass": 9
+        },
+        "both_pass": 41,
+        "neither_pass": 92,
+        "mcnemar_exact_two_sided_p_value": 0.029449373483657837,
+        "removed_channel_selection": {
+          "left_count": 128,
+          "right_count": 256,
+          "overlap_count": 128,
+          "jaccard_similarity": 0.5
+        }
+      },
+      {
+        "left": "magnitude_192",
+        "right": "magnitude_256",
+        "task_count": 164,
+        "left_plus_passes": 56,
+        "right_plus_passes": 50,
+        "left_plus_status_counts": {
+          "fail": 108,
+          "pass": 56
+        },
+        "right_plus_status_counts": {
+          "fail": 114,
+          "pass": 50
+        },
+        "left_minus_right_percentage_points": 3.658536585365854,
+        "paired_bootstrap_95_percent_interval_percentage_points": [
+          -2.4390243902439024,
+          9.75609756097561
+        ],
+        "paired_bootstrap_samples": 20000,
+        "paired_bootstrap_seed": 20261026,
+        "discordant_tasks": {
+          "left_only_pass": 16,
+          "right_only_pass": 10
+        },
+        "both_pass": 40,
+        "neither_pass": 98,
+        "mcnemar_exact_two_sided_p_value": 0.32693958282470703,
+        "removed_channel_selection": {
+          "left_count": 192,
+          "right_count": 256,
+          "overlap_count": 192,
+          "jaccard_similarity": 0.75
+        }
+      }
+    ],
+    "finding": "Across the four measured severities, 128 removed channels had the highest observed score (63/164), but paired differences from 64 (60/164) and 192 (56/164) were inconclusive. The 128-channel candidate outperformed 256 removed channels (50/164) by 7.93 percentage points (95% task-bootstrap interval 1.22 to 14.63; exact McNemar p=0.029)."
+  }
+}

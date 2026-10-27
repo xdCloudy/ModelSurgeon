@@ -26,9 +26,10 @@ before changing state.
 Executors implement `execute(cell) -> mapping` and must return
 `{"status":"success", "metrics": {...}}`, or a terminal failure reason.
 `SubprocessBenchmarkExecutor` is the bounded JSON-line adapter used for a tiny
-real external-method smoke; it never invokes a shell and applies a wall-time
-limit. The deterministic fake executor is reserved for unit and offline CLI
-coverage.
+real external-method smoke; it never invokes a shell and applies wall-time,
+stdout (16 MiB), and stderr (1 MiB) limits. It terminates the process when an
+output limit is exceeded, before retaining or parsing a larger response. The
+deterministic fake executor is reserved for unit and offline CLI coverage.
 
 Exit status is intentionally machine-readable:
 

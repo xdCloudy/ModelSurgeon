@@ -40,12 +40,18 @@ dev = [
   "pytest-cov>=5,<7",
   "ruff>=0.6,<1",
 ]
+evalplus = [
+  "evalplus @ git+https://github.com/evalplus/evalplus.git@e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2",
+]
 
 [project.scripts]
 modelsurgeon = "modelsurgeon.cli.app:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/modelsurgeon"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.ruff]
 target-version = "py312"
