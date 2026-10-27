@@ -2,7 +2,7 @@
 
 GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 61 open PRs.
 
-All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; CI was pending and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged.
+All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; all four CI checks passed and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
