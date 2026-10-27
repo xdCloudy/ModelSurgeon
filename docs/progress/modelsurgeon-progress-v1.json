@@ -3157,8 +3157,12 @@
       "source_refs": [
         "llm-surgeon"
       ],
-      "related_prs": [],
-      "related_commits": [],
+      "related_prs": [
+        775
+      ],
+      "related_commits": [
+        "1292018c15c34f1ae967d2a39e666d3c2c7e1893"
+      ],
       "remaining_work": "Collect bounded raw second moments; add coupled MLP channel aggregation and optimizer integration behind an architecture adapter; run a small pinned pretrained CPU evaluation before any hardware-scale study.",
       "limitations": [
         "The current function accepts precomputed factors and computes only uncompensated linear row/column group costs; it does not collect factors or represent the coupled gate/up/down path.",
