@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
-import shutil
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 from typing import Any
+
+from modelsurgeon.surgery.checkpoint_destination import AtomicDirectoryDestination
 
 HF_DYNAMIC_INT8_SCHEMA_VERSION = 1
 HF_DYNAMIC_INT8_MANIFEST = "modelsurgeon-quantization.json"
@@ -145,7 +146,7 @@ def publish_huggingface_dynamic_int8(
 ) -> tuple[Path, HuggingFaceDynamicInt8Report]:
     """Publish a safe-tensors dynamic-int8 artifact with a deterministic loader manifest."""
 
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise HuggingFaceQuantizationError(f"refusing to overwrite {destination}")
     torch = _torch()
     quantized_type = _quantized_linear_type(torch)
@@ -199,21 +200,21 @@ def publish_huggingface_dynamic_int8(
         source_bytes = source_weight_bytes
 
     try:
-        destination.mkdir(parents=True)
-        save_config(destination)
-        safetensors = import_module("safetensors.torch")
-        safetensors.save_file(tensors, str(destination / HF_DYNAMIC_INT8_WEIGHTS))
-        manifest = {
-            "schema_version": HF_DYNAMIC_INT8_SCHEMA_VERSION,
-            "method": "dynamic_int8",
-            "weight_file": HF_DYNAMIC_INT8_WEIGHTS,
-            "module_names": list(quantized_names),
-        }
-        (destination / HF_DYNAMIC_INT8_MANIFEST).write_text(
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-        )
+        with AtomicDirectoryDestination(destination) as target:
+            save_config(target.staging_path)
+            safetensors = import_module("safetensors.torch")
+            safetensors.save_file(tensors, str(target.staging_path / HF_DYNAMIC_INT8_WEIGHTS))
+            manifest = {
+                "schema_version": HF_DYNAMIC_INT8_SCHEMA_VERSION,
+                "method": "dynamic_int8",
+                "weight_file": HF_DYNAMIC_INT8_WEIGHTS,
+                "module_names": list(quantized_names),
+            }
+            (target.staging_path / HF_DYNAMIC_INT8_MANIFEST).write_text(
+                json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+            )
+            target.publish()
     except (ImportError, OSError, RuntimeError, ValueError) as error:
-        shutil.rmtree(destination, ignore_errors=True)
         raise HuggingFaceQuantizationError(
             f"could not publish quantized safetensors: {error}"
         ) from error
@@ -313,8 +314,7 @@ def load_huggingface_dynamic_int8(
     expected = {
         key
         for key, value in quantized_model.state_dict().items()
-        if torch.is_tensor(value)
-        and not any(key.startswith(name + ".") for name in names_set)
+        if torch.is_tensor(value) and not any(key.startswith(name + ".") for name in names_set)
     }
     missing = sorted(expected - set(ordinary))
     if missing:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,7 @@ from modelsurgeon.adapters.huggingface.low_rank import (
     LowRankReplacementReport,
     replace_huggingface_linears_low_rank,
 )
+from modelsurgeon.surgery.checkpoint_destination import AtomicDirectoryDestination
 
 HF_LOW_RANK_SCHEMA_VERSION = 1
 HF_LOW_RANK_MANIFEST = "modelsurgeon-low-rank.json"
@@ -73,7 +73,7 @@ def publish_huggingface_low_rank(
 ) -> tuple[Path, LowRankReplacementReport]:
     """Publish low-rank modules as safe-tensors plus a deterministic manifest."""
 
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise HuggingFaceLowRankError(f"refusing to overwrite {destination}")
     torch = _torch()
     modules = dict(model.named_modules())
@@ -97,22 +97,22 @@ def publish_huggingface_low_rank(
         if torch.is_tensor(value)
     }
     try:
-        destination.mkdir(parents=True)
-        save_config(destination)
-        safetensors = import_module("safetensors.torch")
-        safetensors.save_file(tensors, str(destination / HF_LOW_RANK_WEIGHTS))
-        manifest = {
-            "schema_version": HF_LOW_RANK_SCHEMA_VERSION,
-            "method": "low_rank",
-            "weight_file": HF_LOW_RANK_WEIGHTS,
-            "module_names": list(names),
-            "ranks": ranks,
-        }
-        (destination / HF_LOW_RANK_MANIFEST).write_text(
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-        )
+        with AtomicDirectoryDestination(destination) as target:
+            save_config(target.staging_path)
+            safetensors = import_module("safetensors.torch")
+            safetensors.save_file(tensors, str(target.staging_path / HF_LOW_RANK_WEIGHTS))
+            manifest = {
+                "schema_version": HF_LOW_RANK_SCHEMA_VERSION,
+                "method": "low_rank",
+                "weight_file": HF_LOW_RANK_WEIGHTS,
+                "module_names": list(names),
+                "ranks": ranks,
+            }
+            (target.staging_path / HF_LOW_RANK_MANIFEST).write_text(
+                json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+            )
+            target.publish()
     except (ImportError, OSError, RuntimeError, ValueError) as error:
-        shutil.rmtree(destination, ignore_errors=True)
         raise HuggingFaceLowRankError(f"could not publish low-rank safetensors: {error}") from error
     return destination / HF_LOW_RANK_WEIGHTS, report
 
