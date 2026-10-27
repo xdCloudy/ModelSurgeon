@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.1",
+  "scope_version": "1.2.2",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -1225,10 +1225,10 @@
     {
       "id": "moe.selection",
       "workstream": "moe",
-      "title": "Expert scoring: random/router/activation/sensitivity/REAP and balancing",
-      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
-      "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
-      "weight": 30,
+      "title": "Expert scoring: random, router, activation, sensitivity and balancing",
+      "description": "Compare expert selection methods and balancing on named MoE cells; REAP Qwen3.5 results are tracked separately.",
+      "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP studies tracked by moe.reap_qwen35_cut and moe.reap_profile_ensemble.",
+      "weight": 20,
       "research_status": "hypothesis_established",
       "research_outcome": null,
       "implementation_status": "experimental",
@@ -1241,7 +1241,7 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
+        "Compare random, router, activation and sensitivity selectors on pinned MoE checkpoints with independent calibration and held-out evaluation; report artifact validity, quality gates, size, runtime and memory, and retain negative results."
       ],
       "dependencies": [],
       "evidence_refs": [
@@ -1261,7 +1261,7 @@
         738
       ],
       "related_commits": [],
-      "remaining_work": "Complete pinned REAP source audit and fair expert-selection benchmarks.",
+      "remaining_work": "Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; the bounded REAP Qwen3.5 studies are tracked separately.",
       "limitations": [
         "No main-integrated MoE win is established."
       ],
@@ -1296,10 +1296,168 @@
             }
           ],
           "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Narrowed this milestone after adding separate bounded records for Qwen3.5 REAP quality-gate and profile-aggregation experiments; historical broad scope is preserved in scope_history."
         }
       ],
       "research_questions": [
-        "Within this milestone's declared scope, does evidence establish that matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
+        "Across named MoE cells, which random, router, activation and sensitivity selectors produce the best held-out quality and deployment trade-offs at matched expert counts?"
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.2",
+          "previous": {
+            "title": "Expert scoring: random/router/activation/sensitivity/REAP and balancing",
+            "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+            "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+            "weight": 30
+          },
+          "reason": "Split the bounded Qwen3.5 REAP quality-gate study and profile-aggregation study into stable, independently assessable milestones; keep general expert-selection comparisons open."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_qwen35_cut",
+      "workstream": "moe",
+      "title": "REAP at a fixed Qwen3.5 MoE compression point",
+      "description": "One Qwen3.5-family GGUF checkpoint, 12.5% equal per-layer expert removal (256 to 224 experts), 8,192 WikiText-2 train calibration tokens and 296,960 held-out WikiText-2 test tokens. Compare single-profile REAP against router column norm and two random seeds; conclude only on the predeclared 98% PPL-retention gate for this cell.",
+      "scope": "One Qwen3.5-family GGUF checkpoint, 12.5% equal per-layer expert removal (256 to 224 experts), 8,192 WikiText-2 train calibration tokens and 296,960 held-out WikiText-2 test tokens. Compare single-profile REAP against router column norm and two random seeds; conclude only on the predeclared 98% PPL-retention gate for this cell.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "At this pinned Qwen3.5 checkpoint and 12.5% cut, does single-profile REAP pass the 98% held-out WikiText-2 PPL-retention gate against same-size random and router-norm controls?"
+      ],
+      "acceptance_criteria": [
+        "Run physical candidate generation and reload; compare the pinned held-out corpus against source, router-norm and at least two random seeds with paired uncertainty; report the predeclared quality gate and artifact size."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+          "label": "Bounded Qwen3.5 REAP results"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Test smaller cuts and recovery under the same untouched evaluation suite; add coding/task quality, throughput, latency, RAM/VRAM and independent model replications before considering optimizer integration.",
+      "limitations": [
+        "One checkpoint and one held-out WikiText-2 corpus; this is not evidence that REAP is generally ineffective.",
+        "REAP PPL 6.9050 versus source 6.7090 gives 97.16% retention and fails the 98% gate (candidate maximum PPL 6.8459), despite lower PPL than router norm and both random seeds.",
+        "Coding/reasoning accuracy, inference speed, latency, peak RAM/VRAM, loading time and energy were not measured.",
+        "Research artifacts and the scorer remain in open PR #738; no implementation is integrated into main."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+              "label": "Bounded Qwen3.5 REAP results"
+            }
+          ],
+          "reason": "Bounded to the named Qwen3.5 checkpoint, compression point, evaluation corpus and metrics in the linked reproducibility record. PR #738 remains open; this is not integrated capability."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_profile_ensemble",
+      "workstream": "moe",
+      "title": "Two-profile REAP score aggregation on Qwen3.5",
+      "description": "One pinned Qwen3.5-family GGUF checkpoint and 12.5% equal per-layer expert removal, comparing a two-disjoint-profile min-max-normalized REAP score ensemble with single-profile REAP on the same held-out WikiText-2 test corpus.",
+      "scope": "One pinned Qwen3.5-family GGUF checkpoint and 12.5% equal per-layer expert removal, comparing a two-disjoint-profile min-max-normalized REAP score ensemble with single-profile REAP on the same held-out WikiText-2 test corpus.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this checkpoint and cut, does combining two disjoint REAP calibration profiles improve held-out WikiText-2 PPL over single-profile REAP beyond paired uncertainty or pass the 98% retention gate?"
+      ],
+      "acceptance_criteria": [
+        "Generate and reload the two-profile candidate; compare paired held-out chunk NLL against single-profile REAP with a declared block bootstrap and report the same 98% PPL-retention gate."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+          "label": "Two-profile REAP ensemble result"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Repeat across independent profile pairs and another checkpoint; test smaller compression points or recovery while preserving the quality gate, then measure task and deployment outcomes.",
+      "limitations": [
+        "Only one two-profile versus single-profile candidate pair was evaluated.",
+        "The ensemble PPL was 6.9008 versus 6.9050 single-profile; paired delta was -0.00419 with 95% interval [-0.03598, 0.03031], which includes zero. Its 97.22% retention also fails the 98% gate.",
+        "No coding/task quality, inference speed, latency, RAM/VRAM, loading time or energy measurements.",
+        "The planner and reports are in open PR #738; no optimizer integration or generalization claim is made."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+              "label": "Two-profile REAP ensemble result"
+            }
+          ],
+          "reason": "Bounded to the named Qwen3.5 checkpoint, compression point, evaluation corpus and metrics in the linked reproducibility record. PR #738 remains open; this is not integrated capability."
+        }
       ]
     },
     {
@@ -3467,8 +3625,12 @@
         }
       ],
       "source_refs": [],
-      "related_prs": [777],
-      "related_commits": ["72beedca1df3c204c1671f3b47c64c023d83b2ca"],
+      "related_prs": [
+        777
+      ],
+      "related_commits": [
+        "72beedca1df3c204c1671f3b47c64c023d83b2ca"
+      ],
       "remaining_work": "Implement genuine learned set/graph representations and evaluate them on provenance-verified, model-grouped physical mutation outcomes; report downstream decisions and measured inference cost.",
       "limitations": [
         "The current prototype compares two feature paths through one linear predictor; it is not an MLP, Set Transformer, or graph neural network.",
