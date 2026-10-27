@@ -17,7 +17,8 @@ from enum import StrEnum
 from typing import Final
 
 STRUCTURAL_MODEL_SCHEMA_VERSION: Final[int] = 1
-STRUCTURAL_MODEL_PROTOCOL_REVISION: Final[str] = "structural-models-v1"
+STRUCTURAL_STUDY_SCHEMA_VERSION: Final[int] = 2
+STRUCTURAL_MODEL_PROTOCOL_REVISION: Final[str] = "structural-models-v2"
 
 
 class StructuralModelError(ValueError):
@@ -25,9 +26,14 @@ class StructuralModelError(ValueError):
 
 
 class StructuralModelKind(StrEnum):
-    MLP_BASELINE = "mlp_baseline"
-    SET_TRANSFORMER = "set_transformer"
-    GRAPH_SURGEON = "graph_surgeon"
+    LINEAR_POOLED = "linear_pooled"
+    LINEAR_TOPOLOGY_HISTORY = "linear_topology_history"
+
+    # Compatibility aliases from v1. These names never denoted neural encoders;
+    # v2 records serialize the accurate feature-path names above.
+    MLP_BASELINE = "linear_pooled"
+    SET_TRANSFORMER = "linear_pooled"
+    GRAPH_SURGEON = "linear_topology_history"
 
 
 class StructuralOutcomeStatus(StrEnum):
@@ -202,12 +208,14 @@ class StructuralExample:
 
 @dataclass(frozen=True, slots=True)
 class StructuralResourceRecord:
+    """Analytical predictor-cost proxy; these values are not physical benchmarks."""
+
     parameter_count: int
     peak_memory_bytes: int
     inference_latency_milliseconds: float
     deterministic_inference: bool
     within_budget: bool
-    accounting_mode: str = "deterministic_upper_bound"
+    accounting_mode: str = "analytical_feature_path_proxy"
 
     def __post_init__(self) -> None:
         _positive(self.parameter_count, "model parameter count")
@@ -319,6 +327,7 @@ class StructuralModelEvaluation:
     metrics: tuple[StructuralMetric, ...]
     resources: StructuralResourceRecord
     accepted: bool
+    validation_metrics: tuple[StructuralMetric, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.predictors:
@@ -326,6 +335,12 @@ class StructuralModelEvaluation:
         names = tuple(metric.name for metric in self.metrics)
         if len(names) != len(set(names)):
             raise StructuralModelError("model evaluation metric names must be unique")
+        validation_names = tuple(metric.name for metric in self.validation_metrics)
+        if validation_names and (
+            len(validation_names) != len(set(validation_names))
+            or set(validation_names) != set(names)
+        ):
+            raise StructuralModelError("validation metrics must match the reported test metrics")
 
     def metric(self, name: str) -> StructuralMetric:
         for metric in self.metrics:
@@ -333,11 +348,18 @@ class StructuralModelEvaluation:
                 return metric
         raise StructuralModelError(f"model evaluation has no {name!r} metric")
 
+    def validation_metric(self, name: str) -> StructuralMetric:
+        for metric in self.validation_metrics:
+            if metric.name == name:
+                return metric
+        raise StructuralModelError(f"model evaluation has no validation {name!r} metric")
+
     def to_record(self) -> dict[str, object]:
         return {
             "kind": self.kind.value,
             "predictors": [predictor.to_record() for predictor in self.predictors],
             "metrics": [metric.to_record() for metric in self.metrics],
+            "validation_metrics": [metric.to_record() for metric in self.validation_metrics],
             "resources": self.resources.to_record(),
             "accepted": self.accepted,
         }
@@ -365,10 +387,10 @@ class StructuralModelStudy:
     selection_reason: str
     config: StructuralStudyConfig
     protocol_revision: str = STRUCTURAL_MODEL_PROTOCOL_REVISION
-    schema_version: int = STRUCTURAL_MODEL_SCHEMA_VERSION
+    schema_version: int = STRUCTURAL_STUDY_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
-        if self.schema_version != STRUCTURAL_MODEL_SCHEMA_VERSION:
+        if self.schema_version != STRUCTURAL_STUDY_SCHEMA_VERSION:
             raise StructuralModelError("unsupported structural study schema version")
         if self.protocol_revision != STRUCTURAL_MODEL_PROTOCOL_REVISION:
             raise StructuralModelError("unsupported structural study protocol")
@@ -426,7 +448,7 @@ def _feature_vector(
         else 0.0
     )
     parameter_signal = math.log1p(example.parameter_count)
-    if kind is StructuralModelKind.MLP_BASELINE or kind is StructuralModelKind.SET_TRANSFORMER:
+    if kind is StructuralModelKind.LINEAR_POOLED:
         topology_signal = 0.0
         history_mean = 0.0
         history_last = 0.0
@@ -572,14 +594,15 @@ def _bootstrap_interval(
     return low, high
 
 
-def _test_metrics(
+def _split_metrics(
     predictor: StructuralPredictor,
     examples: Sequence[StructuralExample],
     kind: StructuralModelKind,
     ablation: StructuralAblation,
     config: StructuralStudyConfig,
+    split: str,
 ) -> tuple[StructuralMetric, ...]:
-    rows = _measured(examples, "test")
+    rows = _measured(examples, split)
     errors = [
         predictor.predict(_feature_vector(item, kind, ablation)) - float(item.target)
         for item in rows
@@ -607,24 +630,28 @@ def _test_metrics(
     return tuple(metrics)
 
 
-def _resources(
-    kind: StructuralModelKind, feature_width: int, config: StructuralStudyConfig
-) -> StructuralResourceRecord:
-    kind_multiplier = {
-        StructuralModelKind.MLP_BASELINE: 1,
-        StructuralModelKind.SET_TRANSFORMER: 2,
-        StructuralModelKind.GRAPH_SURGEON: 3,
-    }[kind]
-    parameter_count = max(1, feature_width * config.hidden_width * kind_multiplier)
-    memory = 16_384 + parameter_count * 8 + config.max_nodes * feature_width * 8
-    latency = 0.05 * kind_multiplier * (feature_width + config.max_nodes / 32)
+def _resources(feature_width: int, config: StructuralStudyConfig) -> StructuralResourceRecord:
+    parameter_count = feature_width + 1  # coefficients plus intercept
+    state_width = feature_width * 3 + 1  # coefficients, means, scales, and intercept
+    memory = (
+        16_384
+        + state_width * 8
+        + config.max_nodes * feature_width * 8
+        + config.max_edges * 2 * 8
+        + config.max_history * 8
+    )
+    latency = 0.05 * (
+        feature_width + config.max_nodes * feature_width + config.max_edges * 2 + config.max_history
+    )
     return StructuralResourceRecord(
         parameter_count=parameter_count,
         peak_memory_bytes=memory,
         inference_latency_milliseconds=latency,
         deterministic_inference=True,
         within_budget=(
-            parameter_count <= config.max_parameters and memory <= config.memory_budget_bytes
+            parameter_count <= config.max_parameters
+            and memory <= config.memory_budget_bytes
+            and latency <= config.latency_budget_milliseconds
         ),
     )
 
@@ -638,49 +665,65 @@ def _evaluate_kind(
     predictors = tuple(
         _fit(examples, kind, seed, config, StructuralAblation.FULL) for seed in config.seeds
     )
-    per_seed = [
-        _test_metrics(predictor, examples, kind, StructuralAblation.FULL, config)
-        for predictor in predictors
-    ]
-    metrics = tuple(
-        StructuralMetric(
-            metric_name,
-            math.fsum(run[index].value for run in per_seed) / len(per_seed),
-            min(run[index].interval_low for run in per_seed),
-            max(run[index].interval_high for run in per_seed),
+
+    def aggregate(split: str) -> tuple[StructuralMetric, ...]:
+        per_seed = [
+            _split_metrics(predictor, examples, kind, StructuralAblation.FULL, config, split)
+            for predictor in predictors
+        ]
+        return tuple(
+            StructuralMetric(
+                metric_name,
+                math.fsum(run[index].value for run in per_seed) / len(per_seed),
+                min(run[index].interval_low for run in per_seed),
+                max(run[index].interval_high for run in per_seed),
+            )
+            for index, metric_name in enumerate(("mae", "rmse", "ranking_accuracy"))
         )
-        for index, metric_name in enumerate(("mae", "rmse", "ranking_accuracy"))
+
+    validation_metrics = aggregate("validation")
+    metrics = aggregate("test")
+    resources = _resources(feature_width, config)
+    return StructuralModelEvaluation(
+        kind=kind,
+        predictors=predictors,
+        metrics=metrics,
+        resources=resources,
+        accepted=resources.within_budget,
+        validation_metrics=validation_metrics,
     )
-    resources = _resources(kind, feature_width, config)
-    return StructuralModelEvaluation(kind, predictors, metrics, resources, resources.within_budget)
 
 
 def evaluate_structural_models(
     examples: Sequence[StructuralExample], config: StructuralStudyConfig | None = None
 ) -> StructuralModelStudy:
-    """Compare bounded structural families and reject unsupported complexity."""
+    """Compare bounded linear feature paths without selecting on the test split."""
 
     resolved = config or StructuralStudyConfig()
     feature_width = _validate_examples(examples, resolved)
     evaluations = tuple(
         _evaluate_kind(examples, kind, resolved, feature_width) for kind in StructuralModelKind
     )
-    baseline = next(item for item in evaluations if item.kind is StructuralModelKind.MLP_BASELINE)
-    baseline_mae = baseline.metric("mae")
+    baseline = next(item for item in evaluations if item.kind is StructuralModelKind.LINEAR_POOLED)
+    baseline_mae = baseline.validation_metric("mae")
     selected: StructuralModelKind | None = None
-    selection_reason = "No structural model cleared the simple MLP baseline with a paired interval."
+    selection_reason = (
+        "No topology/history feature path cleared the pooled-linear baseline on validation "
+        "with a non-overlapping bootstrap interval."
+    )
     for evaluation in evaluations:
         if (
-            evaluation.kind is StructuralModelKind.MLP_BASELINE
+            evaluation.kind is StructuralModelKind.LINEAR_POOLED
             or not evaluation.resources.within_budget
         ):
             continue
-        candidate_mae = evaluation.metric("mae")
+        candidate_mae = evaluation.validation_metric("mae")
         if candidate_mae.interval_high < baseline_mae.interval_low:
             selected = evaluation.kind
             selection_reason = (
-                f"{evaluation.kind.value} cleared the MLP baseline on held-out MAE with a "
-                "non-overlapping bootstrap interval and stayed within resource budgets."
+                f"{evaluation.kind.value} cleared the pooled-linear baseline on validation MAE "
+                "with a non-overlapping bootstrap interval and stayed within analytical proxy "
+                "budgets."
             )
             break
     ablation_kind = selected or StructuralModelKind.GRAPH_SURGEON
@@ -700,8 +743,8 @@ def evaluate_structural_models(
                 ablation,
                 next(
                     metric
-                    for metric in _test_metrics(
-                        predictor, examples, ablation_kind, ablation, resolved
+                    for metric in _split_metrics(
+                        predictor, examples, ablation_kind, ablation, resolved, "test"
                     )
                     if metric.name == "mae"
                 ),

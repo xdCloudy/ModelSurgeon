@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.0",
+  "scope_version": "1.2.1",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
   "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness.",
@@ -35,6 +35,12 @@
       "scope_version": "1.2.0",
       "change": "Added pinned differentiable-mask and layer-regularization prior-art records; separated weight-sparsity, structured-baseline, dependency-aware, and iterative-schedule scopes; added independent Meta-Surgeon lifecycle questions; corrected the merged-PR audit snapshot and refreshed the assessed main revision. Split Q1 static, Q2 activation, and Q3 gradient feature studies into separate scored milestones while retaining the former aggregate record and history.",
       "previous_scope_version": "1.1.0"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.1",
+      "change": "Audited the experimental structural-representation study, separated validation-based selection from test evaluation, corrected feature-path and analytical-resource claims, and retained the v1 protocol as superseded evidence.",
+      "previous_scope_version": "1.2.0"
     }
   ],
   "workstreams": [
@@ -3427,11 +3433,11 @@
       "description": "Compare representations of model topology, parameter groups, coupling and tensor geometry for candidate outcome prediction.",
       "scope": "Architecture-aware graph/adapter features and representations for supported dense and MoE families; does not claim cross-architecture transfer.",
       "weight": 7,
-      "research_status": "not_investigated",
+      "research_status": "feasibility_evaluated",
       "research_outcome": null,
-      "implementation_status": "not_implemented",
+      "implementation_status": "ci_validated",
       "effectiveness_status": "not_assessed",
-      "readiness_status": "not_assessed",
+      "readiness_status": "ci_validated",
       "scored_dimensions": [
         "research",
         "implementation",
@@ -3442,16 +3448,32 @@
         "Do architecture/topology representations add held-out outcome-prediction value beyond static per-component features?"
       ],
       "acceptance_criteria": [
-        "On model-grouped splits, report incremental predictive error, ranking quality, calibration, feature cost and uncertainty versus the current static baseline; retain per-family results."
+        "On model-grouped physical-outcome splits, report incremental predictive error, ranking quality, calibration, feature cost and uncertainty versus the current static baseline; retain per-family results.",
+        "Select feature paths using validation only; do not use test outcomes to choose a representation or ablation."
       ],
       "dependencies": [],
-      "evidence_refs": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v1.5-structural-feature-paths-v2.md",
+          "label": "Structural feature-path protocol audit"
+        },
+        {
+          "path": "docs/research/v1.5-structural-feature-paths-v2.json",
+          "label": "Structural feature-path protocol v2"
+        },
+        {
+          "path": "docs/design/structural-models.md",
+          "label": "Structural feature-path implementation boundary"
+        }
+      ],
       "source_refs": [],
-      "related_prs": [],
-      "related_commits": [],
-      "remaining_work": "Implement an ablation suite only after selecting representative architecture cells and fixing leakage-safe splits.",
+      "related_prs": [777],
+      "related_commits": ["72beedca1df3c204c1671f3b47c64c023d83b2ca"],
+      "remaining_work": "Implement genuine learned set/graph representations and evaluate them on provenance-verified, model-grouped physical mutation outcomes; report downstream decisions and measured inference cost.",
       "limitations": [
-        "No such representation comparison is currently evidenced."
+        "The current prototype compares two feature paths through one linear predictor; it is not an MLP, Set Transformer, or graph neural network.",
+        "The fixture is synthetic and supports only the validation/test separation regression; no predictive or physical optimization advantage is established.",
+        "Resource metrics are analytical feature-path proxies, not measured memory or latency."
       ],
       "assessment_date": "2026-10-27",
       "history": [
@@ -3464,6 +3486,26 @@
           "readiness_status": "not_assessed",
           "evidence_refs": [],
           "reason": "Added as an independently measurable research question in scope version 1.2.0; status reflects only evidence available on assessed main."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "feasibility_evaluated",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "ci_validated",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.5-structural-feature-paths-v2.md",
+              "label": "Structural feature-path protocol audit"
+            },
+            {
+              "path": "docs/research/v1.5-structural-feature-paths-v2.json",
+              "label": "Structural feature-path protocol v2"
+            }
+          ],
+          "reason": "Audited the existing prototype, corrected test-set selection leakage and misleading architecture/resource claims, then passed full local and hosted CI validation. No physical outcome comparison was performed.",
+          "reassessment": true
         }
       ]
     },
@@ -5504,8 +5546,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
-    "open_pull_request_count": 56,
-    "scope_note": "All 56 currently open PRs were enumerated; the following 22 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
+    "open_pull_request_count": 58,
+    "scope_note": "All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -5714,6 +5756,24 @@
         "relationship": "stacked on progress system PR #774; CPU-only research primitive",
         "status": "open",
         "integrated_on_main": false
+      },
+      {
+        "number": 776,
+        "title": "Expand evidence-backed research milestones",
+        "head_branch": "codex/progress-inventory-refinement-20261027",
+        "base_branch": "main",
+        "relationship": "expanded progress inventory foundation",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 777,
+        "title": "Fix structural Meta-Surgeon test-set selection",
+        "head_branch": "codex/clarify-structural-surrogate-evidence",
+        "base_branch": "codex/progress-inventory-refinement-20261027",
+        "relationship": "stacked on #776; structural feature-path selector evaluation guard",
+        "status": "open",
+        "integrated_on_main": false
       }
     ],
     "dependency_chains": [
@@ -5737,8 +5797,12 @@
       [
         774,
         775
+      ],
+      [
+        776,
+        777
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. Preserve that review dependency; do not count #775 as integrated. Recheck open PR dependencies before integration."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration."
   }
 }
