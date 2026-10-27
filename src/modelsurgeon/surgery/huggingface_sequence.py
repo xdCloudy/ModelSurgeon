@@ -180,6 +180,37 @@ def _file_identity(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _directory_identity(path: Path) -> tuple[str, int]:
+    """Return a deterministic identity for a partially published directory."""
+    if not path.is_dir() or path.is_symlink():
+        raise HuggingFaceCumulativeError("publisher output is not a regular directory")
+    records: list[dict[str, object]] = []
+    total_size = 0
+    for entry in sorted(path.rglob("*")):
+        if entry.is_symlink():
+            raise HuggingFaceCumulativeError("publisher output contains a symbolic link")
+        if entry.is_dir():
+            continue
+        if not entry.is_file():
+            raise HuggingFaceCumulativeError("publisher output contains a non-regular file")
+        digest = hashlib.sha256()
+        size = 0
+        with entry.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        records.append(
+            {
+                "path": entry.relative_to(path).as_posix(),
+                "digest": digest.hexdigest(),
+                "size_bytes": size,
+            }
+        )
+        total_size += size
+    identity = hashlib.sha256(_canonical(records).encode()).hexdigest()
+    return identity, total_size
+
+
 def _remove_child(path: Path) -> None:
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
@@ -351,13 +382,17 @@ def run_huggingface_cumulative_sequence(
                 edit_order=tuple(edit_order),
             )
         except Exception as error:
-            if artifact_path.is_file():
+            if artifact_path.is_file() or artifact_path.is_dir():
                 failed_artifact = {"path": str(artifact_path)}
+                identity = _file_identity if artifact_path.is_file() else _directory_identity
+                if artifact_path.is_dir():
+                    failed_artifact["artifact_type"] = "directory"
                 try:
-                    failed_digest, failed_size = _file_identity(artifact_path)
+                    failed_digest, failed_size = identity(artifact_path)
                 except Exception:
-                    with suppress(OSError):
-                        failed_artifact["size_bytes"] = artifact_path.stat().st_size
+                    if artifact_path.is_file():
+                        with suppress(OSError):
+                            failed_artifact["size_bytes"] = artifact_path.stat().st_size
                     failed_artifact["digest_status"] = "unavailable"
                 else:
                     failed_artifact.update(

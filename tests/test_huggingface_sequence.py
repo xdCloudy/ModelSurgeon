@@ -173,6 +173,42 @@ def test_failed_stage_removes_child_and_keeps_last_accepted_model(tmp_path: Path
     assert run.to_record()["failed_artifact"] == dict(run.failed_artifact)
 
 
+def test_partial_directory_publish_records_deterministic_identity(tmp_path: Path) -> None:
+    def publish(model: _Model, destination: Path) -> Path:
+        if not destination.name.endswith("attention-heads"):
+            return _publisher(model, destination)
+        destination.mkdir(parents=True)
+        (destination / "model.safetensors").write_bytes(b"partial weights")
+        config = destination / "tokenizer" / "config.json"
+        config.parent.mkdir()
+        config.write_bytes(b"partial tokenizer")
+        raise RuntimeError("simulated partial publish")
+
+    runs = [
+        run_huggingface_cumulative_sequence(
+            _Model(),
+            _edits()[:2],
+            output_root=tmp_path / f"run-{index}",
+            source_outcome_id="source-hf-outcome",
+            publish=publish,
+            reload=_reloader,
+            generate=lambda model: bool(model.generate().numel()),
+        )
+        for index in range(2)
+    ]
+
+    artifacts = [run.failed_artifact for run in runs]
+    assert all(artifact is not None for artifact in artifacts)
+    for artifact in artifacts:
+        assert artifact is not None
+        assert artifact["artifact_type"] == "directory"
+        assert artifact["digest_status"] == "complete"
+        assert artifact["size_bytes"] == len(b"partial weightspartial tokenizer")
+        assert artifact["retained"] is False
+        assert len(str(artifact["digest"])) == 64
+    assert artifacts[0]["digest"] == artifacts[1]["digest"]
+
+
 def test_rejected_reloaded_child_is_rolled_back_with_measurement_evidence(
     tmp_path: Path,
 ) -> None:
