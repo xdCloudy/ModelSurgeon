@@ -20,6 +20,7 @@ from .registry import SurgeonBundle, SurgeonModelRegistry, TrainingModelIdentity
 
 PRETRAINED_REGISTRY_SCHEMA_VERSION: Final[int] = 1
 PRETRAINED_REGISTRY_PROTOCOL_REVISION: Final[str] = "pretrained-registry-v1"
+MAX_PRETRAINED_CARD_BYTES: Final[int] = 1024 * 1024
 
 
 class PretrainedRegistryError(ValueError):
@@ -312,12 +313,20 @@ class PretrainedSurgeonRegistry:
             raise PretrainedRegistryError(
                 "pretrained card references an unavailable bundle"
             ) from error
-        payload = _canonical(signed.to_record()).encode()
+        payload = _canonical(signed.to_record()).encode("utf-8")
+        if len(payload) > MAX_PRETRAINED_CARD_BYTES:
+            raise PretrainedRegistryError(
+                f"pretrained card exceeds the {MAX_PRETRAINED_CARD_BYTES}-byte limit"
+            )
         artifact = self.cards.put_bytes(payload)
         return PublishedPretrainedCard(signed, artifact)
 
     def verify(self, card_digest: ArtifactDigest | str, *, secret: bytes) -> PretrainedSurgeonCard:
         artifact = self.cards.get(card_digest)
+        if artifact.metadata.size_bytes > MAX_PRETRAINED_CARD_BYTES:
+            raise PretrainedRegistryError(
+                f"pretrained card exceeds the {MAX_PRETRAINED_CARD_BYTES}-byte limit"
+            )
         try:
             raw = json.loads(artifact.data_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:

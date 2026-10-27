@@ -14,6 +14,10 @@ performs expected-schema checks against the verified card first, then loads
 the bundle. This preserves the fail-closed boundary for incomplete or
 incompatible cards and avoids implicit downloads.
 
+Canonical cards are limited to 1 MiB at publication and verification. This
+bounds metadata parsing while leaving model bundle size governed by the
+content-addressed artifact store.
+
 Adapted children carry a distinct content digest and parent bundle digest;
 the registry never overwrites a parent. `verify`, `resolve`, and `list_cards`
 are local APIs, so callers can audit and reproduce a card without network
