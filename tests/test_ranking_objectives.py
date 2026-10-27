@@ -303,3 +303,21 @@ def test_invalid_objective_inputs_fail_closed() -> None:
         RankingObjectiveError, match="measured objective inference cost must be finite"
     ):
         RankingObjectiveConfig(inference_cost_microseconds=((RankingObjective.POINTWISE, 10**400),))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("top_k", True),
+        ("top_k", 1.5),
+        ("bootstrap_repetitions", False),
+        ("bootstrap_repetitions", 1.5),
+        ("seed", True),
+        ("seed", 1.5),
+    ),
+)
+def test_ranking_objective_integer_config_fields_reject_non_integers(
+    field: str, value: object
+) -> None:
+    with pytest.raises(RankingObjectiveError):
+        RankingObjectiveConfig(**{field: value})

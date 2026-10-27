@@ -170,18 +170,23 @@ class RankingObjectiveConfig:
     inference_cost_microseconds: tuple[tuple[RankingObjective, float], ...] = ()
 
     def __post_init__(self) -> None:
-        if self.top_k <= 0 or self.bootstrap_repetitions <= 0:
-            raise RankingObjectiveError("ranking objective budgets must be positive")
+        for label, value in (
+            ("top_k", self.top_k),
+            ("bootstrap repetitions", self.bootstrap_repetitions),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise RankingObjectiveError(f"ranking objective {label} must be a positive integer")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise RankingObjectiveError("ranking objective seed must be an unsigned integer")
+        confidence = _finite(self.confidence, "ranking confidence")
+        if not 0.5 < confidence < 1.0:
+            raise RankingObjectiveError("ranking confidence must be in (0.5, 1)")
         if self.equal_training_budget_steps is not None and (
             isinstance(self.equal_training_budget_steps, bool)
             or not isinstance(self.equal_training_budget_steps, int)
             or self.equal_training_budget_steps <= 0
         ):
             raise RankingObjectiveError("declared equal training-step budget must be positive")
-        if not 0.5 < self.confidence < 1.0 or not math.isfinite(self.confidence):
-            raise RankingObjectiveError("ranking confidence must be in (0.5, 1)")
-        if isinstance(self.seed, bool) or self.seed < 0:
-            raise RankingObjectiveError("ranking objective seed must be unsigned")
         objectives = tuple(item[0] for item in self.inference_cost_microseconds)
         if any(not isinstance(item, RankingObjective) for item in objectives):
             raise RankingObjectiveError("objective cost entries have invalid objectives")
