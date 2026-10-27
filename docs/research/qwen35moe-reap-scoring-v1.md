@@ -1,8 +1,12 @@
 # Qwen3.5 REAP-style expert scoring adapter
 
 Status: experimental calibration adapter. It is not connected to candidate
-selection, structural surgery, or autonomous optimization. No model-quality,
-latency, or resource benefit has been established.
+selection, structural surgery, or autonomous optimization. A single full
+WikiText-2 held-out comparison on one Qwen3.5-family GGUF found better PPL than
+router-norm and two random 12.5% expert-pruning baselines, but the candidate
+failed the repository's 98% quality-retention gate. This is promising
+one-cell evidence, not a promoted method or a latency/resource result. See the
+[full experiment record](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md).
 
 ## Acquisition decision
 
@@ -176,10 +180,15 @@ the synthetic-input parity above must not be presented as model validation.
 
 ## Next evidence required
 
-Use the same checkpoint, calibration and held-out splits, retained expert
-counts, and evaluation budget for REAP-style scores, router norm, and several
-random seeds. Report artifact reload validity, disk/parameter reductions,
-perplexity and representative task quality, calibration wall time, and peak
-CPU/GPU memory. Keep all failures and unsupported architecture cells. Until
-that study demonstrates repeatable value, this adapter remains a research
-instrument and cannot authorize pruning.
+The first full held-out PPL comparison is recorded in
+[`qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md`](qwen35moe-reap-224-wikitext-fulltest-2026-10-27.md)
+and machine-readable form in
+[`records/qwen35moe-reap-224-wikitext-fulltest-2026-10-27.json`](records/qwen35moe-reap-224-wikitext-fulltest-2026-10-27.json).
+It shows a substantial one-cell PPL improvement over router norm and two
+random seeds, while missing the 98% gate. Replicate with independently sampled
+calibration subsets and random seeds; include coding/reasoning/task quality,
+artifact reload and runtime checks, decode/prefill speed, peak RAM/VRAM, and
+calibration cost. Validate the first-party adapter's score ordering against
+this external POE result before treating the result as evidence for PR #738's
+implementation. Keep failures and unsupported cells. The adapter remains a
+research instrument and cannot authorize pruning.
