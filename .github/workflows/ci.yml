@@ -60,6 +60,7 @@ jobs:
           uv run pytest
           tests/test_first_surgeon_evidence_lightgbm.py
           tests/test_feature_attribution.py
+          tests/test_static_feature_study.py::test_q7_replays_paired_active_and_random_acquisition
           -q
 
   performance-pr-cpu:

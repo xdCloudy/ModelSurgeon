@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import random
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from modelsurgeon.active_learning import (
+    AcquisitionCandidate,
+    AcquisitionPolicyConfig,
+    DiversityCandidate,
+    DiversitySelectionConfig,
+    acquire_candidates,
+)
 from modelsurgeon.datasets.grouped_splits import GroupedSplitManifest, SplitPartition
 from modelsurgeon.surgeon.matrix import (
     SurgeonPreprocessor,
@@ -38,6 +46,7 @@ from .static_feature_study import (
 
 class AcquisitionStrategy(StrEnum):
     ACTIVE_UNCERTAINTY = "active_uncertainty"
+    UNCERTAINTY_DIVERSITY = "uncertainty_diversity"
     SEEDED_RANDOM = "seeded_random"
 
 
@@ -46,6 +55,7 @@ class AcquisitionPoint:
     experiments: int
     test_auc: float
     cumulative_gpu_hours: float
+    newly_selected_candidate_digests: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +89,9 @@ class AcquisitionCurve:
                     "experiments": point.experiments,
                     "test_auc": point.test_auc,
                     "cumulative_gpu_hours": point.cumulative_gpu_hours,
+                    "newly_selected_candidate_digests": list(
+                        point.newly_selected_candidate_digests
+                    ),
                 }
                 for point in self.points
             ],
@@ -92,6 +105,7 @@ class MultiModelActiveLearningConfig:
     target_auc: float = 0.8
     safe_perplexity_delta: float = 0.01
     threads: int = 1
+    feature_diversity_fraction: float = 0.25
 
     def __post_init__(self) -> None:
         if (
@@ -104,6 +118,11 @@ class MultiModelActiveLearningConfig:
             raise StaticFeatureStudyError("active-learning seeds must be unique")
         if not 0.5 < self.target_auc <= 1.0:
             raise StaticFeatureStudyError("active-learning target AUC must be in (0.5, 1]")
+        if (
+            not math.isfinite(self.feature_diversity_fraction)
+            or not 0.0 < self.feature_diversity_fraction < 1.0
+        ):
+            raise StaticFeatureStudyError("feature diversity fraction must be within (0, 1)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +134,7 @@ class ModelActiveLearningResult:
     test_size: int
     curves: tuple[AcquisitionCurve, ...]
     comparison: Mapping[str, float | int | None]
+    feature_diversity_fraction: float = 0.25
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -124,6 +144,7 @@ class ModelActiveLearningResult:
                 "family": self.model[2],
             },
             "target_auc": self.target_auc,
+            "feature_diversity_fraction": self.feature_diversity_fraction,
             "counts": {
                 "train_pool": self.train_pool_size,
                 "validation": self.validation_size,
@@ -217,12 +238,60 @@ def _initial_order(
     return order
 
 
+def _candidate_id(example_id: str) -> str:
+    """Create the canonical acquisition ID without exposing raw corpus IDs."""
+
+    return "cand_" + hashlib.sha256(example_id.encode("utf-8")).hexdigest()
+
+
+def _structure_features(record: Mapping[str, object]) -> tuple[tuple[str, ...], frozenset[str]]:
+    """Extract outcome-free categorical and topology hints from mutation metadata."""
+
+    model = record.get("model")
+    model_record = model if isinstance(model, Mapping) else {}
+    mutation = record.get("mutation")
+    mutation_record = mutation if isinstance(mutation, Mapping) else {}
+    plan = mutation_record.get("plan")
+    plan_record = plan if isinstance(plan, Mapping) else {}
+    request = plan_record.get("request")
+    request_record = request if isinstance(request, Mapping) else {}
+    parameters = request_record.get("parameters")
+    parameter_record = parameters if isinstance(parameters, Mapping) else {}
+
+    categorical = tuple(
+        f"{key}:{value}"
+        for key, value in (
+            ("family", model_record.get("family")),
+            ("format", model_record.get("format")),
+            ("quantization", model_record.get("quantization") or "none"),
+            ("mutation", request_record.get("kind")),
+            ("scope", parameter_record.get("candidate_scope")),
+        )
+        if isinstance(value, str) and value
+    )
+    topology = frozenset(
+        f"{key}:{value}"
+        for key in (
+            "layer_index",
+            "block_index",
+            "channel_index",
+            "head_index",
+            "expert_index",
+            "module_name",
+            "target_name",
+        )
+        if isinstance((value := parameter_record.get(key)), (str, int))
+        and not isinstance(value, bool)
+    )
+    return categorical, topology
+
+
 def run_model_active_learning_study(
     records: Sequence[Mapping[str, object]],
     split: GroupedSplitManifest,
     config: MultiModelActiveLearningConfig | None = None,
 ) -> ModelActiveLearningResult:
-    """Replay measured labels using uncertainty acquisition and a paired random order."""
+    """Compare uncertainty, uncertainty/diversity, and paired random acquisition."""
 
     resolved = config or MultiModelActiveLearningConfig()
     selected_records = select_feature_profile_records(
@@ -252,6 +321,7 @@ def run_model_active_learning_study(
         base_order = _initial_order(train_ids, labels, seed, resolved.budgets[0])
         for strategy in AcquisitionStrategy:
             selected = set(base_order[: resolved.budgets[0]])
+            newly_selected = tuple(sorted(_candidate_id(item) for item in selected))
             random_order = tuple(base_order)
             points: list[AcquisitionPoint] = []
             experiments_to_target: int | None = None
@@ -261,7 +331,14 @@ def run_model_active_learning_study(
                     selected, by_id, validation_ids, test_ids, target_schema, resolved
                 )
                 gpu_hours = math.fsum(timings[item] for item in selected) / 3600.0
-                points.append(AcquisitionPoint(budget, auc, gpu_hours))
+                points.append(
+                    AcquisitionPoint(
+                        budget,
+                        auc,
+                        gpu_hours,
+                        newly_selected,
+                    )
+                )
                 if experiments_to_target is None and auc >= resolved.target_auc:
                     experiments_to_target = budget
                     gpu_hours_to_target = gpu_hours
@@ -279,17 +356,33 @@ def run_model_active_learning_study(
                         for example_id in remaining
                     )
                     probabilities = model.predict(rows)
-                    scored = [
-                        (abs(probability - 0.5), example_id)
-                        for example_id, probability in zip(remaining, probabilities, strict=True)
-                    ]
-                    additions = [
-                        item[1]
-                        for item in sorted(scored, key=lambda item: (item[0], item[1]))[
-                            : next_budget - budget
+                    if strategy is AcquisitionStrategy.ACTIVE_UNCERTAINTY:
+                        scored = [
+                            (abs(probability - 0.5), example_id)
+                            for example_id, probability in zip(
+                                remaining, probabilities, strict=True
+                            )
                         ]
-                    ]
+                        additions = [
+                            item[1]
+                            for item in sorted(scored, key=lambda item: (item[0], item[1]))[
+                                : next_budget - budget
+                            ]
+                        ]
+                    else:
+                        additions = _acquire_uncertainty_diversity(
+                            remaining,
+                            probabilities,
+                            rows,
+                            by_id,
+                            selected,
+                            preprocessor,
+                            next_budget - budget,
+                            seed,
+                            resolved.feature_diversity_fraction,
+                        )
                 selected.update(additions)
+                newly_selected = tuple(sorted(_candidate_id(item) for item in additions))
             curves.append(
                 AcquisitionCurve(
                     strategy,
@@ -351,6 +444,94 @@ def run_model_active_learning_study(
             None if not paired else math.fsum(gpu_hour_reductions) / len(paired)
         ),
     }
+    diverse_paired = tuple(
+        (diverse, random_curve)
+        for diverse in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+        for random_curve in grouped[AcquisitionStrategy.SEEDED_RANDOM]
+        if diverse.seed == random_curve.seed
+        and diverse.experiments_to_target is not None
+        and random_curve.experiments_to_target is not None
+        and diverse.gpu_hours_to_target is not None
+        and random_curve.gpu_hours_to_target is not None
+    )
+    uncertainty_paired = tuple(
+        (diverse, active)
+        for diverse in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+        for active in grouped[AcquisitionStrategy.ACTIVE_UNCERTAINTY]
+        if diverse.seed == active.seed
+        and diverse.experiments_to_target is not None
+        and active.experiments_to_target is not None
+        and diverse.gpu_hours_to_target is not None
+        and active.gpu_hours_to_target is not None
+    )
+    uncertainty_aulc_deltas = tuple(
+        diverse.area_under_learning_curve - active.area_under_learning_curve
+        for diverse in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+        for active in grouped[AcquisitionStrategy.ACTIVE_UNCERTAINTY]
+        if diverse.seed == active.seed
+    )
+    comparison.update(
+        {
+            "diversity_mean_aulc": math.fsum(
+                curve.area_under_learning_curve
+                for curve in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+            )
+            / len(resolved.seeds),
+            "diversity_target_reaches": sum(
+                curve.experiments_to_target is not None
+                for curve in grouped[AcquisitionStrategy.UNCERTAINTY_DIVERSITY]
+            ),
+            "paired_diversity_target_reaches": len(diverse_paired),
+            "mean_diversity_experiment_reduction": (
+                None
+                if not diverse_paired
+                else math.fsum(
+                    float(random_curve.experiments_to_target - diverse.experiments_to_target)
+                    for diverse, random_curve in diverse_paired
+                    if diverse.experiments_to_target is not None
+                    and random_curve.experiments_to_target is not None
+                )
+                / len(diverse_paired)
+            ),
+            "mean_diversity_gpu_hour_reduction": (
+                None
+                if not diverse_paired
+                else math.fsum(
+                    random_curve.gpu_hours_to_target - diverse.gpu_hours_to_target
+                    for diverse, random_curve in diverse_paired
+                    if diverse.gpu_hours_to_target is not None
+                    and random_curve.gpu_hours_to_target is not None
+                )
+                / len(diverse_paired)
+            ),
+            "diversity_vs_uncertainty_mean_aulc_delta": (
+                math.fsum(uncertainty_aulc_deltas) / len(uncertainty_aulc_deltas)
+            ),
+            "paired_diversity_vs_uncertainty_target_reaches": len(uncertainty_paired),
+            "mean_diversity_vs_uncertainty_experiment_reduction": (
+                None
+                if not uncertainty_paired
+                else math.fsum(
+                    float(active.experiments_to_target - diverse.experiments_to_target)
+                    for diverse, active in uncertainty_paired
+                    if diverse.experiments_to_target is not None
+                    and active.experiments_to_target is not None
+                )
+                / len(uncertainty_paired)
+            ),
+            "mean_diversity_vs_uncertainty_gpu_hour_reduction": (
+                None
+                if not uncertainty_paired
+                else math.fsum(
+                    active.gpu_hours_to_target - diverse.gpu_hours_to_target
+                    for diverse, active in uncertainty_paired
+                    if diverse.gpu_hours_to_target is not None
+                    and active.gpu_hours_to_target is not None
+                )
+                / len(uncertainty_paired)
+            ),
+        }
+    )
     return ModelActiveLearningResult(
         _identity(records),
         resolved.target_auc,
@@ -359,4 +540,72 @@ def run_model_active_learning_study(
         len(test_ids),
         tuple(curves),
         comparison,
+        resolved.feature_diversity_fraction,
     )
+
+
+def _acquire_uncertainty_diversity(
+    remaining: Sequence[str],
+    probabilities: Sequence[float],
+    rows: Sequence[tuple[float, ...]],
+    records: Mapping[str, Mapping[str, object]],
+    selected_ids: set[str],
+    preprocessor: SurgeonPreprocessor,
+    budget: int,
+    seed: int,
+    diversity_fraction: float,
+) -> list[str]:
+    """Acquire a fixed uncertainty/diversity mixture from an unlabeled residual pool."""
+
+    if not (len(remaining) == len(probabilities) == len(rows)):
+        raise StaticFeatureStudyError("active-learning prediction rows do not align with pool")
+    id_by_candidate = {example_id: _candidate_id(example_id) for example_id in remaining}
+    example_by_candidate = {
+        candidate_id: example_id for example_id, candidate_id in id_by_candidate.items()
+    }
+    acquisition_candidates = tuple(
+        AcquisitionCandidate(
+            id_by_candidate[example_id],
+            utility=0.0,
+            safe_probability=float(probability),
+            uncertainty=4.0 * float(probability) * (1.0 - float(probability)),
+            diversity=0.0,
+        )
+        for example_id, probability in zip(remaining, probabilities, strict=True)
+    )
+    diversity_candidates: list[DiversityCandidate] = []
+    for example_id, row in zip(remaining, rows, strict=True):
+        categorical, topology = _structure_features(records[example_id])
+        diversity_candidates.append(
+            DiversityCandidate(
+                id_by_candidate[example_id],
+                tuple(float(value) for value in row),
+                categorical,
+                topology,
+            )
+        )
+    initial_centers: list[DiversityCandidate] = []
+    for example_id in sorted(selected_ids):
+        categorical, topology = _structure_features(records[example_id])
+        initial_centers.append(
+            DiversityCandidate(
+                _candidate_id(example_id),
+                transform_inference_record(records[example_id], preprocessor),
+                categorical,
+                topology,
+            )
+        )
+    report = acquire_candidates(
+        acquisition_candidates,
+        budget,
+        config=AcquisitionPolicyConfig(
+            high_value_fraction=0.0,
+            uncertain_fraction=1.0 - diversity_fraction,
+            diverse_fraction=diversity_fraction,
+            seed=seed,
+        ),
+        diversity_candidates=tuple(diversity_candidates),
+        diversity_config=DiversitySelectionConfig(seed=seed),
+        diversity_initial_centers=tuple(initial_centers),
+    )
+    return [example_by_candidate[item.candidate_id] for item in report.selections]

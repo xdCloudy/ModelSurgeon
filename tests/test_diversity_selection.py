@@ -94,6 +94,17 @@ def test_numeric_diversity_is_invariant_to_feature_units_and_scale_safe() -> Non
     assert rescaled_report.to_record()["numeric_normalization"] == "candidate_pool_minmax_v1"
 
 
+@pytest.mark.parametrize("invalid_value", [True, "1.0", 10**400])
+def test_numeric_diversity_rejects_invalid_values(invalid_value: object) -> None:
+    with pytest.raises(DiversitySelectionError, match="finite numbers"):
+        DiversityCandidate(
+            "cand_invalid",
+            (cast(float, invalid_value),),
+            (),
+            frozenset(),
+        )
+
+
 def test_large_finite_weights_do_not_overflow_distance() -> None:
     candidates = (
         _candidate("a", 0.0, "a", "layer:0"),

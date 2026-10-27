@@ -27,8 +27,17 @@ class DiversityCandidate:
     def __post_init__(self) -> None:
         if not self.candidate_id.startswith("cand_"):
             raise DiversitySelectionError("diversity candidates require canonical IDs")
-        if any(not math.isfinite(value) for value in self.numeric_features):
-            raise DiversitySelectionError("diversity numeric features must be finite")
+        for value in self.numeric_features:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise DiversitySelectionError("diversity numeric features must be finite numbers")
+            try:
+                finite = math.isfinite(float(value))
+            except (OverflowError, TypeError, ValueError) as error:
+                raise DiversitySelectionError(
+                    "diversity numeric features must be finite numbers"
+                ) from error
+            if not finite:
+                raise DiversitySelectionError("diversity numeric features must be finite numbers")
         if any(not value for value in (*self.categorical_features, *self.topology)):
             raise DiversitySelectionError("diversity categorical/topology values cannot be blank")
 
