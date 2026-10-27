@@ -237,7 +237,7 @@ def test_added_methods_and_meta_surgeon_questions_are_independently_scoped() -> 
 def test_backlog_records_merged_progress_foundation_without_counting_it_open() -> None:
     data = load_data()
     audit = data["backlog_audit"]
-    assert audit["open_pull_request_count"] == 58
+    assert audit["open_pull_request_count"] == 59
     foundation = next(item for item in audit["notable_pull_requests"] if item["number"] == 774)
     assert foundation["status"] == "merged"
     assert foundation["integrated_on_main"] is True
@@ -251,6 +251,10 @@ def test_backlog_records_merged_progress_foundation_without_counting_it_open() -
     assert structural_study["status"] == "open"
     assert structural_study["base_branch"] == progress_parent["head_branch"]
     assert structural_study["integrated_on_main"] is False
+    reap_evidence = next(item for item in audit["notable_pull_requests"] if item["number"] == 778)
+    assert reap_evidence["status"] == "open"
+    assert reap_evidence["base_branch"] == structural_study["head_branch"]
+    assert reap_evidence["integrated_on_main"] is False
     assert "| Yes |" in progress.render_backlog(data)
     assert progress.validate(data, ROOT) == []
 
