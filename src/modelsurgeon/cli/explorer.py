@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.explain.explorer import (
     ExplorerCell,
     ExplorerCellStatus,
@@ -20,8 +21,8 @@ from modelsurgeon.explain.explorer import (
 
 def _load_cells(path: Path) -> tuple[str, str, str, str, tuple[ExplorerCell, ...]]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise ExplorerError("explorer input is unreadable or invalid JSON") from error
     if not isinstance(raw, Mapping) or not isinstance(raw.get("cells"), list):
         raise ExplorerError("explorer input requires a cells list")

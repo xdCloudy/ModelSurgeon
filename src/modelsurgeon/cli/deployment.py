@@ -14,6 +14,7 @@ from typing import Annotated, Protocol, cast, runtime_checkable
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.evaluation.deployment_benchmark import (
     DEPLOYMENT_BENCHMARK_SCHEMA_VERSION,
     DeploymentArtifact,
@@ -37,8 +38,8 @@ class DeploymentCommandError(ValueError):
 
 def _read_json(path: Path) -> dict[str, object]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise DeploymentCommandError(f"cannot read JSON {path}: {error}") from error
     if not isinstance(raw, dict):
         raise DeploymentCommandError(f"JSON root must be an object: {path}")

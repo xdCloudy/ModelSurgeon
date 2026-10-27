@@ -350,6 +350,9 @@ is not supported.
 | `provider` | Diagnose provider availability without starting a provider. |
 | `setup` | Check or initialize the local-first data layout without downloading models. |
 
+CLI JSON control manifests and request files are limited to 64 MiB. Example datasets and
+search plans have their own row and file limits documented in their command contracts.
+
 Global logging is available through `--log-level` and `--log-format human|json`. Run any command with `--help` for its complete contract. Generate shell-specific completion instructions with `modelsurgeon --show-completion`; use `--install-completion` only when you intend to modify the current user's shell configuration.
 
 ### Use the bounded chat control plane

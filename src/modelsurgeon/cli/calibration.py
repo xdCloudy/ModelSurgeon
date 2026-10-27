@@ -12,6 +12,7 @@ from typing import Annotated
 
 import typer
 
+from modelsurgeon.cli.json_input import CliJsonInputError, read_cli_json_text
 from modelsurgeon.datasets.calibration import (
     SELECTION_ALGORITHM,
     CalibrationContract,
@@ -125,8 +126,8 @@ def load_calibration_plan(path: Path) -> CalibrationPlan:
     """Load a strict calibration plan with all mutable identities declared."""
 
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        raw = json.loads(read_cli_json_text(path))
+    except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
         raise CalibrationCommandError(f"cannot read calibration config: {error}") from error
     record = _object(raw, "calibration config")
     _strict_fields(
@@ -379,8 +380,8 @@ def run_calibration(
         )
     if cache_path.exists() and not refresh:
         try:
-            cached = json.loads(cache_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
+            cached = json.loads(read_cli_json_text(cache_path))
+        except (OSError, CliJsonInputError, json.JSONDecodeError) as error:
             raise CalibrationCommandError(f"cannot read calibration cache: {error}") from error
         return _validate_cache(cached, plan, cache_path)
 
