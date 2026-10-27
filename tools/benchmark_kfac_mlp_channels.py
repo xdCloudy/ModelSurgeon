@@ -170,7 +170,7 @@ def _load_model(model_path: Path) -> Any:
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         local_files_only=True,
-        torch_dtype="auto",
+        torch_dtype=torch.float32,
         low_cpu_mem_usage=True,
     )
     model.to("cpu")
@@ -192,6 +192,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise RuntimeError("CPU-only benchmark refuses an available CUDA device")
 
     model_path = args.model.resolve()
+    config = json.loads((model_path / "config.json").read_text(encoding="utf-8"))
+    storage_dtype_name = config.get("torch_dtype", "float32")
+    storage_dtype = getattr(torch, storage_dtype_name, None)
+    if storage_dtype not in (torch.float16, torch.bfloat16, torch.float32):
+        raise ValueError(f"unsupported checkpoint storage dtype: {storage_dtype_name!r}")
     output_path = args.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     work_path = output_path.parent / "kfac-mlp-channel-pilot-inputs"
@@ -277,6 +282,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 prefix=f"{method}-", dir=output_path.parent
             ) as temporary:
                 artifact_dir = Path(temporary)
+                candidate_model.to(dtype=storage_dtype)
                 candidate_model.save_pretrained(artifact_dir, safe_serialization=True)
                 tokenizer.save_pretrained(artifact_dir)
                 artifact_record = _directory_record(artifact_dir)
@@ -289,7 +295,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 reloaded_model = AutoModelForCausalLM.from_pretrained(
                     artifact_dir,
                     local_files_only=True,
-                    torch_dtype="auto",
+                    torch_dtype=torch.float32,
                     low_cpu_mem_usage=True,
                 )
                 reloaded_model.to("cpu")
@@ -350,6 +356,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "parameter_dtypes": sorted(
                 {str(parameter.dtype) for parameter in source_model.parameters()}
             ),
+            "checkpoint_storage_dtype": storage_dtype_name,
             "model_type": source_model.config.model_type,
             "layer_count": int(source_model.config.num_hidden_layers),
             "hidden_size": int(source_model.config.hidden_size),
