@@ -370,8 +370,7 @@ def calibration_metrics(
     """Calculate Brier score, ECE, and fixed-bin reliability-curve evidence."""
 
     count = _validate_inputs(probabilities, labels, require_both_classes=False)
-    if bins <= 0:
-        raise ProbabilityCalibrationError("reliability bin count must be positive")
+    _validate_positive_integer(bins, "reliability bin count")
     bucket_labels: list[list[int]] = [[] for _ in range(bins)]
     bucket_probabilities: list[list[float]] = [[] for _ in range(bins)]
     for label, probability in zip(labels, probabilities, strict=True):
@@ -416,7 +415,13 @@ def fit_platt_calibrator(
     """Fit deterministic two-parameter logistic scaling with Newton updates."""
 
     _validate_inputs(validation_probabilities, validation_labels, require_both_classes=True)
-    if max_iterations <= 0 or not math.isfinite(tolerance) or tolerance <= 0.0:
+    _validate_positive_integer(max_iterations, "Platt maximum iteration count")
+    if (
+        isinstance(tolerance, bool)
+        or not isinstance(tolerance, (int, float))
+        or not math.isfinite(tolerance)
+        or tolerance <= 0.0
+    ):
         raise ProbabilityCalibrationError("Platt optimization bounds must be positive and finite")
     logits = tuple(_logit(value) for value in validation_probabilities)
     slope = 1.0
@@ -506,8 +511,7 @@ def fit_probability_calibrator(
     """
 
     count = _validate_inputs(validation_probabilities, validation_labels, require_both_classes=True)
-    if reliability_bins <= 0:
-        raise ProbabilityCalibrationError("reliability bin count must be positive")
+    _validate_positive_integer(reliability_bins, "reliability bin count")
     class_counts = (validation_labels.count(0), validation_labels.count(1))
     if group_ids is not None:
         if len(group_ids) != count or any(
@@ -705,6 +709,11 @@ def _validate_inputs(
     if require_both_classes and len(set(labels)) != 2:
         raise ProbabilityCalibrationError("calibrator fitting requires both binary classes")
     return len(probabilities)
+
+
+def _validate_positive_integer(value: object, label: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ProbabilityCalibrationError(f"{label} must be a positive integer")
 
 
 def _validate_probabilities(probabilities: Sequence[float]) -> None:

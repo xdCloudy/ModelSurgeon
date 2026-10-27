@@ -173,6 +173,30 @@ def test_calibration_metrics_keep_empty_bins_explicit() -> None:
     assert metrics.reliability_curve[-1].mean_probability is None
 
 
+@pytest.mark.parametrize("bins", (True, 1.5, "4"))
+def test_calibration_bin_counts_require_positive_integers(bins: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        calibration_metrics(LABELS, PROBABILITIES, bins=bins)  # type: ignore[arg-type]
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        fit_probability_calibrator(
+            PROBABILITIES, LABELS, reliability_bins=bins  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("max_iterations", (True, 1.5, "10"))
+def test_platt_iteration_limit_requires_positive_integer(max_iterations: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive integer"):
+        fit_platt_calibrator(
+            PROBABILITIES, LABELS, max_iterations=max_iterations  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("tolerance", (True, "1e-10", float("inf")))
+def test_platt_tolerance_requires_finite_positive_number(tolerance: object) -> None:
+    with pytest.raises(ProbabilityCalibrationError, match="positive and finite"):
+        fit_platt_calibrator(PROBABILITIES, LABELS, tolerance=tolerance)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     ("probabilities", "labels"),
     [
