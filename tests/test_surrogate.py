@@ -106,6 +106,24 @@ def test_surrogate_fit_is_calibrated_bounded_and_persistable() -> None:
     assert fit.from_record(record).to_record() == record
 
 
+def test_surrogate_training_example_from_record_rejects_numeric_overflow() -> None:
+    example = SurrogateTrainingExample(
+        "candidate",
+        (0.5,),
+        (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),),
+        True,
+    ).to_record()
+    with pytest.raises(SurrogateError, match="features must be finite numbers"):
+        SurrogateTrainingExample.from_record({**example, "features": [10**400]})
+
+    oversized_objective = dict(example["objectives"][0])
+    oversized_objective["estimate"] = 10**400
+    with pytest.raises(SurrogateError, match="objective record has invalid numeric values"):
+        SurrogateTrainingExample.from_record(
+            {**example, "objectives": [oversized_objective]}
+        )
+
+
 def test_surrogate_acquisition_is_deterministic_constrained_and_resumable() -> None:
     measured = _measured()
     candidates = (

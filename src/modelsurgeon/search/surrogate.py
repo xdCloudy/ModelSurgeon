@@ -204,6 +204,10 @@ class SurrogateTrainingExample:
             or not isinstance(record["feasible"], bool)
         ):
             raise SurrogateError("surrogate example fields have invalid types")
+        try:
+            normalized_features = tuple(float(item) for item in features)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise SurrogateError("surrogate features must be finite numbers") from error
         values: list[ParetoObjectiveValue] = []
         for objective in objectives:
             if not isinstance(objective, dict) or set(objective) != {
@@ -226,17 +230,22 @@ class SurrogateTrainingExample:
                 or isinstance(confidence_high, bool)
             ):
                 raise SurrogateError("surrogate objective record has invalid types")
-            values.append(
-                ParetoObjectiveValue(
-                    OptimizeMetric(objective["metric"]),
-                    float(estimate),
-                    None if confidence_low is None else float(confidence_low),
-                    None if confidence_high is None else float(confidence_high),
+            try:
+                values.append(
+                    ParetoObjectiveValue(
+                        OptimizeMetric(objective["metric"]),
+                        float(estimate),
+                        None if confidence_low is None else float(confidence_low),
+                        None if confidence_high is None else float(confidence_high),
+                    )
                 )
-            )
+            except (OverflowError, TypeError, ValueError) as error:
+                raise SurrogateError(
+                    "surrogate objective record has invalid numeric values or metric"
+                ) from error
         return cls(
             record["candidate_id"],
-            tuple(float(item) for item in features),
+            normalized_features,
             tuple(values),
             record["feasible"],
         )
