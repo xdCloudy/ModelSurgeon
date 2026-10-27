@@ -1,20 +1,20 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.0`.
+Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.1`.
 
 Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
 
-Overall weighted completion: **28.5%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **28.8%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 48.7% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 38.7% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Research coverage | 49.3% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Implementation maturity | 39.4% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 6.0% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 33.2% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Production readiness | 33.7% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
 | Representative compatibility coverage | 36.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
@@ -27,7 +27,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 19.9% | 46.2% | 36.0% | 3.6% | 31.5% |
+| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.2% | 48.9% | 39.1% | 3.6% | 33.6% |
 | [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 24.1% | 45.5% | 30.8% | 3.2% | 20.2% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.0% | 10.6% | 3.0% | 0.0% | 3.0% |

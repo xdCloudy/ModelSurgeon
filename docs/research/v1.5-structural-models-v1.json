@@ -11,5 +11,6 @@
   "selection_policy": "select added structure only when its held-out MAE interval is entirely below the MLP baseline and resource budgets pass",
   "censoring": "unsupported, failed, and unknown outcomes are retained but excluded from fitting and measured metrics",
   "claim_boundary": "No structural-model superiority claim without held-out uncertainty and explicit resource accounting.",
-  "reproduction": "evaluate_structural_models()"
+  "reproduction": "evaluate_structural_models()",
+  "status": "superseded_by_v2_validation_selection_and_feature_path_claim_correction"
 }
