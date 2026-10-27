@@ -105,9 +105,15 @@ def _token_ids(tokenizer: Any, text_path: Path) -> list[int]:
     return [int(value) for value in encoded["input_ids"]]
 
 
-def _chunks(token_ids: list[int], target_tokens: int, sequence_length: int) -> list[torch.Tensor]:
+def _chunks(
+    token_ids: list[int],
+    target_tokens: int,
+    sequence_length: int,
+    *,
+    offset_tokens: int = 0,
+) -> list[torch.Tensor]:
     chunks: list[torch.Tensor] = []
-    cursor = 0
+    cursor = offset_tokens
     collected = 0
     stride = sequence_length - 1
     while collected < target_tokens:
@@ -208,7 +214,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     calibration_ids_all = _token_ids(tokenizer, train_text)
     evaluation_ids_all = _token_ids(tokenizer, test_text)
-    calibration_chunks = _chunks(calibration_ids_all, args.calibration_tokens, args.sequence_length)
+    calibration_chunks = _chunks(
+        calibration_ids_all,
+        args.calibration_tokens,
+        args.sequence_length,
+        offset_tokens=args.calibration_offset_tokens,
+    )
     evaluation_chunks = _chunks(evaluation_ids_all, args.evaluation_tokens, args.sequence_length)
     calibration_ids = [int(value) for chunk in calibration_chunks for value in chunk[0].tolist()]
     evaluation_ids = [int(value) for chunk in evaluation_chunks for value in chunk[0].tolist()]
@@ -239,12 +250,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
         scoring_seconds = time.perf_counter() - scoring_start
         kfac_scores = np.asarray(kfac_report.aggregate_costs, dtype=np.float64)
+        activation_scores = np.asarray(
+            kfac_report.aggregate_activation_weighted_scores, dtype=np.float64
+        )
         magnitude_scores = _magnitude_scores(source_model)
-        if not np.isfinite(kfac_scores).all() or not np.isfinite(magnitude_scores).all():
+        if (
+            not np.isfinite(kfac_scores).all()
+            or not np.isfinite(activation_scores).all()
+            or not np.isfinite(magnitude_scores).all()
+        ):
             raise ValueError("candidate scores must be finite")
 
         selected: dict[str, tuple[int, ...]] = {}
         kfac_order = np.argsort(kfac_scores, kind="stable")
+        activation_order = np.argsort(activation_scores, kind="stable")
         magnitude_order = np.argsort(magnitude_scores, kind="stable")
         for count in removal_counts:
             selected[f"kfac_singleton_additive_{count}"] = tuple(
@@ -252,6 +271,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             selected[f"magnitude_l2_{count}"] = tuple(
                 sorted(int(value) for value in magnitude_order[:count])
+            )
+            selected[f"wanda_activation_channel_{count}"] = tuple(
+                sorted(int(value) for value in activation_order[:count])
             )
         for seed in args.random_seeds:
             random_order = random.Random(seed).sample(range(intermediate_size), intermediate_size)
@@ -370,6 +392,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "train": train_record,
             "test": test_record,
             "calibration_target_tokens": args.calibration_tokens,
+            "calibration_offset_tokens": args.calibration_offset_tokens,
             "evaluation_target_tokens": args.evaluation_tokens,
             "sequence_length": args.sequence_length,
             "calibration_input_ids_sha256": calibration_digest,
@@ -399,6 +422,19 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "kfac_selection": (
                 "Sum layer-local singleton down_proj input-column KFAC costs; choose lowest sum."
             ),
+            "wanda_activation_channel_selection": (
+                "Sum per-layer structured channel scores over down_proj output rows: "
+                "calibration input L2 norm multiplied by absolute weight; choose lowest sum. "
+                "This is an independent channel-level aggregation of the published WANDA score, "
+                "not the original per-weight sparsification implementation."
+            ),
+            "wanda_source": {
+                "repository": "https://github.com/locuslab/wanda",
+                "revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+                "license": "MIT",
+                "source_file_inspected": "lib/prune.py",
+                "code_copied": False,
+            },
             "magnitude_selection": (
                 "Sum squared gate/up row and down column weights across layers; choose lowest L2."
             ),
@@ -417,6 +453,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "max_workspace_bytes": kfac_report.max_workspace_bytes,
             "activation_factor_sha256": list(kfac_report.activation_factor_sha256),
             "gradient_factor_sha256": list(kfac_report.gradient_factor_sha256),
+            "activation_weighted_score_range": {
+                "min": float(np.min(activation_scores)),
+                "max": float(np.max(activation_scores)),
+            },
             "selected_score_range": {
                 "kfac_min": float(np.min(kfac_scores)),
                 "kfac_max": float(np.max(kfac_scores)),
@@ -438,6 +478,7 @@ def main() -> None:
     parser.add_argument("--dataset-revision", default="b08601e04326c79dfdd32d625aee71d232d685c3")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--calibration-tokens", type=int, default=256)
+    parser.add_argument("--calibration-offset-tokens", type=int, default=0)
     parser.add_argument("--evaluation-tokens", type=int, default=2048)
     parser.add_argument("--sequence-length", type=int, default=129)
     parser.add_argument("--removed-channels", type=int, nargs="+", default=[8, 16, 32, 64])
@@ -452,6 +493,7 @@ def main() -> None:
         value <= 0
         for value in (
             args.calibration_tokens,
+            args.calibration_offset_tokens if args.calibration_offset_tokens else 1,
             args.evaluation_tokens,
             args.sequence_length,
             args.torch_threads,

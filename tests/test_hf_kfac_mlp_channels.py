@@ -100,6 +100,13 @@ def test_collects_cpu_factors_and_scores_shared_gated_mlp_channels() -> None:
     assert len(report.activation_factor_sha256) == 2
     assert len(report.gradient_factor_sha256) == 2
     assert all(cost >= 0.0 for cost in report.aggregate_costs)
+    assert len(report.aggregate_activation_weighted_scores) == 6
+    assert all(score >= 0.0 for score in report.aggregate_activation_weighted_scores)
+    assert (
+        report.to_record()["activation_score_method"]
+        == "sum per-layer input-channel scores: sum_output_abs_weight * "
+        "calibration_input_l2_norm"
+    )
     assert all(parameter.grad is None for parameter in model.parameters())
     assert all(not module._forward_hooks for module in down_projections)
     assert all(not module._forward_pre_hooks for module in down_projections)

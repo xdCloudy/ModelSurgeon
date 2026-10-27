@@ -34,6 +34,7 @@ class HuggingFaceMLPKFACReport:
     max_workspace_bytes: int
     planned_workspace_bytes: int
     per_layer_costs: tuple[tuple[float, ...], ...]
+    per_layer_activation_weighted_scores: tuple[tuple[float, ...], ...]
     activation_factor_sha256: tuple[str, ...]
     gradient_factor_sha256: tuple[str, ...]
 
@@ -41,6 +42,14 @@ class HuggingFaceMLPKFACReport:
     def aggregate_costs(self) -> tuple[float, ...]:
         return tuple(
             sum(layer_costs[channel] for layer_costs in self.per_layer_costs)
+            for channel in range(self.intermediate_size)
+        )
+
+    @property
+    def aggregate_activation_weighted_scores(self) -> tuple[float, ...]:
+        """Sum WANDA-style |down-projection weight| x activation-norm scores by channel."""
+        return tuple(
+            sum(layer_scores[channel] for layer_scores in self.per_layer_activation_weighted_scores)
             for channel in range(self.intermediate_size)
         )
 
@@ -57,6 +66,11 @@ class HuggingFaceMLPKFACReport:
             "max_workspace_bytes": self.max_workspace_bytes,
             "aggregate_costs": list(self.aggregate_costs),
             "per_layer_costs": [list(costs) for costs in self.per_layer_costs],
+            "aggregate_activation_weighted_scores": list(self.aggregate_activation_weighted_scores),
+            "activation_score_method": (
+                "sum per-layer input-channel scores: sum_output_abs_weight * "
+                "calibration_input_l2_norm"
+            ),
             "activation_factor_sha256": list(self.activation_factor_sha256),
             "gradient_factor_sha256": list(self.gradient_factor_sha256),
             "limitations": [
@@ -261,10 +275,17 @@ def score_huggingface_gated_mlp_channels_kfac(
 
     singleton_groups = tuple((index,) for index in range(intermediate_size))
     per_layer_costs: list[tuple[float, ...]] = []
+    per_layer_activation_weighted_scores: list[tuple[float, ...]] = []
     for down, activation, gradient in zip(
         down_projections, activation_summaries, gradient_summaries, strict=True
     ):
         weights = down.weight.detach().float().numpy()
+        activation_l2_norms = (
+            activation.matrix.diagonal().clip(min=0.0) * activation.observation_count
+        ) ** 0.5
+        per_layer_activation_weighted_scores.append(
+            tuple((abs(weights) * activation_l2_norms[None, :]).sum(axis=0).tolist())
+        )
         report = score_structured_linear_removals(
             weights,
             activation.matrix,
@@ -286,6 +307,7 @@ def score_huggingface_gated_mlp_channels_kfac(
         max_workspace_bytes=max_workspace_bytes,
         planned_workspace_bytes=planned_workspace,
         per_layer_costs=tuple(per_layer_costs),
+        per_layer_activation_weighted_scores=tuple(per_layer_activation_weighted_scores),
         activation_factor_sha256=tuple(item.matrix_sha256 for item in activation_summaries),
         gradient_factor_sha256=tuple(item.matrix_sha256 for item in gradient_summaries),
     )
