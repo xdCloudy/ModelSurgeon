@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `6820c77c6c090bbbd7c821b16a39041f8c39c980` · 0 open issues · 55 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `6820c77c6c090bbbd7c821b16a39041f8c39c980` · 0 open issues · 56 open PRs.
 
-All 55 open PRs were enumerated; the following 20 optimization, evidence, and stacked-dependency PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.
+All 56 open PRs were enumerated; the following 21 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -41,9 +41,10 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#771: Compare feature diversity in active learning](https://github.com/xdCloudy/ModelSurgeon/pull/771) | `codex/integrate-diversity-acquisition` | `codex/evaluate-feature-diversity-acquisition` | stacked on #770 | No |
 | [#772: Enforce integer search budgets](https://github.com/xdCloudy/ModelSurgeon/pull/772) | `main` | `codex/strict-search-budget-integers` | search budget correctness | No |
 | [#773: Separate calibration and held-out splits](https://github.com/xdCloudy/ModelSurgeon/pull/773) | `main` | `codex/fix-pruning-calibration-split` | pruning evaluation integrity | No |
+| [#774: Add evidence-backed project progress system](https://github.com/xdCloudy/ModelSurgeon/pull/774) | `main` | `codex/model-progress-system` | canonical research and implementation progress tracking | No |
 
 ## Triage
 
-Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. Recheck the 55-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration.
+Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. #774 adds the canonical progress workflow but its unmerged content is not integrated. Recheck the 56-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration.
 
 Re-fetch and re-audit the live backlog before later review or branch integration. Respect normal CI and approval requirements; this inventory does not authorize merging or bypass review.

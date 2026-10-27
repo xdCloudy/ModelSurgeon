@@ -3408,8 +3408,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "6820c77c6c090bbbd7c821b16a39041f8c39c980",
     "open_issue_count": 0,
-    "open_pull_request_count": 55,
-    "scope_note": "All 55 open PRs were enumerated; the following 20 optimization, evidence, and stacked-dependency PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.",
+    "open_pull_request_count": 56,
+    "scope_note": "All 56 open PRs were enumerated; the following 21 optimization, evidence, and progress-system PRs are retained individually for prioritization. Counts and branch relationships are a dated snapshot, not live CI state. No PR was merged by this audit.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -3590,6 +3590,15 @@
         "relationship": "pruning evaluation integrity",
         "status": "open",
         "integrated_on_main": false
+      },
+      {
+        "number": 774,
+        "title": "Add evidence-backed project progress system",
+        "head_branch": "codex/model-progress-system",
+        "base_branch": "main",
+        "relationship": "canonical research and implementation progress tracking",
+        "status": "open",
+        "integrated_on_main": false
       }
     ],
     "dependency_chains": [
@@ -3611,6 +3620,6 @@
         723
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. Recheck the 55-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adopting new acquisition and experimental MoE work. #774 adds the canonical progress workflow but its unmerged content is not integrated. Recheck the 56-PR backlog for duplicates and required review before merging; stacked PRs require base-to-head integration."
   }
 }
