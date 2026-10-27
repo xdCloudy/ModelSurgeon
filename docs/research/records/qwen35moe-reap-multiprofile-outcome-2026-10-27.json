@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "experiment_id": "qwen35moe-reap-multiprofile-train-ab-224-wikitext-fulltest-2026-10-27",
+  "status": "exploratory_quality_gate_failed_no_detectable_ensemble_gain",
+  "planner": {
+    "repository": "https://github.com/peonist-ai/crucible",
+    "revision": "3908873326bcdbe097f4184729db7c33fff1cf60",
+    "license": "MIT",
+    "method": "reap",
+    "profile_weights": [1.0, 1.0],
+    "combination": "per-profile per-layer min-max normalization followed by weighted sum",
+    "prune_fraction_per_layer": 0.125,
+    "experts_retained_per_layer": 224,
+    "plan_sha256": "041d5369b7f14aac1dee3861c03b202843864377397e40cc058b4ded7f5d5832"
+  },
+  "model": {
+    "repository": "endystrike/Endy-Qwen3.6-CyberSec-35B-A3B",
+    "revision": "eed558458ca9ff6972063c486c7f1ab9e0b0c93e",
+    "architecture": "qwen35moe",
+    "source_gguf_sha256": "ed118e7768330eb440ddc8ade42a04005ecab37f131d7e84bb08d14d1e315ae1",
+    "source_bytes": 21713462496,
+    "layers": 41,
+    "experts_per_layer": 256,
+    "experts_retained_per_layer": 224,
+    "top_k": 8,
+    "license": "AGPL-3.0"
+  },
+  "calibrations": [
+    {
+      "name": "train-prefix",
+      "tokens": 8192,
+      "dataset_bytes": 10962377,
+      "dataset_sha256": "fb23ad9643a34514eec5cb85ec2a6f49d1a33e6a3d5077dff5a403e1d18f5047",
+      "profile_sha256": "4a068990bcaf4a4dd3e9bb75d650cb1d3e0de56c7dfd955630f1ea7667b78a3b"
+    },
+    {
+      "name": "train-suffix-offset-1048576",
+      "tokens": 8192,
+      "dataset_bytes": 9913801,
+      "dataset_sha256": "fd190415c502b55b207d54a68b5270771553e8943a18c34d8556bbbcb9c1b095",
+      "profile_sha256": "4ef7e6033b0363c5a35f21a7c61407cf96ecea91768a241975bef5eece77edd4"
+    }
+  ],
+  "artifact": {
+    "format": "GGUF Q4_K_M",
+    "bytes": 19199501664,
+    "sha256": "1e775265f9ddb09f4dfd5715fd7208b69e73eebaa06dcc9b9630c8e663dad8bc",
+    "bytes_reduced": 2513960832,
+    "fractional_size_reduction": 0.11577890133658397,
+    "structurally_validated": true,
+    "reloaded_by_evaluator": true
+  },
+  "artifact_generation_attempts": [
+    {
+      "destination_filesystem": "Windows DrvFS mount from WSL",
+      "status": "failed",
+      "observed_partial_bytes_before_failure": 7907270512,
+      "error": "poe apply: writing the output file failed",
+      "partial_output_removed_by_writer": true,
+      "cause": "undetermined"
+    },
+    {
+      "destination_filesystem": "WSL ext4",
+      "status": "success",
+      "output": "/tmp/reap-ensemble-train-ab.gguf",
+      "structural_validation": "passed"
+    }
+  ],
+  "evaluation": {
+    "dataset": "WikiText-2 raw test",
+    "dataset_tokens": 296960,
+    "chunks": 580,
+    "text_sha256": "173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08",
+    "runtime": "llama.cpp 0.7.0-dev build 11804, commit c7fc50941, Windows CPU ngl=0 threads=12 context=512 batch=512 ubatch=256 chunks=-1 no-warmup ppl-output-type=1",
+    "exit_code": 0,
+    "wall_seconds_approx": 2464,
+    "stdout_path": "qwen35moe-reap-ensemble-train-ab-ppl-output-2026-10-27.txt",
+    "stdout_sha256": "0946241e0a1fc4be4841f2f2dccd78658dd4a182a076f441dc254b5565f81b99",
+    "stderr_path": "qwen35moe-reap-ensemble-train-ab-ppl-stderr-2026-10-27.log",
+    "stderr_sha256": "30c4fdccdb2cf6f51485f87767ebcf98bf0f62d742388c39e9e03df14911115a",
+    "warnings": [
+      "PrefetchVirtualMemory failed: Not enough memory resources to process this command; the complete evaluation still exited successfully."
+    ],
+    "metrics_not_measured": [
+      "task accuracy",
+      "coding or reasoning accuracy",
+      "prefill throughput",
+      "decode throughput",
+      "latency",
+      "peak RAM",
+      "peak VRAM",
+      "energy"
+    ]
+  },
+  "quality_gate": {
+    "retention_definition": "source_perplexity / candidate_perplexity",
+    "minimum_retention": 0.98,
+    "maximum_candidate_perplexity": 6.845918367346939,
+    "source_perplexity": 6.709,
+    "candidate_perplexity": 6.9008183084578105,
+    "retention": 0.9722035416839313,
+    "passed": false
+  },
+  "results": [
+    {
+      "method": "source",
+      "artifact_bytes": 21713462496,
+      "perplexity": 6.709,
+      "retention": 1.0,
+      "gate_passed": true
+    },
+    {
+      "method": "reap_single_profile",
+      "artifact_bytes": 19199501664,
+      "perplexity": 6.905008376728112,
+      "reported_uncertainty": 0.04387,
+      "retention": 0.9716149751683013,
+      "gate_passed": false
+    },
+    {
+      "method": "reap_ensemble_two_disjoint_train_profiles",
+      "artifact_bytes": 19199501664,
+      "perplexity": 6.9008183084578105,
+      "reported_uncertainty": 0.04386,
+      "retention": 0.9722035416839313,
+      "gate_passed": false
+    },
+    {
+      "method": "router_column_norm",
+      "artifact_bytes": 19199501568,
+      "perplexity": 8.7951637803481,
+      "retention": 0.762832,
+      "gate_passed": false
+    },
+    {
+      "method": "random",
+      "seed": 20261026,
+      "artifact_bytes": 19199501568,
+      "perplexity": 7.5838880234252315,
+      "retention": 0.884658,
+      "gate_passed": false
+    },
+    {
+      "method": "random",
+      "seed": 20261027,
+      "artifact_bytes": 19199501568,
+      "perplexity": 7.599663728018247,
+      "retention": 0.882819,
+      "gate_passed": false
+    }
+  ],
+  "paired_bootstrap": {
+    "record": "qwen35moe-reap-ensemble-train-ab-paired-bootstrap-2026-10-27.json",
+    "method": "paired circular moving-block bootstrap of recovered 512-token chunk mean NLL",
+    "block_chunks": 10,
+    "block_size_tokens": 5120,
+    "samples": 20000,
+    "seed": 20261027,
+    "ensemble_minus_single_profile_delta_ppl": -0.004190068270301772,
+    "ensemble_vs_single_profile_95_percent_ci": [
+      -0.035982588368816515,
+      0.030308193407182493
+    ],
+    "scope": "conditional on these fixed artifacts and this one ordered test corpus"
+  },
+  "interpretation": "The equal-weight two-profile cut had no detectable held-out PPL improvement over the single-profile cut and still failed the existing quality gate. It remains experimental; no speed, memory, task-quality, or generalization gain is established.",
+  "publication": {
+    "upstream_source_code_copied": false,
+    "calibration_or_test_text_distributed": false,
+    "model_weights_distributed": false
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "block_chunks": 10,
+  "block_size_tokens": 5120,
+  "bootstrap_samples": 20000,
+  "chunk_size_tokens": 512,
+  "comparisons": [
+    {
+      "baseline": "reap_single_profile",
+      "candidate": "reap_ensemble",
+      "moving_block_percentile_95_ci_delta_ppl": [
+        -0.035982588368816515,
+        0.030308193407182493
+      ],
+      "observed_delta_ppl": -0.004190068270301772
+    },
+    {
+      "baseline": "router_norm",
+      "candidate": "reap_ensemble",
+      "moving_block_percentile_95_ci_delta_ppl": [
+        -2.133261466973437,
+        -1.6691601637034106
+      ],
+      "observed_delta_ppl": -1.894345471890289
+    },
+    {
+      "baseline": "random_20261026",
+      "candidate": "reap_ensemble",
+      "moving_block_percentile_95_ci_delta_ppl": [
+        -0.7720921385553217,
+        -0.601946498332655
+      ],
+      "observed_delta_ppl": -0.683069714967421
+    },
+    {
+      "baseline": "random_20261027",
+      "candidate": "reap_ensemble",
+      "moving_block_percentile_95_ci_delta_ppl": [
+        -0.77317195049487,
+        -0.6281685497199101
+      ],
+      "observed_delta_ppl": -0.6988454195604366
+    }
+  ],
+  "inputs": {
+    "random_20261026": {
+      "perplexity_recovered": 7.5838880234252315,
+      "rows": 580,
+      "stdout_sha256": "abc0b7625ec190b8f0066d7ebb2c70a72809884c3b7bc0701b8cd7990076d8e1",
+      "tokens": 296960
+    },
+    "random_20261027": {
+      "perplexity_recovered": 7.599663728018247,
+      "rows": 580,
+      "stdout_sha256": "c4dd321870526dadcf9e2b8f977030c93d0e9af1091d4cd1f5efdf9549258167",
+      "tokens": 296960
+    },
+    "reap_ensemble": {
+      "perplexity_recovered": 6.9008183084578105,
+      "rows": 580,
+      "stdout_sha256": "0946241e0a1fc4be4841f2f2dccd78658dd4a182a076f441dc254b5565f81b99",
+      "tokens": 296960
+    },
+    "reap_single_profile": {
+      "perplexity_recovered": 6.905008376728112,
+      "rows": 580,
+      "stdout_sha256": "11f7e46de10bd70fc77f2a3d228d4510c20897ff41864a2ff1d9cf3059374d6e",
+      "tokens": 296960
+    },
+    "router_norm": {
+      "perplexity_recovered": 8.7951637803481,
+      "rows": 580,
+      "stdout_sha256": "6993dba4e8c3101325d9acbbef2de385de913b74b98af51967c1eecc18ea3425",
+      "tokens": 296960
+    }
+  },
+  "method": "paired circular moving-block bootstrap of per-chunk mean NLL",
+  "scope": "conditional uncertainty within this single ordered held-out corpus; not across models, samples, or datasets",
+  "seed": 20261027
+}

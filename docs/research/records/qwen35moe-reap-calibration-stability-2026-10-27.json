@@ -1,0 +1,88 @@
+{
+  "architecture": "qwen35moe",
+  "calibrations": [
+    {
+      "dataset_bytes": 10962377,
+      "dataset_hash_poe_fnv1a": "fnv1a:c459a8557d85e925",
+      "dataset_sha256": "fb23ad9643a34514eec5cb85ec2a6f49d1a33e6a3d5077dff5a403e1d18f5047",
+      "profile_sha256": "4a068990bcaf4a4dd3e9bb75d650cb1d3e0de56c7dfd955630f1ea7667b78a3b",
+      "tokens": 8192
+    },
+    {
+      "dataset_bytes": 1146846,
+      "dataset_hash_poe_fnv1a": "fnv1a:0131042262efd383",
+      "dataset_sha256": "4cd0f6876d07a413aa911261ff6d363c72d757d47f0fdd6015702014c89cb9c7",
+      "profile_sha256": "105dcf436c40455474389b732bc06c518a72b907582894c7f21aa3b6ba2ab04e",
+      "tokens": 8192
+    }
+  ],
+  "profiler_logs": [
+    {
+      "split": "train",
+      "raw_sha256": "67fbe83541c7c038ca47679384f1b36a5ec5c85c04e4925463f3b63f8cfbb1e9",
+      "gzip_sha256": "8fe0422d3f73b0782e61c98edb570384c5b0f3c6864f056796d3f19a46118daa"
+    },
+    {
+      "split": "validation",
+      "raw_sha256": "6226ad0b8fedc242723bff9bfb46f7bdb8a45a1a621c99f08600d5e3eda684e1",
+      "gzip_sha256": "cfc1bdc3d42f4b7fc283397b01dafcce20a73f5fb52e4d7f1b569f35eb881bde"
+    }
+  ],
+  "experts_per_layer": 256,
+  "experts_pruned_per_layer": 32,
+  "layer_reap_prune_set_jaccards": [
+    0.20754716981132076,
+    0.12280701754385964,
+    0.14285714285714285,
+    0.2549019607843137,
+    0.12280701754385964,
+    0.20754716981132076,
+    0.16363636363636364,
+    0.16363636363636364,
+    0.23076923076923078,
+    0.16363636363636364,
+    0.10344827586206896,
+    0.23076923076923078,
+    0.18518518518518517,
+    0.16363636363636364,
+    0.20754716981132076,
+    0.14285714285714285,
+    0.12280701754385964,
+    0.23076923076923078,
+    0.20754716981132076,
+    0.18518518518518517,
+    0.16363636363636364,
+    0.14285714285714285,
+    0.2549019607843137,
+    0.23076923076923078,
+    0.14285714285714285,
+    0.16363636363636364,
+    0.23076923076923078,
+    0.18518518518518517,
+    0.14285714285714285,
+    0.30612244897959184,
+    0.23076923076923078,
+    0.45454545454545453,
+    0.391304347826087,
+    0.4222222222222222,
+    0.4883720930232558,
+    0.28,
+    0.391304347826087,
+    0.45454545454545453,
+    0.30612244897959184,
+    0.6,
+    1.0
+  ],
+  "layers": 41,
+  "layers_with_zero_reap_prune_set_overlap": 0,
+  "method": "per-layer REAP bottom-set Jaccard and average-tie Spearman",
+  "model_fingerprint": "poe1:a0952c3c50425919",
+  "poe_compare_source_revision": "3908873326bcdbe097f4184729db7c33fff1cf60",
+  "prune_fraction": 0.125,
+  "reap_prune_set_jaccard_max": 1.0,
+  "reap_prune_set_jaccard_mean": 0.2571384288665888,
+  "reap_prune_set_jaccard_min": 0.10344827586206896,
+  "reap_rank_spearman_mean": 0.6335254813727496,
+  "router_frequency_top_set_jaccard_mean": 0.506754611175776,
+  "scope": "ranking stability only; no candidate artifact, quality, or runtime comparison"
+}

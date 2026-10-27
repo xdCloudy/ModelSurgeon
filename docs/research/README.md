@@ -47,3 +47,5 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
+- [Qwen3.5 REAP multi-profile outcome](qwen35moe-reap-multiprofile-outcome-2026-10-27.md) — two disjoint train profiles, upstream POE score fusion, full held-out PPL, paired bootstrap, and a failed quality gate.
+- [Qwen3.5 REAP profile aggregation stability](qwen35moe-reap-profile-aggregation-stability-2026-10-27.md) — three-profile leave-one-out ranking-stability comparison; no quality or deployment claim.

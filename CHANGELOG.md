@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+  - Score records from the Qwen3.5 REAP adapter now encode that the observed
+    router weights are the model's selected top-k probabilities renormalized
+    per token. This distinguishes them from REAP's default full-softmax scoring.
+
+  - Bounded Qwen3.5 REAP route indexing to 1,024 tokens per update by default,
+    in addition to the existing per-expert projection batch limit. Invalid data
+    in a later token chunk leaves observer totals unchanged.
+
+  - Bounded Qwen3.5 REAP expert projection batches to 1,024 routed tokens by default;
+    callers can lower the positive integer limit to fit their calibration hardware.
+    This caps per-expert projection intermediates independently of the total routed
+    token count in a calibration batch.
+
+  - Added fail-closed reloading for Qwen3.5 REAP score records, validating the
+    metric schema, uniform layer/expert dimensions, finite saliency values, and
+    consistency between unseen experts and routed-token counts.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
