@@ -1,6 +1,6 @@
 # Grouped mutation dataset splits
 
-Issue #86 creates deterministic train/validation/test manifests while preventing configured component, layer, or mutation-family groups from crossing split boundaries.
+Issue #86 creates deterministic train/validation/test manifests while preventing configured component, layer, mutation-family, or model-identity groups from crossing split boundaries.
 
 ## Validation boundary
 
@@ -25,6 +25,10 @@ For non-standard component paths, an integer `layer_index` mutation parameter is
 ### Mutation-family mode
 
 An explicit `mutation_family` mutation parameter is preferred. Otherwise family identity is mutation kind plus `candidate_scope` when present, falling back to mutation kind alone.
+
+### Model-identity mode
+
+The stable model identifier is the group key. All revisions of that identifier stay in one partition, preventing revision aliases from leaking across train, validation, and test in transfer datasets.
 
 ## Deterministic assignment
 

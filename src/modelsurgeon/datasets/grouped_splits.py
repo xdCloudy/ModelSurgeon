@@ -1,4 +1,4 @@
-"""Deterministic leakage-safe splits by component, layer, or mutation family."""
+"""Deterministic leakage-safe splits by component, layer, mutation family, or model."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ class GroupedSplitMode(StrEnum):
     COMPONENT = "component"
     LAYER = "layer"
     MUTATION_FAMILY = "mutation_family"
+    MODEL_IDENTITY = "model_identity"
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +235,10 @@ def _mutation_family_keys(example: MutationExampleRecord) -> tuple[str, ...]:
     return (f"mutation_family:{family}",)
 
 
+def _model_identity_keys(example: MutationExampleRecord) -> tuple[str, ...]:
+    return (f"model_identity:{example.model.identifier}",)
+
+
 def group_keys(
     example: MutationExampleRecord,
     mode: GroupedSplitMode,
@@ -244,6 +249,8 @@ def group_keys(
         return _component_keys(example)
     if mode is GroupedSplitMode.LAYER:
         return _layer_keys(example)
+    if mode is GroupedSplitMode.MODEL_IDENTITY:
+        return _model_identity_keys(example)
     return _mutation_family_keys(example)
 
 
