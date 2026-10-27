@@ -4,6 +4,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - [Chunk-streamed HF gradient GPU memory and score comparison](v1.8-gradient-graph-memory-evidence.md) and [raw measurement record](v1.8-gradient-graph-memory-evidence-v1.json)
 - [WikiText-2 HF gradient GPU memory follow-up](v1.8-gradient-wikitext-memory-evidence.md) and [five raw measurement records](v1.8-gradient-wikitext-memory-evidence-v1.json)
+- [HF gradient streaming model-scale follow-up](v1.8-gradient-model-scale-evidence.md) and [raw Qwen2.5-1.5B records](v1.8-gradient-model-scale-evidence-v1.json)
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
