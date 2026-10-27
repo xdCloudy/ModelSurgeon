@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+  - Bounded Qwen3.5 REAP expert projection batches to 1,024 routed tokens by default;
+    callers can lower the positive integer limit to fit their calibration hardware.
+    This caps per-expert projection intermediates independently of the total routed
+    token count in a calibration batch.
+
   - Added fail-closed reloading for Qwen3.5 REAP score records, validating the
     metric schema, uniform layer/expert dimensions, finite saliency values, and
     consistency between unseen experts and routed-token counts.

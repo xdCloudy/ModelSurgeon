@@ -143,16 +143,30 @@ class Qwen35MoeReapObserver:
     :meth:`update`, or register hooks on the per-layer ``mlp.experts`` modules.
     When using hooks, a mask provider is mandatory so callers explicitly choose
     how padding tokens are handled. Return ``None`` only for batches where every
-    routed token is valid.
+    routed token is valid. Projection work is chunked by expert, with at most
+    ``max_routes_per_expert_batch`` routes processed at once (default 1,024).
     """
 
-    def __init__(self, *, num_layers: int, num_experts: int) -> None:
+    def __init__(
+        self,
+        *,
+        num_layers: int,
+        num_experts: int,
+        max_routes_per_expert_batch: int = 1024,
+    ) -> None:
         if isinstance(num_layers, bool) or not isinstance(num_layers, int) or num_layers < 1:
             raise Qwen35MoeReapError("num_layers must be a positive integer")
         if isinstance(num_experts, bool) or not isinstance(num_experts, int) or num_experts < 1:
             raise Qwen35MoeReapError("num_experts must be a positive integer")
+        if (
+            isinstance(max_routes_per_expert_batch, bool)
+            or not isinstance(max_routes_per_expert_batch, int)
+            or max_routes_per_expert_batch < 1
+        ):
+            raise Qwen35MoeReapError("max_routes_per_expert_batch must be a positive integer")
         self.num_layers = num_layers
         self.num_experts = num_experts
+        self.max_routes_per_expert_batch = max_routes_per_expert_batch
         self._weighted_sums = [[0.0] * num_experts for _ in range(num_layers)]
         self._routed_counts = [[0] * num_experts for _ in range(num_layers)]
         self._handles: list[Any] = []
@@ -266,9 +280,10 @@ class Qwen35MoeReapObserver:
         weight_tolerance = float(torch.finfo(top_k_weights.dtype).eps) * top_k_index.shape[1]
         weight_sums = normalized_weights.sum(dim=-1)
         invalid_weight = (
-            (~torch.isfinite(top_k_weights) | (top_k_weights < 0) | (top_k_weights > 1)).any()
-            | (~torch.isfinite(weight_sums) | ((weight_sums - 1.0).abs() > weight_tolerance)).any()
-        )
+            ~torch.isfinite(top_k_weights) | (top_k_weights < 0) | (top_k_weights > 1)
+        ).any() | (
+            ~torch.isfinite(weight_sums) | ((weight_sums - 1.0).abs() > weight_tolerance)
+        ).any()
         if bool((invalid_index | duplicate_index).item()):
             raise Qwen35MoeReapError("expert indices must be in range and unique per token")
         if bool(invalid_weight.item()):
@@ -296,17 +311,24 @@ class Qwen35MoeReapObserver:
                 if routed_count == 0:
                     continue
 
-                token_indices = torch.div(expert_routes, top_k, rounding_mode="floor")
-                top_k_positions = torch.remainder(expert_routes, top_k)
+                for route_start in range(0, routed_count, self.max_routes_per_expert_batch):
+                    route_stop = min(route_start + self.max_routes_per_expert_batch, routed_count)
+                    route_chunk = expert_routes[route_start:route_stop]
+                    token_indices = torch.div(route_chunk, top_k, rounding_mode="floor")
+                    top_k_positions = torch.remainder(route_chunk, top_k)
 
-                projected = functional.linear(hidden_states[token_indices], gate_up_proj[expert])
-                gate, up = projected.chunk(2, dim=-1)
-                intermediate = act_fn(gate) * up
-                expert_output = functional.linear(intermediate, down_proj[expert])
-                output_norm = torch.linalg.vector_norm(expert_output.float(), ord=2, dim=-1)
-                weighted_norm = output_norm * top_k_weights[token_indices, top_k_positions].float()
-                has_nonfinite_output |= (~torch.isfinite(weighted_norm)).any()
-                batch_sums[expert] = weighted_norm.sum(dtype=torch.float64)
+                    projected = functional.linear(
+                        hidden_states[token_indices], gate_up_proj[expert]
+                    )
+                    gate, up = projected.chunk(2, dim=-1)
+                    intermediate = act_fn(gate) * up
+                    expert_output = functional.linear(intermediate, down_proj[expert])
+                    output_norm = torch.linalg.vector_norm(expert_output.float(), ord=2, dim=-1)
+                    weighted_norm = (
+                        output_norm * top_k_weights[token_indices, top_k_positions].float()
+                    )
+                    has_nonfinite_output |= (~torch.isfinite(weighted_norm)).any()
+                    batch_sums[expert] += weighted_norm.sum(dtype=torch.float64)
 
         batch_values = (
             torch.cat((batch_sums, has_nonfinite_output.reshape(1).to(torch.float64)))

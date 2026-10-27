@@ -107,6 +107,44 @@ def test_sparse_scores_match_dense_reference_and_exclude_padding() -> None:
         assert actual == pytest.approx(expected, abs=1e-6)
 
 
+def test_expert_projection_chunks_bound_route_batch_and_preserve_scores(monkeypatch) -> None:
+    torch.manual_seed(20261028)
+    module = TinyExperts(num_experts=3)
+    hidden = torch.randn(9, 3)
+    indices = torch.tensor([[0, 1]] * 5 + [[0, 2]] * 4)
+    weights = torch.full((9, 2), 0.5)
+    valid_mask = torch.ones(9, dtype=torch.bool)
+    expected_scores, expected_counts = dense_reference(module, hidden, indices, weights, valid_mask)
+
+    observed_route_batches: list[int] = []
+    original_linear = torch.nn.functional.linear
+
+    def track_linear(input, weight, bias=None):
+        observed_route_batches.append(input.shape[0])
+        return original_linear(input, weight, bias)
+
+    monkeypatch.setattr(torch.nn.functional, "linear", track_linear)
+    observer = Qwen35MoeReapObserver(num_layers=1, num_experts=3, max_routes_per_expert_batch=2)
+    observer.update(0, module, hidden, indices, weights, valid_token_mask=valid_mask)
+    result = observer.report()
+
+    assert result.routed_counts_by_layer == (tuple(expected_counts),)
+    for actual, expected in zip(result.scores_by_layer[0], expected_scores, strict=True):
+        assert actual == pytest.approx(expected, abs=1e-6)
+    assert len(observed_route_batches) > 2
+    assert max(observed_route_batches) <= 2
+
+
+@pytest.mark.parametrize("invalid_limit", [0, -1, 1.5, True])
+def test_route_batch_limit_must_be_a_positive_integer(invalid_limit: object) -> None:
+    with pytest.raises(Qwen35MoeReapError, match="max_routes_per_expert_batch"):
+        Qwen35MoeReapObserver(
+            num_layers=1,
+            num_experts=3,
+            max_routes_per_expert_batch=invalid_limit,
+        )
+
+
 def test_unseen_experts_are_none_and_counts_accumulate_across_batches() -> None:
     module = TinyExperts(num_experts=3)
     observer = Qwen35MoeReapObserver(num_layers=1, num_experts=3)

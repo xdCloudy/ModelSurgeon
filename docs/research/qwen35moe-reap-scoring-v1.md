@@ -88,8 +88,12 @@ second normalization. Its score uses the unweighted expert output before
 applying the selected router weight, matching REAP's observation semantics.
 
 The implementation compacts valid routes, sorts by expert, and transfers the
-per-expert route counts once before processing bounded expert slices. This
-avoids discovering route positions with a separate data-dependent `where`
+per-expert route counts once before processing bounded expert slices. It limits
+each expert's projection batch to 1,024 routed tokens by default, with a
+positive-integer override for smaller hardware budgets. This bounds projection
+intermediates independently of total routes in the calibration batch; route
+index bookkeeping still scales linearly with the batch's routed-token count.
+It avoids discovering route positions with a separate data-dependent `where`
 operation for every expert and avoids materializing a tensor of every selected
 expert weight. The structural reduction in route-discovery synchronizations is
 not a measured CUDA latency result; current host VRAM availability prevented
