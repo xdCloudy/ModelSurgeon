@@ -252,6 +252,28 @@ def test_training_preprocessing_is_fit_only_on_train_and_inference_fails_closed(
         transform_inference_record(incomplete, matrices.preprocessor)
 
 
+@pytest.mark.parametrize("bound", ["min_value", "max_value"])
+def test_persisted_numeric_support_bounds_reject_conversion_overflow(bound: str) -> None:
+    numeric_record: dict[str, object] = {
+        "name": "weight_mean",
+        "mean": 0.0,
+        "scale": 1.0,
+        "min_value": 0.0,
+        "max_value": 1.0,
+    }
+    numeric_record[bound] = 10**400
+    preprocessor_record: dict[str, object] = {
+        "schema_version": 1,
+        "source_feature_schema_version": 1,
+        "target_schema_version": 1,
+        "numeric": [numeric_record],
+        "categorical": [],
+    }
+
+    with pytest.raises(TrainingMatrixError, match="numeric preprocessor values must be finite"):
+        SurgeonPreprocessor.from_record(preprocessor_record)
+
+
 def test_quantization_context_changes_bf16_and_q4_inference_rows() -> None:
     examples = (
         _example("bf16-a", feature=1.0, quantization="BF16", post_ppl=10.1),

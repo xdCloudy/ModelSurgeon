@@ -186,13 +186,22 @@ class SurgeonPreprocessor:
                 )
             ):
                 raise TrainingMatrixError("persisted numeric preprocessor fields are invalid")
+            try:
+                normalized_mean = float(mean)
+                normalized_scale = float(scale)
+                normalized_min = None if min_value is None else float(min_value)
+                normalized_max = None if max_value is None else float(max_value)
+            except (OverflowError, TypeError, ValueError) as error:
+                raise TrainingMatrixError(
+                    "persisted numeric preprocessor values must be finite numbers"
+                ) from error
             numeric.append(
                 NumericPreprocessor(
                     name,
-                    float(mean),
-                    float(scale),
-                    None if min_value is None else float(min_value),
-                    None if max_value is None else float(max_value),
+                    normalized_mean,
+                    normalized_scale,
+                    normalized_min,
+                    normalized_max,
                 )
             )
         categorical: list[CategoricalPreprocessor] = []
