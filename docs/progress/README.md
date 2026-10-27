@@ -7,14 +7,14 @@ Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.jso
 
 ## Current scores
 
-Overall weighted completion: **28.8%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **28.9%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
 | Research coverage | 49.3% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 39.4% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Implementation maturity | 39.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 6.0% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 33.7% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Production readiness | 34.0% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
 | Representative compatibility coverage | 36.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
@@ -27,7 +27,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.2% | 48.9% | 39.1% | 3.6% | 33.6% |
+| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 21.7% | 48.9% | 40.2% | 3.6% | 35.0% |
 | [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 24.1% | 45.5% | 30.8% | 3.2% | 20.2% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.0% | 10.6% | 3.0% | 0.0% | 3.0% |

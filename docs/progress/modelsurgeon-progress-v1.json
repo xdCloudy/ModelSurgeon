@@ -3435,9 +3435,9 @@
       "weight": 7,
       "research_status": "feasibility_evaluated",
       "research_outcome": null,
-      "implementation_status": "locally_tested",
+      "implementation_status": "ci_validated",
       "effectiveness_status": "not_assessed",
-      "readiness_status": "locally_validated",
+      "readiness_status": "ci_validated",
       "scored_dimensions": [
         "research",
         "implementation",
@@ -3491,9 +3491,9 @@
           "date": "2026-10-27",
           "research_status": "feasibility_evaluated",
           "research_outcome": null,
-          "implementation_status": "locally_tested",
+          "implementation_status": "ci_validated",
           "effectiveness_status": "not_assessed",
-          "readiness_status": "locally_validated",
+          "readiness_status": "ci_validated",
           "evidence_refs": [
             {
               "path": "docs/research/v1.5-structural-feature-paths-v2.md",
@@ -3504,7 +3504,7 @@
               "label": "Structural feature-path protocol v2"
             }
           ],
-          "reason": "Audited the existing prototype and corrected test-set selection leakage, misleading architecture labels, and theoretical resource accounting. No physical outcome comparison was performed.",
+          "reason": "Audited the existing prototype, corrected test-set selection leakage and misleading architecture/resource claims, then passed full local and hosted CI validation. No physical outcome comparison was performed.",
           "reassessment": true
         }
       ]
