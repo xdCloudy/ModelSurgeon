@@ -6,12 +6,12 @@ import json
 import math
 import random
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Final
 
-RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 1
-RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v1"
+RANKING_OBJECTIVE_SCHEMA_VERSION: Final[int] = 3
+RANKING_OBJECTIVE_PROTOCOL_REVISION: Final[str] = "ranking-objectives-v5"
 
 
 class RankingObjectiveError(ValueError):
@@ -35,7 +35,10 @@ class CandidateEvidenceStatus(StrEnum):
 def _finite(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise RankingObjectiveError(f"{label} must be numeric")
-    result = float(value)
+    try:
+        result = float(value)
+    except (OverflowError, ValueError) as error:
+        raise RankingObjectiveError(f"{label} must be finite") from error
     if not math.isfinite(result):
         raise RankingObjectiveError(f"{label} must be finite")
     return result
@@ -60,10 +63,29 @@ class RankingCandidateEvidence:
     violated: bool | None
     cumulative_utility: float | None
     status: CandidateEvidenceStatus = CandidateEvidenceStatus.MEASURED
+    objective_scores: tuple[tuple[RankingObjective, float], ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.candidate_id, "candidate ID")
         _finite(self.predicted_score, "predicted score")
+        objectives = tuple(objective for objective, _ in self.objective_scores)
+        if len(objectives) != len(set(objectives)):
+            raise RankingObjectiveError("objective-specific predictions must be unique")
+        if objectives and set(objectives) != set(RankingObjective):
+            raise RankingObjectiveError(
+                "objective-specific predictions must cover every ranking objective"
+            )
+        for objective, score in self.objective_scores:
+            if not isinstance(objective, RankingObjective):
+                raise RankingObjectiveError(
+                    "objective-specific prediction has an invalid objective"
+                )
+            _finite(score, f"{objective.value} predicted score")
+        object.__setattr__(
+            self,
+            "objective_scores",
+            tuple(sorted(self.objective_scores, key=lambda item: item[0].value)),
+        )
         if self.utility is not None:
             _finite(self.utility, "candidate utility")
         if not 0.0 <= _finite(self.violation_probability, "violation probability") <= 1.0:
@@ -87,7 +109,20 @@ class RankingCandidateEvidence:
             "violated": self.violated,
             "cumulative_utility": self.cumulative_utility,
             "status": self.status.value,
+            "objective_scores": {
+                objective.value: score for objective, score in self.objective_scores
+            },
         }
+
+    def score_for(self, objective: RankingObjective) -> float:
+        """Return a held-out prediction, never a measured candidate outcome."""
+
+        if not self.objective_scores:
+            return self.predicted_score
+        for candidate_objective, score in self.objective_scores:
+            if candidate_objective is objective:
+                return score
+        raise RankingObjectiveError(f"missing predicted score for {objective.value}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,43 +166,46 @@ class RankingObjectiveConfig:
     bootstrap_repetitions: int = 200
     confidence: float = 0.95
     seed: int = 0
-    equal_training_budget_steps: int = 1_000
-    inference_cost_microseconds: tuple[tuple[RankingObjective, float], ...] = (
-        (RankingObjective.LISTWISE, 8.0),
-        (RankingObjective.PAIRWISE, 6.0),
-        (RankingObjective.POINTWISE, 4.0),
-        (RankingObjective.SEQUENCE, 10.0),
-    )
+    equal_training_budget_steps: int | None = None
+    inference_cost_microseconds: tuple[tuple[RankingObjective, float], ...] = ()
 
     def __post_init__(self) -> None:
-        if (
-            self.top_k <= 0
-            or self.bootstrap_repetitions <= 0
+        for label, value in (
+            ("top_k", self.top_k),
+            ("bootstrap repetitions", self.bootstrap_repetitions),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise RankingObjectiveError(f"ranking objective {label} must be a positive integer")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise RankingObjectiveError("ranking objective seed must be an unsigned integer")
+        confidence = _finite(self.confidence, "ranking confidence")
+        if not 0.5 < confidence < 1.0:
+            raise RankingObjectiveError("ranking confidence must be in (0.5, 1)")
+        if self.equal_training_budget_steps is not None and (
+            isinstance(self.equal_training_budget_steps, bool)
+            or not isinstance(self.equal_training_budget_steps, int)
             or self.equal_training_budget_steps <= 0
         ):
-            raise RankingObjectiveError("ranking objective budgets must be positive")
-        if not 0.5 < self.confidence < 1.0 or not math.isfinite(self.confidence):
-            raise RankingObjectiveError("ranking confidence must be in (0.5, 1)")
-        if isinstance(self.seed, bool) or self.seed < 0:
-            raise RankingObjectiveError("ranking objective seed must be unsigned")
+            raise RankingObjectiveError("declared equal training-step budget must be positive")
         objectives = tuple(item[0] for item in self.inference_cost_microseconds)
+        if any(not isinstance(item, RankingObjective) for item in objectives):
+            raise RankingObjectiveError("objective cost entries have invalid objectives")
         if len(objectives) != len(set(objectives)):
             raise RankingObjectiveError("objective costs must be unique and canonical")
-        if any(
-            not math.isfinite(cost) or cost <= 0.0 for _, cost in self.inference_cost_microseconds
-        ):
-            raise RankingObjectiveError("objective inference costs must be positive")
+        for _, cost in self.inference_cost_microseconds:
+            if _finite(cost, "measured objective inference cost") <= 0.0:
+                raise RankingObjectiveError("measured objective inference costs must be positive")
         object.__setattr__(
             self,
             "inference_cost_microseconds",
             tuple(sorted(self.inference_cost_microseconds, key=lambda item: item[0].value)),
         )
 
-    def cost_for(self, objective: RankingObjective) -> float:
+    def cost_for(self, objective: RankingObjective) -> float | None:
         for candidate, cost in self.inference_cost_microseconds:
             if candidate is objective:
-                return cost
-        raise RankingObjectiveError(f"missing resource cost for {objective.value}")
+                return float(cost)
+        return None
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -198,13 +236,6 @@ class RankingMetric:
             raise RankingObjectiveError("ranking metric values must be finite")
         if self.value is None and not self.reason:
             raise RankingObjectiveError("undefined ranking metrics require a reason")
-        if (
-            self.value is not None
-            and self.interval_low is not None
-            and self.interval_high is not None
-            and (self.interval_low > self.value or self.value > self.interval_high)
-        ):
-            raise RankingObjectiveError("ranking metric intervals must contain the value")
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -221,12 +252,21 @@ class RankingObjectiveResult:
     objective: RankingObjective
     rankings: tuple[tuple[str, tuple[str, ...]], ...]
     metrics: tuple[RankingMetric, ...]
-    training_budget_steps: int
-    inference_cost_microseconds: float
+    training_budget_steps: int | None
+    inference_cost_microseconds: float | None
 
     def __post_init__(self) -> None:
-        if self.training_budget_steps <= 0 or self.inference_cost_microseconds <= 0.0:
-            raise RankingObjectiveError("ranking resource costs must be positive")
+        if self.training_budget_steps is not None and (
+            isinstance(self.training_budget_steps, bool)
+            or not isinstance(self.training_budget_steps, int)
+            or self.training_budget_steps <= 0
+        ):
+            raise RankingObjectiveError("declared training-step budget must be positive")
+        if self.inference_cost_microseconds is not None and (
+            isinstance(self.inference_cost_microseconds, bool)
+            or _finite(self.inference_cost_microseconds, "measured inference cost") <= 0.0
+        ):
+            raise RankingObjectiveError("measured inference cost must be positive and finite")
 
     def metric(self, name: str) -> RankingMetric:
         for metric in self.metrics:
@@ -292,21 +332,7 @@ def _rank_candidates(
     )
     if not measured:
         return ()
-    if objective is RankingObjective.SEQUENCE:
-        return tuple(sorted(measured, key=lambda item: (-_cumulative(item), item.candidate_id)))
-    if objective is RankingObjective.PAIRWISE:
-        return tuple(sorted(measured, key=lambda item: (-item.predicted_score, item.candidate_id)))
-    if objective is RankingObjective.LISTWISE:
-        # Softmax normalization is list-aware but preserves deterministic utility order.
-        scores = tuple(math.exp(max(-40.0, min(40.0, item.predicted_score))) for item in measured)
-        return tuple(
-            item
-            for _, item in sorted(
-                zip(scores, measured, strict=True),
-                key=lambda pair: (-pair[0], pair[1].candidate_id),
-            )
-        )
-    return tuple(sorted(measured, key=lambda item: (-item.predicted_score, item.candidate_id)))
+    return tuple(sorted(measured, key=lambda item: (-item.score_for(objective), item.candidate_id)))
 
 
 def _utility(item: RankingCandidateEvidence) -> float:
@@ -356,19 +382,34 @@ def _list_metrics(
 
 
 def _bootstrap_interval(
-    values: Sequence[float], config: RankingObjectiveConfig, seed_offset: int
-) -> tuple[float, float, float]:
+    values: Sequence[float],
+    lineage_group_ids: Sequence[str],
+    config: RankingObjectiveConfig,
+    seed_offset: int,
+) -> tuple[float, float | None, float | None]:
     if not values:
         raise RankingObjectiveError("ranking metrics require measured held-out lists")
+    if len(values) != len(lineage_group_ids):
+        raise RankingObjectiveError("ranking metric values must align with lineage groups")
+    values_by_group: dict[str, list[float]] = {}
+    for value, group_id in zip(values, lineage_group_ids, strict=True):
+        values_by_group.setdefault(_text(group_id, "lineage group ID"), []).append(value)
+    groups = tuple(sorted(values_by_group))
+    group_means = tuple(
+        math.fsum(values_by_group[group_id]) / len(values_by_group[group_id]) for group_id in groups
+    )
+    mean = math.fsum(group_means) / len(group_means)
+    if len(groups) < 2:
+        return mean, None, None
     rng = random.Random(config.seed + seed_offset)
-    estimates = [math.fsum(values) / len(values)]
+    estimates: list[float] = []
     for _ in range(config.bootstrap_repetitions):
-        sample = [values[rng.randrange(len(values))] for _ in values]
+        sample = [group_means[rng.randrange(len(group_means))] for _ in groups]
         estimates.append(math.fsum(sample) / len(sample))
     estimates.sort()
     low_index = int((1.0 - config.confidence) / 2.0 * len(estimates))
     high_index = min(len(estimates) - 1, int((1.0 + config.confidence) / 2.0 * len(estimates)))
-    return estimates[0], estimates[low_index], estimates[high_index]
+    return mean, estimates[low_index], estimates[high_index]
 
 
 def evaluate_ranking_objectives(
@@ -386,9 +427,12 @@ def evaluate_ranking_objectives(
     if any(item.split not in {"validation", "test"} for item in candidate_lists):
         raise RankingObjectiveError("objective evaluation requires held-out validation/test lists")
     results: list[RankingObjectiveResult] = []
+    regret_by_objective: dict[RankingObjective, dict[str, float]] = {}
+    lineage_group_by_list: dict[str, str] = {}
     for objective in RankingObjective:
         ranked_lists: list[tuple[str, tuple[str, ...]]] = []
         metric_rows: list[tuple[float, float, float, float, float]] = []
+        metric_group_ids: list[str] = []
         for candidate_list in candidate_lists:
             ranked = _rank_candidates(candidate_list, objective)
             if not ranked:
@@ -397,14 +441,22 @@ def evaluate_ranking_objectives(
                 (candidate_list.list_id, tuple(item.candidate_id for item in ranked))
             )
             metric_rows.append(_list_metrics(ranked, min(resolved.top_k, len(ranked))))
+            metric_group_ids.append(candidate_list.lineage_group_id)
+            regret_by_objective.setdefault(objective, {})[candidate_list.list_id] = metric_rows[-1][
+                0
+            ]
+            lineage_group_by_list[candidate_list.list_id] = candidate_list.lineage_group_id
         if not metric_rows:
             raise RankingObjectiveError(
                 f"objective {objective.value} has no measured held-out lists"
             )
-        ndcg_values = [
-            _ndcg(_rank_candidates(candidate_list, objective), resolved.top_k)
+        ndcg_lists = tuple(
+            (candidate_list, _rank_candidates(candidate_list, objective))
             for candidate_list in candidate_lists
-            if _rank_candidates(candidate_list, objective)
+        )
+        ndcg_values = [_ndcg(ranked, resolved.top_k) for _, ranked in ndcg_lists if ranked]
+        ndcg_group_ids = [
+            candidate_list.lineage_group_id for candidate_list, ranked in ndcg_lists if ranked
         ]
         names = (
             "ndcg",
@@ -415,16 +467,18 @@ def evaluate_ranking_objectives(
             "cumulative_frontier_utility",
         )
         columns = (
-            ndcg_values,
-            [row[0] for row in metric_rows],
-            [row[1] for row in metric_rows],
-            [row[2] for row in metric_rows],
-            [row[3] for row in metric_rows],
-            [row[4] for row in metric_rows],
+            (ndcg_values, ndcg_group_ids),
+            ([row[0] for row in metric_rows], metric_group_ids),
+            ([row[1] for row in metric_rows], metric_group_ids),
+            ([row[2] for row in metric_rows], metric_group_ids),
+            ([row[3] for row in metric_rows], metric_group_ids),
+            ([row[4] for row in metric_rows], metric_group_ids),
         )
         metrics: list[RankingMetric] = []
-        for index, (name, values) in enumerate(zip(names, columns, strict=True), start=1):
-            mean, low, high = _bootstrap_interval(values, resolved, index * 100)
+        for index, (name, (values, group_ids)) in enumerate(
+            zip(names, columns, strict=True), start=1
+        ):
+            mean, low, high = _bootstrap_interval(values, group_ids, resolved, index * 100)
             metrics.append(RankingMetric(name, mean, low, high))
         results.append(
             RankingObjectiveResult(
@@ -436,26 +490,41 @@ def evaluate_ranking_objectives(
             )
         )
     results.sort(key=lambda item: item.objective.value)
-    pointwise = next(item for item in results if item.objective is RankingObjective.POINTWISE)
-    pointwise_regret = pointwise.metric("regret")
+    pointwise_regrets = regret_by_objective[RankingObjective.POINTWISE]
+    alternative_count = len(RankingObjective) - 1
+    adjusted_confidence = 1.0 - 2.0 * (1.0 - resolved.confidence) / alternative_count
+    recommendation_config = replace(resolved, confidence=adjusted_confidence)
+    for index, result in enumerate(results, start=1):
+        objective_regrets = regret_by_objective[result.objective]
+        shared_list_ids = tuple(sorted(set(objective_regrets) & set(pointwise_regrets)))
+        differences = tuple(
+            objective_regrets[list_id] - pointwise_regrets[list_id] for list_id in shared_list_ids
+        )
+        paired_group_ids = tuple(lineage_group_by_list[list_id] for list_id in shared_list_ids)
+        mean, low, high = _bootstrap_interval(
+            differences, paired_group_ids, recommendation_config, 700 + index * 100
+        )
+        paired_metric = RankingMetric("paired_regret_difference_vs_pointwise", mean, low, high)
+        results[index - 1] = replace(result, metrics=(*result.metrics, paired_metric))
     recommendation: RankingObjective | None = None
     reason = (
-        "pointwise remains the preregistered baseline; no confidence-bounded "
+        "fewer than two independent lineage groups; no confidence-bounded "
+        "recommendation is available"
+        if len(set(lineage_group_by_list.values())) < 2
+        else "pointwise remains the preregistered baseline; no confidence-bounded "
         "complex-objective benefit"
     )
     for result in results:
         if result.objective is RankingObjective.POINTWISE:
             continue
-        regret = result.metric("regret")
-        if (
-            regret.interval_high is not None
-            and pointwise_regret.interval_low is not None
-            and regret.interval_high < pointwise_regret.interval_low
+        paired_regret_difference = result.metric("paired_regret_difference_vs_pointwise")
+        if paired_regret_difference.interval_high is not None and (
+            paired_regret_difference.interval_high < 0.0
         ):
             recommendation = result.objective
             reason = (
-                f"{result.objective.value} has a confidence-bounded lower held-out "
-                "regret than pointwise"
+                f"{result.objective.value} has a family-wise confidence-bounded lower "
+                "paired held-out regret difference than pointwise"
             )
             break
     return RankingObjectiveStudy(tuple(results), recommendation, reason)

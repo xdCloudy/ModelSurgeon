@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+  - Fixed held-out ranking-objective evaluation so sequence ranking uses
+    predicted scores instead of measured cumulative utility. Added optional
+    per-objective score predictions for matched comparisons and versioned the
+    study protocol; legacy scalar predictions now apply uniformly and cannot
+    make any objective appear superior through outcome leakage. Removed
+    assumed training-step and inference-cost defaults; absent resource
+    measurements remain `null` in the study record. Confidence intervals now
+    resample lineage groups so correlated candidate lists do not count as
+    independent samples and abstain when there are fewer than two independent
+    groups. Metric values are the observed means, separate from bootstrap
+    percentile bounds. Objective recommendations use Bonferroni-adjusted,
+    paired regret differences over shared held-out lists. The superseded v1
+    protocol descriptor remains available for audit and reproduction.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
