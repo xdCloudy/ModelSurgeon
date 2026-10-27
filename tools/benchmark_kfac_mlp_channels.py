@@ -220,7 +220,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         args.sequence_length,
         offset_tokens=args.calibration_offset_tokens,
     )
-    evaluation_chunks = _chunks(evaluation_ids_all, args.evaluation_tokens, args.sequence_length)
+    evaluation_chunks = _chunks(
+        evaluation_ids_all,
+        args.evaluation_tokens,
+        args.sequence_length,
+        offset_tokens=args.evaluation_offset_tokens,
+    )
     calibration_ids = [int(value) for chunk in calibration_chunks for value in chunk[0].tolist()]
     evaluation_ids = [int(value) for chunk in evaluation_chunks for value in chunk[0].tolist()]
     calibration_digest = hashlib.sha256(
@@ -394,6 +399,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "calibration_target_tokens": args.calibration_tokens,
             "calibration_offset_tokens": args.calibration_offset_tokens,
             "evaluation_target_tokens": args.evaluation_tokens,
+            "evaluation_offset_tokens": args.evaluation_offset_tokens,
             "sequence_length": args.sequence_length,
             "calibration_input_ids_sha256": calibration_digest,
             "evaluation_input_ids_sha256": evaluation_digest,
@@ -480,6 +486,7 @@ def main() -> None:
     parser.add_argument("--calibration-tokens", type=int, default=256)
     parser.add_argument("--calibration-offset-tokens", type=int, default=0)
     parser.add_argument("--evaluation-tokens", type=int, default=2048)
+    parser.add_argument("--evaluation-offset-tokens", type=int, default=0)
     parser.add_argument("--sequence-length", type=int, default=129)
     parser.add_argument("--removed-channels", type=int, nargs="+", default=[8, 16, 32, 64])
     parser.add_argument("--random-seeds", type=int, nargs="+", default=[11, 29, 47])
@@ -495,6 +502,7 @@ def main() -> None:
             args.calibration_tokens,
             args.calibration_offset_tokens if args.calibration_offset_tokens else 1,
             args.evaluation_tokens,
+            args.evaluation_offset_tokens if args.evaluation_offset_tokens else 1,
             args.sequence_length,
             args.torch_threads,
         )
