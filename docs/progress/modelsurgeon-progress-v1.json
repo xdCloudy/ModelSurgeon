@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.8",
+  "scope_version": "1.2.9",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer. Scope version 1.2.8 adds a pinned MIT WANDA source audit and an independently implemented structured activation-score baseline. On Qwen2.5-0.5B, KFAC ranks best across two short train calibration windows, but all candidate artifacts fail the quality gate and channel overlap across windows is low; no reproduction of original unstructured WANDA is claimed.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer. Scope version 1.2.8 adds a pinned MIT WANDA source audit and an independently implemented structured activation-score baseline. On Qwen2.5-0.5B, KFAC ranks best across two short train calibration windows, but all candidate artifacts fail the quality gate and channel overlap across windows is low; no reproduction of original unstructured WANDA is claimed. Scope version 1.2.9 separately tracks the bounded Q7 feature-diversity acquisition replay in open PR #771: its fixed mixture is not consistently better than uncertainty-only or random, and its raw source inputs are unavailable for independent reproduction. A Q7 report-integrity follow-up corrected its line-ending-dependent digest to the normalized Git-blob digest and added a regression test; this does not change the replay result or resolve missing raw campaign inputs.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -71,6 +71,12 @@
       "scope_version": "1.2.8",
       "change": "Audited pinned WANDA source and MIT license; added an independent structured channel-level activation baseline and a second disjoint Qwen2 calibration-window comparison. KFAC ranked first twice but all candidates fail the quality gate; low mask overlap prevents claiming stable selections.",
       "previous_scope_version": "1.2.7"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.9",
+      "previous_scope_version": "1.2.8",
+      "change": "Added a separate Meta-Surgeon feature-diversity acquisition replay milestone, pinned kCenterGreedy source/license provenance, and retained the mixed-to-negative Q7 v2 results. Raw replay inputs are absent, so independent reproduction is explicitly uncredited. The existing Q7 milestone was narrowed from weight 7 to weight 6 and split into an uncertainty-only baseline and a separate 1-point feature-diversity research question; workstream weight remains fixed at 100."
     }
   ],
   "workstreams": [
@@ -3605,10 +3611,10 @@
     {
       "id": "meta_surgeon.active_learning",
       "workstream": "meta_surgeon",
-      "title": "Q7 offline uncertainty-acquisition replay",
-      "description": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
-      "scope": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
-      "weight": 7,
+      "title": "Q7 offline uncertainty-only acquisition replay",
+      "description": "The Q7 v1 offline uncertainty-versus-random replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation or feature-diversity acquisition.",
+      "scope": "The Q7 v1 offline uncertainty-versus-random replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation or feature-diversity acquisition.",
+      "weight": 6,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
       "implementation_status": "integrated",
@@ -3640,7 +3646,7 @@
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Run prospective campaigns where labels are acquired after selection; test cost-aware strategies across more models.",
+      "remaining_work": "Run prospective campaigns where labels are acquired after selection; test cost-aware strategies across more models. Feature-diversity acquisition is tracked separately in meta_surgeon.active_learning_diversity.",
       "limitations": [
         "Offline replay reuses measured labels; no general sample-efficiency advantage was shown."
       ],
@@ -3664,6 +3670,118 @@
             }
           ],
           "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.9",
+          "previous": {
+            "title": "Q7 offline uncertainty-acquisition replay",
+            "weight": 7
+          },
+          "reason": "Narrowed this milestone to the original uncertainty-only versus random replay and allocated one of its seven weight points to a separate fixed feature-diversity research question; total Meta-Surgeon workstream weight remains 100."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.active_learning_diversity",
+      "workstream": "meta_surgeon",
+      "title": "Feature-diversity acquisition replay",
+      "description": "Bounded offline replay of the fixed uncertainty/diversity mixture for selecting Meta-Surgeon training experiments; distinct from prospective acquisition and physical optimization effectiveness.",
+      "scope": "Three previously measured model campaigns (SmolLM2-135M, SmolLM2-360M, Qwen2.5-0.5B), five paired seeds, initial set of 16, budgets 16–384, and the fixed 75% uncertainty / 25% feature-diversity mixture compared with uncertainty-only and seeded random.",
+      "weight": 1,
+      "research_status": "baselines_compared",
+      "research_outcome": null,
+      "implementation_status": "ci_validated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "On the archived Q7 offline replay scope, does adding fixed feature-space diversity reduce experiments to held-out AUC >= 0.90 versus uncertainty-only and random acquisition across model campaigns?"
+      ],
+      "acceptance_criteria": [
+        "The bounded replay record reports all three model campaigns, five paired seeds, 45 strategy curves, same initial labeled examples, same budgets, test-only AUC, candidate-selection digests, and measured candidate evaluation costs.",
+        "A research reproduction requires the exact examples, grouped split, and gradient manifest inputs to be available and hash-verified, followed by an independent rerun matching the recorded selection traces and metrics.",
+        "Effectiveness is not promoted from this replay: require prospective experiments with newly acquired labels and independent models, and demonstrate lower experiment or resource cost without degrading held-out quality relative to uncertainty-only and random baselines."
+      ],
+      "dependencies": [
+        "meta_surgeon.active_learning"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+          "label": "Q7 feature-diversity replay assessment"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+          "label": "Q7 v2 curves and immutable input hashes"
+        }
+      ],
+      "source_refs": [
+        "google_active_learning_kcenter"
+      ],
+      "related_prs": [
+        769,
+        770,
+        771
+      ],
+      "related_commits": [
+        "4480508f851a7a4cfa7d22863ee5b4ea2e8703b3",
+        "607b0c4bb3cd66d3d7bcf0a21a39ace06f26f136"
+      ],
+      "remaining_work": "The replay inputs are not committed or linked to a versioned archive. Obtain the three exact source bundles by hash and independently reproduce the recorded curves; then run prospective acquisition studies across additional model families. Keep the fixed mixture unpromoted until prospective evidence demonstrates value.",
+      "limitations": [
+        "The evidence is an offline replay of existing labels, not a prospective acquisition campaign or a physical compression/quality experiment.",
+        "The 75/25 mixture underperformed uncertainty-only and random on Qwen2.5-0.5B, tied target budget on SmolLM2-360M, and had only one target-reaching seed per arm on SmolLM2-135M; there is no consistent cross-model advantage.",
+        "Only input hashes and result curves are retained in the report; raw examples, split manifests, and gradient manifests are absent, so independent reproduction is not currently possible.",
+        "The selector exists only in open PRs #769–#771 and is not integrated into main; no physical optimization outcome is attributed to it.",
+        "The original report digest was computed over a Windows CRLF working copy; PR #771 now records the platform-independent Git-normalized LF blob digest and checks it in a focused regression test."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "baselines_compared",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+              "label": "Q7 feature-diversity replay assessment"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+              "label": "Q7 v2 curves and immutable input hashes"
+            }
+          ],
+          "reason": "Recorded PR #771’s bounded offline replay as mixed-to-negative evidence. The raw input files are missing from the repository, so independent reproduction and any effectiveness promotion remain pending."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "baselines_compared",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+              "label": "Q7 feature-diversity replay assessment and normalized digest"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+              "label": "Q7 v2 curves and immutable input hashes"
+            }
+          ],
+          "reason": "Corrected the Q7 report digest to hash Git-normalized LF bytes, added a regression test for the committed JSON/Markdown digest pair, and revalidated the report integrity. The report still cannot be independently rerun because raw campaign inputs are absent; scientific outcomes and effectiveness remain unchanged."
         }
       ]
     },
@@ -5641,6 +5759,44 @@
         }
       ],
       "reason": "The primary paper and pinned repository were identified. The repository has no LICENSE file at the audited revision; source implementation was not reused."
+    },
+    {
+      "id": "google_active_learning_kcenter",
+      "project": "Google active-learning kCenterGreedy",
+      "url": "https://github.com/google/active-learning",
+      "pinned_revision": "efedd8f1c45421ee13af2b9ff593ad31f3835942",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "At the pinned commit, the repository LICENSE is Apache-2.0. The sampling_methods/kcenter_greedy.py implementation was inspected; ModelSurgeon implemented the coverage selection independently and copied no upstream code.",
+      "method": "Greedy farthest-first k-center selection maintains each unlabeled candidate's minimum distance to selected centers and repeatedly selects a farthest candidate.",
+      "relevance": "A feature-space coverage term can diversify experiments selected for Meta-Surgeon training, complementing predicted uncertainty.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "REIMPLEMENT",
+      "hypothesis": "A fixed uncertainty/diversity acquisition mixture could improve the number of physical labels needed to reach a held-out Meta-Surgeon quality target.",
+      "requirements": "Reproduce the pinned offline replay from exact input files, then test prospective campaigns with newly acquired labels and equal budgets across models.",
+      "findings": "The Q7 v2 report in open PR #771 is mixed: the 75/25 policy required 64 more experiments than uncertainty-only and 25.6 more than random on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M and is inconclusive on SmolLM2-135M. The raw examples, split, and gradient input files are absent from the repository, preventing independent replay.",
+      "remaining_investigation": "Obtain or archive the three immutable input bundles named by the report hashes, verify them, independently rerun all 45 curves, and test adaptive acquisition only on prospective model campaigns.",
+      "source_paths": [
+        "sampling_methods/kcenter_greedy.py",
+        "LICENSE"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "The Q7 v2 report in open PR #771 is mixed: the 75/25 policy required 64 more experiments than uncertainty-only and 25.6 more than random on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M and is inconclusive on SmolLM2-135M. The raw examples, split, and gradient input files are absent from the repository, preventing independent replay.",
+          "pinned_revision": "efedd8f1c45421ee13af2b9ff593ad31f3835942",
+          "licence_status": "verified",
+          "source_paths": [
+            "sampling_methods/kcenter_greedy.py",
+            "LICENSE"
+          ],
+          "reason": "Recorded the pinned upstream method and license separately from ModelSurgeon effectiveness evidence."
+        }
+      ]
     }
   ],
   "compatibility_cells": [
@@ -6235,6 +6391,35 @@
         780
       ],
       "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "active-diversity-replay",
+      "name": "Q7 feature-diversity active-learning replay",
+      "method": "75% uncertainty plus 25% feature-space k-center diversity versus uncertainty-only and seeded random",
+      "model_scope": "SmolLM2-135M, SmolLM2-360M, Qwen2.5-0.5B archived campaigns",
+      "dataset": "Previously measured ModelSurgeon mutation outcomes; raw source files unavailable in the repository",
+      "split": "Per-campaign grouped 409/52/51 train/validation/test split; five paired seeds",
+      "outcome": "inconclusive",
+      "finding": "Hybrid required 25.6 more experiments than random and 64 more than uncertainty-only on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M; SmolLM2-135M had too few paired target-reaching seeds. No general acquisition advantage is established.",
+      "limitations": [
+        "Offline replay only; no fresh labels or physical compression results.",
+        "Raw examples, splits, and gradient manifests are missing, so the exact replay cannot currently be independently reproduced."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+          "label": "Q7 feature-diversity evidence"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+          "label": "Q7 v2 machine-readable curves"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        771
+      ],
+      "assessment_date": "2026-10-27"
     }
   ],
   "blockers": [
@@ -6255,9 +6440,16 @@
       "description": "Upstream sparse/structured executables are not available in current test environment.",
       "impact": "Comparative superiority claims lack measured established baselines.",
       "next_action": "Audit licenses and implement pinned isolated adapters where appropriate."
+    },
+    {
+      "id": "q7-feature-diversity-inputs",
+      "description": "The Q7 feature-diversity replay report contains hashes and curves, but its examples, split manifests, and gradient manifests are not available in the repository or a versioned archive.",
+      "impact": "The reported 45-curve acquisition result cannot be independently reproduced or checked against its input provenance.",
+      "next_action": "Locate or archive the exact three source bundles by hash, rerun the study, and update the milestone without upgrading effectiveness unless the replay and prospective tests support it."
     }
   ],
   "priority_order": [
+    "meta_surgeon.active_learning_diversity",
     "meta_surgeon.prospective_effectiveness",
     "meta_surgeon.dataset_generation",
     "meta_surgeon.predictor_selection",
@@ -6412,7 +6604,7 @@
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
     "open_pull_request_count": 61,
-    "scope_note": "All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; all four CI checks passed and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged.",
+    "scope_note": "All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; all four CI checks passed and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged. PR #771’s negative/mixed Q7 feature-diversity replay is tracked separately; the raw three-campaign inputs remain unavailable for independent reproduction.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -6703,6 +6895,6 @@
         780
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated. PR #780 records one bounded CPU KFAC channel-removal comparison stacked on #775; all tested cuts miss the PPL gate, so the result does not establish quality-preserving effectiveness or integration. PR #780 head e473388 adds held-out evaluation-window offsets and focused tests; the second-window physical run remains pending sufficient RAM."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated. PR #780 records one bounded CPU KFAC channel-removal comparison stacked on #775; all tested cuts miss the PPL gate, so the result does not establish quality-preserving effectiveness or integration. PR #780 head e473388 adds held-out evaluation-window offsets and focused tests; the second-window physical run remains pending sufficient RAM. PRs #769–#771 form an active-learning diversity stack; #771 records mixed-to-negative offline replay results and remains unintegrated, with independent reproduction blocked by absent raw inputs."
   }
 }
