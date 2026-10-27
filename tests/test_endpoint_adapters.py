@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from http.client import HTTPMessage
+from io import BytesIO
+from urllib.request import Request
 
 import pytest
 
@@ -29,6 +32,7 @@ from modelsurgeon.conversation import (
     ProviderOutcome,
     RetryPolicy,
 )
+from modelsurgeon.conversation.endpoint import _https_origin, _SameOriginHTTPSRedirectHandler
 
 _DEFAULT_AUTH = AuthReference("fixture-credential")
 _DEFAULT_RETRY_POLICY = RetryPolicy(max_attempts=2, base_delay_seconds=0.0)
@@ -127,6 +131,66 @@ def _completion(content: object, *, model: str = "fixture-model") -> EndpointHtt
 
 def _request() -> ExplanationRequest:
     return ExplanationRequest("request-1", ({"record_type": "evidence", "value": 1},))
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "https://attacker.example/collect",
+        "http://provider.example/v1/collect",
+        "https://provider.example:444/collect",
+    ],
+)
+def test_redirect_handler_rejects_credentialed_cross_origin_redirects(
+    method: str, destination: str
+) -> None:
+    request = Request(
+        "https://provider.example:443/v1/chat/completions",
+        data=b"prompt" if method == "POST" else None,
+        headers={"X-API-Key": "fixture-secret"},
+        method=method,
+    )
+    handler = _SameOriginHTTPSRedirectHandler(
+        ("https", "provider.example", 443)
+    )
+
+    redirected = handler.redirect_request(
+        request,
+        BytesIO(),
+        303,
+        "See Other",
+        HTTPMessage(),
+        destination,
+    )
+
+    assert redirected is None
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_redirect_handler_preserves_same_origin_https_redirects(method: str) -> None:
+    request = Request(
+        "https://provider.example/v1/chat/completions",
+        data=b"prompt" if method == "POST" else None,
+        headers={"X-API-Key": "fixture-secret"},
+        method=method,
+    )
+    handler = _SameOriginHTTPSRedirectHandler(
+        _https_origin(request.full_url) or ("https", "provider.example", 443)
+    )
+
+    redirected = handler.redirect_request(
+        request,
+        BytesIO(),
+        303,
+        "See Other",
+        HTTPMessage(),
+        "https://PROVIDER.example:443/v1/next",
+    )
+
+    assert redirected is not None
+    assert _https_origin(redirected.full_url) == _https_origin(request.full_url)
+    assert redirected.get_header("X-api-key") == "fixture-secret"
 
 
 def test_config_and_probe_records_are_secret_free() -> None:
