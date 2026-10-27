@@ -282,20 +282,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 prefix=f"{method}-", dir=output_path.parent
             ) as temporary:
                 artifact_dir = Path(temporary)
-                candidate_model.to(dtype=storage_dtype)
-                candidate_model.save_pretrained(artifact_dir, safe_serialization=True)
-                tokenizer.save_pretrained(artifact_dir)
-                artifact_record = _directory_record(artifact_dir)
                 with torch.inference_mode():
                     expected_logits = candidate_model(
                         input_ids=evaluation_chunks[0], use_cache=False
                     ).logits
+                candidate_model.to(dtype=storage_dtype)
+                candidate_model.save_pretrained(artifact_dir, safe_serialization=True)
+                tokenizer.save_pretrained(artifact_dir)
+                artifact_record = _directory_record(artifact_dir)
                 del candidate_model
                 gc.collect()
                 reloaded_model = AutoModelForCausalLM.from_pretrained(
                     artifact_dir,
                     local_files_only=True,
-                    torch_dtype=torch.float32,
+                    dtype=torch.float32,
                     low_cpu_mem_usage=True,
                 )
                 reloaded_model.to(device="cpu", dtype=torch.float32)
