@@ -96,6 +96,14 @@ from modelsurgeon.features.schema import (
     PrecisionProvenance,
     PrecisionSource,
 )
+from modelsurgeon.features.second_moment import (
+    SECOND_MOMENT_COLLECTOR_VERSION,
+    RawSecondMomentCollector,
+    RawSecondMomentConfig,
+    RawSecondMomentError,
+    RawSecondMomentKind,
+    RawSecondMomentSummary,
+)
 from modelsurgeon.features.spectral_exact import (
     EXACT_SPECTRAL_EXTRACTOR_VERSION,
     ExactSpectralConfig,
@@ -151,6 +159,7 @@ __all__ = [
     "NEURON_CORRELATION_EXTRACTOR_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
     "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
+    "SECOND_MOMENT_COLLECTOR_VERSION",
     "TOPOLOGY_FEATURE_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
@@ -217,6 +226,11 @@ __all__ = [
     "RandomizedSpectralFeatures",
     "RandomizedSpectralOutcome",
     "RandomizedWorkspacePlan",
+    "RawSecondMomentCollector",
+    "RawSecondMomentConfig",
+    "RawSecondMomentError",
+    "RawSecondMomentKind",
+    "RawSecondMomentSummary",
     "StructuredRemovalCost",
     "TopologyFeatureError",
     "TopologyFeatures",

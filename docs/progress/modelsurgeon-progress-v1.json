@@ -3130,7 +3130,7 @@
       ],
       "acceptance_criteria": [
         "The KFAC row and column quadratic score agrees with dense Kronecker Hessian calculations on deterministic small cases, including grouped removals and invalid numerical inputs.",
-        "A bounded collector records raw second moments from independent calibration observations and reports actual peak workspace, observation counts, numerical checks, and provenance.",
+        "A bounded collector records raw second moments from independent calibration observations, reports its planned workspace bound, observation counts, numerical checks, and provenance, and is later measured for peak process memory during a physical run.",
         "An architecture adapter scores all coupled projections for one explicitly named Hugging Face MLP architecture without mutating weights or bypassing the optimization orchestrator.",
         "At equal physical parameter removal, repeated held-out comparisons include no-repair KFAC, random seeds, magnitude, activation, and first-order gradient baselines under the existing quality gate.",
         "Every passing artifact reloads successfully; quality uncertainty, optimization time, peak RAM/VRAM, artifact bytes, and inference outcomes are recorded. Compensation is assessed as a separate arm and never inferred from uncorrected scores."
@@ -3150,6 +3150,14 @@
           "label": "Dense Kronecker parity and input/budget tests"
         },
         {
+          "path": "src/modelsurgeon/features/second_moment.py",
+          "label": "Bounded caller-fed raw second-moment collector"
+        },
+        {
+          "path": "tests/test_second_moment.py",
+          "label": "Collector masking, bounds, transactional update, and scorer integration tests"
+        },
+        {
           "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
           "label": "Pinned source audit, acquisition decision, and experiment plan"
         }
@@ -3163,10 +3171,12 @@
       "related_commits": [
         "1292018c15c34f1ae967d2a39e666d3c2c7e1893"
       ],
-      "remaining_work": "Collect bounded raw second moments; add coupled MLP channel aggregation and optimizer integration behind an architecture adapter; run a small pinned pretrained CPU evaluation before any hardware-scale study.",
+      "remaining_work": "Wire the bounded collector to model forward/backward hooks for one named architecture; collect independent calibration observations; add coupled MLP channel aggregation and optimizer integration behind an architecture adapter; run a small pinned pretrained CPU evaluation before any hardware-scale study.",
       "limitations": [
-        "The current function accepts precomputed factors and computes only uncompensated linear row/column group costs; it does not collect factors or represent the coupled gate/up/down path.",
-        "No full positive-semidefinite test, pretrained model result, physical artifact result, quality gain, runtime gain, or memory gain exists.",
+        "The collector accepts caller-fed activations and output gradients; it is not wired to model hooks, a named architecture adapter, or calibration-split provenance.",
+        "The scorer computes only uncompensated linear row/column group costs; it does not represent coupled gate/up/down channel removal.",
+        "Workspace is conservatively preflighted, not measured peak process or system memory.",
+        "No pretrained model result, physical artifact result, quality gain, runtime gain, or memory gain exists.",
         "The upstream implementation supports only its traced OPT/LLaMA paths and uses an older framework stack; no universal architecture support is implied."
       ],
       "assessment_date": "2026-10-27",
@@ -3193,6 +3203,37 @@
             }
           ],
           "reason": "Scoped as a new method milestone after pinned source review and an independently implemented tiny CPU formula prototype; no physical effectiveness or readiness is inferred."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "not_assessed",
+          "evidence_refs": [
+            {
+              "path": "src/modelsurgeon/features/kfac_sensitivity.py",
+              "label": "Uncompensated CPU KFAC row/column cost prototype"
+            },
+            {
+              "path": "tests/test_kfac_sensitivity.py",
+              "label": "Dense Kronecker parity and input/budget tests"
+            },
+            {
+              "path": "src/modelsurgeon/features/second_moment.py",
+              "label": "Bounded caller-fed raw second-moment collector"
+            },
+            {
+              "path": "tests/test_second_moment.py",
+              "label": "Collector masking, bounds, transactional update, and scorer integration tests"
+            },
+            {
+              "path": "docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md",
+              "label": "Pinned source audit, acquisition decision, and experiment plan"
+            }
+          ],
+          "reason": "Added a bounded CPU raw second-moment collector for caller-fed batches with masks and transactional updates. Targeted tests verify bounded-input behavior and composition with the KFAC scorer; this remains an experimental primitive without model wiring or physical optimization evidence."
         }
       ]
     }
@@ -4796,4 +4837,4 @@
     ],
     "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 is the progress-system base and remains open; #775 is stacked on #774. Neither branch is integrated. Recheck all 57 open PRs for duplicates and dependencies before integration; stacked PRs require base-to-head review."
   }
-}\n
+}
