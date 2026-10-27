@@ -223,9 +223,7 @@ def test_local_provider_accepts_goal_style_allow_no_more_than_quality_loss(
     assert "ambiguity-quality-threshold" not in {
         item["ambiguity_id"] for item in intent["ambiguities"]
     }
-    assert "ambiguity-task-quality" in {
-        item["ambiguity_id"] for item in intent["ambiguities"]
-    }
+    assert "ambiguity-task-quality" in {item["ambiguity_id"] for item in intent["ambiguities"]}
 
 
 def test_local_provider_carries_explicit_coding_benchmark_into_spec(
@@ -493,9 +491,7 @@ def test_builtin_local_runtime_stream_observes_cancellation(
     assert results and results[0].outcome is ProviderOutcome.CANCELLED
 
 
-def test_builtin_local_runtime_stream_caps_response_bytes(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_builtin_local_runtime_stream_caps_response_bytes(tmp_path: Path, monkeypatch: Any) -> None:
     path = tmp_path / "fixture.gguf"
     _gguf(path)
     resumed = threading.Event()
@@ -589,9 +585,7 @@ def test_local_provider_enforces_context_and_cancellation(tmp_path: Path) -> Non
     provider = _provider(path)
     too_small = invoke_provider(
         provider,
-        InterpretIntentRequest(
-            "request-7", "explain", budget=ProviderBudget(max_input_tokens=1)
-        ),
+        InterpretIntentRequest("request-7", "explain", budget=ProviderBudget(max_input_tokens=1)),
     )
     assert too_small.outcome is ProviderOutcome.UNSUPPORTED
     assert too_small.failure is not None
