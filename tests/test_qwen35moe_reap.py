@@ -171,6 +171,48 @@ def test_token_chunks_bound_route_index_and_projection_batches(monkeypatch) -> N
     assert max(observed_route_batches) == 3
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
+def test_token_chunked_cuda_scores_match_cpu_reference() -> None:
+    torch.manual_seed(20261030)
+    cpu_module = TinyExperts(num_experts=4)
+    hidden = torch.randn(11, 3)
+    indices = torch.tensor(
+        [[0, 1], [2, 0], [1, 3], [2, 3], [0, 2], [1, 3], [0, 1], [3, 2], [1, 0], [2, 3], [0, 2]]
+    )
+    weights = torch.rand(11, 2)
+    weights /= weights.sum(dim=-1, keepdim=True)
+    valid_mask = torch.tensor([True, True, False, True, True, False, True, True, True, False, True])
+    expected_scores, expected_counts = dense_reference(
+        cpu_module, hidden, indices, weights, valid_mask
+    )
+
+    cuda_module = TinyExperts(num_experts=4)
+    cuda_module.load_state_dict(cpu_module.state_dict())
+    cuda_module = cuda_module.cuda()
+    observer = Qwen35MoeReapObserver(
+        num_layers=1,
+        num_experts=4,
+        max_routes_per_expert_batch=3,
+        max_tokens_per_update=4,
+    )
+    observer.update(
+        0,
+        cuda_module,
+        hidden.cuda(),
+        indices.cuda(),
+        weights.cuda(),
+        valid_token_mask=valid_mask.cuda(),
+    )
+    result = observer.report()
+
+    assert result.routed_counts_by_layer == (tuple(expected_counts),)
+    for actual, expected in zip(result.scores_by_layer[0], expected_scores, strict=True):
+        if expected is None:
+            assert actual is None
+        else:
+            assert actual == pytest.approx(expected, rel=1e-5, abs=1e-5)
+
+
 @pytest.mark.parametrize("invalid_limit", [0, -1, 1.5, True])
 def test_route_batch_limit_must_be_a_positive_integer(invalid_limit: object) -> None:
     with pytest.raises(Qwen35MoeReapError, match="max_routes_per_expert_batch"):
