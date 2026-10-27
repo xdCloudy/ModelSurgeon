@@ -6,6 +6,7 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [WikiText-2 HF gradient GPU memory follow-up](v1.8-gradient-wikitext-memory-evidence.md) and [five raw measurement records](v1.8-gradient-wikitext-memory-evidence-v1.json)
 - [HF gradient streaming model-scale follow-up](v1.8-gradient-model-scale-evidence.md) and [raw Qwen2.5-1.5B records](v1.8-gradient-model-scale-evidence-v1.json)
 - [BF16 streamed-gradient score comparison](v1.8-gradient-bfloat16-evidence.md) and [raw layer 0/23 records](v1.8-gradient-bfloat16-evidence-v1.json)
+- [FP32 gradient accumulation and full-model streaming evidence](v1.8-gradient-fp32-accumulation-evidence.md) and [raw full-model measurements](v1.8-gradient-fp32-accumulation-evidence-v1.json)
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
