@@ -581,7 +581,7 @@
       "title": "Q1–Q4 single-channel score and learned-ranker comparisons",
       "description": "Compare tested static, activation, gradient, magnitude, random, and learned scores on named v0.8 candidate outcomes.",
       "scope": "Q1–Q4 candidate-level score evaluations on three named sub-billion checkpoints, shared short calibration data, component-held-out splits, and linked reports. Not a conclusion on Hessian, WANDA, SparseGPT, cumulative surgery, or every score.",
-      "weight": 33,
+      "weight": 28,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
       "implementation_status": "integrated",
@@ -3235,6 +3235,11 @@
           ],
           "reason": "Added a bounded CPU raw second-moment collector for caller-fed batches with masks and transactional updates. Targeted tests verify bounded-input behavior and composition with the KFAC scorer; this remains an experimental primitive without model wiring or physical optimization evidence."
         }
+      ],
+      "research_questions": [
+        "Does the KFAC quadratic score match dense Kronecker calculations for bounded row and column removals?",
+        "Can raw second moments be collected within declared resource limits and reproducible calibration provenance?",
+        "Does KFAC improve physical quality/resource outcomes over random, magnitude, activation, and gradient baselines at equal removal?"
       ]
     }
   ],
