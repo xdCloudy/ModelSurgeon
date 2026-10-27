@@ -23,6 +23,7 @@ from modelsurgeon.search.pareto import (
 )
 
 SURROGATE_SCHEMA_VERSION = 1
+SURROGATE_ACQUISITION_PROTOCOL_REVISION = "surrogate-acquisition-v3"
 
 
 class SurrogateError(ValueError):
@@ -98,6 +99,7 @@ class SurrogateConfig:
     minimum_feasible_probability: float = 0.5
     seed: int = 0
     budget: SurrogateBudget = SurrogateBudget()
+    reference_point: tuple[float, ...] | None = None
 
     def __post_init__(self) -> None:
         for value, label in (
@@ -115,6 +117,30 @@ class SurrogateConfig:
             raise SurrogateError("minimum feasible probability must be within [0, 1]")
         if isinstance(self.seed, bool) or not 0 <= self.seed < 1 << 64:
             raise SurrogateError("surrogate seed must be unsigned 64-bit")
+        if self.reference_point is not None:
+            if self.acquisition is not AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                raise SurrogateError("a reference point is only valid for hypervolume improvement")
+            if not self.reference_point:
+                raise SurrogateError("hypervolume reference point must contain finite values")
+            if any(
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                for value in self.reference_point
+            ):
+                raise SurrogateError("hypervolume reference point must contain finite values")
+            try:
+                normalized_reference = tuple(float(value) for value in self.reference_point)
+            except (OverflowError, TypeError, ValueError) as error:
+                raise SurrogateError(
+                    "hypervolume reference point must contain finite values"
+                ) from error
+            if any(
+                isinstance(value, bool) or not math.isfinite(normalized)
+                for value, normalized in zip(
+                    self.reference_point, normalized_reference, strict=True
+                )
+            ):
+                raise SurrogateError("hypervolume reference point must contain finite values")
+            object.__setattr__(self, "reference_point", normalized_reference)
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -128,6 +154,9 @@ class SurrogateConfig:
             "minimum_feasible_probability": self.minimum_feasible_probability,
             "seed": self.seed,
             "budget": self.budget.to_record(),
+            "reference_point": (
+                None if self.reference_point is None else list(self.reference_point)
+            ),
         }
 
 
@@ -153,6 +182,73 @@ class SurrogateTrainingExample:
             "objectives": [item.to_record() for item in self.objectives],
             "feasible": self.feasible,
         }
+
+    @classmethod
+    def from_record(cls, record: object) -> SurrogateTrainingExample:
+        if not isinstance(record, dict) or set(record) != {
+            "candidate_id",
+            "features",
+            "objectives",
+            "feasible",
+        }:
+            raise SurrogateError("surrogate example is malformed")
+        features = record["features"]
+        objectives = record["objectives"]
+        if (
+            not isinstance(record["candidate_id"], str)
+            or not isinstance(features, list)
+            or not all(
+                isinstance(item, (int, float)) and not isinstance(item, bool) for item in features
+            )
+            or not isinstance(objectives, list)
+            or not isinstance(record["feasible"], bool)
+        ):
+            raise SurrogateError("surrogate example fields have invalid types")
+        try:
+            normalized_features = tuple(float(item) for item in features)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise SurrogateError("surrogate features must be finite numbers") from error
+        values: list[ParetoObjectiveValue] = []
+        for objective in objectives:
+            if not isinstance(objective, dict) or set(objective) != {
+                "metric",
+                "estimate",
+                "confidence_low",
+                "confidence_high",
+            }:
+                raise SurrogateError("surrogate objective record is malformed")
+            estimate = objective["estimate"]
+            confidence_low = objective["confidence_low"]
+            confidence_high = objective["confidence_high"]
+            if (
+                not isinstance(objective["metric"], str)
+                or not isinstance(estimate, (int, float))
+                or isinstance(estimate, bool)
+                or (confidence_low is not None and not isinstance(confidence_low, (int, float)))
+                or isinstance(confidence_low, bool)
+                or (confidence_high is not None and not isinstance(confidence_high, (int, float)))
+                or isinstance(confidence_high, bool)
+            ):
+                raise SurrogateError("surrogate objective record has invalid types")
+            try:
+                values.append(
+                    ParetoObjectiveValue(
+                        OptimizeMetric(objective["metric"]),
+                        float(estimate),
+                        None if confidence_low is None else float(confidence_low),
+                        None if confidence_high is None else float(confidence_high),
+                    )
+                )
+            except (OverflowError, TypeError, ValueError) as error:
+                raise SurrogateError(
+                    "surrogate objective record has invalid numeric values or metric"
+                ) from error
+        return cls(
+            record["candidate_id"],
+            normalized_features,
+            tuple(values),
+            record["feasible"],
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,6 +495,7 @@ class SurrogateFit:
     calibration_coverage: float | None
     calibration_feasibility_brier: float | None
     reason: str | None
+    measured_examples: tuple[SurrogateTrainingExample, ...] = ()
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -412,6 +509,7 @@ class SurrogateFit:
             "calibration_coverage": self.calibration_coverage,
             "calibration_feasibility_brier": self.calibration_feasibility_brier,
             "reason": self.reason,
+            "measured_examples": [item.to_record() for item in self.measured_examples],
         }
 
     @classmethod
@@ -430,7 +528,12 @@ class SurrogateFit:
             "calibration_feasibility_brier",
             "reason",
         }
-        if set(record) != required or record["schema_version"] != SURROGATE_SCHEMA_VERSION:
+        record_keys = set(record)
+        if (
+            frozenset(record_keys)
+            not in {frozenset(required), frozenset(required | {"measured_examples"})}
+            or record["schema_version"] != SURROGATE_SCHEMA_VERSION
+        ):
             raise SurrogateError("unsupported or malformed surrogate fit")
         measured = record["measured_candidate_ids"]
         retained = record["retained_outcome_ids"]
@@ -455,6 +558,12 @@ class SurrogateFit:
         reason = record["reason"]
         if reason is not None and not isinstance(reason, str):
             raise SurrogateError("surrogate fit reason must be text or null")
+        raw_measured_examples = record.get("measured_examples", [])
+        if not isinstance(raw_measured_examples, list):
+            raise SurrogateError("surrogate measured examples must be a list")
+        measured_examples = tuple(
+            SurrogateTrainingExample.from_record(item) for item in raw_measured_examples
+        )
         return cls(
             SurrogateFitStatus(record["status"]),
             model,
@@ -465,6 +574,7 @@ class SurrogateFit:
             optional_numbers[1],
             optional_numbers[2],
             reason,
+            measured_examples,
         )
 
 
@@ -526,6 +636,15 @@ def fit_surrogate(
     for state in measured:
         if not set(metrics) <= {item.metric for item in state.objectives}:
             raise SurrogateError("surrogate measured state is missing an objective")
+    measured_examples = tuple(
+        SurrogateTrainingExample(
+            state.candidate_id,
+            features[state.candidate_id],
+            state.objectives,
+            constraints.evaluate(state.constraints).passed,
+        )
+        for state in measured
+    )
     if len(measured) < config.minimum_training_examples:
         return SurrogateFit(
             SurrogateFitStatus.INSUFFICIENT_DATA,
@@ -537,6 +656,7 @@ def fit_surrogate(
             None,
             None,
             "minimum measured training examples not met",
+            measured_examples,
         )
     ordered = measured
     held_out_count = max(1, math.floor(len(ordered) * config.calibration_fraction))
@@ -553,6 +673,7 @@ def fit_surrogate(
             None,
             None,
             "calibration split leaves too few training examples",
+            measured_examples,
         )
     width = len(feature_schema)
     if len(training) * width > config.budget.max_fit_operations:
@@ -566,6 +687,7 @@ def fit_surrogate(
             None,
             None,
             "fit operation budget exceeded",
+            measured_examples,
         )
     estimated_bytes = len(training) * width * 8 + len(training) * 64
     if estimated_bytes > config.budget.max_model_bytes:
@@ -579,6 +701,7 @@ def fit_surrogate(
             None,
             None,
             "fit memory budget exceeded",
+            measured_examples,
         )
     started = time.perf_counter()
     raw_features = tuple(features[state.candidate_id] for state in training)
@@ -636,6 +759,7 @@ def fit_surrogate(
                 None,
                 None,
                 "fit time budget exceeded",
+                measured_examples,
             )
         prediction = model.predict(state.candidate_id, features[state.candidate_id])
         actual = {item.metric: item.estimate for item in state.objectives}
@@ -676,6 +800,7 @@ def fit_surrogate(
         covered / held_out_count,
         math.fsum(feasibility_errors) / held_out_count,
         None,
+        measured_examples,
     )
 
 
@@ -757,6 +882,7 @@ class SurrogateSelection:
     next_state: SurrogatePolicyState
     fit: SurrogateFit
     budget_exhausted: bool
+    acquisition_reference_point: tuple[float, ...] | None = None
 
     @property
     def selected(self) -> tuple[SurrogatePolicyDecision, ...]:
@@ -768,7 +894,68 @@ class SurrogateSelection:
             "next_state": self.next_state.to_record(),
             "fit": self.fit.to_record(),
             "budget_exhausted": self.budget_exhausted,
+            "acquisition_reference_point": (
+                None
+                if self.acquisition_reference_point is None
+                else list(self.acquisition_reference_point)
+            ),
         }
+
+
+def _hypervolume_1d_or_2d(
+    points: tuple[tuple[float, ...], ...], reference: tuple[float, ...]
+) -> float:
+    """Compute exact maximization hypervolume in one or two objective dimensions."""
+
+    dimensions = len(reference)
+    if dimensions not in {1, 2} or any(len(point) != dimensions for point in points):
+        raise SurrogateError("exact hypervolume currently supports one or two objectives")
+    valid = tuple(
+        point
+        for point in points
+        if all(value > bound for value, bound in zip(point, reference, strict=True))
+    )
+    if not valid:
+        return 0.0
+    if dimensions == 1:
+        improvement = max(point[0] for point in valid) - reference[0]
+        if not math.isfinite(improvement):
+            raise SurrogateError("hypervolume exceeded finite numeric range")
+        return max(0.0, improvement)
+
+    by_x: dict[float, float] = {}
+    for x_value, y_value in valid:
+        by_x[x_value] = max(y_value, by_x.get(x_value, reference[1]))
+    x_values = sorted(by_x)
+    suffix_best_y = [0.0] * len(x_values)
+    best_y = reference[1]
+    for index in range(len(x_values) - 1, -1, -1):
+        best_y = max(best_y, by_x[x_values[index]])
+        suffix_best_y[index] = best_y
+    area = 0.0
+    previous_x = reference[0]
+    for x_value, top_y in zip(x_values, suffix_best_y, strict=True):
+        area += (x_value - previous_x) * (top_y - reference[1])
+        previous_x = x_value
+    if not math.isfinite(area):
+        raise SurrogateError("hypervolume exceeded finite numeric range")
+    return max(0.0, area)
+
+
+def _feasible_frontier(
+    examples: tuple[SurrogateTrainingExample, ...],
+) -> tuple[ParetoCandidate, ...]:
+    """Build the measured Pareto baseline without infeasible outcomes."""
+
+    return tuple(
+        ParetoCandidate(
+            example.candidate_id,
+            example.objectives,
+            {"candidate_id": example.candidate_id},
+        )
+        for example in examples
+        if example.feasible
+    )
 
 
 def _distance(left: CompleteArchitectureState, right: CompleteArchitectureState) -> int:
@@ -779,7 +966,7 @@ def _distance(left: CompleteArchitectureState, right: CompleteArchitectureState)
 
 
 class SurrogateArchitecturePolicy:
-    """Calibrated expected-improvement or hypervolume-improvement acquisition."""
+    """Calibrated scalar EI or exact mean-HVI acquisition with bounded exploration."""
 
     def __init__(
         self,
@@ -790,6 +977,15 @@ class SurrogateArchitecturePolicy:
         self.config = config
         self.objectives = objectives
         self.constraints = constraints
+        if config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            if len(objectives.terms) > 2:
+                raise SurrogateError(
+                    "exact hypervolume improvement supports at most two objectives"
+                )
+            if config.reference_point is not None and len(config.reference_point) != len(
+                objectives.terms
+            ):
+                raise SurrogateError("hypervolume reference point must align with objective terms")
 
     @property
     def policy_id(self) -> str:
@@ -798,6 +994,11 @@ class SurrogateArchitecturePolicy:
                 "config": self.config.to_record(),
                 "objectives": self.objectives.objective_set_id,
                 "constraints": self.constraints.constraint_set_id,
+                **(
+                    {"acquisition_protocol": SURROGATE_ACQUISITION_PROTOCOL_REVISION}
+                    if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT
+                    else {}
+                ),
             }
         )
         return f"surrogate_policy_{hashlib.sha256(identity.encode()).hexdigest()}"
@@ -815,23 +1016,79 @@ class SurrogateArchitecturePolicy:
             weight += term.weight
         return total / weight
 
+    def _maximizing_vector(self, values: tuple[ParetoObjectiveValue, ...]) -> tuple[float, ...]:
+        by_metric = {item.metric: item.estimate for item in values}
+        vector: list[float] = []
+        for term in self.objectives.terms:
+            value = by_metric.get(term.metric)
+            if value is None:
+                raise SurrogateError(
+                    f"hypervolume objective {term.metric.value} is missing from a candidate"
+                )
+            vector.append(value if term.direction is ObjectiveDirection.MAXIMIZE else -value)
+        return tuple(vector)
+
+    def _effective_reference_point(
+        self,
+        observations: tuple[tuple[ParetoObjectiveValue, ...], ...],
+    ) -> tuple[float, ...]:
+        if self.config.reference_point is not None:
+            return tuple(
+                value if term.direction is ObjectiveDirection.MAXIMIZE else -value
+                for term, value in zip(
+                    self.objectives.terms, self.config.reference_point, strict=True
+                )
+            )
+        if not observations:
+            raise SurrogateError(
+                "hypervolume improvement needs a reference point or objective observations"
+            )
+        vectors = tuple(self._maximizing_vector(item) for item in observations)
+        reference: list[float] = []
+        for dimension in range(len(self.objectives.terms)):
+            values = tuple(point[dimension] for point in vectors)
+            nadir = min(values)
+            span = max(values) - nadir
+            margin = 0.1 * span if span > 0.0 else max(abs(nadir), 1.0) * 1e-7
+            coordinate = nadir - margin
+            if not math.isfinite(span) or not math.isfinite(coordinate):
+                raise SurrogateError(
+                    "could not infer a finite hypervolume reference point; specify one explicitly"
+                )
+            reference.append(coordinate)
+        return tuple(reference)
+
+    def _objective_space_reference_point(
+        self, maximizing_point: tuple[float, ...]
+    ) -> tuple[float, ...]:
+        return tuple(
+            value if term.direction is ObjectiveDirection.MAXIMIZE else -value
+            for term, value in zip(self.objectives.terms, maximizing_point, strict=True)
+        )
+
     def _acquisition(
         self,
         prediction: SurrogatePrediction,
         frontier: tuple[ParetoCandidate, ...],
+        reference_point: tuple[float, ...] | None,
     ) -> float:
         candidate = ParetoCandidate(prediction.candidate_id, prediction.objectives, {})
-        if any(conservatively_dominates(other, candidate, self.objectives) for other in frontier):
-            return 0.0
         if self.config.acquisition is AcquisitionKind.EXPECTED_IMPROVEMENT:
+            if any(
+                conservatively_dominates(other, candidate, self.objectives) for other in frontier
+            ):
+                return 0.0
             best = max((self._utility(item.objectives) for item in frontier), default=0.0)
             return max(0.0, self._utility(prediction.objectives) - best) + (
                 self.config.exploration_weight * prediction.uncertainty
             )
-        improvement = self._utility(prediction.objectives)
-        if frontier:
-            reference = min(self._utility(item.objectives) for item in frontier)
-            improvement = max(0.0, improvement - reference)
+        if reference_point is None:
+            raise SurrogateError("hypervolume acquisition reference point is missing")
+        candidate_point = self._maximizing_vector(prediction.objectives)
+        frontier_points = tuple(self._maximizing_vector(item.objectives) for item in frontier)
+        before = _hypervolume_1d_or_2d(frontier_points, reference_point)
+        after = _hypervolume_1d_or_2d((*frontier_points, candidate_point), reference_point)
+        improvement = max(0.0, after - before)
         return improvement + self.config.exploration_weight * prediction.uncertainty
 
     def select(
@@ -854,14 +1111,36 @@ class SurrogateArchitecturePolicy:
             and current.fit_id != fit.model.model_id
         ):
             raise SurrogateError("surrogate resume state does not match fitted model")
-        frontier = tuple(
-            ParetoCandidate(
-                example.candidate_id,
-                example.objectives,
-                {"candidate_id": example.candidate_id},
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            measured_ids = tuple(example.candidate_id for example in fit.measured_examples)
+            if measured_ids != fit.measured_candidate_ids or (
+                fit.model is not None and not fit.measured_examples
+            ):
+                raise SurrogateError(
+                    "hypervolume improvement requires complete measured examples; "
+                    "refit the surrogate"
+                )
+            observed_examples = fit.measured_examples
+        else:
+            observed_examples = fit.measured_examples or (
+                () if fit.model is None else fit.model.examples
             )
-            for example in (() if fit.model is None else fit.model.examples)
-        )
+        frontier = _feasible_frontier(observed_examples)
+        acquisition_reference_point: tuple[float, ...] | None = None
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            feasible_observations = tuple(
+                example.objectives for example in observed_examples if example.feasible
+            )
+            reference_observations = feasible_observations or tuple(
+                candidate.objectives
+                for candidate in candidates
+                if candidate.status is ArchitectureEvidenceStatus.PREDICTED
+                and self.constraints.evaluate(candidate.constraints).passed
+            )
+            if self.config.reference_point is not None or reference_observations:
+                acquisition_reference_point = self._effective_reference_point(
+                    reference_observations
+                )
         decisions: list[SurrogatePolicyDecision] = []
         scored: list[tuple[float, int, CompleteArchitectureState, SurrogatePrediction]] = []
         selected_ids = set(current.selected_candidate_ids)
@@ -914,7 +1193,7 @@ class SurrogateArchitecturePolicy:
                     0.0,
                     0.0,
                 )
-                acquisition = self._acquisition(prediction, frontier)
+                acquisition = self._acquisition(prediction, frontier, acquisition_reference_point)
                 reason = f"fallback_{fit.status.value}"
             else:
                 axes = tuple(
@@ -926,7 +1205,7 @@ class SurrogateArchitecturePolicy:
                     candidate.candidate_id,
                     _feature_values(candidate, axes),
                 )
-                acquisition = self._acquisition(prediction, frontier)
+                acquisition = self._acquisition(prediction, frontier, acquisition_reference_point)
             if (
                 fit.model is not None
                 and prediction.feasible_probability < self.config.minimum_feasible_probability
@@ -955,7 +1234,21 @@ class SurrogateArchitecturePolicy:
         limit = min(self.config.batch_size, remaining)
         chosen: list[tuple[float, int, CompleteArchitectureState, SurrogatePrediction]] = []
         pool_scored = list(scored)
+        selection_frontier = tuple(frontier)
+        acquisition_by_id = {item[2].candidate_id: item[0] for item in scored}
         while pool_scored and len(chosen) < limit:
+            if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                pool_scored = [
+                    (
+                        self._acquisition(
+                            prediction, selection_frontier, acquisition_reference_point
+                        ),
+                        tie_rank,
+                        candidate,
+                        prediction,
+                    )
+                    for _, tie_rank, candidate, prediction in pool_scored
+                ]
             pool_scored.sort(
                 key=lambda item: (
                     -item[0],
@@ -964,19 +1257,35 @@ class SurrogateArchitecturePolicy:
                     item[2].candidate_id,
                 )
             )
-            chosen.append(pool_scored.pop(0))
+            selected = pool_scored.pop(0)
+            chosen.append(selected)
+            acquisition_by_id[selected[2].candidate_id] = selected[0]
+            if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+                selection_frontier = (
+                    *selection_frontier,
+                    ParetoCandidate(
+                        selected[2].candidate_id,
+                        selected[3].objectives,
+                        {"candidate_id": selected[2].candidate_id},
+                    ),
+                )
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            for _, _, candidate, prediction in pool_scored:
+                acquisition_by_id[candidate.candidate_id] = self._acquisition(
+                    prediction, selection_frontier, acquisition_reference_point
+                )
         chosen_ids = {item[2].candidate_id for item in chosen}
         reason = (
             "surrogate_acquisition" if fit.model is not None else f"fallback_{fit.status.value}"
         )
-        for acquisition, _, candidate, prediction in scored:
+        for _, _, candidate, prediction in scored:
             constraint_record = self.constraints.evaluate(candidate.constraints).to_record()
             decisions.append(
                 SurrogatePolicyDecision(
                     candidate.candidate_id,
                     candidate.candidate_id in chosen_ids,
                     reason if candidate.candidate_id in chosen_ids else "outside_batch_cutoff",
-                    acquisition,
+                    acquisition_by_id[candidate.candidate_id],
                     prediction,
                     candidate.status,
                     constraint_record,
@@ -994,6 +1303,11 @@ class SurrogateArchitecturePolicy:
             next_state,
             fit,
             len(next_state.selected_candidate_ids) >= self.config.evaluation_budget or not scored,
+            (
+                None
+                if acquisition_reference_point is None
+                else self._objective_space_reference_point(acquisition_reference_point)
+            ),
         )
 
 

@@ -1,3 +1,6 @@
+from dataclasses import replace
+from itertools import combinations
+
 import pytest
 
 from modelsurgeon.config import ObjectiveDirection, ObjectiveNormalization, OptimizeMetric
@@ -15,7 +18,7 @@ from modelsurgeon.search.constraints import (
 )
 from modelsurgeon.search.deployable_state import ArchitectureAxis
 from modelsurgeon.search.objectives import ObjectiveSet, ObjectiveTerm
-from modelsurgeon.search.pareto import ParetoObjectiveValue
+from modelsurgeon.search.pareto import ParetoCandidate, ParetoObjectiveValue
 from modelsurgeon.search.surrogate import (
     AcquisitionKind,
     SurrogateArchitecturePolicy,
@@ -23,7 +26,12 @@ from modelsurgeon.search.surrogate import (
     SurrogateConfig,
     SurrogateError,
     SurrogateFitStatus,
+    SurrogateModel,
     SurrogatePolicyState,
+    SurrogatePrediction,
+    SurrogateTrainingExample,
+    _feasible_frontier,
+    _hypervolume_1d_or_2d,
     fit_surrogate,
 )
 
@@ -93,8 +101,46 @@ def test_surrogate_fit_is_calibrated_bounded_and_persistable() -> None:
     assert fit.calibration_feasibility_brier is not None
     record = fit.to_record()
     assert record["model"] is not None
+    assert len(fit.measured_examples) == len(fit.measured_candidate_ids)
     assert record["retained_outcome_ids"] == []
     assert fit.from_record(record).to_record() == record
+
+
+def test_hypervolume_rejects_legacy_fit_without_complete_measured_examples() -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+        exploration_weight=0.0,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    record = fit.to_record()
+    del record["measured_examples"]
+    legacy_fit = fit.from_record(record)
+    policy = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS)
+
+    with pytest.raises(SurrogateError, match="complete measured examples"):
+        policy.select(
+            (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),),
+            legacy_fit,
+        )
+
+
+def test_surrogate_training_example_from_record_rejects_numeric_overflow() -> None:
+    example = SurrogateTrainingExample(
+        "candidate",
+        (0.5,),
+        (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),),
+        True,
+    ).to_record()
+    with pytest.raises(SurrogateError, match="features must be finite numbers"):
+        SurrogateTrainingExample.from_record({**example, "features": [10**400]})
+
+    oversized_objective = dict(example["objectives"][0])
+    oversized_objective["estimate"] = 10**400
+    with pytest.raises(SurrogateError, match="objective record has invalid numeric values"):
+        SurrogateTrainingExample.from_record(
+            {**example, "objectives": [oversized_objective]}
+        )
 
 
 def test_surrogate_acquisition_is_deterministic_constrained_and_resumable() -> None:
@@ -168,3 +214,259 @@ def test_surrogate_rejects_foreign_resume_state() -> None:
     )
     with pytest.raises(SurrogateError, match="another policy"):
         policy.select((state,), fit, SurrogatePolicyState("surrogate_policy_foreign"))
+
+
+def test_exact_two_objective_hypervolume_and_feasible_frontier() -> None:
+    assert _hypervolume_1d_or_2d(((0.8, 0.7), (0.7, 0.8)), (0.0, 0.0)) == pytest.approx(0.63)
+    assert _hypervolume_1d_or_2d(((0.8, 0.7),), (0.0, 0.0)) == pytest.approx(0.56)
+    assert _hypervolume_1d_or_2d(((0.8, -0.1),), (0.0, 0.0)) == 0.0
+
+    examples = (
+        SurrogateTrainingExample(
+            "feasible", (0.5,), (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),), True
+        ),
+        SurrogateTrainingExample(
+            "infeasible", (0.5,), (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.99),), False
+        ),
+    )
+    assert tuple(item.candidate_id for item in _feasible_frontier(examples)) == ("feasible",)
+
+
+def test_one_objective_hypervolume_rejects_overflow() -> None:
+    with pytest.raises(SurrogateError, match="finite numeric range"):
+        _hypervolume_1d_or_2d(((1.7976931348623157e308,),), (-1.7976931348623157e308,))
+
+
+def test_two_objective_hypervolume_matches_independent_union_oracle() -> None:
+    reference = (0.0, 0.0)
+    grid = tuple((x, y) for x in (-1.0, 0.0, 1.0) for y in (-1.0, 0.0, 1.0))
+
+    def inclusion_exclusion(points: tuple[tuple[float, float], ...]) -> float:
+        rectangles = tuple((max(0.0, x), max(0.0, y)) for x, y in points)
+        area = 0.0
+        for size in range(1, len(rectangles) + 1):
+            sign = 1.0 if size % 2 else -1.0
+            for subset in combinations(rectangles, size):
+                area += sign * min(item[0] for item in subset) * min(item[1] for item in subset)
+        return area
+
+    cases = (
+        *(points for size in range(1, 5) for points in combinations(grid, size)),
+        ((1.0, 0.5), (1.0, 0.5)),
+    )
+
+    for points in cases:
+        expected = inclusion_exclusion(points)
+        assert _hypervolume_1d_or_2d(points, reference) == pytest.approx(expected)
+        assert _hypervolume_1d_or_2d(tuple(reversed(points)), reference) == pytest.approx(expected)
+
+
+def test_hypervolume_acquisition_uses_objective_directions_and_reference_units() -> None:
+    objectives = ObjectiveSet(
+        (
+            ObjectiveTerm(
+                OptimizeMetric.QUALITY,
+                ObjectiveDirection.MAXIMIZE,
+                normalization=ObjectiveNormalization.IDENTITY,
+            ),
+            ObjectiveTerm(
+                OptimizeMetric.DISK_SIZE,
+                ObjectiveDirection.MINIMIZE,
+                normalization=ObjectiveNormalization.IDENTITY,
+            ),
+        )
+    )
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=2,
+        reference_point=(150.0, 0.6),
+    )
+    policy = SurrogateArchitecturePolicy(config, objectives, CONSTRAINTS)
+    frontier = (
+        ParetoCandidate(
+            "frontier-a",
+            (
+                ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 100.0),
+                ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.8),
+            ),
+            {},
+        ),
+        ParetoCandidate(
+            "frontier-b",
+            (
+                ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 50.0),
+                ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.7),
+            ),
+            {},
+        ),
+    )
+    useful = SurrogatePrediction(
+        "useful",
+        (
+            ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 45.0),
+            ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.75),
+        ),
+        1.0,
+        0.0,
+        0.0,
+    )
+    outside_reference = SurrogatePrediction(
+        "outside",
+        (
+            ParetoObjectiveValue(OptimizeMetric.DISK_SIZE, 200.0),
+            ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.95),
+        ),
+        1.0,
+        0.0,
+        0.0,
+    )
+    reference = policy._effective_reference_point((frontier[0].objectives, frontier[1].objectives))
+    assert reference == (-150.0, 0.6)
+    assert policy._acquisition(useful, frontier, reference) == pytest.approx(3.25)
+    assert policy._acquisition(outside_reference, frontier, reference) == 0.0
+
+
+def test_hypervolume_reference_is_recorded_in_objective_space() -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), fit
+    )
+    assert fit.model is not None
+    observed = tuple(example.objectives[0].estimate for example in fit.measured_examples)
+    expected_reference = min(observed) - 0.1 * (max(observed) - min(observed))
+    assert selection.acquisition_reference_point == pytest.approx((expected_reference,))
+    assert selection.to_record()["acquisition_reference_point"] == pytest.approx(
+        [expected_reference]
+    )
+
+    assert fit.model is not None
+    polluted_model = replace(
+        fit.model,
+        examples=(
+            *fit.model.examples,
+            SurrogateTrainingExample(
+                "infeasible-outlier",
+                fit.model.examples[0].features,
+                (ParetoObjectiveValue(OptimizeMetric.QUALITY, 1000.0),),
+                False,
+            ),
+        ),
+    )
+    polluted_fit = replace(fit, model=polluted_model)
+    polluted = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), polluted_fit
+    )
+    assert polluted.acquisition_reference_point == pytest.approx((expected_reference,))
+
+
+def test_hypervolume_frontier_includes_held_out_measured_examples(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+        exploration_weight=0.0,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    assert fit.model is not None
+    training_ids = {example.candidate_id for example in fit.model.examples}
+    held_out = tuple(
+        example for example in fit.measured_examples if example.candidate_id not in training_ids
+    )
+    assert len(held_out) == fit.held_out_count
+    assert max(example.objectives[0].estimate for example in held_out) == pytest.approx(0.9)
+
+    def predict_dominated_point(
+        self: SurrogateModel, candidate_id: str, features: tuple[float, ...]
+    ) -> SurrogatePrediction:
+        del self, features
+        return SurrogatePrediction(
+            candidate_id,
+            (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.88),),
+            1.0,
+            0.0,
+            0.0,
+        )
+
+    monkeypatch.setattr(SurrogateModel, "predict", predict_dominated_point)
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(
+        (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),), fit
+    )
+    assert selection.selected[0].acquisition == 0.0
+
+
+def test_hypervolume_batch_recomputes_marginal_gain_after_each_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=2,
+        batch_size=2,
+        exploration_weight=0.0,
+        reference_point=(0.6,),
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+
+    def predict_identical_point(
+        self: SurrogateModel, candidate_id: str, features: tuple[float, ...]
+    ) -> SurrogatePrediction:
+        del self, features
+        return SurrogatePrediction(
+            candidate_id,
+            (ParetoObjectiveValue(OptimizeMetric.QUALITY, 0.95),),
+            1.0,
+            0.0,
+            0.0,
+        )
+
+    monkeypatch.setattr(SurrogateModel, "predict", predict_identical_point)
+    candidates = (
+        _state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),
+        _state(7, 0.95, ArchitectureEvidenceStatus.PREDICTED),
+    )
+    selection = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS).select(candidates, fit)
+
+    chosen = [decision for decision in selection.selected]
+    assert len(chosen) == 2
+    assert fit.model is not None
+    best_measured = max(
+        example.objectives[0].estimate for example in fit.measured_examples if example.feasible
+    )
+    assert sorted(decision.acquisition for decision in chosen) == pytest.approx(
+        [0.0, 0.95 - best_measured]
+    )
+
+
+def test_hypervolume_rejects_more_than_two_objectives() -> None:
+    objectives = ObjectiveSet(
+        tuple(
+            ObjectiveTerm(metric, ObjectiveDirection.MAXIMIZE)
+            for metric in (
+                OptimizeMetric.QUALITY,
+                OptimizeMetric.PARAMETER_COUNT,
+                OptimizeMetric.DISK_SIZE,
+            )
+        )
+    )
+    config = SurrogateConfig(AcquisitionKind.HYPERVOLUME_IMPROVEMENT, evaluation_budget=1)
+    with pytest.raises(SurrogateError, match="at most two"):
+        SurrogateArchitecturePolicy(config, objectives, CONSTRAINTS)
+
+
+def test_hypervolume_reference_rejects_overflow_and_non_numeric_values() -> None:
+    with pytest.raises(SurrogateError, match="reference point must contain finite values"):
+        SurrogateConfig(
+            AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+            evaluation_budget=1,
+            reference_point=(10**400,),
+        )
+    with pytest.raises(SurrogateError, match="reference point must contain finite values"):
+        SurrogateConfig(
+            AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+            evaluation_budget=1,
+            reference_point=("0.5",),
+        )
