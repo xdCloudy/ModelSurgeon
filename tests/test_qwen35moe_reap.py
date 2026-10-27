@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib import import_module
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -74,7 +75,9 @@ def dense_reference(module, hidden_states, indices, weights, valid_mask):
             gate, up = projected.chunk(2, dim=-1)
             intermediate = module.act_fn(gate) * up
             output = torch.nn.functional.linear(intermediate, module.down_proj[expert])
-            values[expert].append(torch.linalg.vector_norm(output) * weights[token, slot])
+            values[expert].append(
+                torch.linalg.vector_norm(output.float()) * weights[token, slot].float()
+            )
     means = [
         torch.stack(expert_values).mean().item() if expert_values else None
         for expert_values in values
@@ -89,6 +92,7 @@ def test_sparse_scores_match_dense_reference_and_exclude_padding() -> None:
     hidden_states = torch.randn(7, 3)
     indices = torch.tensor([[0, 1], [2, 0], [1, 3], [2, 3], [0, 2], [1, 3], [0, 1]])
     weights = torch.rand(7, 2)
+    weights /= weights.sum(dim=-1, keepdim=True)
     valid_mask = torch.tensor([True, True, False, True, True, False, True])
     expected_scores, expected_counts = dense_reference(
         module, hidden_states, indices, weights, valid_mask
@@ -132,6 +136,22 @@ def test_invalid_duplicate_or_out_of_range_routes_are_rejected_without_partial_u
         assert observer.report().routed_counts_by_layer == ((0, 0, 0, 0),)
 
 
+@pytest.mark.parametrize(
+    "weights",
+    (torch.tensor([[0.2, 0.3]]), torch.tensor([[1.1, -0.1]]), torch.tensor([[1.1]])),
+)
+def test_unnormalized_or_out_of_range_router_weights_are_rejected(weights) -> None:
+    module = TinyExperts()
+    observer = Qwen35MoeReapObserver(num_layers=1, num_experts=4)
+    hidden = torch.ones(1, 3)
+    indices = torch.tensor([[0, 1]]) if weights.shape[1] == 2 else torch.tensor([[0]])
+
+    with pytest.raises(Qwen35MoeReapError, match="normalized per token"):
+        observer.update(0, module, hidden, indices, weights, valid_token_mask=None)
+
+    assert observer.report().routed_counts_by_layer == ((0, 0, 0, 0),)
+
+
 def test_forward_hooks_observe_and_close_removes_hooks() -> None:
     module = TinyExperts()
     observer = Qwen35MoeReapObserver(num_layers=1, num_experts=4)
@@ -165,6 +185,7 @@ def test_real_transformers_qwen35_fused_expert_contract() -> None:
     hidden_states = torch.randn(7, 3)
     indices = torch.tensor([[0, 1], [2, 0], [1, 3], [2, 3], [0, 2], [1, 3], [0, 1]])
     weights = torch.rand(7, 2)
+    weights /= weights.sum(dim=-1, keepdim=True)
     valid_mask = torch.tensor([True, True, False, True, True, False, True])
     expected_scores, expected_counts = dense_reference(
         module, hidden_states, indices, weights, valid_mask
@@ -186,7 +207,8 @@ def test_real_transformers_qwen35_fused_expert_contract() -> None:
     assert len(module._forward_hooks) == 0
 
 
-def test_qwen35_router_passes_final_renormalized_top_k_weights() -> None:
+@pytest.mark.parametrize("dtype", (torch.float32, torch.bfloat16))
+def test_qwen35_router_passes_final_renormalized_top_k_weights(dtype: Any) -> None:
     qwen_module = _qwen35_module()
     torch.manual_seed(20261027)
     config = SimpleNamespace(
@@ -199,13 +221,20 @@ def test_qwen35_router_passes_final_renormalized_top_k_weights() -> None:
     )
     router = qwen_module.Qwen3_5MoeTopKRouter(config)
     experts = qwen_module.Qwen3_5MoeExperts(config)
+    router.to(dtype=dtype)
+    experts.to(dtype=dtype)
     torch.nn.init.normal_(router.weight)
     torch.nn.init.normal_(experts.gate_up_proj)
     torch.nn.init.normal_(experts.down_proj)
-    hidden_states = torch.randn(7, 3)
+    hidden_states = torch.randn(7, 3, dtype=dtype)
     _, top_k_weights, top_k_index = router(hidden_states)
 
-    assert torch.allclose(top_k_weights.sum(dim=-1), torch.ones(hidden_states.shape[0]), atol=1e-6)
+    assert torch.allclose(
+        top_k_weights.sum(dim=-1).float(),
+        torch.ones(hidden_states.shape[0]),
+        atol=float(torch.finfo(dtype).eps) * top_k_weights.shape[1],
+        rtol=0.0,
+    )
     expected_scores, expected_counts = dense_reference(
         experts,
         hidden_states,

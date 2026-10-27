@@ -167,7 +167,7 @@ class Qwen35MoeReapObserver:
         *,
         valid_token_mask: Any | None,
     ) -> None:
-        """Accumulate one routed batch using sparse per-expert token slices."""
+        """Accumulate sparse routes with finite top-k probabilities normalized per token."""
 
         torch = _torch()
         functional = torch.nn.functional
@@ -247,12 +247,6 @@ class Qwen35MoeReapObserver:
             duplicate_index = (ordered[:, 1:] == ordered[:, :-1]).any()
         else:
             duplicate_index = torch.zeros((), dtype=torch.bool, device=top_k_index.device)
-        invalid_weight = (~torch.isfinite(top_k_weights) | (top_k_weights < 0)).any()
-        if bool((invalid_index | duplicate_index).item()):
-            raise Qwen35MoeReapError("expert indices must be in range and unique per token")
-        if bool(invalid_weight.item()):
-            raise Qwen35MoeReapError("router weights must be finite and non-negative")
-
         if valid_token_mask is None:
             valid_token_mask = torch.ones(
                 token_count, dtype=torch.bool, device=hidden_states.device
@@ -267,6 +261,20 @@ class Qwen35MoeReapObserver:
                 "valid_token_mask must be a bool tensor matching routed tokens and device"
             )
         assert valid_token_mask is not None
+
+        normalized_weights = top_k_weights.float()
+        weight_tolerance = float(torch.finfo(top_k_weights.dtype).eps) * top_k_index.shape[1]
+        weight_sums = normalized_weights.sum(dim=-1)
+        invalid_weight = (
+            (~torch.isfinite(top_k_weights) | (top_k_weights < 0) | (top_k_weights > 1)).any()
+            | (~torch.isfinite(weight_sums) | ((weight_sums - 1.0).abs() > weight_tolerance)).any()
+        )
+        if bool((invalid_index | duplicate_index).item()):
+            raise Qwen35MoeReapError("expert indices must be in range and unique per token")
+        if bool(invalid_weight.item()):
+            raise Qwen35MoeReapError(
+                "router weights must be finite probabilities normalized per token"
+            )
 
         batch_sums = torch.zeros(self.num_experts, dtype=torch.float64, device=hidden_states.device)
         has_nonfinite_output = torch.zeros((), dtype=torch.bool, device=hidden_states.device)
