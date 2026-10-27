@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 
 from modelsurgeon.config import ObjectiveDirection, ObjectiveNormalization, OptimizeMetric
@@ -177,3 +179,61 @@ def test_policy_rejects_foreign_or_over_budget_resume_state() -> None:
         policy.select((state,), ArchitecturePolicyState("architecture_policy_foreign"))
     with pytest.raises(ArchitecturePolicyError, match="exceeds"):
         policy.select((state,), ArchitecturePolicyState(policy.policy_id, ("a", "b")))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("evaluation_budget", 1.5),
+        ("evaluation_budget", True),
+        ("evaluation_budget", "2"),
+        ("beam_width", 1.5),
+        ("beam_width", True),
+        ("population_size", 1.5),
+        ("population_size", True),
+        ("generations", 1.5),
+        ("generations", True),
+    ],
+)
+def test_architecture_policy_rejects_non_integer_limits(field: str, value: object) -> None:
+    values = {
+        "evaluation_budget": 2,
+        "beam_width": 1,
+        "population_size": 2,
+        "generations": 1,
+    }
+    values[field] = cast(int, value)
+    with pytest.raises(ArchitecturePolicyError, match="positive integer"):
+        ArchitecturePolicyConfig(ArchitecturePolicyKind.PARETO_BEAM, **values)
+
+
+@pytest.mark.parametrize("value", [1.5, True, "1"])
+def test_architecture_policy_rejects_non_integer_elitism(value: object) -> None:
+    with pytest.raises(ArchitecturePolicyError, match="elitism must be an integer"):
+        ArchitecturePolicyConfig(
+            ArchitecturePolicyKind.EVOLUTIONARY,
+            evaluation_budget=2,
+            elitism=cast(int, value),
+        )
+
+
+@pytest.mark.parametrize("value", [1.5, True, "1"])
+def test_architecture_policy_rejects_non_integer_seed(value: object) -> None:
+    with pytest.raises(ArchitecturePolicyError, match="seed must be unsigned 64-bit"):
+        ArchitecturePolicyConfig(
+            ArchitecturePolicyKind.PARETO_BEAM,
+            evaluation_budget=2,
+            seed=cast(int, value),
+        )
+
+
+@pytest.mark.parametrize("field", ["generation", "decision_index"])
+@pytest.mark.parametrize("value", [1.5, True, "1"])
+def test_architecture_resume_cursors_require_non_negative_integers(
+    field: str, value: object
+) -> None:
+    with pytest.raises(ArchitecturePolicyError, match="non-negative integer"):
+        ArchitecturePolicyState(
+            "architecture_policy_test",
+            **{field: cast(int, value)},
+        )

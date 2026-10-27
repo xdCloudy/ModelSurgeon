@@ -38,8 +38,8 @@ class ArchitectureEvidenceStatus(StrEnum):
 
 
 def _positive(value: int, label: str) -> int:
-    if isinstance(value, bool) or value <= 0:
-        raise ArchitecturePolicyError(f"{label} must be positive")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ArchitecturePolicyError(f"{label} must be a positive integer")
     return value
 
 
@@ -148,9 +148,19 @@ class ArchitecturePolicyConfig:
         _positive(self.beam_width, "beam width")
         _positive(self.population_size, "population size")
         _positive(self.generations, "generation budget")
-        if isinstance(self.elitism, bool) or not 0 <= self.elitism <= self.population_size:
-            raise ArchitecturePolicyError("elitism must be between zero and population size")
-        if isinstance(self.seed, bool) or not 0 <= self.seed < 1 << 64:
+        if (
+            isinstance(self.elitism, bool)
+            or not isinstance(self.elitism, int)
+            or not 0 <= self.elitism <= self.population_size
+        ):
+            raise ArchitecturePolicyError(
+                "elitism must be an integer between zero and population size"
+            )
+        if (
+            isinstance(self.seed, bool)
+            or not isinstance(self.seed, int)
+            or not 0 <= self.seed < 1 << 64
+        ):
             raise ArchitecturePolicyError("architecture policy seed must be unsigned 64-bit")
 
     def to_record(self) -> dict[str, object]:
@@ -187,10 +197,22 @@ class ArchitecturePolicyState:
         ):
             if len(values) != len(set(values)):
                 raise ArchitecturePolicyError(f"{label} candidate IDs must be unique")
-        if isinstance(self.generation, bool) or self.generation < 0:
-            raise ArchitecturePolicyError("architecture policy generation cannot be negative")
-        if isinstance(self.decision_index, bool) or self.decision_index < 0:
-            raise ArchitecturePolicyError("architecture policy decision index cannot be negative")
+        if (
+            isinstance(self.generation, bool)
+            or not isinstance(self.generation, int)
+            or self.generation < 0
+        ):
+            raise ArchitecturePolicyError(
+                "architecture policy generation must be a non-negative integer"
+            )
+        if (
+            isinstance(self.decision_index, bool)
+            or not isinstance(self.decision_index, int)
+            or self.decision_index < 0
+        ):
+            raise ArchitecturePolicyError(
+                "architecture policy decision index must be a non-negative integer"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -553,15 +575,11 @@ class ArchitectureSearchPolicy:
     ) -> ArchitecturePolicySelection:
         selected_ids = set(current.selected_candidate_ids)
         if current.generation >= self.config.generations:
-            return ArchitecturePolicySelection(
-                (), current, True
-            )
+            return ArchitecturePolicySelection((), current, True)
         all_decisions: dict[str, ArchitecturePolicyDecision] = {}
         if not current.population_candidate_ids:
             eligible = tuple(
-                state
-                for state in pool.values()
-                if self._eligible(state, selected_ids)[0]
+                state for state in pool.values() if self._eligible(state, selected_ids)[0]
             )
             frontier = self._frontier(eligible)
             chosen = self._diverse_order(
@@ -574,11 +592,7 @@ class ArchitectureSearchPolicy:
             frontier_ids = tuple(state.candidate_id for state in frontier)
             reason = "seeded_pareto_population"
         else:
-            parents = tuple(
-                pool[item]
-                for item in current.population_candidate_ids
-                if item in pool
-            )
+            parents = tuple(pool[item] for item in current.population_candidate_ids if item in pool)
             generated: dict[str, CompleteArchitectureState] = {}
             for parent in parents:
                 for state in self._variants(parent, pool):
@@ -613,9 +627,9 @@ class ArchitectureSearchPolicy:
             all_decisions[state.candidate_id] = self._decision(
                 state,
                 valid and state.candidate_id in chosen_ids,
-                reason if valid and state.candidate_id in chosen_ids else (
-                    invalid_reason if not valid else "outside_pareto_population"
-                ),
+                reason
+                if valid and state.candidate_id in chosen_ids
+                else (invalid_reason if not valid else "outside_pareto_population"),
                 current.generation,
                 record,
             )
