@@ -11,14 +11,17 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import IO, Protocol
 
 HOSTILE_FUZZ_SCHEMA_VERSION = "1.0"
 HOSTILE_FUZZ_PROTOCOL_REVISION = "hostile-fuzz-v1"
@@ -51,7 +54,7 @@ class HostileOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class HostileFuzzLimits:
-    """Hard admission and subprocess limits for one corpus execution."""
+    """Input/output/time limits plus resource thresholds recorded for each run."""
 
     max_input_bytes: int = 64 * 1024
     max_output_bytes: int = 64 * 1024
@@ -195,8 +198,10 @@ class HostileFuzzCampaignReport:
 
     @property
     def counts(self) -> dict[str, int]:
-        return {outcome.value: sum(result.outcome is outcome for result in self.results)
-                for outcome in HostileOutcome}
+        return {
+            outcome.value: sum(result.outcome is outcome for result in self.results)
+            for outcome in HostileOutcome
+        }
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -214,9 +219,7 @@ class ParserTarget(Protocol):
     def __call__(self, payload: bytes) -> object: ...
 
 
-def _case_id(
-    kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome
-) -> str:
+def _case_id(kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome) -> str:
     material = f"{kind.value}:{seed}:{expected.value}:".encode() + payload
     return f"{kind.value}-{hashlib.sha256(material).hexdigest()[:20]}"
 
@@ -277,35 +280,112 @@ def run_parser_case(case: HostileFuzzCase, target: ParserTarget) -> HostileFuzzR
     )
 
 
+def _terminate_fuzz_process(process: subprocess.Popen[bytes]) -> None:
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=1,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
+    else:
+        killpg = getattr(os, "killpg", None)
+        terminate_signal = getattr(signal, "SIGTERM", None)
+        kill_signal = getattr(signal, "SIGKILL", terminate_signal)
+        try:
+            if not callable(killpg) or terminate_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, terminate_signal)
+        except OSError:
+            process.terminate()
+        with suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=0.25)
+        try:
+            if not callable(killpg) or kill_signal is None:
+                raise OSError("process-group termination is unavailable")
+            killpg(process.pid, kill_signal)
+        except OSError:
+            if process.poll() is None:
+                process.kill()
+    try:
+        process.wait(timeout=0.25)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _count_fuzz_output(
+    stream: IO[bytes],
+    output_bytes: list[int],
+    limit: int,
+    exceeded: threading.Event,
+) -> None:
+    while True:
+        remaining = limit - output_bytes[0]
+        chunk = stream.read(min(64 * 1024, remaining + 1))
+        if not chunk:
+            return
+        output_bytes[0] += len(chunk)
+        if output_bytes[0] > limit:
+            exceeded.set()
+            return
+
+
+def _temporary_tree_bytes(root: Path) -> int:
+    total = 0
+    for directory, _, filenames in os.walk(root):
+        for filename in filenames:
+            path = Path(directory) / filename
+            try:
+                if not path.is_symlink():
+                    total += path.stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _monitor_temporary_tree(
+    root: Path,
+    limit: int,
+    observed_bytes: list[int],
+    exceeded: threading.Event,
+    stop: threading.Event,
+) -> None:
+    while not stop.wait(0.05):
+        observed_bytes[0] = max(observed_bytes[0], _temporary_tree_bytes(root))
+        if observed_bytes[0] > limit:
+            exceeded.set()
+            return
+
+
 def run_subprocess_case(
     case: HostileFuzzCase,
     command: Sequence[str],
     *,
     cwd: str | Path | None = None,
 ) -> HostileFuzzResult:
-    """Run a target with shell disabled, timeout, output, and sandbox-byte gates."""
+    """Run a target with bounded output capture and temporary-tree monitoring."""
     if not command or any(not isinstance(argument, str) or not argument for argument in command):
         raise HostileFuzzError("subprocess command must contain non-empty strings")
     started = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="modelsurgeon-fuzz-") as sandbox:
         run_cwd = Path(cwd).resolve() if cwd is not None else Path(sandbox)
         try:
-            completed = subprocess.run(
+            process = subprocess.Popen(
                 list(command),
-                input=case.payload,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 cwd=run_cwd,
                 shell=False,
-                timeout=case.limits.timeout_seconds,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            return HostileFuzzResult(
-                case.case_id,
-                HostileOutcome.TIMEOUT,
-                time.perf_counter() - started,
-                detail=f"timeout after {case.limits.timeout_seconds}s",
+                start_new_session=os.name != "nt",
+                creationflags=(
+                    getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+                ),
             )
         except OSError as error:
             return HostileFuzzResult(
@@ -315,11 +395,84 @@ def run_subprocess_case(
                 exception_type=type(error).__name__,
                 detail=str(error),
             )
-        output_bytes = len(completed.stdout)
-        disk_bytes = sum(path.stat().st_size for path in Path(sandbox).rglob("*") if path.is_file())
-        if output_bytes > case.limits.max_output_bytes or disk_bytes > case.limits.max_disk_bytes:
+
+        stdin = process.stdin
+        stdout_stream = process.stdout
+        assert stdin is not None
+        assert stdout_stream is not None
+        output_bytes = [0]
+        output_exceeded = threading.Event()
+        disk_exceeded = threading.Event()
+        stop_disk_monitor = threading.Event()
+        disk_bytes = [0]
+        output_reader = threading.Thread(
+            target=_count_fuzz_output,
+            args=(stdout_stream, output_bytes, case.limits.max_output_bytes, output_exceeded),
+            daemon=True,
+        )
+        disk_monitor = threading.Thread(
+            target=_monitor_temporary_tree,
+            args=(
+                Path(sandbox),
+                case.limits.max_disk_bytes,
+                disk_bytes,
+                disk_exceeded,
+                stop_disk_monitor,
+            ),
+            daemon=True,
+        )
+
+        def write_payload() -> None:
+            try:
+                stdin.write(case.payload)
+                stdin.close()
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+
+        input_writer = threading.Thread(target=write_payload, daemon=True)
+        workers = (output_reader, input_writer)
+        disk_monitor.start()
+        for worker in workers:
+            worker.start()
+
+        deadline = started + case.limits.timeout_seconds
+        timed_out = False
+        while True:
+            if output_exceeded.is_set() or disk_exceeded.is_set():
+                _terminate_fuzz_process(process)
+                break
+            if time.perf_counter() >= deadline:
+                timed_out = True
+                _terminate_fuzz_process(process)
+                break
+            if process.poll() is not None and not any(worker.is_alive() for worker in workers):
+                break
+            time.sleep(min(0.01, max(0.0, deadline - time.perf_counter())))
+
+        for worker in workers:
+            worker.join(timeout=0.5)
+        stop_disk_monitor.set()
+        disk_monitor.join(timeout=0.5)
+        for stream in (stdin, stdout_stream):
+            with suppress(OSError, ValueError):
+                stream.close()
+
+        if timed_out:
+            return HostileFuzzResult(
+                case.case_id,
+                HostileOutcome.TIMEOUT,
+                time.perf_counter() - started,
+                output_bytes=output_bytes[0],
+                detail=f"timeout after {case.limits.timeout_seconds}s",
+            )
+        disk_bytes[0] = max(disk_bytes[0], _temporary_tree_bytes(Path(sandbox)))
+        if (
+            output_exceeded.is_set()
+            or disk_exceeded.is_set()
+            or (disk_bytes[0] > case.limits.max_disk_bytes)
+        ):
             outcome = HostileOutcome.RESOURCE_LIMIT
-        elif completed.returncode == 0:
+        elif process.returncode == 0:
             outcome = HostileOutcome.ACCEPTED
         else:
             outcome = HostileOutcome.REJECTED
@@ -327,8 +480,17 @@ def run_subprocess_case(
             case.case_id,
             outcome,
             time.perf_counter() - started,
-            output_bytes=output_bytes,
-            detail=f"returncode={completed.returncode}",
+            output_bytes=output_bytes[0],
+            detail=(
+                "output exceeded byte budget; child process terminated"
+                if output_exceeded.is_set()
+                else (
+                    f"temporary-directory bytes exceeded budget: observed {disk_bytes[0]} bytes; "
+                    f"limit {case.limits.max_disk_bytes} bytes"
+                )
+                if disk_exceeded.is_set() or disk_bytes[0] > case.limits.max_disk_bytes
+                else f"returncode={process.returncode}"
+            ),
         )
 
 
