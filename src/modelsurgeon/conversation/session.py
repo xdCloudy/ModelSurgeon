@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from modelsurgeon.experiments import HardwareProfile, build_default_hardware_profile
 from modelsurgeon.provider_kind import ProviderKind
 
+from .bounded_process import run_bounded_process
 from .clarification import (
     ClarificationAnswer,
     ClarificationError,
@@ -60,6 +61,7 @@ CHAT_SESSION_SCHEMA_VERSION: Literal[1] = 1
 CHAT_TURN_SCHEMA_VERSION: Literal[2] = 2
 DEFAULT_CHAT_MAX_TURNS = 8
 _MAX_CHAT_TURNS = 64
+_MAX_RUNTIME_VERSION_BYTES = 16 * 1024
 
 
 class ChatSessionError(ValueError):
@@ -91,30 +93,28 @@ def _installed_runtime_revision() -> str:
 def _external_runtime_revision(executable: Path) -> str:
     """Resolve and pin the version string of an explicit llama-cli binary."""
 
-    import subprocess
-
     resolved = executable.expanduser().resolve(strict=False)
     if not resolved.is_file():
         raise ChatSessionError(
             "provider_unavailable", f"llama-cli executable does not exist: {executable}"
         )
     try:
-        result = subprocess.run(
+        result = run_bounded_process(
             (str(resolved), "--version"),
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10.0,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            timeout_seconds=10.0,
+            max_stdout_bytes=_MAX_RUNTIME_VERSION_BYTES,
+            max_stderr_bytes=_MAX_RUNTIME_VERSION_BYTES,
         )
-    except (OSError, subprocess.TimeoutExpired) as error:
+    except OSError as error:
         raise ChatSessionError(
             "provider_unavailable", "llama-cli executable could not report its revision"
         ) from error
-    revision = (result.stdout or result.stderr).strip()
-    if result.returncode != 0 or not revision:
+    if result.timed_out or result.output_exceeded or result.returncode != 0:
+        raise ChatSessionError(
+            "provider_unavailable", "llama-cli executable returned no usable revision"
+        )
+    revision = (result.stdout or result.stderr).decode("utf-8", errors="replace").strip()
+    if not revision:
         raise ChatSessionError(
             "provider_unavailable", "llama-cli executable returned no usable revision"
         )
@@ -271,6 +271,7 @@ def _build_provider(
             runtime_factory=lambda **kwargs: LlamaCliRuntime(
                 executable=runtime_executable,
                 max_wall_seconds=max_wall_seconds,
+                max_response_bytes=config.max_response_bytes,
                 **kwargs,
             ),
             runtime_version=selected_runtime_revision,
