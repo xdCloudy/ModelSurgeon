@@ -198,8 +198,10 @@ class HostileFuzzCampaignReport:
 
     @property
     def counts(self) -> dict[str, int]:
-        return {outcome.value: sum(result.outcome is outcome for result in self.results)
-                for outcome in HostileOutcome}
+        return {
+            outcome.value: sum(result.outcome is outcome for result in self.results)
+            for outcome in HostileOutcome
+        }
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -217,9 +219,7 @@ class ParserTarget(Protocol):
     def __call__(self, payload: bytes) -> object: ...
 
 
-def _case_id(
-    kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome
-) -> str:
+def _case_id(kind: HostileInputKind, payload: bytes, seed: int, expected: HostileOutcome) -> str:
     material = f"{kind.value}:{seed}:{expected.value}:".encode() + payload
     return f"{kind.value}-{hashlib.sha256(material).hexdigest()[:20]}"
 
@@ -466,8 +466,10 @@ def run_subprocess_case(
                 detail=f"timeout after {case.limits.timeout_seconds}s",
             )
         disk_bytes[0] = max(disk_bytes[0], _temporary_tree_bytes(Path(sandbox)))
-        if output_exceeded.is_set() or disk_exceeded.is_set() or (
-            disk_bytes[0] > case.limits.max_disk_bytes
+        if (
+            output_exceeded.is_set()
+            or disk_exceeded.is_set()
+            or (disk_bytes[0] > case.limits.max_disk_bytes)
         ):
             outcome = HostileOutcome.RESOURCE_LIMIT
         elif process.returncode == 0:

@@ -24,7 +24,13 @@ def test_corpus_is_deterministic_and_covers_all_boundaries() -> None:
     second = make_hostile_fuzz_corpus(seed=406)
     assert first.corpus_id == second.corpus_id
     assert {case.kind.value for case in first.cases} == {
-        "hf_checkpoint", "safetensors", "gguf", "config", "manifest", "path", "subprocess"
+        "hf_checkpoint",
+        "safetensors",
+        "gguf",
+        "config",
+        "manifest",
+        "path",
+        "subprocess",
     }
     assert all(case.minimized for case in first.cases)
     assert all(len(case.payload) <= case.limits.max_input_bytes for case in first.cases)
