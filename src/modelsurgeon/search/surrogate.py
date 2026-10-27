@@ -1111,9 +1111,20 @@ class SurrogateArchitecturePolicy:
             and current.fit_id != fit.model.model_id
         ):
             raise SurrogateError("surrogate resume state does not match fitted model")
-        observed_examples = fit.measured_examples or (
-            () if fit.model is None else fit.model.examples
-        )
+        if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:
+            measured_ids = tuple(example.candidate_id for example in fit.measured_examples)
+            if measured_ids != fit.measured_candidate_ids or (
+                fit.model is not None and not fit.measured_examples
+            ):
+                raise SurrogateError(
+                    "hypervolume improvement requires complete measured examples; "
+                    "refit the surrogate"
+                )
+            observed_examples = fit.measured_examples
+        else:
+            observed_examples = fit.measured_examples or (
+                () if fit.model is None else fit.model.examples
+            )
         frontier = _feasible_frontier(observed_examples)
         acquisition_reference_point: tuple[float, ...] | None = None
         if self.config.acquisition is AcquisitionKind.HYPERVOLUME_IMPROVEMENT:

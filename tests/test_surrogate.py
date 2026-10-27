@@ -106,6 +106,25 @@ def test_surrogate_fit_is_calibrated_bounded_and_persistable() -> None:
     assert fit.from_record(record).to_record() == record
 
 
+def test_hypervolume_rejects_legacy_fit_without_complete_measured_examples() -> None:
+    config = SurrogateConfig(
+        AcquisitionKind.HYPERVOLUME_IMPROVEMENT,
+        evaluation_budget=1,
+        exploration_weight=0.0,
+    )
+    fit = fit_surrogate(_measured(), OBJECTIVES, CONSTRAINTS, config)
+    record = fit.to_record()
+    del record["measured_examples"]
+    legacy_fit = fit.from_record(record)
+    policy = SurrogateArchitecturePolicy(config, OBJECTIVES, CONSTRAINTS)
+
+    with pytest.raises(SurrogateError, match="complete measured examples"):
+        policy.select(
+            (_state(6, 0.95, ArchitectureEvidenceStatus.PREDICTED),),
+            legacy_fit,
+        )
+
+
 def test_surrogate_training_example_from_record_rejects_numeric_overflow() -> None:
     example = SurrogateTrainingExample(
         "candidate",
