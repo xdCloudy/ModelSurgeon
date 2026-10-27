@@ -46,12 +46,30 @@
     {"method": "random", "seed": 20261027, "artifact_bytes": 19199501568, "perplexity": 7.5997, "reported_uncertainty": 0.04912, "retention": 0.882819, "gate_passed": false},
     {"method": "poe_reap", "seed": null, "artifact_bytes": 19199501664, "perplexity": 6.9050, "reported_uncertainty": 0.04387, "retention": 0.971615, "gate_passed": false, "artifact_sha256": "bd39618202c097173ecb675418db26aa39807dbfdb450ab9177a149d491d25c6"}
   ],
+  "paired_chunk_analysis": {
+    "record": "qwen35moe-reap-224-wikitext-paired-bootstrap-2026-10-27.json",
+    "method": "post-hoc paired circular moving-block bootstrap of recovered per-chunk mean NLL",
+    "chunk_size_tokens": 512,
+    "block_chunks": 10,
+    "block_size_tokens": 5120,
+    "bootstrap_samples": 20000,
+    "seed": 20261027,
+    "scope": "conditional uncertainty within the single ordered WikiText-2 test corpus for these fixed artifacts; not across models, calibration samples, datasets, or tasks",
+    "results": [
+      {"candidate": "poe_reap", "baseline": "router_column_norm", "observed_delta_ppl": -1.890155, "moving_block_percentile_95_ci_delta_ppl": [-2.123919, -1.669907]},
+      {"candidate": "poe_reap", "baseline": "random_seed_20261026", "observed_delta_ppl": -0.678880, "moving_block_percentile_95_ci_delta_ppl": [-0.770392, -0.596181]},
+      {"candidate": "poe_reap", "baseline": "random_seed_20261027", "observed_delta_ppl": -0.694655, "moving_block_percentile_95_ci_delta_ppl": [-0.763003, -0.633618]}
+    ]
+  },
   "provenance": {
     "scorer_and_writer": {"repository": "peonist-ai/poe", "commit": "3908873326bcdbe097f4184729db7c33fff1cf60", "license": "MIT"},
     "algorithm_source": {"repository": "CerebrasResearch/REAP", "commit": "1970473c51ca3caeb98c10392f15b3a08a672974", "license": "Apache-2.0"},
     "code_copied_into_modelsurgeon": false,
     "first_party_pr_738_adapter_generated_this_artifact": false,
     "raw_ppl_stdout_sha256": "11f7e46de10bd70fc77f2a3d228d4510c20897ff41864a2ff1d9cf3059374d6e",
-    "raw_ppl_stderr_sha256": "4c6c95e563edfd0d70a00840bcebb321c770208744918d191eab882a861dfefe"
+    "raw_ppl_stderr_sha256": "4c6c95e563edfd0d70a00840bcebb321c770208744918d191eab882a861dfefe",
+    "router_norm_ppl_stdout_sha256": "6993dba4e8c3101325d9acbbef2de385de913b74b98af51967c1eecc18ea3425",
+    "random_seed_20261026_ppl_stdout_sha256": "abc0b7625ec190b8f0066d7ebb2c70a72809884c3b7bc0701b8cd7990076d8e1",
+    "random_seed_20261027_ppl_stdout_sha256": "c4dd321870526dadcf9e2b8f977030c93d0e9af1091d4cd1f5efdf9549258167"
   }
 }

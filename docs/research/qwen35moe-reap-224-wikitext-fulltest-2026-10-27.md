@@ -17,6 +17,12 @@ At the same 12.5% expert cut (224/256 experts retained in each of 41 MoE layers)
 
 The REAP point estimate is 0.6789 and 0.6947 PPL lower than the two random runs, and 1.8902 lower than router norm. The reported `±` values are llama.cpp's per-run uncertainty output, not paired confidence intervals or a statistical test. The random seed difference is 0.0158. This single model/dataset/cut is evidence that the ranking is worth investigating; it does not establish significance, generalization, or a quality-preserving operating point.
 
+### Paired held-out chunk analysis
+
+As a post-hoc analysis of the preserved, aligned 580-row logs, I recovered each 512-token chunk's mean NLL from llama.cpp's cumulative mean NLL, then bootstrapped paired chunks in circular contiguous blocks of 10 chunks (5,120 tokens). With 20,000 resamples and seed `20261027`, REAP's PPL delta and percentile 95% block-bootstrap interval were `-1.8902 [-2.1239, -1.6699]` against router norm, `-0.6789 [-0.7704, -0.5962]` against random seed `20261026`, and `-0.6947 [-0.7630, -0.6336]` against random seed `20261027`. Negative values favor REAP. All three intervals are below zero for this ordered WikiText-2 test corpus.
+
+These intervals quantify chunk-sampling variation conditional on these fixed artifacts and this single corpus; they do not represent variation across calibration samples, model checkpoints, datasets, or tasks. The analysis is post-hoc and does not turn the result into a generalization or promotion claim. The exact raw logs, hashes, result JSON, and standard-library-only calculation script are preserved in `records/`; run `tools/paired_ppl_block_bootstrap.py` with the four `--reap`, `--router-norm`, `--random-20261026`, and `--random-20261027` log paths to reproduce it.
+
 The REAP artifact is 2,513,960,832 bytes (11.58%) smaller than the source, and has 31.38B parameters after removing 32 experts from each layer. The 96-byte excess over the ModelSurgeon-produced random artifacts is POE provenance metadata and is negligible relative to model size.
 
 ## Reproduction inputs and procedure
