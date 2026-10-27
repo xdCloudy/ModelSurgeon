@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Mapping
 
 import pytest
 
@@ -49,6 +50,23 @@ def _request(**overrides: object) -> PluginRequest:
     }
     values.update(overrides)
     return PluginRequest(**values)  # type: ignore[arg-type]
+
+
+class _UnboundedMapping(Mapping[str, object]):
+    def __init__(self) -> None:
+        self.iterations = 0
+
+    def __getitem__(self, key: str) -> object:
+        del key
+        return 0
+
+    def __iter__(self) -> Iterator[str]:
+        while True:
+            self.iterations += 1
+            yield f"item-{self.iterations}"
+
+    def __len__(self) -> int:
+        return 0
 
 
 def test_negotiation_fails_closed_for_version_capability_and_dependencies() -> None:
@@ -119,3 +137,16 @@ def test_plugin_output_budget_is_fail_closed() -> None:
         request,
     )
     assert result.outcome is PluginOutcome.MALFORMED_OUTPUT
+
+
+def test_plugin_request_rejects_unbounded_mapping_iteration() -> None:
+    payload = _UnboundedMapping()
+
+    with pytest.raises(PluginError, match="JSON item limit"):
+        invoke_subprocess(
+            _card(),
+            (sys.executable, "-c", "raise SystemExit(0)"),
+            _request(payload=payload),
+        )
+
+    assert payload.iterations < 100_000
