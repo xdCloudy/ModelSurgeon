@@ -16,8 +16,10 @@ from modelsurgeon.features.schema import (
 )
 from modelsurgeon.graph import ComponentId
 from modelsurgeon.surgeon.matrix import (
+    SurgeonPreprocessor,
     TrainingMatrixError,
     build_training_matrices,
+    numeric_support_violations,
     transform_inference_record,
 )
 from modelsurgeon.surgeon.metrics import (
@@ -219,6 +221,26 @@ def test_training_preprocessing_is_fit_only_on_train_and_inference_fails_closed(
     numeric = {item.name: item for item in matrices.preprocessor.numeric}
     assert numeric["weight_mean"].mean == pytest.approx(2.0)
     assert numeric["weight_mean"].scale == pytest.approx(1.0)
+    assert numeric["weight_mean"].min_value == pytest.approx(1.0)
+    assert numeric["weight_mean"].max_value == pytest.approx(3.0)
+    assert "weight_mean" in numeric_support_violations(examples[2], matrices.preprocessor)
+    assert "weight_mean" in numeric_support_violations(examples[3], matrices.preprocessor)
+    assert SurgeonPreprocessor.from_record(matrices.preprocessor.to_record()) == (
+        matrices.preprocessor
+    )
+    legacy_record = matrices.preprocessor.to_record()
+    numeric_records = legacy_record["numeric"]
+    assert isinstance(numeric_records, list)
+    for item in numeric_records:
+        assert isinstance(item, dict)
+        item.pop("min_value")
+        item.pop("max_value")
+    legacy_preprocessor = SurgeonPreprocessor.from_record(legacy_record)
+    assert all(
+        item.min_value is None and item.max_value is None
+        for item in legacy_preprocessor.numeric
+    )
+    assert not numeric_support_violations(examples[2], legacy_preprocessor)
     family = next(item for item in matrices.preprocessor.categorical if item.name == "model_family")
     assert "llama" in family.categories
     assert "qwen" not in family.categories
@@ -228,6 +250,28 @@ def test_training_preprocessing_is_fit_only_on_train_and_inference_fails_closed(
     incomplete["pre_mutation_features"] = []
     with pytest.raises(TrainingMatrixError, match="missing required trained features"):
         transform_inference_record(incomplete, matrices.preprocessor)
+
+
+@pytest.mark.parametrize("bound", ["min_value", "max_value"])
+def test_persisted_numeric_support_bounds_reject_conversion_overflow(bound: str) -> None:
+    numeric_record: dict[str, object] = {
+        "name": "weight_mean",
+        "mean": 0.0,
+        "scale": 1.0,
+        "min_value": 0.0,
+        "max_value": 1.0,
+    }
+    numeric_record[bound] = 10**400
+    preprocessor_record: dict[str, object] = {
+        "schema_version": 1,
+        "source_feature_schema_version": 1,
+        "target_schema_version": 1,
+        "numeric": [numeric_record],
+        "categorical": [],
+    }
+
+    with pytest.raises(TrainingMatrixError, match="numeric preprocessor values must be finite"):
+        SurgeonPreprocessor.from_record(preprocessor_record)
 
 
 def test_quantization_context_changes_bf16_and_q4_inference_rows() -> None:

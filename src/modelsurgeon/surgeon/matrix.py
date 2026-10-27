@@ -56,12 +56,26 @@ class NumericPreprocessor:
     name: str
     mean: float
     scale: float
+    min_value: float | None = None
+    max_value: float | None = None
 
     def __post_init__(self) -> None:
         if not self.name or not math.isfinite(self.mean):
             raise TrainingMatrixError("numeric preprocessing requires finite train statistics")
         if not math.isfinite(self.scale) or self.scale <= 0:
             raise TrainingMatrixError("numeric preprocessing scale must be finite and positive")
+        if (self.min_value is None) != (self.max_value is None):
+            raise TrainingMatrixError("numeric support bounds must be provided together")
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and (
+                not math.isfinite(self.min_value)
+                or not math.isfinite(self.max_value)
+                or self.min_value > self.max_value
+            )
+        ):
+            raise TrainingMatrixError("numeric support bounds must be finite and ordered")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +130,14 @@ class SurgeonPreprocessor:
             "source_feature_schema_version": self.source_feature_schema_version,
             "target_schema_version": self.target_schema_version,
             "numeric": [
-                {"name": item.name, "mean": item.mean, "scale": item.scale} for item in self.numeric
+                {
+                    "name": item.name,
+                    "mean": item.mean,
+                    "scale": item.scale,
+                    "min_value": item.min_value,
+                    "max_value": item.max_value,
+                }
+                for item in self.numeric
             ],
             "categorical": [
                 {"name": item.name, "categories": list(item.categories)}
@@ -147,15 +168,42 @@ class SurgeonPreprocessor:
             name = raw.get("name")
             mean = raw.get("mean")
             scale = raw.get("scale")
+            min_value = raw.get("min_value")
+            max_value = raw.get("max_value")
             if (
                 not isinstance(name, str)
                 or isinstance(mean, bool)
                 or not isinstance(mean, (int, float))
                 or isinstance(scale, bool)
                 or not isinstance(scale, (int, float))
+                or (
+                    min_value is not None
+                    and (isinstance(min_value, bool) or not isinstance(min_value, (int, float)))
+                )
+                or (
+                    max_value is not None
+                    and (isinstance(max_value, bool) or not isinstance(max_value, (int, float)))
+                )
             ):
                 raise TrainingMatrixError("persisted numeric preprocessor fields are invalid")
-            numeric.append(NumericPreprocessor(name, float(mean), float(scale)))
+            try:
+                normalized_mean = float(mean)
+                normalized_scale = float(scale)
+                normalized_min = None if min_value is None else float(min_value)
+                normalized_max = None if max_value is None else float(max_value)
+            except (OverflowError, TypeError, ValueError) as error:
+                raise TrainingMatrixError(
+                    "persisted numeric preprocessor values must be finite numbers"
+                ) from error
+            numeric.append(
+                NumericPreprocessor(
+                    name,
+                    normalized_mean,
+                    normalized_scale,
+                    normalized_min,
+                    normalized_max,
+                )
+            )
         categorical: list[CategoricalPreprocessor] = []
         for raw in categorical_raw:
             if not isinstance(raw, Mapping):
@@ -552,7 +600,7 @@ def fit_preprocessor(
         scale = math.sqrt(variance)
         if scale == 0.0:
             scale = 1.0
-        numeric.append(NumericPreprocessor(name, mean, scale))
+        numeric.append(NumericPreprocessor(name, mean, scale, min(measured), max(measured)))
 
     categorical_names = sorted({name for row in train for name, _ in row.categorical})
     categorical: list[CategoricalPreprocessor] = []
@@ -720,3 +768,25 @@ def transform_inference_record(
         schema_version,
     )
     return transform_row(row, preprocessor)
+
+
+def numeric_support_violations(
+    example: ExampleRecord,
+    preprocessor: SurgeonPreprocessor,
+) -> tuple[str, ...]:
+    """Return numeric features outside train-observed bounds, when bounds are available."""
+
+    record = _record(example)
+    if isinstance(example, MutationExampleRecord):
+        numeric_values = _numeric_from_feature_records(example.pre_mutation_features)
+    else:
+        numeric_values = _numeric_from_feature_dicts(record.get("pre_mutation_features"))
+    numeric_values.update(_context(record)[0])
+    return tuple(
+        item.name
+        for item in preprocessor.numeric
+        if item.min_value is not None
+        and item.max_value is not None
+        and item.name in numeric_values
+        and not item.min_value <= numeric_values[item.name] <= item.max_value
+    )

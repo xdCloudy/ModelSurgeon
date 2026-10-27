@@ -592,16 +592,18 @@ def test_meta_target_direction_uses_declared_schema_and_rejects_unknown() -> Non
 
 
 @pytest.mark.parametrize(
-    ("categorical_categories", "expected_meta_status"),
+    ("categorical_categories", "numeric_bounds", "expected_meta_status"),
     [
-        ((), "verified_bundle"),
-        (("<unknown>", "qwen"), "abstained_unknown_categories"),
+        ((), (0.0, 1_000_000.0), "verified_bundle"),
+        ((), (100.0, 200.0), "abstained_numeric_extrapolation"),
+        (("<unknown>", "qwen"), (0.0, 1_000_000.0), "abstained_unknown_categories"),
     ],
 )
 def test_first_party_runtime_respects_meta_surgeon_support(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     categorical_categories: tuple[str, ...],
+    numeric_bounds: tuple[float, float],
     expected_meta_status: str,
 ) -> None:
     model_path = tmp_path / "model"
@@ -613,9 +615,9 @@ def test_first_party_runtime_respects_meta_surgeon_support(
     registry = PretrainedSurgeonRegistry(tmp_path / "surgeon-registry")
     preprocessor = SurgeonPreprocessor(
         (
-            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0),
-            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0),
-            NumericPreprocessor("weight_l1_norm", 0.0, 1.0),
+            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0, *numeric_bounds),
+            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0, *numeric_bounds),
+            NumericPreprocessor("weight_l1_norm", 0.0, 1.0, *numeric_bounds),
         ),
         (
             (CategoricalPreprocessor("model_family", categorical_categories),)
@@ -715,6 +717,10 @@ def test_first_party_runtime_respects_meta_surgeon_support(
     if expected_meta_status == "abstained_unknown_categories":
         assert detail["meta_guidance"]["unknown_categories"] == ["model_family"]
         assert "predictions" not in detail["meta_guidance"]
+    elif expected_meta_status == "abstained_numeric_extrapolation":
+        assert detail["meta_guidance"]["numeric_extrapolation_by_candidate"]
+        assert not detail["meta_guidance"].get("predictions")
+    if expected_meta_status != "verified_bundle":
         assert not runtime.meta_predictions
         assert not runtime.meta_order
         assert detail["search_comparison"]["baselines"]

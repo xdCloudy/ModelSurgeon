@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Fit and persist train-only numeric feature bounds for Meta-Surgeon
+    preprocessing. Candidate values outside those observed ranges now make
+    optional learned guidance abstain, while unguided and heuristic physical
+    search remains available. Older preprocessor records without bounds still
+    load and retain their previous behavior.
+
   - Align Meta-Surgeon MLP training evidence and inference features with
     physical surgery: proof datasets now use one canonical candidate per shared
     intermediate channel, aggregate features across every transformer layer,

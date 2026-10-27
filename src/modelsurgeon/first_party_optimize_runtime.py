@@ -555,7 +555,10 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         return rank
 
     def _meta_rank(self, candidates: tuple[MutationCandidate, ...]) -> tuple[str, ...]:
-        from modelsurgeon.surgeon.matrix import transform_inference_record
+        from modelsurgeon.surgeon.matrix import (
+            numeric_support_violations,
+            transform_inference_record,
+        )
         from modelsurgeon.surgeon.pretrained_registry import (
             PretrainedRegistryError,
             PretrainedSurgeonRegistry,
@@ -871,6 +874,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
 
         inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
         unknown_categories: set[str] = set()
+        numeric_extrapolation_by_candidate: dict[str, tuple[str, ...]] = {}
         support_coverage_by_candidate: dict[str, float] = {}
         support_feature_count = len(bundle.preprocessor.numeric) + len(
             bundle.preprocessor.categorical
@@ -890,6 +894,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             try:
                 row = transform_inference_record(
                     record, bundle.preprocessor, refuse_missing=False
+                )
+                numeric_extrapolation = numeric_support_violations(
+                    record, bundle.preprocessor
                 )
                 row_unknown_categories = tuple(
                     feature_name.removeprefix("cat:").removesuffix("=<unknown>")
@@ -912,8 +919,14 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                     f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
                 ) from error
             unknown_categories.update(row_unknown_categories)
-            unsupported_feature_count = len(row_unknown_categories) + len(
-                missing_numeric_features
+            if numeric_extrapolation:
+                numeric_extrapolation_by_candidate[candidate.candidate_id] = (
+                    numeric_extrapolation
+                )
+            unsupported_feature_count = (
+                len(row_unknown_categories)
+                + len(missing_numeric_features)
+                + len(numeric_extrapolation)
             )
             support_coverage_by_candidate[candidate.candidate_id] = (
                 1.0
@@ -936,6 +949,28 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 "reason": (
                     "target feature categories were absent from source training; "
                     "the Meta-Surgeon prediction was withheld"
+                ),
+            }
+            return ()
+
+        if numeric_extrapolation_by_candidate:
+            self.meta_guidance = {
+                "status": "abstained_numeric_extrapolation",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "numeric_extrapolation_by_candidate": {
+                    candidate_id: list(features)
+                    for candidate_id, features in sorted(
+                        numeric_extrapolation_by_candidate.items()
+                    )
+                },
+                "support_coverage_by_candidate": dict(
+                    sorted(support_coverage_by_candidate.items())
+                ),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "one or more candidate numeric features fell outside the observed "
+                    "training range; Meta-Surgeon predictions were withheld"
                 ),
             }
             return ()
