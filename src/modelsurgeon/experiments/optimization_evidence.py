@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 OPTIMIZATION_EVIDENCE_SCHEMA_VERSION = 1
 
@@ -164,7 +165,7 @@ class OptimizationEvidenceStore:
         if self.manifest_path.is_symlink() or not self.manifest_path.is_file():
             raise OptimizationEvidenceError("optimization evidence manifest is unsafe")
         try:
-            raw = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(self.manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise OptimizationEvidenceError("optimization evidence manifest is corrupt") from error
         if not isinstance(raw, dict) or raw.get("schema_version") != 1:

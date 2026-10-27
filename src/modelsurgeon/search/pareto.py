@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from modelsurgeon.config import ObjectiveDirection, OptimizeMetric
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.objectives import ObjectiveSet
 
 PARETO_ARCHIVE_SCHEMA_VERSION = 1
@@ -20,7 +21,13 @@ class ParetoArchiveError(ValueError):
 
 def _canonical(value: object) -> str:
     try:
-        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+            allow_nan=False,
+        )
     except (TypeError, ValueError) as error:
         raise ParetoArchiveError("Pareto records must be canonical JSON values") from error
 
@@ -202,7 +209,7 @@ class ParetoArchive:
         self.close()
 
     def _candidate_from_row(self, row: sqlite3.Row) -> ParetoCandidate:
-        raw_objectives = json.loads(str(row["objective_json"]))
+        raw_objectives = strict_json_loads(str(row["objective_json"]))
         values = tuple(
             ParetoObjectiveValue(
                 OptimizeMetric(item["metric"]),
@@ -212,7 +219,7 @@ class ParetoArchive:
             )
             for item in raw_objectives
         )
-        payload = json.loads(str(row["payload_json"]))
+        payload = strict_json_loads(str(row["payload_json"]))
         if not isinstance(payload, dict):
             raise ParetoArchiveError("stored Pareto payload is not an object")
         return ParetoCandidate(str(row["candidate_id"]), values, payload)

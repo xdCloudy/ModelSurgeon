@@ -21,6 +21,7 @@ from modelsurgeon.experiments.artifacts import (
     ContentAddressedArtifactStore,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 REGISTRY_SCHEMA_VERSION = 1
 REGISTRY_BUNDLE_SCHEMA_VERSION = 1
@@ -214,7 +215,7 @@ class LocalArtifactRegistry:
         if not self.catalog_path.exists():
             return
         try:
-            raw = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(self.catalog_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise RegistryError("registry catalog is unreadable or corrupt") from error
         if not isinstance(raw, Mapping) or raw.get("schema_version") != REGISTRY_SCHEMA_VERSION:
@@ -520,7 +521,7 @@ class LocalArtifactRegistry:
                     raise RegistryError(
                         "registry bundle must contain exactly manifest.json and payload"
                     )
-                manifest = json.loads(archive.read("manifest.json"))
+                manifest = strict_json_loads(archive.read("manifest.json"))
                 payload = archive.read("payload")
         except RegistryError:
             raise

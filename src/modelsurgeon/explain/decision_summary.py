@@ -183,7 +183,7 @@ class MutationDecisionSummary:
         }
 
     def to_json(self) -> str:
-        return json.dumps(self.to_record(), sort_keys=True, separators=(",", ":"))
+        return json.dumps(self.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False)
 
     def to_text(self) -> str:
         unknown = "unknown"

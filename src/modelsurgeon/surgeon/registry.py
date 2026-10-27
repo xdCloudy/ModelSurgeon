@@ -13,6 +13,7 @@ from modelsurgeon.experiments.artifacts import (
     StoredArtifact,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 from .matrix import SurgeonPreprocessor
 from .models import SerializableModel, model_from_json, model_to_json
@@ -145,7 +146,7 @@ class SurgeonModelRegistry:
         )
         payload = {
             "schema_version": SURGEON_BUNDLE_SCHEMA_VERSION,
-            "model": json.loads(model_to_json(model)),
+            "model": strict_json_loads(model_to_json(model)),
             "preprocessor": preprocessor.to_record(),
             "target_schema": target_schema.to_record(),
             "card": card.to_record(),
@@ -162,7 +163,7 @@ class SurgeonModelRegistry:
     ) -> SurgeonBundle:
         artifact = self.artifacts.get(digest)
         try:
-            raw = json.loads(artifact.data_path.read_text(encoding="utf-8"))
+            raw = strict_json_loads(artifact.data_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise SurgeonRegistryError("surgeon bundle is unreadable or corrupt") from error
         if not isinstance(raw, dict) or raw.get("schema_version") != SURGEON_BUNDLE_SCHEMA_VERSION:

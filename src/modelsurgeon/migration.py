@@ -9,7 +9,6 @@ are rejected before a caller can resume a campaign or publish an artifact.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -23,6 +22,7 @@ from modelsurgeon.conversation.campaign_state import (
     CampaignStateError,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.optimization_orchestrator import (
     ORCHESTRATOR_SCHEMA_VERSION,
     OptimizeOrchestratorError,
@@ -78,7 +78,7 @@ class MigrationResult:
     def to_record(self) -> dict[str, object]:
         """Return the migrated payload without adding non-schema metadata."""
 
-        return cast(dict[str, object], json.loads(canonical_identity_json(self.record)))
+        return cast(dict[str, object], strict_json_loads(canonical_identity_json(self.record)))
 
     def report(self) -> dict[str, object]:
         """Return machine-readable audit metadata for a migration operation."""

@@ -149,6 +149,7 @@ class CalibrationContract:
             },
             sort_keys=True,
             separators=(",", ":"),
+            allow_nan=False,
         )
 
     def selection_rank(self, sample_id: str) -> bytes:

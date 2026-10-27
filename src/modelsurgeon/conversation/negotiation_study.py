@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     )
 
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 NEGOTIATION_STUDY_SCHEMA_VERSION = 1
 NEGOTIATION_STUDY_PROTOCOL_ID = "v25-negotiation-decision-quality-v1"
@@ -744,7 +745,7 @@ def load_negotiation_study(path: Path) -> NegotiationStudyCorpus:
     try:
         if path.stat().st_size > MAX_NEGOTIATION_STUDY_BYTES:
             raise NegotiationStudyError("negotiation study exceeds its byte budget")
-        root = json.loads(path.read_text(encoding="utf-8"))
+        root = strict_json_loads(path.read_text(encoding="utf-8"))
     except NegotiationStudyError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as error:

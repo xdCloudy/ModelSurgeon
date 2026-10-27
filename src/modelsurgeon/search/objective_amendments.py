@@ -28,6 +28,7 @@ from modelsurgeon.experiments.optimization_package import (
     OptimizationPackageError,
     validate_approval,
 )
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.search.objective_contract import HardConstraint, ObjectiveContract
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ def _record(value: object, label: str) -> dict[str, object]:
     if not isinstance(value, Mapping):
         raise ObjectiveAmendmentError(f"{label} must be a JSON object")
     try:
-        decoded = json.loads(_canonical(value))
+        decoded = strict_json_loads(_canonical(value))
     except (TypeError, ValueError, json.JSONDecodeError) as error:
         raise ObjectiveAmendmentError(f"{label} must contain canonical JSON") from error
     if not isinstance(decoded, dict):

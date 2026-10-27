@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -36,6 +37,7 @@ from modelsurgeon.conversation import (
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.explain import ClaimEvidenceBlock, ClaimEvidenceExplanation, render_claim_evidence
+from modelsurgeon.json_utils import strict_json_loads
 
 EVIDENCE_FACTUALITY_STUDY_SCHEMA_VERSION: Final[int] = 1
 EVIDENCE_FACTUALITY_PROTOCOL_ID: Final[str] = "v28-evidence-factuality-v1"
@@ -165,8 +167,13 @@ class EvidenceFactualityLimits:
             raise EvidenceFactualityStudyError("max_cells must be an integer")
         if not 0 < self.max_cells <= MAX_EVIDENCE_FACTUALITY_CELLS:
             raise EvidenceFactualityStudyError("max_cells exceeds the fixed study bound")
-        if not isinstance(self.max_cpu_seconds, (int, float)) or self.max_cpu_seconds <= 0:
-            raise EvidenceFactualityStudyError("max_cpu_seconds must be positive")
+        if (
+            isinstance(self.max_cpu_seconds, bool)
+            or not isinstance(self.max_cpu_seconds, (int, float))
+            or not math.isfinite(self.max_cpu_seconds)
+            or self.max_cpu_seconds <= 0
+        ):
+            raise EvidenceFactualityStudyError("max_cpu_seconds must be finite and positive")
         if self.max_output_bytes <= 0:
             raise EvidenceFactualityStudyError("max_output_bytes must be positive")
         if self.seeds != tuple(sorted(set(self.seeds))):
@@ -745,7 +752,7 @@ def load_evidence_factuality_study(path: Path) -> EvidenceFactualityCorpus:
     try:
         if path.stat().st_size > MAX_EVIDENCE_FACTUALITY_STUDY_BYTES:
             raise EvidenceFactualityStudyError("study fixture exceeds its byte budget")
-        root = json.loads(path.read_text(encoding="utf-8"))
+        root = strict_json_loads(path.read_text(encoding="utf-8"))
     except EvidenceFactualityStudyError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as error:

@@ -15,6 +15,7 @@ from modelsurgeon.experiments.candidates import (
     MutationCandidate,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 CANDIDATE_POOL_SCHEMA_VERSION: Final[int] = 1
 MAX_CANDIDATE_POOL_SIZE: Final[int] = 100_000
@@ -179,7 +180,7 @@ def _validate_resume(
     if output.exists() != checkpoint.exists():
         raise CandidatePoolError("candidate pool data and resume manifest must both exist")
     try:
-        raw = json.loads(checkpoint.read_text(encoding="utf-8"))
+        raw = strict_json_loads(checkpoint.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CandidatePoolError("candidate pool resume manifest is unreadable") from error
     if not isinstance(raw, Mapping):
@@ -201,7 +202,7 @@ def _validate_resume(
                 digest.update(line)
                 if count >= expected_count:
                     raise CandidatePoolError("candidate pool contains uncheckpointed records")
-                record = json.loads(line)
+                record = strict_json_loads(line)
                 candidate_raw = record.get("candidate") if isinstance(record, Mapping) else None
                 if not isinstance(candidate_raw, Mapping):
                     raise CandidatePoolError("candidate pool record is malformed")
@@ -217,7 +218,7 @@ def _validate_resume(
 
 def _publish_manifest(path: Path, manifest: CandidatePoolManifest) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
-    payload = json.dumps(manifest.to_record(), indent=2, sort_keys=True) + "\n"
+    payload = json.dumps(manifest.to_record(), indent=2, sort_keys=True, allow_nan=False) + "\n"
     with temporary.open("w", encoding="utf-8", newline="\n") as stream:
         stream.write(payload)
         stream.flush()

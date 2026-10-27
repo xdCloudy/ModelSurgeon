@@ -206,7 +206,7 @@ class InteractionFeatureRecord:
             "source_phase": self.source_phase,
         }
         digest = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         ).hexdigest()
         return f"interaction_feature_{digest}"
 

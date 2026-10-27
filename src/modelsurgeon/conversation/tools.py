@@ -25,6 +25,7 @@ from modelsurgeon.conversation.isolation import (
     redact_untrusted_value,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 CONVERSATIONAL_TOOL_SCHEMA_VERSION: Literal[1] = 1
 TOOL_SCHEMA_VERSION: Literal[1] = CONVERSATIONAL_TOOL_SCHEMA_VERSION
@@ -225,7 +226,7 @@ def _json_object(value: object, label: str) -> dict[str, JSONValue]:
         raise ToolContractError(f"{label} must be a JSON object")
     try:
         encoded = _canonical(dict(value), label)
-        decoded = json.loads(encoded)
+        decoded = strict_json_loads(encoded)
     except json.JSONDecodeError as error:  # pragma: no cover - canonical JSON is valid
         raise ToolContractError(f"{label} must be a JSON object") from error
     if not isinstance(decoded, dict):  # pragma: no cover - guarded above

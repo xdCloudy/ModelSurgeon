@@ -77,7 +77,7 @@ class LlamaCppPerplexityManifest:
     def manifest_id(self) -> str:
         identity = self.to_record().copy()
         del identity["text_path"]
-        payload = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False)
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def to_record(self) -> dict[str, object]:
@@ -133,8 +133,15 @@ class LlamaCppPerplexityConfig:
             )
         if self.gpu_layers < 0:
             raise LlamaCppPerplexityError("GPU layer count must be non-negative")
-        if self.timeout_seconds <= 0 or self.max_log_bytes <= 0:
-            raise LlamaCppPerplexityError("timeout and maximum log bytes must be positive")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or self.max_log_bytes <= 0
+        ):
+            raise LlamaCppPerplexityError(
+                "timeout must be finite and timeout/log limits must be positive"
+            )
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -273,7 +280,9 @@ def _tokenizer_digest(path: Path) -> str:
                 entry.value,
             )
             digest.update(
-                json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode()
+                json.dumps(
+                    record, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                ).encode()
             )
             digest.update(b"\n")
     if not found:

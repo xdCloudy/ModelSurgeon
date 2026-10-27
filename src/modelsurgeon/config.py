@@ -47,7 +47,7 @@ def task_quality_from_spec(spec: Mapping[str, object]) -> dict[str, object] | No
 class StrictConfigModel(BaseModel):
     """Immutable configuration section that rejects unknown keys."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
 
 class ComputeDType(StrEnum):
@@ -479,6 +479,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         extra="forbid",
         frozen=True,
+        allow_inf_nan=False,
     )
 
     schema_version: Literal[1] = 1
@@ -510,4 +511,5 @@ class Settings(BaseSettings):
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
+            allow_nan=False,
         )

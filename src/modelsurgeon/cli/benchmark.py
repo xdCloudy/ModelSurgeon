@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import math
 import os
 import subprocess
 import time
@@ -23,6 +24,7 @@ from modelsurgeon.evaluation import (
     render_benchmark_protocol,
 )
 from modelsurgeon.experiments.identity import canonical_identity_json
+from modelsurgeon.json_utils import strict_json_loads
 
 BENCHMARK_CLI_SCHEMA_VERSION = 1
 
@@ -67,7 +69,7 @@ def _canonical_digest(value: object) -> str:
 
 def _read_json(path: Path) -> dict[str, object]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = strict_json_loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise BenchmarkProtocolInvalid(f"cannot read JSON manifest: {path}") from error
     return _object(raw, "manifest")
@@ -183,8 +185,12 @@ class SubprocessBenchmarkExecutor:
     def __init__(self, command: Sequence[str], *, timeout_seconds: float = 60.0) -> None:
         if not command or any(not isinstance(item, str) or not item for item in command):
             raise BenchmarkCommandError("subprocess command must be a non-empty string array")
-        if timeout_seconds <= 0:
-            raise BenchmarkCommandError("subprocess timeout must be positive")
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
+            raise BenchmarkCommandError("subprocess timeout must be finite and positive")
         self.command = tuple(command)
         self.timeout_seconds = timeout_seconds
 
@@ -209,7 +215,7 @@ class SubprocessBenchmarkExecutor:
                 f"external benchmark method exited with status {completed.returncode}"
             )
         try:
-            result = json.loads(completed.stdout)
+            result = strict_json_loads(completed.stdout)
         except json.JSONDecodeError as error:
             raise BenchmarkMethodFailure("external method did not emit one JSON result") from error
         if not isinstance(result, dict):

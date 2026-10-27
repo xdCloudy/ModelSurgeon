@@ -185,7 +185,14 @@ class BaselineBudget:
     def __post_init__(self) -> None:
         if self.optimization_tokens <= 0 or self.evaluation_tokens <= 0:
             raise UnstructuredBaselineError("baseline token budgets must be positive")
-        if self.max_wall_seconds <= 0 or self.max_gpu_memory_gib <= 0:
+        if (
+            isinstance(self.max_wall_seconds, bool)
+            or isinstance(self.max_gpu_memory_gib, bool)
+            or not math.isfinite(self.max_wall_seconds)
+            or not math.isfinite(self.max_gpu_memory_gib)
+            or self.max_wall_seconds <= 0
+            or self.max_gpu_memory_gib <= 0
+        ):
             raise UnstructuredBaselineError("baseline resource budgets must be positive")
 
     def to_record(self) -> dict[str, int | float]:

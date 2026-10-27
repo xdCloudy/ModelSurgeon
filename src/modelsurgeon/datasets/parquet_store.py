@@ -17,8 +17,10 @@ from typing import Any, Protocol, cast
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.schema import MutationExampleRecord
 from modelsurgeon.features.schema import FeatureRecord
+from modelsurgeon.json_utils import strict_json_loads
 
 PARQUET_MANIFEST_SCHEMA_VERSION = 1
+_MAX_MANIFEST_BYTES = 64 * 1024 * 1024
 
 
 class ParquetStoreError(RuntimeError):
@@ -286,8 +288,19 @@ class PartitionedParquetStore:
         if self.manifest_path.is_symlink() or not self.manifest_path.is_file():
             raise ParquetStoreError("Parquet manifest must be a regular file")
         try:
-            value = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            with self.manifest_path.open("rb") as stream:
+                payload = stream.read(_MAX_MANIFEST_BYTES + 1)
+            if len(payload) > _MAX_MANIFEST_BYTES:
+                raise ParquetStoreError(
+                    f"Parquet manifest exceeds the {_MAX_MANIFEST_BYTES}-byte limit"
+                )
+            value = strict_json_loads(payload.decode("utf-8"))
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            RecursionError,
+        ) as error:
             raise ParquetStoreError("Parquet manifest is unreadable or corrupt") from error
         return _manifest_from_record(value)
 
@@ -302,9 +315,13 @@ class PartitionedParquetStore:
     def _publish_manifest(self, manifest: ParquetManifest) -> None:
         temporary = self.root / f".manifest-{uuid.uuid4().hex}.partial"
         try:
+            payload = canonical_identity_json(manifest.to_record()) + "\n"
+            if len(payload.encode("utf-8")) > _MAX_MANIFEST_BYTES:
+                raise ParquetStoreError(
+                    f"Parquet manifest exceeds the {_MAX_MANIFEST_BYTES}-byte limit"
+                )
             with temporary.open("x", encoding="utf-8", newline="\n") as stream:
-                stream.write(canonical_identity_json(manifest.to_record()))
-                stream.write("\n")
+                stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.manifest_path)

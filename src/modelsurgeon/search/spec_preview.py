@@ -310,7 +310,13 @@ class SpecPreview:
     def render(self) -> str:
         """Return stable pretty JSON for human preview output."""
 
-        return json.dumps(self.to_record(), ensure_ascii=False, sort_keys=True, indent=2)
+        return json.dumps(
+            self.to_record(),
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+            allow_nan=False,
+        )
 
     def confirm(self, *, approval_id: str | None = None) -> SpecSubmission:
         """Release the exact spec only after explicit confirmation and approval."""

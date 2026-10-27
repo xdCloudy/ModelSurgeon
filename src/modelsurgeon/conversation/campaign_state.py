@@ -23,6 +23,7 @@ from typing import Self, cast
 
 from modelsurgeon.experiments.identity import canonical_identity_json
 from modelsurgeon.experiments.optimization_package import ApprovalAuditRecord, ApprovalReuse
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.policy import PolicyDecision, PolicyDecisionError
 
 CAMPAIGN_STATE_SCHEMA_VERSION = 1
@@ -110,7 +111,7 @@ def _mapping(value: object, label: str) -> dict[str, object]:
 
     validate_keys(value)
     try:
-        decoded = json.loads(_canonical(value))
+        decoded = strict_json_loads(_canonical(value))
     except (TypeError, ValueError, json.JSONDecodeError) as error:
         raise CampaignStateError(f"{label} is not canonical JSON") from error
     if not isinstance(decoded, dict):
@@ -942,7 +943,7 @@ class CampaignStateStore:
     @staticmethod
     def _state_from_row(row: sqlite3.Row | tuple[object, ...]) -> CampaignState:
         try:
-            raw = json.loads(str(row[3]))
+            raw = strict_json_loads(str(row[3]))
             state = CampaignState.from_record(raw)
             if state.campaign_id != str(row[0]) or state.session_id != str(row[1]):
                 raise CampaignStateError("stored campaign linkage is inconsistent")
@@ -1501,7 +1502,7 @@ class CampaignStateStore:
                     str(row[4]),
                     str(row[5]),
                     str(row[6]),
-                    _mapping(json.loads(str(row[7])), "transition provenance"),
+                    _mapping(strict_json_loads(str(row[7])), "transition provenance"),
                 )
                 for row in rows
             )
@@ -1519,7 +1520,9 @@ class CampaignStateStore:
                 (campaign_id,),
             ).fetchall()
         try:
-            return tuple(CampaignEvidence.from_record(json.loads(str(row[0]))) for row in rows)
+            return tuple(
+                CampaignEvidence.from_record(strict_json_loads(str(row[0]))) for row in rows
+            )
         except (CampaignStateError, TypeError, ValueError, json.JSONDecodeError) as error:
             if isinstance(error, CampaignStateError):
                 raise

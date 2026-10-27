@@ -146,6 +146,8 @@ class DistillationRepairConfig:
             or self.min_loss_improvement < 0
             or self.max_trainable_parameters <= 0
             or self.max_teacher_logit_bytes <= 0
+            or isinstance(self.max_wall_seconds, bool)
+            or not math.isfinite(self.max_wall_seconds)
             or self.max_wall_seconds <= 0
             or self.seed < 0
         ):

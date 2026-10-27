@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import math
 import os
 import sys
 import threading
@@ -74,8 +75,12 @@ class MemoryTelemetryConfig:
     max_samples: int = 4096
 
     def __post_init__(self) -> None:
-        if self.sample_interval_seconds <= 0:
-            raise MemoryTelemetryError("memory sample interval must be positive")
+        if (
+            isinstance(self.sample_interval_seconds, bool)
+            or not math.isfinite(self.sample_interval_seconds)
+            or self.sample_interval_seconds <= 0
+        ):
+            raise MemoryTelemetryError("memory sample interval must be finite and positive")
         if self.max_samples < 2:
             raise MemoryTelemetryError(
                 "memory telemetry requires capacity for at least two samples"
@@ -90,8 +95,12 @@ class MemorySample:
     cuda_reserved_bytes: int | None
 
     def __post_init__(self) -> None:
-        if self.elapsed_seconds < 0:
-            raise MemoryTelemetryError("memory sample time cannot be negative")
+        if (
+            isinstance(self.elapsed_seconds, bool)
+            or not math.isfinite(self.elapsed_seconds)
+            or self.elapsed_seconds < 0
+        ):
+            raise MemoryTelemetryError("memory sample time must be finite and non-negative")
         for value in (self.rss_bytes, self.cuda_allocated_bytes, self.cuda_reserved_bytes):
             if value is not None and value < 0:
                 raise MemoryTelemetryError("memory sample values cannot be negative")
@@ -116,6 +125,12 @@ class MemoryTelemetryReport:
             raise MemoryTelemetryError("memory telemetry requires at least one sample")
         if not self.sampling_enabled and self.sample_interval_seconds is not None:
             raise MemoryTelemetryError("disabled sampling cannot report an interval")
+        if self.sample_interval_seconds is not None and (
+            isinstance(self.sample_interval_seconds, bool)
+            or not math.isfinite(self.sample_interval_seconds)
+            or self.sample_interval_seconds <= 0
+        ):
+            raise MemoryTelemetryError("memory sample interval must be finite and positive")
         if not self.cuda_available and (
             self.peak_cuda_allocated_bytes is not None or self.peak_cuda_reserved_bytes is not None
         ):

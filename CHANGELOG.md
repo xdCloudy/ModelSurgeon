@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+  - Reject non-finite numbers in optimization settings, public plan records,
+    first-party Hugging Face/GGUF runtime measurements, and conversational
+    execution digests. Require finite deadlines and telemetry intervals across
+    runtime, retry, subprocess, provider, adapter, evaluation, study, and
+    hardware-probe APIs. Non-finite values could evade range checks and defeat
+    bounded work. Make package JSON serializers and parsers reject non-standard
+    NaN/Infinity tokens, numbers that overflow finite floating-point range, and
+    duplicate object keys. Convert integer literals beyond Python's configured
+    conversion limit to JSON decoding errors. Reject non-finite YAML/TOML values
+    at config load so persisted records and outputs remain valid JSON with
+    unambiguous fields.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

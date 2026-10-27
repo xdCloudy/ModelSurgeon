@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import tomllib
@@ -13,6 +14,7 @@ from importlib import import_module
 from pathlib import Path
 
 from modelsurgeon.config import Settings
+from modelsurgeon.json_utils import strict_json_loads
 
 _ENV_PREFIX = "MODELSURGEON_"
 _ENV_DELIMITER = "__"
@@ -93,7 +95,11 @@ class ConfigurationDiscovery:
 
     def canonical_json(self) -> str:
         return json.dumps(
-            self.to_record(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            self.to_record(),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
         )
 
     @property
@@ -109,6 +115,26 @@ def _mapping(value: object, *, source: str) -> dict[str, object]:
     if not all(isinstance(key, str) for key in value):
         raise ConfigurationFileError(f"{source} keys must be strings")
     return {str(key): item for key, item in value.items()}
+
+
+def _validate_finite_config_values(
+    value: object,
+    *,
+    source: str,
+    visited: set[int] | None = None,
+) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ConfigurationFileError(f"{source} contains a non-finite numeric value")
+    if isinstance(value, (Mapping, list, tuple, set, frozenset)):
+        seen = visited if visited is not None else set()
+        object_id = id(value)
+        if object_id in seen:
+            return
+        seen.add(object_id)
+        items = value.items() if isinstance(value, Mapping) else enumerate(value)
+        for key, item in items:
+            _validate_finite_config_values(key, source=source, visited=seen)
+            _validate_finite_config_values(item, source=source, visited=seen)
 
 
 def _dotted_keys(value: Mapping[str, object], prefix: str = "") -> tuple[str, ...]:
@@ -147,6 +173,7 @@ def load_config_file(path: Path) -> dict[str, object]:
         raise
     except Exception as exc:
         raise ConfigurationFileError(f"failed to parse configuration file {path}: {exc}") from exc
+    _validate_finite_config_values(value, source=str(path))
     return _mapping(value, source=str(path))
 
 
@@ -163,7 +190,7 @@ def _merge(base: Mapping[str, object], override: Mapping[str, object]) -> dict[s
 
 def _parse_environment_value(value: str) -> object:
     try:
-        return json.loads(value)
+        return strict_json_loads(value)
     except json.JSONDecodeError:
         return value
 

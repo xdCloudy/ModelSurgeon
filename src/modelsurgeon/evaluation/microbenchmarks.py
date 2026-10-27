@@ -146,7 +146,14 @@ class MicrobenchmarkProtocol:
             raise MicrobenchmarkError("microbenchmarks require at least two warmups")
         if self.repetitions < MIN_MICROBENCHMARK_REPETITIONS:
             raise MicrobenchmarkError("microbenchmarks require at least ten repetitions")
-        if self.max_seconds_per_shape <= 0 or self.max_relative_dispersion <= 0:
+        if (
+            isinstance(self.max_seconds_per_shape, bool)
+            or isinstance(self.max_relative_dispersion, bool)
+            or not math.isfinite(self.max_seconds_per_shape)
+            or not math.isfinite(self.max_relative_dispersion)
+            or self.max_seconds_per_shape <= 0
+            or self.max_relative_dispersion <= 0
+        ):
             raise MicrobenchmarkError("microbenchmark budgets must be positive")
         ids = tuple(shape.shape_id for shape in self.shapes)
         if not ids or len(ids) != len(set(ids)):

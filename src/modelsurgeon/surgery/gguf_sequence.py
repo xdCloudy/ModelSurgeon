@@ -372,4 +372,7 @@ def run_gguf_cumulative_sequence(
 def render_gguf_sequence_report(run: GGUFCumulativeRun) -> str:
     """Render a stable JSON report for retained native evidence."""
 
-    return json.dumps(run.to_record(), sort_keys=True, separators=(",", ":")) + "\n"
+    return (
+        json.dumps(run.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        + "\n"
+    )

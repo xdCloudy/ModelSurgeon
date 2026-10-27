@@ -22,6 +22,7 @@ from typing import Final
 
 from modelsurgeon.config import ProviderConfig
 from modelsurgeon.conversation.isolation import redact_secret_text, redact_untrusted_value
+from modelsurgeon.json_utils import strict_json_loads
 from modelsurgeon.provider_kind import ProviderKind
 from modelsurgeon.providers import ProviderDiagnosticStatus, provider_diagnostics
 
@@ -137,6 +138,7 @@ class SetupReport:
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
+            allow_nan=False,
         )
 
 
@@ -383,7 +385,7 @@ def _fixture_check(request: SetupRequest) -> SetupCheck:
             path=str(fixture),
         )
     try:
-        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        payload = strict_json_loads(fixture.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         return _check(
             "supported_fixture",
@@ -522,12 +524,12 @@ def _setup_config_text(request: SetupRequest, *, fixture: Path | None) -> str:
     return (
         "# ModelSurgeon first-run setup manifest. This file contains no secrets.\n"
         f"schema_version = {SETUP_SCHEMA_VERSION}\n"
-        f"data_root = {json.dumps(str(request.data_root.expanduser()))}\n"
+        f"data_root = {json.dumps(str(request.data_root.expanduser()), allow_nan=False)}\n"
         f"offline = {str(request.offline).lower()}\n"
-        f"fixture_manifest = {json.dumps(fixture_value)}\n"
+        f"fixture_manifest = {json.dumps(fixture_value, allow_nan=False)}\n"
         f"min_free_bytes = {request.min_free_bytes}\n"
         "\n[provider]\n"
-        f"kind = {json.dumps(provider_kind)}\n"
+        f"kind = {json.dumps(provider_kind, allow_nan=False)}\n"
         "\n"
     )
 

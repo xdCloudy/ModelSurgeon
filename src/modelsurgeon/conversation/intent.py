@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, cast
 
+from modelsurgeon.json_utils import strict_json_loads
+
 CONVERSATIONAL_INTENT_SCHEMA_VERSION: Literal[1] = 1
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
@@ -319,7 +321,7 @@ class IntentRecord:
     @classmethod
     def from_json(cls, payload: str) -> IntentRecord:
         try:
-            root = json.loads(payload)
+            root = strict_json_loads(payload)
         except (TypeError, json.JSONDecodeError) as error:
             raise IntentRecordError("intent record is not valid JSON") from error
         record = _object(root, "intent record")

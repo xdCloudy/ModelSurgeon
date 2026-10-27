@@ -40,6 +40,7 @@ from modelsurgeon.experiments.optimization_package import (
     plan_digest,
     validate_approval,
 )
+from modelsurgeon.json_utils import strict_json_loads
 
 if TYPE_CHECKING:
     from modelsurgeon.search.objective_amendments import ObjectiveAmendment
@@ -109,7 +110,7 @@ def _mapping(value: object, label: str) -> dict[str, object]:
     if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
         raise ReplanningError(f"{label} must be a JSON object")
     try:
-        decoded = json.loads(_canonical(value))
+        decoded = strict_json_loads(_canonical(value))
     except (TypeError, ValueError, json.JSONDecodeError) as error:
         raise ReplanningError(f"{label} must be canonical JSON") from error
     if not isinstance(decoded, dict):

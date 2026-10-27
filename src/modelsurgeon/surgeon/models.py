@@ -16,6 +16,8 @@ from typing import Any, Final, cast
 
 import numpy as np
 
+from modelsurgeon.json_utils import strict_json_loads
+
 from .matrix import SurgeonMatrix
 
 MODEL_SCHEMA_VERSION: Final[int] = 1
@@ -1090,12 +1092,12 @@ type SerializableModel = (
 def model_to_json(model: SerializableModel) -> str:
     """Serialize classical/tree models canonically for immutable registry storage."""
 
-    return json.dumps(model.to_record(), sort_keys=True, separators=(",", ":"))
+    return json.dumps(model.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 def model_from_json(payload: str) -> SerializableModel:
     try:
-        value = json.loads(payload)
+        value = strict_json_loads(payload)
     except json.JSONDecodeError as error:
         raise SurgeonModelError("surgeon model payload is invalid JSON") from error
     if not isinstance(value, dict):

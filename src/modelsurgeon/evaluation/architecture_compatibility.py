@@ -265,7 +265,9 @@ class ArchitectureCompatibilityMatrix:
 
     @property
     def matrix_id(self) -> str:
-        payload = json.dumps(self.to_record(), sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(
+            self.to_record(), sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def to_record(self) -> dict[str, object]:

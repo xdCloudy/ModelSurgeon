@@ -65,6 +65,7 @@ def _inspection_error(
             json.dumps(
                 {"record_type": "error", "category": category, "message": str(error)},
                 sort_keys=True,
+                allow_nan=False,
             ),
             err=True,
         )
@@ -131,7 +132,7 @@ def inspect(
 
     for payload in inspection.records():
         if output_json:
-            typer.echo(json.dumps(payload, sort_keys=True))
+            typer.echo(json.dumps(payload, sort_keys=True, allow_nan=False))
         elif payload["record_type"] == "model":
             typer.echo(
                 f"model {payload['source']}@{payload['resolved_revision']} "
@@ -139,7 +140,10 @@ def inspect(
             )
         else:
             attributes = json.dumps(
-                payload["attributes"], sort_keys=True, separators=(",", ":")
+                payload["attributes"],
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
             )
             typer.echo(
                 f"{payload['component_id']:<64} {payload['kind']:<24} {attributes}"

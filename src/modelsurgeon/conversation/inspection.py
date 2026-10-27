@@ -53,7 +53,9 @@ HardwareProfileFactory = Callable[[str], HardwareProfile]
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
 
 
 def _digest(value: object) -> str:

@@ -184,7 +184,11 @@ class ProviderDiagnostic:
 
     def canonical_json(self) -> str:
         return json.dumps(
-            self.to_record(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            self.to_record(),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
         )
 
 
