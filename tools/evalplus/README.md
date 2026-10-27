@@ -54,12 +54,14 @@ dataset version differs. A workspace is retained when `--work-dir` is set; witho
 the temporary workspace is removed after a successful run.
 
 The runner refuses to overwrite a report. Schema-v4 reports record the ModelSurgeon
-Git revision, worktree cleanliness, and a digest/count of changed paths, along with
-model and evaluator revisions, dataset and artifact digests, parameter counts,
+Git revision, source-tree cleanliness, and a digest/count of changed source paths, along
+with model and evaluator revisions, dataset and artifact digests, parameter counts,
 generated-sample digests, per-task pass status, and source-relative pass@1 retention.
-If Git status cannot be read, the worktree fields are null rather than implying a clean
+If Git status cannot be read, the source-tree fields are null rather than implying a clean
 source tree. Earlier checked-in reports retain their original schema and do not gain
-retroactive source-code provenance. The runner does not publish generated code. The evaluator
+retroactive source-code provenance. The paired analyzer requires new reports to share a
+clean source revision; all-legacy comparisons remain available but are marked unverified.
+The runner does not publish generated code. The evaluator
 container has networking disabled, a read-only root and input mount, no Linux
 capabilities, a non-root uid, a 3 GiB memory limit, and a 2 CPU limit. Generated code is
 removed when the study uses its default temporary workspace.

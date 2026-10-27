@@ -3,9 +3,10 @@
 ## Unreleased
 
   - EvalPlus physical-study reports now record the ModelSurgeon Git revision and
-    worktree cleanliness, plus a privacy-preserving digest/count of changed paths.
-    Older report artifacts retain their original schema and are not retroactively
-    attributed to a source revision.
+    source-tree cleanliness, plus a privacy-preserving digest/count of changed source
+    paths. Paired analysis rejects mixed or dirty implementations when provenance is
+    available and labels legacy comparisons unverified. Older reports retain their
+    original schema without retroactive source attribution.
 
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark

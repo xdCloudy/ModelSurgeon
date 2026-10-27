@@ -150,7 +150,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _source_tree_provenance() -> dict[str, object]:
-    """Capture the runner's Git revision and a privacy-preserving worktree state."""
+    """Capture the runner's Git revision and a privacy-preserving source-tree state."""
 
     root = Path(__file__).resolve().parents[1]
 
@@ -185,12 +185,26 @@ def _source_tree_provenance() -> dict[str, object]:
             character in "0123456789abcdef" for character in candidate
         ):
             revision = candidate
-    status = git_output("status", "--porcelain=v1", "--untracked-files=all", "-z")
+    status = git_output(
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        "-z",
+        "--",
+        "src",
+        "tools",
+        "tests",
+        ".github",
+        "pyproject.toml",
+        "uv.lock",
+    )
     return {
         "git_revision": revision,
-        "worktree_clean": None if status is None else not status,
-        "changed_path_count": None if status is None else max(0, len(status.split(b"\0")) - 1),
-        "status_sha256": None if status is None else hashlib.sha256(status).hexdigest(),
+        "source_tree_clean": None if status is None else not status,
+        "changed_source_path_count": (
+            None if status is None else max(0, len(status.split(b"\0")) - 1)
+        ),
+        "source_status_sha256": None if status is None else hashlib.sha256(status).hexdigest(),
     }
 
 

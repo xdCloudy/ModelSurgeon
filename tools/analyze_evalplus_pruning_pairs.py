@@ -169,6 +169,43 @@ def _generation_runtime(report: dict[str, Any], arm: str) -> dict[str, Any]:
     return runtime if isinstance(runtime, dict) else {}
 
 
+def _implementation_provenance(reports: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Require a common clean ModelSurgeon source revision when reports record it."""
+
+    implementations = {name: report.get("implementation") for name, report in reports.items()}
+    if all(implementation is None for implementation in implementations.values()):
+        return {"status": "legacy_not_recorded", "git_revision": None}
+    if any(not isinstance(implementation, dict) for implementation in implementations.values()):
+        raise ValueError("paired runs mix reports with and without implementation provenance")
+
+    revisions: set[str] = set()
+    for name, implementation in implementations.items():
+        assert isinstance(implementation, dict)
+        revision = implementation.get("git_revision")
+        source_status_sha256 = implementation.get("source_status_sha256")
+        if implementation.get("name") != "ModelSurgeon":
+            raise ValueError(f"run {name!r} does not identify ModelSurgeon implementation")
+        if (
+            not isinstance(revision, str)
+            or len(revision) not in (40, 64)
+            or any(character not in "0123456789abcdef" for character in revision)
+        ):
+            raise ValueError(f"run {name!r} has no ModelSurgeon Git revision")
+        if implementation.get("source_tree_clean") is not True:
+            raise ValueError(f"run {name!r} was not produced from a verified clean source tree")
+        if implementation.get("changed_source_path_count") != 0:
+            raise ValueError(f"run {name!r} has a clean-tree flag with changed source paths")
+        if (
+            not isinstance(source_status_sha256, str)
+            or source_status_sha256 != hashlib.sha256(b"").hexdigest()
+        ):
+            raise ValueError(f"run {name!r} has invalid clean source-tree status digest")
+        revisions.add(revision)
+    if len(revisions) != 1:
+        raise ValueError("paired runs use different ModelSurgeon Git revisions")
+    return {"status": "verified_clean", "git_revision": next(iter(revisions))}
+
+
 def build_report(
     run_paths: dict[str, Path],
     *,
@@ -186,6 +223,7 @@ def build_report(
         raise ValueError(f"named reports must include reference {reference_name!r}")
 
     reports = {name: _load_json(path) for name, path in run_paths.items()}
+    implementation_provenance = _implementation_provenance(reports)
     reference = reports[reference_name]
     reference_model = reference.get("model", {}).get("revision")
     reference_dataset = reference.get("dataset", {}).get("sha256")
@@ -295,8 +333,8 @@ def build_report(
                 )
 
     return {
-        "schema_version": 2,
-        "protocol": "paired-evalplus-task-outcome-inference-v2",
+        "schema_version": 3,
+        "protocol": "paired-evalplus-task-outcome-inference-v3",
         "controls": {
             "model_revision": reference_model,
             "dataset_sha256": reference_dataset,
@@ -312,6 +350,7 @@ def build_report(
             "paired_test": "two-sided exact McNemar test on discordant pass/fail outcomes",
             "comparison_scope": "all candidate pairs" if all_pairs else "reference candidate pairs",
         },
+        "implementation_provenance": implementation_provenance,
         "run_metadata": {
             name: {
                 "channel_scorer": report.get("run_parameters", {}).get("channel_scorer"),
@@ -346,6 +385,14 @@ def build_report(
             "generalization to other models or task distributions.",
             "Each arm uses one greedy completion per task, so the analysis does not estimate "
             "pass@k or decode variability.",
+            *(
+                [
+                    "Legacy reports do not record ModelSurgeon source revision, so implementation "
+                    "equivalence was not verified."
+                ]
+                if implementation_provenance["status"] == "legacy_not_recorded"
+                else []
+            ),
         ],
         "source_reports": [
             {"name": name, "path": path.as_posix(), "sha256_lf_normalized": _source_hash(path)}

@@ -397,15 +397,28 @@ def test_source_provenance_records_revision_and_hashes_dirty_paths(monkeypatch) 
 
     assert provenance == {
         "git_revision": "a" * 40,
-        "worktree_clean": False,
-        "changed_path_count": 2,
-        "status_sha256": hashlib.sha256(
+        "source_tree_clean": False,
+        "changed_source_path_count": 2,
+        "source_status_sha256": hashlib.sha256(
             b" M tools/run_evalplus_hf_pruning_study.py\0?? tests/new_test.py\0"
         ).hexdigest(),
     }
     assert commands == [
         ("git", "rev-parse", "--verify", "HEAD"),
-        ("git", "status", "--porcelain=v1", "--untracked-files=all", "-z"),
+        (
+            "git",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "-z",
+            "--",
+            "src",
+            "tools",
+            "tests",
+            ".github",
+            "pyproject.toml",
+            "uv.lock",
+        ),
     ]
 
 
@@ -435,9 +448,9 @@ def test_source_provenance_marks_git_state_unavailable_on_command_failure(monkey
 
     assert _source_tree_provenance() == {
         "git_revision": "b" * 40,
-        "worktree_clean": None,
-        "changed_path_count": None,
-        "status_sha256": None,
+        "source_tree_clean": None,
+        "changed_source_path_count": None,
+        "source_status_sha256": None,
     }
 
 
