@@ -1,21 +1,21 @@
 # ModelSurgeon progress and scoring
 
-Assessment date: **2026-10-27** · assessed main commit: `6820c77c6c090bbbd7c821b16a39041f8c39c980` · inventory scope: `1.1.0`.
+Assessment date: **2026-10-27** · assessed main commit: `589c609e1571493e2aeb5ea717a3febf0447cf83` · inventory scope: `1.2.0`.
 
-Conservative evidence-bounded inventory. This revision narrows completed conclusions to named studies, separates Meta-Surgeon ranking, transfer, calibration, active learning, OOD, continual learning, and constrained autonomy, pins newly inspected source implementations, and tracks independent compatibility axes. New scope may lower scores; source discovery does not imply support.
+Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness.
 Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.json) · [JSON Schema](schema-v1.json) · [maintenance workflow](CONTRIBUTING.md). The dashboard is generated locally; repository edits remain reviewable in the same PR.
 
 ## Current scores
 
-Overall weighted completion: **33.4%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **28.5%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 58.6% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 46.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
-| Optimization effectiveness | 7.1% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 39.9% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
-| Representative compatibility coverage | 38.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
+| Research coverage | 48.7% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Implementation maturity | 38.7% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Optimization effectiveness | 6.0% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
+| Production readiness | 33.2% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Representative compatibility coverage | 36.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
 
@@ -27,10 +27,10 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 33.9% | 78.1% | 60.8% | 6.6% | 53.2% |
-| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 39.4% | 66.6% | 53.5% | 6.7% | 36.6% |
-| [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 19.4% | 46.0% | 10.0% | 6.7% | 16.8% |
-| [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.7% | 12.6% | 3.4% | 0.0% | 3.4% |
+| [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 19.9% | 46.2% | 36.0% | 3.6% | 31.5% |
+| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 24.1% | 45.5% | 30.8% | 3.2% | 20.2% |
+| [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 15.8% | 37.5% | 8.0% | 5.5% | 14.0% |
+| [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.0% | 10.6% | 3.0% | 0.0% | 3.0% |
 | [Model recovery and repair](FEATURE_MATRIX.md#recovery) | 6% | 18.0% | 46.0% | 10.0% | 6.7% | 10.0% |
 | [Architecture optimization](FEATURE_MATRIX.md#architecture) | 5% | 32.6% | 62.5% | 40.0% | 10.0% | 20.0% |
 | [Search and optimization](FEATURE_MATRIX.md#search) | 7% | 36.3% | 75.2% | 33.8% | 10.0% | 30.4% |
@@ -42,11 +42,13 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 
 ## Priorities
 
-1. **Q4 held-out single-channel learned ranking versus controls** (`meta_surgeon.decision`): Test cumulative physical surgery, reloadable artifact quality, size, inference, memory, and optimization cost at equal budget.
-2. **Expert scoring: random/router/activation/sensitivity/REAP and balancing** (`moe.selection`): Complete pinned REAP source audit and fair expert-selection benchmarks.
-3. **Independent splits/replays, significance, uncertainty and contamination prevention** (`benchmarking.statistics`): Add repeated independent optimizer superiority studies.
-4. **Iterative/progressive pruning and WANDA/SparseGPT/Torch-Pruning/LLM-Pruner baselines** (`pruning.schedules`): Run pinned upstream adapters and repeated physical schedule comparisons.
-5. **Mixed precision, activation-weighted allocation, GSQ/RCO and error estimation** (`quantization.allocation`): Resolve GSQ/RCO primary sources and test sensitivity-based allocation.
+1. **Learned decision effectiveness on physical optimization** (`meta_surgeon.prospective_effectiveness`): Run a prospective physical comparison on a CPU-feasible model first; GPU-scale tests remain conditional on user availability.
+2. **Training data acquisition and provenance** (`meta_surgeon.dataset_generation`): Design a prospective collection protocol and evaluate coverage, missingness, duplicate/near-duplicate outcomes and leakage across campaigns.
+3. **Predictor architecture and objective selection** (`meta_surgeon.predictor_selection`): Define compute-bounded tuning and a prospective held-out decision protocol.
+4. **Differentiable structured masks** (`pruning.differentiable_masks`): Audit full training objective and reference paper, then run an isolated CPU correctness fixture before any model-scale experiment.
+5. **Layer removal with pre-pruning regularization** (`pruning.depth_regularization`): Inspect the complete layer-scaling and removal path and reproduce against ShortGPT on a small supported checkpoint.
+6. **Expert scoring: random/router/activation/sensitivity/REAP and balancing** (`moe.selection`): Complete pinned REAP source audit and fair expert-selection benchmarks.
+7. **Hardware-conditioned quality and resource prediction** (`meta_surgeon.resource_prediction`): Add pinned multi-device evidence, define deployment metrics and measure model/hardware transfer before training this predictor.
 
 ## Critical-path dependencies
 
@@ -54,11 +56,18 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 
 | Milestone | Depends on |
 | --- | --- |
-| `meta_surgeon.decision` — Q4 held-out single-channel learned ranking versus controls | `meta_surgeon.data`, `meta_surgeon.features`, `search.controls`, `benchmarking.statistics` |
-| `pruning.schedules` — Iterative/progressive pruning and WANDA/SparseGPT/Torch-Pruning/LLM-Pruner baselines | `pruning.physical`, `search.controls` |
+| `meta_surgeon.decision` — Q4 held-out single-channel learned ranking versus controls | `meta_surgeon.data`, `meta_surgeon.features_static`, `meta_surgeon.features_activation`, `meta_surgeon.features_gradient`, `search.controls`, `benchmarking.statistics` |
+| `pruning.schedules` — Q8 iterative/progressive pruning schedule study | `pruning.physical`, `search.controls` |
+| `pruning.unstructured_baselines` — Pinned baseline adapter availability: WANDA and SparseGPT | `pruning.physical` |
+| `pruning.structured_baselines` — Pinned baseline adapter availability: structured pruning methods | `pruning.physical` |
+| `pruning.dependency_methods` — Dependency-aware structured pruning libraries | `pruning.physical` |
+| `pruning.differentiable_masks` — Differentiable structured masks | `pruning.physical` |
+| `pruning.depth_regularization` — Layer removal with pre-pruning regularization | `pruning.physical` |
 | `quantization.joint` — Pruning/quantization order and repair interactions | `quantization.codecs`, `pruning.physical` |
+| `quantization.gsq_rco` — GSQ and RCO quantization research | `quantization.codecs` |
 | `moe.surgery` — Expert pruning/merge, redundancy, router, shared/routed and layerwise allocation | `moe.selection` |
 | `moe.joint` — MoE pruning plus quantization/recovery and expert specialization | `moe.surgery`, `quantization.codecs`, `recovery.lora` |
+| `moe.expert_merging` — MoE expert merging and redundancy reduction | `moe.surgery` |
 | `recovery.joint` — Learned recovery prediction and joint structural/quantization repair | `recovery.lora`, `recovery.distill`, `quantization.codecs`, `pruning.physical` |
 | `architecture.transforms` — Low rank, SliceGPT rotations, depth removal and multi-axis architecture search | `architecture.coupling` |
 | `search.policies` — Bayesian/evolutionary/beam/surrogate and active-learning acquisition | `search.controls`, `meta_surgeon.decision` |
@@ -69,6 +78,17 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 | `benchmarking.statistics` — Independent splits/replays, significance, uncertainty and contamination prevention | `benchmarking.artifact`, `benchmarking.quality` |
 | `scientific_research.emerging` — GSQ/RCO, expert merging, recovery, meta-learning and novel methods | `scientific_research.competitors`, `scientific_research.negative` |
 | `production_readiness.operations` — Reproducibility, observability, docs/tests, packaging, deployment and maintenance | `production_readiness.interfaces`, `production_readiness.safety`, `benchmarking.statistics` |
+| `meta_surgeon.features_static` — Q1 static weight-feature baseline | `meta_surgeon.data` |
+| `meta_surgeon.features_activation` — Q2 activation-feature ablation | `meta_surgeon.features_static` |
+| `meta_surgeon.features_gradient` — Q3 gradient-feature ablation | `meta_surgeon.features_activation` |
+
+## Retired scope identifiers
+
+Retired IDs remain traceable; their complete former records and histories stay in the canonical JSON.
+
+| Former ID | Retired | Superseded by | Former research result | Reason |
+| --- | --- | --- | --- | --- |
+| `meta_surgeon.features` | 2026-10-27 | `meta_surgeon.features_static`, `meta_surgeon.features_activation`, `meta_surgeon.features_gradient` | Inconclusive | Superseded by separate Q1 static, Q2 activation, and Q3 gradient feature studies so their distinct outcomes are independently scored; full former record and history retained below. |
 
 ## Current blockers
 

@@ -94,13 +94,18 @@ def test_narrowed_research_conclusions_preserve_prior_evidence() -> None:
     milestones = {item["id"]: item for item in data["milestones"]}
 
     # Stable ids survive subdivision, and the former negative conclusion remains in history.
-    assert {"meta_surgeon.decision", "meta_surgeon.transfer", "meta_surgeon.calibration",
-            "meta_surgeon.active_learning", "meta_surgeon.ood", "meta_surgeon.continual",
-            "meta_surgeon.autonomy"} <= set(milestones)
+    assert {
+        "meta_surgeon.decision",
+        "meta_surgeon.transfer",
+        "meta_surgeon.calibration",
+        "meta_surgeon.active_learning",
+        "meta_surgeon.ood",
+        "meta_surgeon.continual",
+        "meta_surgeon.autonomy",
+    } <= set(milestones)
     assert milestones["pruning.scores"]["research_outcome"] == "inconclusive"
     assert any(
-        event["research_outcome"] == "negative"
-        for event in milestones["pruning.scores"]["history"]
+        event["research_outcome"] == "negative" for event in milestones["pruning.scores"]["history"]
     )
     assert all(item["research_questions"] for item in data["milestones"])
     assert "candidate-level score evaluations" in milestones["pruning.scores"]["scope"]
@@ -122,6 +127,9 @@ def test_compatibility_separates_theory_implementation_and_validation() -> None:
     } <= set(cells["hf-llama-mlp"])
     assert cells["gguf-qwen35-moe-hope"]["validation_level"] == "not_tested"
     assert cells["gguf-qwen35-moe-reap-cpu-llamacpp"]["implementation_level"] == "in_pr"
+    assert cells["hf-deepseek-moe-ddsp"]["status"] == "research_only"
+    assert cells["hf-deepseek-moe-ddsp"]["implementation_level"] == "not_implemented"
+    assert cells["hf-deepseek-moe-ddsp"]["validation_level"] == "not_tested"
 
     data["compatibility_cells"][0]["validation_level"] = "synthetic"
     errors = progress.validate(data, ROOT)
@@ -151,6 +159,100 @@ def test_research_questions_and_scope_are_required() -> None:
     data["milestones"][0]["research_questions"] = []
     errors = progress.validate(data, ROOT)
     assert any("specific research questions" in error for error in errors)
+
+
+def test_added_methods_and_meta_surgeon_questions_are_independently_scoped() -> None:
+    data = load_data()
+    milestones = {item["id"]: item for item in data["milestones"]}
+    expected = {
+        "meta_surgeon.dataset_generation",
+        "meta_surgeon.representation",
+        "meta_surgeon.features_static",
+        "meta_surgeon.features_activation",
+        "meta_surgeon.features_gradient",
+        "meta_surgeon.predictor_selection",
+        "meta_surgeon.resource_prediction",
+        "meta_surgeon.prospective_acquisition",
+        "meta_surgeon.prospective_effectiveness",
+        "pruning.unstructured_baselines",
+        "pruning.structured_baselines",
+        "pruning.dependency_methods",
+        "pruning.differentiable_masks",
+        "pruning.depth_regularization",
+        "quantization.gsq_rco",
+        "moe.expert_merging",
+    }
+    assert expected <= set(milestones)
+    assert all(len(milestones[item]["research_questions"]) == 1 for item in expected)
+    assert all(milestones[item]["acceptance_criteria"] for item in expected)
+    assert (
+        sum(item["weight"] for item in data["milestones"] if item["workstream"] == "meta_surgeon")
+        == 100
+    )
+    assert (
+        sum(item["weight"] for item in data["milestones"] if item["workstream"] == "pruning") == 100
+    )
+    assert (
+        sum(item["weight"] for item in data["milestones"] if item["workstream"] == "quantization")
+        == 100
+    )
+    assert sum(item["weight"] for item in data["milestones"] if item["workstream"] == "moe") == 100
+
+    sources = {item["id"]: item for item in data["research_sources"]}
+    assert (
+        sources["deterministic-differentiable-pruning"]["pinned_revision"]
+        == "a373238bccb8b16feb00e9e17a9109cb382bc6ce"
+    )
+    assert sources["deterministic-differentiable-pruning"]["licence_status"] == "unknown"
+    assert (
+        sources["trsp-layer-regularization"]["pinned_revision"]
+        == "9fb34351da7342f43ef060e5d92804f45f46591d"
+    )
+    assert sources["trsp-layer-regularization"]["licence_status"] == "unknown"
+    assert (
+        milestones["meta_surgeon.prospective_effectiveness"]["effectiveness_status"]
+        == "not_assessed"
+    )
+    q3 = milestones["meta_surgeon.features_gradient"]
+    assert q3["research_outcome"] == "positive"
+    assert q3["effectiveness_status"] == "measured_inconclusive"
+    assert {
+        "meta_surgeon.data",
+        "meta_surgeon.features_static",
+        "meta_surgeon.features_activation",
+        "meta_surgeon.features_gradient",
+        "search.controls",
+        "benchmarking.statistics",
+    } == set(milestones["meta_surgeon.decision"]["dependencies"])
+    retired = next(
+        item for item in data["retired_milestones"] if item["id"] == "meta_surgeon.features"
+    )
+    assert retired["archived_record"]["research_outcome"] == "inconclusive"
+    overview = progress.render_progress_overview(data, progress.calculate_progress(data))
+    assert "Retired scope identifiers" in overview
+    assert "meta_surgeon.features_gradient" in overview
+    assert progress.validate(data, ROOT) == []
+
+
+def test_backlog_records_merged_progress_foundation_without_counting_it_open() -> None:
+    data = load_data()
+    audit = data["backlog_audit"]
+    assert audit["open_pull_request_count"] == 56
+    foundation = next(item for item in audit["notable_pull_requests"] if item["number"] == 774)
+    assert foundation["status"] == "merged"
+    assert foundation["integrated_on_main"] is True
+    assert foundation["merge_commit"] == audit["main_commit"]
+    assert "| Yes |" in progress.render_backlog(data)
+    assert progress.validate(data, ROOT) == []
+
+    malformed = copy.deepcopy(data)
+    next(
+        item
+        for item in malformed["backlog_audit"]["notable_pull_requests"]
+        if item["number"] == 774
+    ).pop("merge_commit")
+    errors = progress.validate(malformed, ROOT)
+    assert any("merged PR #774 needs a full merge commit" in error for error in errors)
 
 
 def test_readme_percentages_are_canonical_and_regenerated() -> None:

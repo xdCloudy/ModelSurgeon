@@ -1,6 +1,6 @@
 # Representative model, format, runtime, and operation compatibility
 
-Assessment: 2026-10-27 · weighted verified-support coverage: **38.1%** across 13 declared representative cells.
+Assessment: 2026-10-27 · weighted verified-support coverage: **36.1%** across 14 declared representative cells.
 
 This is a curated, evidence-bounded set, not a Cartesian claim over every model x format x quantization x operation x runtime x recovery method. The table separates theoretical plausibility, implementation location, and validation level. `in_pr` is not main support; only physical or independently reproduced results can be `verified`.
 
@@ -19,6 +19,7 @@ This is a curated, evidence-bounded set, not a Cartesian claim over every model 
 | `gguf-qwen35-moe-hope` | Qwen3.5 MoE / stacked expert layout only; no ModelSurgeon HOPE adapter | Moe | GGUF / Q4_K_M; other codecs unknown | higher-order expert scoring and expert slice | CPU or CUDA statistics not validated here / llama.cpp export/reload not validated for this operation | none | Plausible | Not implemented | Not tested | Unknown | — | HOPE targets HF stacked experts; GGUF tensor layout/runtime behavior remain unverified. |
 | `hf-qwen-lora-recovery` | Qwen2.5 dense / named 0.5B checkpoint after structural surgery | Dense | Hugging Face/safetensors / FP16/BF16 | LoRA recovery after structured pruning | CPU/CUDA recovery not validated in this cell / Transformers/PEFT combination unvalidated | LoRA fine-tuning | Plausible | Not implemented | Not tested | Unknown | — | No matched ModelSurgeon LoRA artifact or quality/cost comparison is recorded. |
 | `gguf-qwen35-moe-reap-cpu-llamacpp` | Qwen3.5 MoE / specific quantized MoE checkpoint; unmerged PR scope | Moe | GGUF / Q4_K_M | REAP expert selection, slice, and CPU runtime reload | CPU / llama.cpp | none | Plausible | In pr | Synthetic | Research only | [Unmerged PR baseline scope](../research/v1.1-structured-baseline-evidence-v1.json) | No main-integrated physical expert-pruning result or independent runtime/quality reproduction. |
+| `hf-deepseek-moe-ddsp` | DeepSeek-MoE (upstream DDSP custom model path) / DeepSeek-MoE model path in Deterministic-Differentiable-Pruning pinned revision a373238bccb8b16feb00e9e17a9109cb382bc6ce | Moe | Hugging Face / safetensors / BF16/FP16; quantized checkpoint not evaluated | Differentiable attention-head and MLP intermediate masks followed by physical pruning | CUDA; ModelSurgeon consumer-hardware cell not tested / Upstream Transformers custom model path; ModelSurgeon adapter absent | Not assessed | Plausible | Not implemented | Not tested | Research only | [Pinned DDSP source and limitations](RESEARCH_INVENTORY.md) | This records an upstream-only architecture candidate, not ModelSurgeon support. The source has no verified repository-level license. DeepSeek-MoE tensor geometry, routing, serialization, reload, quality and runtime behavior have not been validated in ModelSurgeon. |
 
 ## Rules for expanding coverage
 
