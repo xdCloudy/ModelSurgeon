@@ -29,15 +29,24 @@ from modelsurgeon.adapters.gguf import (
     Q6_K_CODEC,
     Q8_0_CODEC,
     CodecRegistry,
+    GGMLQuantizationType,
     GGUFDiscovery,
     GGUFDiskEstimate,
+    GGUFQuantizationAlternative,
+    GGUFQuantizationBudgetError,
     GGUFResourceLimitError,
     GGUFTensorReader,
+    GGUFTensorReadLimits,
     QuantizationCodec,
     discover_gguf_components,
+    estimate_tensor_quantization_losses,
+    execute_gguf_quantization_plan,
+    load_gguf_activation_moments,
     open_gguf,
+    plan_gguf_quantization_budget,
     preflight_gguf_disk,
 )
+from modelsurgeon.adapters.gguf.container import gguf_tensor_byte_size
 from modelsurgeon.config import ObjectiveConfig, OptimizeMetric
 from modelsurgeon.evaluation.llama_cpp import (
     LlamaCppValidationConfig,
@@ -222,6 +231,8 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
         self.sequence_record: Mapping[str, object] | None = None
         self.deployment: Mapping[str, object] | None = None
         self.deployment_constraints_passed: bool | None = None
+        self.quantization_record: Mapping[str, object] | None = None
+        self.quantization_accepted = False
         self.runtime_hardware: Mapping[str, object] | None = None
         self.evidence: dict[str, Mapping[str, object]] = {}
 
@@ -604,6 +615,343 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                 mapped, plan, destination, disk, self._register_codecs()
             )
         return result, result.output_discovery, plan
+
+    def _quantize_selected(self) -> Mapping[str, object]:
+        """Apply the optional exact-byte GGUF plan, retaining only quality-safe output."""
+
+        if self.artifact is None or self.artifact_digest is None or self.selected is None:
+            raise NativeGGUFOptimizeRuntimeError(
+                "GGUF byte-budget quantization requires a published measured candidate"
+            )
+        settings = _mapping(self._resolved().get("quantization"), "quantization")
+        target_bytes = _integer(
+            settings.get("target_file_bytes"), 0, "quantization.target_file_bytes"
+        )
+        loss_metric = settings.get("loss_metric", "weight_mse")
+        if loss_metric not in {"weight_mse", "activation_weighted_mse"}:
+            raise NativeGGUFOptimizeRuntimeError("quantization.loss_metric is unsupported")
+        raw_candidate_types = settings.get("candidate_types")
+        if raw_candidate_types is None:
+            raw_candidate_types = (settings.get("target_type"),)
+        if not isinstance(raw_candidate_types, (list, tuple)) or not raw_candidate_types:
+            raise NativeGGUFOptimizeRuntimeError("quantization candidate types must be non-empty")
+        try:
+            candidate_types = tuple(
+                GGMLQuantizationType(item) for item in raw_candidate_types if isinstance(item, str)
+            )
+        except ValueError as error:
+            raise NativeGGUFOptimizeRuntimeError(
+                "quantization candidate types include an unsupported GGML type"
+            ) from error
+        if (
+            len(candidate_types) != len(raw_candidate_types)
+            or len(set(candidate_types)) != len(candidate_types)
+        ):
+            raise NativeGGUFOptimizeRuntimeError(
+                "quantization candidate types must be strings and unique"
+            )
+        max_working_bytes = (
+            _integer(settings.get("max_working_mib"), 16, "quantization.max_working_mib")
+            * 1024
+            * 1024
+        )
+        source = self.artifact
+        if _digest_file(source) != self.artifact_digest:
+            raise NativeGGUFOptimizeRuntimeError(
+                "selected GGUF artifact changed before byte-budget quantization"
+            )
+        activation_by_tensor: dict[str, dict[str, object]] = {}
+        activation_calibration: dict[str, object] | None = None
+        activation_path: Path | None = None
+        activation_skipped: dict[str, int] = {}
+        if loss_metric == "activation_weighted_mse":
+            raw_path = settings.get("activation_moments_path")
+            activation_path = _path(raw_path, "quantization.activation_moments_path")
+            try:
+                activation_by_tensor, raw_calibration = load_gguf_activation_moments(
+                    activation_path,
+                    expected_source_sha256=_raw_digest_file(source),
+                )
+            except (OSError, ValueError) as error:
+                raise NativeGGUFOptimizeRuntimeError(
+                    f"could not load activation moments for the selected GGUF: {error}"
+                ) from error
+            activation_calibration = raw_calibration
+        if target_bytes >= source.stat().st_size:
+            record: Mapping[str, object] = {
+                "status": "infeasible",
+                "reason": (
+                    "target_file_bytes does not require a reduction from the selected artifact"
+                ),
+                "source_bytes": source.stat().st_size,
+                "target_file_bytes": target_bytes,
+            }
+            self._publish_evidence(
+                stage="gguf_byte_budget_quantization",
+                state_id="no-reduction:" + self.artifact_digest,
+                outcome=OptimizationEvidenceOutcome.INCONCLUSIVE,
+                candidate_id=self.selected.candidate_id,
+                mutation_id=self.selected.mutation_id + ".quantization",
+                failure={"reason": record["reason"]},
+                lineage={"source_artifact_digest": self.artifact_digest},
+            )
+            self.quantization_record = record
+            self.quantization_accepted = False
+            return record
+
+        destination_root = (
+            self._artifact_root() / "optimize" / str(self.campaign_run_id) / "gguf" / "quantized"
+        )
+        destination_root.mkdir(parents=True, exist_ok=True)
+        target_suffix = candidate_types[0].value if len(candidate_types) == 1 else "mixed"
+        destination = destination_root / f"{self.selected.candidate_id}.{target_suffix}.gguf"
+        if destination.exists():
+            raise NativeGGUFOptimizeRuntimeError(
+                f"refusing to overwrite an existing quantized candidate: {destination}"
+            )
+
+        codecs = self._register_codecs()
+        alternatives: dict[str, tuple[GGUFQuantizationAlternative, ...]] = {}
+        loss_estimate_count = 0
+        with open_gguf(source) as mapped:
+            reader = GGUFTensorReader(
+                mapped,
+                limits=GGUFTensorReadLimits(
+                    max_chunk_bytes=min(16 * 1024 * 1024, max_working_bytes)
+                ),
+            )
+            supported = set(codecs.supported_types())
+            for handle in reader.index.tensors:
+                if handle.quant_type not in supported:
+                    continue
+                tensor_candidate_types: list[GGMLQuantizationType] = []
+                for candidate_type in candidate_types:
+                    if candidate_type is handle.quant_type:
+                        continue
+                    try:
+                        candidate_bytes = gguf_tensor_byte_size(
+                            candidate_type, handle.dimensions
+                        )
+                    except ValueError:
+                        continue
+                    if candidate_bytes < handle.byte_size:
+                        tensor_candidate_types.append(candidate_type)
+                if not tensor_candidate_types:
+                    continue
+                activation: dict[str, object] | None = None
+                input_axis: int | None = None
+                activation_values: list[float] | None = None
+                if loss_metric == "activation_weighted_mse":
+                    activation = activation_by_tensor.get(handle.name)
+                    if activation is None:
+                        activation_skipped["missing_tensor_moments"] = (
+                            activation_skipped.get("missing_tensor_moments", 0) + 1
+                        )
+                        continue
+                    raw_axis = activation.get("input_axis")
+                    raw_values = activation.get("second_moments")
+                    if (
+                        isinstance(raw_axis, bool)
+                        or raw_axis not in (0, 1)
+                        or not isinstance(raw_values, list)
+                        or len(handle.dimensions) != 2
+                        or len(raw_values) != handle.dimensions[raw_axis]
+                    ):
+                        activation_skipped["incompatible_tensor_geometry"] = (
+                            activation_skipped.get("incompatible_tensor_geometry", 0) + 1
+                        )
+                        continue
+                    input_axis = raw_axis
+                    activation_values = raw_values
+                estimates = estimate_tensor_quantization_losses(
+                    reader,
+                    handle,
+                    tuple(tensor_candidate_types),
+                    codecs,
+                    byte_order=mapped.container.byte_order,
+                    input_activation_second_moments=activation_values,
+                    input_axis=input_axis,
+                    max_working_bytes=max_working_bytes,
+                )
+                alternatives[handle.name] = tuple(
+                    estimate.to_alternative(
+                        activation_weighted=loss_metric == "activation_weighted_mse"
+                    )
+                    for estimate in estimates
+                    if estimate.quant_type in tensor_candidate_types
+                )
+                loss_estimate_count += len(alternatives[handle.name])
+
+            try:
+                plan = plan_gguf_quantization_budget(
+                    mapped.container,
+                    alternatives,
+                    codecs,
+                    target_file_bytes=target_bytes,
+                    max_states=50_000,
+                    max_frontier_states=10_000,
+                )
+            except GGUFQuantizationBudgetError as error:
+                error_text = str(error)
+                planner_limited = any(
+                    marker in error_text
+                    for marker in (
+                        "planner exceeded its",
+                        "planner exceeded its bounded intermediate frontier",
+                    )
+                )
+                no_assignment_fits = "no quantization assignment fits" in error_text
+                if not planner_limited and not no_assignment_fits:
+                    raise
+                record = {
+                    "status": "inconclusive" if planner_limited else "infeasible",
+                    "reason": error_text,
+                    "source_bytes": source.stat().st_size,
+                    "target_file_bytes": target_bytes,
+                    "candidate_tensor_count": len(alternatives),
+                    "planner_limits_exceeded": planner_limited,
+                }
+                evidence = self._publish_evidence(
+                    stage="gguf_byte_budget_quantization",
+                    state_id=("planner_limited:" if planner_limited else "infeasible:")
+                    + self.artifact_digest,
+                    outcome=OptimizationEvidenceOutcome.INCONCLUSIVE,
+                    candidate_id=self.selected.candidate_id,
+                    mutation_id=self.selected.mutation_id + ".quantization",
+                    failure={"reason": str(error)},
+                    lineage={
+                        "source_artifact_digest": self.artifact_digest,
+                        "target_file_bytes": target_bytes,
+                    },
+                )
+                record["evidence"] = evidence
+                self.quantization_record = record
+                self.quantization_accepted = False
+                return record
+
+            disk_plan = preflight_gguf_disk(
+                destination,
+                destination_root,
+                GGUFDiskEstimate(plan.planned_file_bytes, 0),
+            )
+            write_result = execute_gguf_quantization_plan(
+                reader,
+                plan,
+                codecs,
+                disk_plan,
+                max_working_bytes=max_working_bytes,
+            )
+
+        candidate_digest = "sha256:" + write_result.sha256
+        validation = self._validate(destination)
+        quality = self._quality(destination)
+        baseline_quality = _mapping(quality.get("baseline"), "quantized baseline quality")
+        candidate_quality = _mapping(quality.get("candidate"), "quantized candidate quality")
+        baseline_perplexity = _number(
+            baseline_quality.get("perplexity"), "quantized baseline perplexity"
+        )
+        candidate_perplexity = _number(
+            candidate_quality.get("perplexity"), "quantized candidate perplexity"
+        )
+        quality_gate = self._quality_gate(baseline_perplexity, candidate_perplexity)
+        constraints = _mapping(self._resolved().get("constraints"), "constraints")
+        max_disk = constraints.get("max_disk_bytes")
+        disk_passed = not isinstance(max_disk, int) or write_result.file_size <= max_disk
+        accepted = bool(quality_gate["accepted"]) and disk_passed
+        choice_counts: dict[str, int] = {}
+        changed_count = 0
+        for choice in plan.choices:
+            if choice.output_quant_type is not choice.source_quant_type:
+                changed_count += 1
+                key = f"{choice.source_quant_type.value}->{choice.output_quant_type.value}"
+                choice_counts[key] = choice_counts.get(key, 0) + 1
+        candidate_record: dict[str, object] = {
+            "status": "accepted" if accepted else "rejected",
+            "method": "gguf_byte_budget",
+            "target_type": candidate_types[0].value if len(candidate_types) == 1 else None,
+            "candidate_types": [item.value for item in candidate_types],
+            "loss_metric": loss_metric,
+            "target_file_bytes": target_bytes,
+            "source_bytes": source.stat().st_size,
+            "candidate_bytes": write_result.file_size,
+            "candidate_sha256": candidate_digest,
+            "changed_tensor_count": changed_count,
+            "candidate_tensor_count": len(alternatives),
+            "output_type_counts": choice_counts,
+            "estimated_loss": plan.estimated_loss,
+            "explored_states": plan.explored_states,
+            "plan_sha256": hashlib.sha256(
+                _canonical(
+                    [
+                        {
+                            "tensor": item.tensor_name,
+                            "source": item.source_quant_type.value,
+                            "output": item.output_quant_type.value,
+                            "bytes": item.encoded_bytes,
+                            "loss": item.estimated_loss,
+                        }
+                        for item in plan.choices
+                    ]
+                ).encode()
+            ).hexdigest(),
+            "quality_gate": dict(quality_gate),
+            "validation": dict(validation),
+            "quality": self._compact_quality(quality),
+            "loss_estimates": {
+                "count": loss_estimate_count,
+                "skipped_tensor_counts": activation_skipped,
+                "candidate_types": [item.value for item in candidate_types],
+                "metric": loss_metric,
+            },
+            "activation_moments": (
+                {
+                    "path": str(activation_path),
+                    "sha256": _raw_digest_file(activation_path),
+                    "source_sha256": _raw_digest_file(source),
+                    "tensor_count": len(activation_by_tensor),
+                    "calibration": activation_calibration,
+                }
+                if activation_path is not None
+                else None
+            ),
+            "constraints_passed": accepted,
+        }
+        evidence = self._publish_evidence(
+            stage="gguf_byte_budget_quantization",
+            state_id="quantized:" + candidate_digest,
+            outcome=(
+                OptimizationEvidenceOutcome.ACCEPTED
+                if accepted
+                else OptimizationEvidenceOutcome.REJECTED
+            ),
+            candidate_id=self.selected.candidate_id,
+            mutation_id=self.selected.mutation_id + ".quantization",
+            measurement=candidate_record,
+            artifact={"path": str(destination), "digest": candidate_digest},
+            lineage={
+                "source_artifact_digest": self.artifact_digest,
+                "plan_digest": self.plan.plan_id,
+            },
+        )
+        candidate_record["evidence"] = evidence
+        if accepted:
+            quality_delta = _number(quality_gate["perplexity_delta"], "perplexity_delta")
+            updated_measurement = {
+                **dict(self.selected_measurement or {}),
+                "candidate_perplexity": candidate_perplexity,
+                "perplexity_delta": quality_delta,
+                "quality_retention_ratio": quality_gate["quality_retention_ratio"],
+                "quality_gate": dict(quality_gate),
+                "candidate_disk_bytes": write_result.file_size,
+                "quantization": candidate_record,
+            }
+            self.selected_measurement = updated_measurement
+            self.measurements[self.selected.candidate_id] = updated_measurement
+            self.artifact = destination
+            self.artifact_digest = candidate_digest
+            self.quantization_accepted = True
+        self.quantization_record = candidate_record
+        return candidate_record
 
     def _validate(self, path: Path) -> Mapping[str, object]:
         validation_config, _, _ = self._tool_config()
@@ -1368,6 +1716,21 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             "artifact_digest": self.artifact_digest,
             "selected_search_measurement": dict(measurement),
         }
+        if self.quantization_accepted and self.selected is not None:
+            updated_measurement = {
+                **dict(self.selected_measurement or measurement),
+                "candidate_perplexity": candidate_ppl,
+                "perplexity_delta": quality_delta,
+                "quality_retention_ratio": quality_gate["quality_retention_ratio"],
+                "quality_gate": dict(quality_gate),
+                "candidate_median_seconds": candidate_latency,
+                "candidate_disk_bytes": self.artifact.stat().st_size,
+                "candidate_peak_ram_bytes": throughput.get("peak_rss_bytes"),
+                "candidate_peak_vram_bytes": throughput.get("peak_vram_bytes"),
+            }
+            self.selected_measurement = updated_measurement
+            self.measurements[self.selected.candidate_id] = updated_measurement
+            self.deployment["selected_search_measurement"] = dict(updated_measurement)
         return self.deployment
 
     @staticmethod
@@ -1501,6 +1864,15 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
             if stage is OptimizeStage.DEPLOYMENT_BENCHMARK:
                 self.deployment = detail
                 self.deployment_constraints_passed = stage_result.constraints_passed
+                deployed_measurement = detail.get("selected_search_measurement")
+                if isinstance(deployed_measurement, Mapping) and self.selected is not None:
+                    self.selected_measurement = deployed_measurement
+                    self.measurements[self.selected.candidate_id] = deployed_measurement
+            if stage is OptimizeStage.QUANTIZATION:
+                quantization = detail.get("quantization")
+                if isinstance(quantization, Mapping):
+                    self.quantization_record = quantization
+                    self.quantization_accepted = quantization.get("status") == "accepted"
 
     def run_stage(self, context: StageContext) -> StageResult:
         stage = context.stage
@@ -1539,7 +1911,11 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                         "supported_scopes": ["mlp_channel"],
                         "physical_measurements_authoritative": True,
                         "repair": "unsupported",
-                        "additional_quantization": "unsupported",
+                        "additional_quantization": {
+                            "status": "experimental",
+                            "method": "gguf_byte_budget",
+                            "quality_gate_required": True,
+                        },
                     },
                     constraints_passed=True,
                 )
@@ -1625,12 +2001,34 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     candidate_id=None if self.selected is None else self.selected.candidate_id,
                 )
             if stage is OptimizeStage.QUANTIZATION:
-                if (
-                    _mapping(self._resolved().get("quantization"), "quantization").get(
-                        "method", "none"
+                method = _mapping(self._resolved().get("quantization"), "quantization").get(
+                    "method", "none"
+                )
+                if method == "gguf_byte_budget":
+                    quantization = self._quantize_selected()
+                    status = quantization.get("status")
+                    if status not in {"accepted", "rejected", "infeasible"}:
+                        raise NativeGGUFOptimizeRuntimeError(
+                            "GGUF byte-budget quantization returned an invalid status"
+                        )
+                    selected_id = None if self.selected is None else self.selected.candidate_id
+                    return self._result(
+                        stage,
+                        {
+                            "status": status,
+                            "quantization": quantization,
+                            "artifact": str(self.artifact) if self.artifact else None,
+                            "artifact_digest": self.artifact_digest,
+                            "candidate_id": selected_id,
+                        },
+                        measured=status in {"accepted", "rejected"},
+                        constraints_passed=status == "accepted" or status == "infeasible",
+                        artifact_digest=self.artifact_digest,
+                        candidate_id=selected_id,
+                        evaluation_id="evaluation_"
+                        + hashlib.sha256(_canonical(quantization).encode()).hexdigest(),
                     )
-                    != "none"
-                ):
+                if method != "none":
                     return self._unsupported(
                         stage, "native GGUF additional quantization is not implemented"
                     )
@@ -1665,7 +2063,11 @@ class NativeGGUFOptimizeRuntime(OptimizeRuntime):
                     return self._unsupported(
                         stage, "deployment measurements failed a declared hard constraint"
                     )
-                frontier = self.measured_frontier or self._frontier()
+                frontier = (
+                    self._frontier()
+                    if self.quantization_accepted
+                    else self.measured_frontier or self._frontier()
+                )
                 if frontier.get("status") != "measured":
                     return self._unsupported(
                         stage, "GGUF Pareto objectives were not fully measured"

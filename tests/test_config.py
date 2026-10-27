@@ -99,6 +99,50 @@ def test_repair_config_is_explicit_and_canonical() -> None:
 def test_quantization_config_is_explicit_and_canonical() -> None:
     assert Settings().quantization.method == "none"
     assert QuantizationConfig(method="dynamic_int8").method == "dynamic_int8"
+    configured = QuantizationConfig(
+        method="gguf_byte_budget", target_file_bytes=1024, target_type="Q3_K"
+    )
+    assert configured.max_working_mib == 16
+    configured_candidates = QuantizationConfig(
+        method="gguf_byte_budget", target_file_bytes=1024, candidate_types=("Q2_K", "Q3_K")
+    )
+    assert configured_candidates.candidate_types == ("Q2_K", "Q3_K")
+    with pytest.raises(ValidationError, match="non-empty and unique"):
+        QuantizationConfig(
+            method="gguf_byte_budget", target_file_bytes=1024, candidate_types=()
+        )
+    with pytest.raises(ValidationError, match="non-empty and unique"):
+        QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=1024,
+            candidate_types=("Q2_K", "Q2_K"),
+        )
+    with pytest.raises(ValidationError, match="non-default target_type"):
+        QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=1024,
+            target_type="Q4_K",
+            candidate_types=("Q2_K", "Q3_K"),
+        )
+    with pytest.raises(ValidationError, match="target_file_bytes is required"):
+        QuantizationConfig(method="gguf_byte_budget")
+    with pytest.raises(ValidationError, match="requires gguf_byte_budget"):
+        QuantizationConfig(target_file_bytes=1024)
+    with pytest.raises(ValidationError, match="activation_moments_path is required"):
+        QuantizationConfig(
+            method="gguf_byte_budget",
+            target_file_bytes=1024,
+            loss_metric="activation_weighted_mse",
+        )
+    configured_activation = QuantizationConfig(
+        method="gguf_byte_budget",
+        target_file_bytes=1024,
+        loss_metric="activation_weighted_mse",
+        activation_moments_path=Path("moments.json"),
+    )
+    assert configured_activation.loss_metric == "activation_weighted_mse"
+    with pytest.raises(ValidationError, match="requires activation-weighted loss"):
+        QuantizationConfig(target_file_bytes=None, activation_moments_path=Path("moments.json"))
 
 
 def test_task_quality_config_requires_a_dataset_when_enabled() -> None:

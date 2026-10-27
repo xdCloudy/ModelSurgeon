@@ -1,5 +1,6 @@
 """Native, low-memory GGUF analysis and surgery adapter."""
 
+from modelsurgeon.adapters.gguf.activation_moments import load_gguf_activation_moments
 from modelsurgeon.adapters.gguf.architecture import (
     GGUF_ARCHITECTURE_CONTRACTS,
     AmbiguousGGUFArchitectureError,
@@ -180,6 +181,16 @@ from modelsurgeon.adapters.gguf.quantization import (
     plan_supported_axes,
     validate_tensor_alignment,
 )
+from modelsurgeon.adapters.gguf.quantization_budget import (
+    GGUFQuantizationAlternative,
+    GGUFQuantizationBudgetError,
+    GGUFQuantizationBudgetPlan,
+    GGUFQuantizationChoice,
+    GGUFQuantizationLossEstimate,
+    estimate_tensor_quantization_losses,
+    execute_gguf_quantization_plan,
+    plan_gguf_quantization_budget,
+)
 from modelsurgeon.adapters.gguf.qwen_surgery import (
     QWEN_GGUF_SURGERY_CONTRACT_VERSION,
     QWEN_GGUF_VARIANTS,
@@ -298,6 +309,11 @@ __all__ = [
     "GGUFParseError",
     "GGUFParserLimits",
     "GGUFPlannedTensor",
+    "GGUFQuantizationAlternative",
+    "GGUFQuantizationBudgetError",
+    "GGUFQuantizationBudgetPlan",
+    "GGUFQuantizationChoice",
+    "GGUFQuantizationLossEstimate",
     "GGUFResourceLimitError",
     "GGUFResumeError",
     "GGUFResumeManifest",
@@ -382,8 +398,11 @@ __all__ = [
     "copy_unchanged_gguf_tensor",
     "discard_resumable_gguf",
     "discover_gguf_components",
+    "estimate_tensor_quantization_losses",
+    "execute_gguf_quantization_plan",
     "iq_type_support",
     "load_gemma_gguf_surgery_adapter",
+    "load_gguf_activation_moments",
     "load_llama_gguf_surgery_adapter",
     "load_mistral_gguf_surgery_adapter",
     "load_qwen_gguf_surgery_adapter",
@@ -391,6 +410,7 @@ __all__ = [
     "open_gguf",
     "plan_axis_edit",
     "plan_gguf_output",
+    "plan_gguf_quantization_budget",
     "plan_storage_axis_edit",
     "plan_supported_axes",
     "preflight_gguf_disk",

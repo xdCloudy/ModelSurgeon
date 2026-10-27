@@ -1,0 +1,381 @@
+"""Run a reproducible mixed-codec GGUF byte-budget experiment.
+
+This research utility estimates per-tensor reconstruction MSE against the
+decoded source artifact, plans an exact file-size budget, writes the selected
+candidate transactionally, and optionally measures paired llama.cpp
+perplexity. It does not promote or publish the candidate.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import time
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+from modelsurgeon.adapters.gguf import (
+    DENSE_GGUF_CODECS,
+    Q2_K_CODEC,
+    Q3_K_CODEC,
+    Q4_K_CODEC,
+    Q5_0_CODEC,
+    Q5_K_CODEC,
+    Q6_K_CODEC,
+    Q8_0_CODEC,
+    CodecRegistry,
+    GGMLQuantizationType,
+    GGUFDiskEstimate,
+    GGUFTensorReader,
+    estimate_tensor_quantization_losses,
+    execute_gguf_quantization_plan,
+    load_gguf_activation_moments,
+    open_gguf,
+    plan_gguf_quantization_budget,
+    preflight_gguf_disk,
+)
+from modelsurgeon.adapters.gguf.container import gguf_tensor_byte_size
+from modelsurgeon.evaluation import (
+    LlamaCppPerplexityConfig,
+    LlamaCppPerplexityManifest,
+    benchmark_gguf_perplexity,
+)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+_load_activation_moments = load_gguf_activation_moments
+
+
+def _codecs() -> CodecRegistry:
+    registry = CodecRegistry()
+    codecs = (
+        *DENSE_GGUF_CODECS,
+        Q2_K_CODEC,
+        Q3_K_CODEC,
+        Q4_K_CODEC,
+        Q5_0_CODEC,
+        Q5_K_CODEC,
+        Q6_K_CODEC,
+        Q8_0_CODEC,
+    )
+    registered: set[GGMLQuantizationType] = set()
+    for codec in codecs:
+        quant_type = codec.identity.quant_type
+        if quant_type not in registered:
+            registry.register(codec)
+            registered.add(quant_type)
+    return registry
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--target-file-bytes", type=int, required=True)
+    parser.add_argument(
+        "--target-type",
+        choices=("F16", "F32", "Q2_K", "Q3_K", "Q4_K", "Q5_0", "Q5_K", "Q6_K", "Q8_0"),
+        help="single-type shorthand; defaults to Q3_K when --candidate-types is absent",
+    )
+    parser.add_argument(
+        "--candidate-types",
+        nargs="+",
+        choices=("F16", "F32", "Q2_K", "Q3_K", "Q4_K", "Q5_0", "Q5_K", "Q6_K", "Q8_0"),
+        help="quantization alternatives for the exact budget planner",
+    )
+    parser.add_argument("--max-working-bytes", type=int, default=16 * 1024 * 1024)
+    parser.add_argument("--activation-moments", type=Path)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--evaluation-text", type=Path)
+    parser.add_argument("--dataset", default="Salesforce/wikitext:wikitext-2-raw-v1")
+    parser.add_argument("--dataset-revision", required=False)
+    parser.add_argument("--split", default="test")
+    parser.add_argument("--tokenizer", required=False)
+    parser.add_argument("--tokenizer-revision", required=False)
+    parser.add_argument("--llama-perplexity", type=Path)
+    parser.add_argument("--llama-revision", required=False)
+    parser.add_argument("--context-size", type=int, default=512)
+    parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument("--chunks", type=int, default=8)
+    parser.add_argument("--timeout-seconds", type=float, default=300.0)
+    return parser
+
+
+def _check_evaluation_arguments(args: argparse.Namespace) -> bool:
+    supplied = (
+        args.evaluation_text,
+        args.dataset_revision,
+        args.tokenizer,
+        args.tokenizer_revision,
+        args.llama_perplexity,
+        args.llama_revision,
+    )
+    if all(value is None for value in supplied):
+        return False
+    if any(value is None for value in supplied):
+        raise ValueError(
+            "perplexity evaluation requires text, dataset/tokenizer revisions, and llama.cpp"
+        )
+    return True
+
+
+def main() -> int:
+    args = _parser().parse_args()
+    if args.target_file_bytes <= 0 or args.max_working_bytes <= 0:
+        raise ValueError("target file size and working-memory limit must be positive")
+    source = args.source.expanduser().resolve(strict=True)
+    candidate = args.candidate.expanduser().resolve()
+    report_path = args.report.expanduser().resolve()
+    if candidate == source or candidate.exists():
+        raise FileExistsError("candidate must be a new path distinct from the source")
+    if report_path.exists():
+        raise FileExistsError(f"refusing to overwrite experiment report: {report_path}")
+    run_perplexity = _check_evaluation_arguments(args)
+    codecs = _codecs()
+    if args.candidate_types is not None and args.target_type is not None:
+        raise ValueError("--target-type and --candidate-types cannot be combined")
+    raw_candidate_types = args.candidate_types or [args.target_type or "Q3_K"]
+    candidate_types = tuple(GGMLQuantizationType(item) for item in raw_candidate_types)
+    if len(set(candidate_types)) != len(candidate_types):
+        raise ValueError("candidate quantization types must be unique")
+    source_size = source.stat().st_size
+    source_sha256 = _sha256(source)
+    activation_by_tensor: dict[str, dict[str, Any]] = {}
+    activation_calibration: dict[str, Any] | None = None
+    if args.activation_moments is not None:
+        activation_by_tensor, activation_calibration = _load_activation_moments(
+            args.activation_moments,
+            expected_source_sha256=source_sha256,
+        )
+    started = time.perf_counter()
+    estimates: dict[str, dict[str, object]] = {}
+    source_tensor_bytes: dict[str, int] = {}
+
+    with open_gguf(source) as mapped:
+        reader = GGUFTensorReader(mapped)
+        alternatives = {}
+        for tensor in mapped.container.tensors:
+            source_tensor_bytes[tensor.name] = tensor.byte_size
+            activation = activation_by_tensor.get(tensor.name)
+            if args.activation_moments is not None and activation is None:
+                estimates[tensor.name] = {"skipped": "no activation moments; source type retained"}
+                continue
+            if activation is not None:
+                axis = activation["input_axis"]
+                if (
+                    len(tensor.dimensions) != 2
+                    or len(activation["second_moments"]) != tensor.dimensions[axis]
+                ):
+                    raise ValueError(
+                        "activation moment vector does not match GGUF tensor axis for "
+                        f"{tensor.name!r}"
+                    )
+            tensor_candidate_types: list[GGMLQuantizationType] = []
+            target_sizes: dict[GGMLQuantizationType, int] = {}
+            for candidate_type in candidate_types:
+                try:
+                    target_size = gguf_tensor_byte_size(candidate_type, tensor.dimensions)
+                except ValueError:
+                    continue
+                if target_size < tensor.byte_size and tensor.quant_type is not candidate_type:
+                    tensor_candidate_types.append(candidate_type)
+                    target_sizes[candidate_type] = target_size
+            if not tensor_candidate_types:
+                continue
+            tensor_handle = reader.index.tensor(tensor.name)
+            try:
+                tensor_estimates = estimate_tensor_quantization_losses(
+                    reader,
+                    tensor_handle,
+                    tuple(tensor_candidate_types),
+                    codecs,
+                    byte_order=mapped.container.byte_order,
+                    input_activation_second_moments=(
+                        activation["second_moments"] if activation is not None else None
+                    ),
+                    input_axis=activation["input_axis"] if activation is not None else None,
+                    max_working_bytes=args.max_working_bytes,
+                )
+            except (KeyError, ValueError) as error:
+                estimates[tensor.name] = {"skipped": str(error)}
+                continue
+            alternatives[tensor.name] = tuple(
+                estimate.to_alternative(activation_weighted=activation is not None)
+                for estimate in tensor_estimates
+                if estimate.quant_type in target_sizes
+            )
+            estimates[tensor.name] = {
+                "source_type": tensor.quant_type.value,
+                "source_bytes": tensor.byte_size,
+                "alternatives": [
+                    {
+                        "target_type": estimate.quant_type.value,
+                        "target_bytes": target_sizes[estimate.quant_type],
+                        "weight_mse": estimate.mean_squared_error,
+                        "activation_weighted_mse": estimate.activation_weighted_mean_squared_error,
+                        "sample_count": estimate.sample_count,
+                        "estimated_peak_working_bytes": estimate.estimated_peak_working_bytes,
+                    }
+                    for estimate in tensor_estimates
+                    if estimate.quant_type in target_sizes
+                ],
+            }
+
+        plan = plan_gguf_quantization_budget(
+            mapped.container,
+            alternatives,
+            codecs,
+            target_file_bytes=args.target_file_bytes,
+        )
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        disk_plan = preflight_gguf_disk(
+            candidate,
+            candidate.parent,
+            GGUFDiskEstimate(
+                output_bytes=plan.planned_file_bytes,
+                scratch_bytes=0,
+                alignment_bytes=mapped.container.alignment,
+            ),
+        )
+        write_result = execute_gguf_quantization_plan(
+            reader,
+            plan,
+            codecs,
+            disk_plan,
+            max_working_bytes=args.max_working_bytes,
+        )
+
+    output_counts = Counter(choice.output_quant_type.value for choice in plan.choices)
+    changed = [
+        choice
+        for choice in plan.choices
+        if choice.output_quant_type is not choice.source_quant_type
+    ]
+    activation_scored_tensor_count = 0
+    for estimate in estimates.values():
+        raw_alternatives = estimate.get("alternatives")
+        if isinstance(raw_alternatives, list) and any(
+            isinstance(alternative, dict) and "activation_weighted_mse" in alternative
+            for alternative in raw_alternatives
+        ):
+            activation_scored_tensor_count += 1
+    report: dict[str, Any] = {
+        "schema_version": 1,
+        "objective": (
+            "exact_gguf_byte_budget_minimize_sum_of_activation_weighted_codec_loss"
+            if activation_calibration is not None
+            else "exact_gguf_byte_budget_minimize_sum_of_codec_local_weight_mse"
+        ),
+        "limitations": [
+            (
+                "codec loss compares against decoded source weights, "
+                "not original full-precision weights"
+            ),
+            "weight MSE does not predict model quality",
+            "no deployment promotion is performed",
+            *(
+                [
+                    "activation error uses a diagonal covariance approximation",
+                    "tensors without activation moments retain their source codec",
+                ]
+                if activation_calibration is not None
+                else []
+            ),
+        ],
+        "source": {
+            "path": str(source),
+            "sha256": source_sha256,
+            "file_bytes": source_size,
+            "tensor_count": len(plan.choices),
+        },
+        "planner": {
+            "candidate_types": [item.value for item in candidate_types],
+            "target_file_bytes": plan.target_file_bytes,
+            "planned_file_bytes": plan.planned_file_bytes,
+            "estimated_loss": plan.estimated_loss,
+            "explored_states": plan.explored_states,
+            "activation_moment_tensor_count": len(activation_by_tensor),
+            "activation_scored_tensor_count": activation_scored_tensor_count,
+            "output_type_counts": dict(sorted(output_counts.items())),
+            "changed_tensor_count": len(changed),
+            "changed_tensors": [
+                {
+                    "name": choice.tensor_name,
+                    "source_type": choice.source_quant_type.value,
+                    "output_type": choice.output_quant_type.value,
+                    "source_bytes": source_tensor_bytes[choice.tensor_name],
+                    "output_bytes": choice.encoded_bytes,
+                    "estimated_loss": choice.estimated_loss,
+                }
+                for choice in changed
+            ],
+        },
+        "codec_estimates": estimates,
+        "candidate": {
+            "path": str(write_result.path),
+            "sha256": write_result.sha256,
+            "file_bytes": write_result.file_size,
+        },
+        "elapsed_seconds_through_write": time.perf_counter() - started,
+    }
+    if activation_calibration is not None:
+        report["activation_calibration"] = activation_calibration
+
+    if run_perplexity:
+        text_path = args.evaluation_text.expanduser().resolve(strict=True)
+        manifest = LlamaCppPerplexityManifest(
+            text_path=text_path,
+            text_sha256=_sha256(text_path),
+            sample_count=1,
+            dataset=args.dataset,
+            dataset_revision=args.dataset_revision,
+            split=args.split,
+            tokenizer=args.tokenizer,
+            tokenizer_revision=args.tokenizer_revision,
+        )
+        evaluation = benchmark_gguf_perplexity(
+            source,
+            candidate,
+            manifest,
+            config=LlamaCppPerplexityConfig(
+                executable=args.llama_perplexity,
+                expected_revision=args.llama_revision,
+                context_size=args.context_size,
+                batch_size=min(args.context_size, 512),
+                microbatch_size=min(args.context_size, 512),
+                threads=args.threads,
+                gpu_layers=0,
+                chunks=args.chunks,
+                timeout_seconds=args.timeout_seconds,
+            ),
+        )
+        report["evaluation"] = {
+            "manifest": manifest.to_record(),
+            "successful": evaluation.successful,
+            "perplexity_delta": evaluation.perplexity_delta,
+            "report": evaluation.to_record(),
+        }
+
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = report_path.with_name(f".{report_path.name}.tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(report_path)
+    print(
+        json.dumps(
+            {"report": str(report_path), "candidate": str(candidate), "sha256": write_result.sha256}
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -4,6 +4,9 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 
 - [v2.1 intent compiler equivalence/refusal corpus](v2.1-intent-compiler-corpus-v1.json)
 - [v2.1 frozen conversational intent contract](v2.1-conversational-intent-contract-v1.json)
+- [Qwen2 activation-weighted GGUF transfer result](gguf-qwen2-activation-transfer-2026-10-25.md)
+- [Qwen2 64-window held-out perplexity result](gguf-qwen2-activation-transfer-64chunk-2026-10-25.json)
+- [Qwen2 full WikiText-2 test perplexity result](gguf-qwen2-activation-transfer-fulltest-2026-10-25.json)
 
 - [v0.5 First Surgeon empirical evidence](v0.5-first-surgeon-evidence.md)
 - [v0.6 tree-surgeon uncertainty evidence](v0.6-tree-uncertainty-evidence.md)
@@ -44,6 +47,10 @@ Store bounded spike outcomes, hypotheses, protocols, negative results and follow
 - [v1.3 kernel shape and offload microbenchmarks](v1.3-kernel-microbenchmarks-v1.json)
 - [v1.3 hardware-specific alignment rules](v1.3-alignment-rules-v1.json)
 - [v1.3 hardware cost training dataset](v1.3-hardware-cost-dataset-v1.json)
+- [GGUF exact-byte quantization planner](gguf-byte-budget-planner-v1.md)
+- [GGUF activation-weighted codec allocation experiment](gguf-activation-weighted-allocation-2026-10-25.md)
+- [GGUF byte-budget deployment throughput comparison](gguf-byte-budget-throughput-2026-10-25.md)
+- [GGUF mixed-codec CPU/GPU throughput comparison](gguf-mixed-codec-throughput-2026-10-25.md)
 
 - v1.1-quantized-baseline-evidence-v1.json — matched quantization-only and pruning-plus-quantization matrix with explicit unavailable-tool outcomes.
 - v1.1-competitor-pareto-study-v1.json — conservative artifact-bound Pareto study with all unsupported cells retained and no superiority claim.
