@@ -7,14 +7,14 @@ Canonical source: [`modelsurgeon-progress-v1.json`](modelsurgeon-progress-v1.jso
 
 ## Current scores
 
-Overall weighted completion: **33.4%**. This is the defined, versioned scope score, not a release certification.
+Overall weighted completion: **33.2%**. This is the defined, versioned scope score, not a release certification.
 
 | Dimension | Score | Dimension weight in overall | Meaning |
 | --- | ---: | ---: | --- |
-| Research coverage | 58.6% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
-| Implementation maturity | 46.6% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
+| Research coverage | 58.1% | 20% | Progress through prior art, hypotheses, physical experiments, matched baselines, and reproducible conclusions. Negative conclusions count as completed research. |
+| Implementation maturity | 46.3% | 25% | Progress through tested and integrated software; integrated means present on assessed main. |
 | Optimization effectiveness | 7.1% | 35% | Evidence that methods meet quality/resource gates; negative or unmeasured methods score zero. |
-| Production readiness | 39.9% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
+| Production readiness | 39.5% | 20% | Verification, integration, regression, deployment, and operating readiness within declared scope. |
 | Representative compatibility coverage | 38.1% | Separate coverage measure | Weighted share of explicit model/format/operation/backend/runtime/recovery cells with evidence-backed support. It is not added a second time to the overall score. |
 
 ## Scoring method
@@ -28,7 +28,7 @@ Newly discovered scope is added as milestones and a dated scope-history entry. I
 | Workstream | Weight | Overall | Research | Implementation | Effectiveness | Readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | [Learned Meta-Surgeon](FEATURE_MATRIX.md#meta-surgeon) | 22% | 33.9% | 78.1% | 60.8% | 6.6% | 53.2% |
-| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 39.4% | 66.6% | 53.5% | 6.7% | 36.6% |
+| [Pruning and sparsification](FEATURE_MATRIX.md#pruning) | 10% | 36.7% | 62.2% | 50.0% | 6.7% | 33.1% |
 | [Quantization](FEATURE_MATRIX.md#quantization) | 7% | 19.4% | 46.0% | 10.0% | 6.7% | 16.8% |
 | [Mixture-of-Experts optimization](FEATURE_MATRIX.md#moe) | 8% | 4.7% | 12.6% | 3.4% | 0.0% | 3.4% |
 | [Model recovery and repair](FEATURE_MATRIX.md#recovery) | 6% | 18.0% | 46.0% | 10.0% | 6.7% | 10.0% |
@@ -69,6 +69,7 @@ A dependent milestone remains bounded by every listed prerequisite; opening a PR
 | `benchmarking.statistics` — Independent splits/replays, significance, uncertainty and contamination prevention | `benchmarking.artifact`, `benchmarking.quality` |
 | `scientific_research.emerging` — GSQ/RCO, expert merging, recovery, meta-learning and novel methods | `scientific_research.competitors`, `scientific_research.negative` |
 | `production_readiness.operations` — Reproducibility, observability, docs/tests, packaging, deployment and maintenance | `production_readiness.interfaces`, `production_readiness.safety`, `benchmarking.statistics` |
+| `pruning.kfac` — Kronecker-factored structured sensitivity | `scientific_research.competitors`, `pruning.physical`, `benchmarking.quality` |
 
 ## Current blockers
 

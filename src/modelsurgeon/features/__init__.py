@@ -47,6 +47,14 @@ from modelsurgeon.features.interaction_features import (
     InteractionFeatureValue,
     extract_interaction_features,
 )
+from modelsurgeon.features.kfac_sensitivity import (
+    KFAC_SENSITIVITY_VERSION,
+    KroneckerSensitivityError,
+    KroneckerSensitivityReport,
+    LinearRemovalAxis,
+    StructuredRemovalCost,
+    score_structured_linear_removals,
+)
 from modelsurgeon.features.layer_similarity import (
     LAYER_SIMILARITY_EXTRACTOR_VERSION,
     LayerPair,
@@ -87,6 +95,14 @@ from modelsurgeon.features.schema import (
     FeatureSampleContext,
     PrecisionProvenance,
     PrecisionSource,
+)
+from modelsurgeon.features.second_moment import (
+    SECOND_MOMENT_COLLECTOR_VERSION,
+    RawSecondMomentCollector,
+    RawSecondMomentConfig,
+    RawSecondMomentError,
+    RawSecondMomentKind,
+    RawSecondMomentSummary,
 )
 from modelsurgeon.features.spectral_exact import (
     EXACT_SPECTRAL_EXTRACTOR_VERSION,
@@ -136,12 +152,14 @@ __all__ = [
     "GRADIENT_FEATURE_EXTRACTOR_VERSION",
     "INTERACTION_FEATURE_EXTRACTOR_VERSION",
     "INTERACTION_FEATURE_PHASE",
+    "KFAC_SENSITIVITY_VERSION",
     "LAYER_SIMILARITY_EXTRACTOR_VERSION",
     "META_FEATURE_PROTOCOL_REVISION",
     "META_FEATURE_SCHEMA_VERSION",
     "NEURON_CORRELATION_EXTRACTOR_VERSION",
     "RANDOMIZED_SPECTRAL_ALGORITHM",
     "RANDOMIZED_SPECTRAL_EXTRACTOR_VERSION",
+    "SECOND_MOMENT_COLLECTOR_VERSION",
     "TOPOLOGY_FEATURE_EXTRACTOR_VERSION",
     "WEIGHT_DISTRIBUTION_EXTRACTOR_VERSION",
     "WEIGHT_STATISTICS_EXTRACTOR_VERSION",
@@ -183,11 +201,14 @@ __all__ = [
     "InteractionFeatureKind",
     "InteractionFeatureRecord",
     "InteractionFeatureValue",
+    "KroneckerSensitivityError",
+    "KroneckerSensitivityReport",
     "LayerPair",
     "LayerSimilarity",
     "LayerSimilarityConfig",
     "LayerSimilarityError",
     "LayerSummary",
+    "LinearRemovalAxis",
     "MetaFeatureCompatibility",
     "MetaFeatureConfig",
     "MetaFeatureCoverageReport",
@@ -205,6 +226,12 @@ __all__ = [
     "RandomizedSpectralFeatures",
     "RandomizedSpectralOutcome",
     "RandomizedWorkspacePlan",
+    "RawSecondMomentCollector",
+    "RawSecondMomentConfig",
+    "RawSecondMomentError",
+    "RawSecondMomentKind",
+    "RawSecondMomentSummary",
+    "StructuredRemovalCost",
     "TopologyFeatureError",
     "TopologyFeatures",
     "WeightDistribution",
@@ -229,4 +256,5 @@ __all__ = [
     "generate_cosine_candidates",
     "plan_randomized_spectral_workspace",
     "rank_duplicate_channels",
+    "score_structured_linear_removals",
 ]
