@@ -33,6 +33,12 @@ hf = [
   "torch>=2.4,<3",
   "transformers>=4.45,<6",
 ]
+hf-cuda = [
+  "accelerate>=1.15,<2",
+  "safetensors>=0.4,<1",
+  "torch>=2.14.1,<2.15",
+  "transformers>=4.45,<6",
+]
 dev = [
   "gguf>=0.17,<1",
   "mypy>=1.11,<2",
@@ -51,6 +57,25 @@ packages = ["src/modelsurgeon"]
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "hf" },
+  { index = "pytorch-cu130", extra = "hf-cuda" },
+]
+
+[tool.uv]
+conflicts = [[{ extra = "hf" }, { extra = "hf-cuda" }]]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

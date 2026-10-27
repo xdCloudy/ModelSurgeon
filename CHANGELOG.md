@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+  - Added an explicit `--hardware-profile` option to the first-party HF
+    acceptance runner. CPU remains the default; GPU campaigns now carry the
+    selected resource envelope in the reproducibility record.
+
+  - Changed the first-party HF acceptance runner to use the checkpoint-declared
+    dtype by default (`--dtype auto`) and record any explicit dtype override.
+    This avoids unintentionally widening BF16/FP16 sources to FP32 during
+    physical surgery when the checkpoint metadata declares its stored dtype.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
