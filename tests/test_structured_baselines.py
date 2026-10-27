@@ -26,15 +26,20 @@ def test_default_protocol_retains_all_methods_targets_and_cells() -> None:
     assert {model.family for model in protocol.models} == {"llama", "qwen"}
     assert tuple(target.fraction for target in protocol.targets) == (0.1, 0.2)
     assert protocol.seeds == (11, 23, 47)
+    assert protocol.corpus.split == "train"
+    assert protocol.evaluation_split == "test"
+    assert all(cell.corpus.split != cell.evaluation_split for cell in protocol.cells)
     assert len(protocol.cells) == 192
     assert all(cell.outcome is StructuredOutcome.UNSUPPORTED for cell in protocol.cells)
     assert len(protocol.compatibility) == 64
-    assert sum(
-        item.outcome is StructuredCompatibility.UNKNOWN for item in protocol.compatibility
-    ) == 11
-    assert sum(
-        item.outcome is StructuredCompatibility.UNSUPPORTED for item in protocol.compatibility
-    ) == 53
+    assert (
+        sum(item.outcome is StructuredCompatibility.UNKNOWN for item in protocol.compatibility)
+        == 11
+    )
+    assert (
+        sum(item.outcome is StructuredCompatibility.UNSUPPORTED for item in protocol.compatibility)
+        == 53
+    )
 
 
 def test_upstream_provenance_and_license_gap_are_explicit() -> None:
@@ -99,12 +104,17 @@ def test_protocol_identity_is_deterministic_and_published_evidence_matches() -> 
         Path(__file__).parents[1]
         / "docs"
         / "research"
-        / "v1.1-structured-baseline-evidence-v1.json"
+        / "v1.1-structured-baseline-evidence-v2.json"
     )
     evidence = json.loads(path.read_text(encoding="utf-8"))
 
     assert protocol.protocol_id == DEFAULT_STRUCTURED_BASELINE_PROTOCOL.protocol_id
     assert evidence["protocol_id"] == protocol.protocol_id
+    assert evidence["schema_version"] == 2
+    assert evidence["calibration_corpus"]["split"] == "train"
+    assert evidence["evaluation_corpus"]["split"] == "test"
+    with pytest.raises(StructuredBaselineError, match="splits must be different"):
+        replace(protocol, evaluation_split="train")
     assert "structured_protocol_" in render_structured_baseline_protocol(protocol)
     assert all(
         item.model_format is ModelFormat.SAFETENSORS
