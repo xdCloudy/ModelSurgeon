@@ -14,10 +14,12 @@ import copy
 import gc
 import hashlib
 import json
+import math
 import os
 import statistics
 import time
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, cast
 
@@ -124,6 +126,20 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
     return value
 
 
+def _surgeon_codec_label(value: str) -> str:
+    label = value.strip().casefold().removeprefix("torch.").replace("-", "_")
+    aliases = {
+        "float32": "fp32",
+        "float16": "fp16",
+        "bfloat16": "bf16",
+        "q4_k_m": "q4_k",
+        "q4_k_s": "q4_k",
+        "q5_k_m": "q5_k",
+        "q5_k_s": "q5_k",
+    }
+    return aliases.get(label, label)
+
+
 def _digest_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -175,6 +191,27 @@ def _hf_dtype(value: object) -> HuggingFaceDType:
         "fp16": HuggingFaceDType.FLOAT16,
         "bf16": HuggingFaceDType.BFLOAT16,
     }.get(str(value), HuggingFaceDType.AUTO)
+
+
+def _meta_target_direction(
+    target_name: str, target_schema: Mapping[str, object]
+) -> str | None:
+    if target_name == "safe_mutation":
+        return "higher_is_better"
+    raw_metrics = target_schema.get("metrics")
+    if not isinstance(raw_metrics, list):
+        return None
+    matches = [
+        item
+        for item in raw_metrics
+        if isinstance(item, Mapping) and item.get("name") == target_name
+    ]
+    if len(matches) != 1:
+        return None
+    direction = matches[0].get("direction")
+    if direction not in {"higher_is_better", "lower_is_better"}:
+        return None
+    return str(direction)
 
 
 def _integer(value: object, default: int, label: str) -> int:
@@ -524,6 +561,9 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             PretrainedSurgeonRegistry,
         )
 
+        self.meta_guidance = None
+        self.meta_predictions = {}
+        self.meta_order = ()
         resolved_config = _mapping(self.plan.resolved_config, "resolved configuration")
         raw_surgeon = resolved_config.get("surgeon")
         if raw_surgeon is None:
@@ -573,17 +613,274 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 f"Meta-Surgeon bundle could not be verified or loaded: {error}"
             ) from error
 
+        target_direction = _meta_target_direction(
+            bundle.card.target_name,
+            bundle.target_schema,
+        )
+        if target_direction is None:
+            self.meta_guidance = {
+                "status": "unsupported_target_direction",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target": bundle.card.target_name,
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the verified bundle does not declare a recognized direction for its target"
+                ),
+            }
+            return ()
+
+        supported_mutations = set(card.supported_mutations)
+        unsupported_candidates = tuple(
+            candidate
+            for candidate in candidates
+            if candidate.request.kind.value not in supported_mutations
+            and candidate.scope.value not in supported_mutations
+            and candidate.scope.name.lower() not in supported_mutations
+        )
+        if not supported_mutations or unsupported_candidates:
+            self.meta_guidance = {
+                "status": "unsupported_mutation",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "requested_mutation_kinds": sorted(
+                    {candidate.request.kind.value for candidate in candidates}
+                ),
+                "requested_candidate_scopes": sorted(
+                    {candidate.scope.value for candidate in candidates}
+                ),
+                "supported_mutations": list(card.supported_mutations),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for every requested mutation "
+                    "kind or candidate scope"
+                ),
+            }
+            return ()
+
         proof = self._ensure_loaded()
-        predictions: dict[str, float] = {}
+        declared_compatibility: dict[str, tuple[str, ...]] = {}
+        malformed_compatibility: list[str] = []
+        for field_name in ("model_families", "model_formats", "candidate_scope"):
+            declared = card.compatibility.get(field_name)
+            if declared is None:
+                continue
+            if isinstance(declared, str):
+                values = (declared,)
+            elif isinstance(declared, (list, tuple)) and all(
+                isinstance(value, str) and value for value in declared
+            ):
+                values = tuple(declared)
+            else:
+                malformed_compatibility.append(field_name)
+                continue
+            if not values:
+                malformed_compatibility.append(field_name)
+                continue
+            declared_compatibility[field_name] = values
+
+        target_compatibility = {
+            "model_families": (proof._model_target.family,),
+            "model_formats": (proof._model_target.format,),
+            "candidate_scope": tuple(
+                sorted(
+                    {
+                        label
+                        for candidate in candidates
+                        for label in (
+                            candidate.scope.value,
+                            candidate.scope.name.lower(),
+                        )
+                    }
+                )
+            ),
+        }
+        incompatible_compatibility = sorted(
+            field_name
+            for field_name, values in declared_compatibility.items()
+            if not set(values).intersection(target_compatibility[field_name])
+        )
+        declared_feature_names = card.compatibility.get("feature_names")
+        if declared_feature_names is not None and (
+            not isinstance(declared_feature_names, (list, tuple))
+            or not all(isinstance(value, str) for value in declared_feature_names)
+            or tuple(declared_feature_names) != bundle.preprocessor.output_feature_names
+        ):
+            incompatible_compatibility.append("feature_names")
+        incompatible_compatibility.extend(malformed_compatibility)
+        incompatible_compatibility = sorted(set(incompatible_compatibility))
+        if incompatible_compatibility:
+            self.meta_guidance = {
+                "status": "unsupported_compatibility",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "incompatible_fields": incompatible_compatibility,
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card compatibility declarations do not match the target "
+                    "model, candidate scope, or bundle feature schema"
+                ),
+            }
+            return ()
+
+        required_group_features = {
+            "coupled_group_weight_l1_norm",
+            "coupled_group_weight_l2_norm",
+        }
+        has_mlp_channel_candidates = any(
+            candidate.scope is CandidateScope.MLP_CHANNEL for candidate in candidates
+        )
+        if has_mlp_channel_candidates and (
+            card.compatibility.get("candidate_grouping")
+            != "mlp_channel_index_all_layers"
+            or not required_group_features.issubset(
+                {item.name for item in bundle.preprocessor.numeric}
+            )
+        ):
+            self.meta_guidance = {
+                "status": "unsupported_candidate_grouping",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_grouping": "mlp_channel_index_all_layers",
+                "declared_grouping": card.compatibility.get("candidate_grouping"),
+                "required_group_features": sorted(required_group_features),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed Meta-Surgeon card and feature model must declare the same "
+                    "cross-layer MLP channel grouping used by physical surgery"
+                ),
+            }
+            return ()
+
+        target_hardware = proof._hardware.cuda
+        hardware_labels: set[str] = set()
+        if target_hardware.available:
+            hardware_labels.update(("cuda", "gpu"))
+            hardware_labels.update(
+                device.name.strip().casefold()
+                for device in target_hardware.devices
+                if device.name.strip()
+            )
+        elif not any(
+            "cuda" in warning.casefold() and "failed" in warning.casefold()
+            for warning in proof._hardware.warnings
+        ):
+            hardware_labels.add("cpu")
+        supported_hardware = {item.strip().casefold() for item in card.supported_hardware}
+        if not hardware_labels or not supported_hardware.intersection(hardware_labels):
+            self.meta_guidance = {
+                "status": "unsupported_hardware",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_hardware": sorted(hardware_labels),
+                "supported_hardware": list(card.supported_hardware),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for the measured target hardware"
+                ),
+            }
+            return ()
+
+        candidate_features: dict[str, tuple[dict[str, object], ...]] = {}
+        target_storage_codecs: set[str] = set()
         for candidate in candidates:
             raw_features = self.candidate_features.get(candidate.candidate_id)
             if raw_features is None:
                 raise FirstPartyOptimizeRuntimeError(
                     "Meta-Surgeon inference is missing candidate feature evidence"
                 )
+            if candidate.scope is CandidateScope.MLP_CHANNEL:
+                available_features = {
+                    feature.get("name")
+                    for feature in raw_features
+                    if isinstance(feature.get("name"), str)
+                }
+                if not required_group_features.issubset(available_features):
+                    self.meta_guidance = {
+                        "status": "abstained_group_features_unavailable",
+                        "card_digest": card_digest,
+                        "bundle_digest": card.bundle_digest,
+                        "candidate_id": candidate.candidate_id,
+                        "required_group_features": sorted(required_group_features),
+                        "measurement_authority": "physical_evaluation",
+                        "reason": (
+                            "source feature precision could not support a faithful "
+                            "cross-layer group importance summary"
+                        ),
+                    }
+                    return ()
+            candidate_features[candidate.candidate_id] = raw_features
+            for feature in raw_features:
+                precision = feature.get("precision")
+                if not isinstance(precision, Mapping):
+                    continue
+                storage_dtype = precision.get("storage_dtype")
+                if isinstance(storage_dtype, str) and storage_dtype.strip():
+                    target_storage_codecs.add(_surgeon_codec_label(storage_dtype))
+
+        supported_codecs = {
+            _surgeon_codec_label(codec) for codec in card.supported_codecs if codec.strip()
+        }
+        target_quantization = proof._model_target.quantization
+        if target_quantization is not None:
+            target_codec_labels = {_surgeon_codec_label(target_quantization)}
+            codec_supported = target_codec_labels.issubset(supported_codecs)
+        else:
+            target_codec_labels = {"none", *target_storage_codecs}
+            codec_supported = "none" in supported_codecs or (
+                bool(target_storage_codecs)
+                and target_storage_codecs.issubset(supported_codecs)
+            )
+        if not codec_supported:
+            self.meta_guidance = {
+                "status": "unsupported_codec",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "target_codecs": sorted(target_codec_labels),
+                "supported_codecs": list(card.supported_codecs),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "the signed card does not declare support for the target model codec"
+                ),
+            }
+            return ()
+
+        raw_minimum_support_coverage = card.calibration_policy.get(
+            "minimum_support_coverage"
+        )
+        minimum_support_coverage: float | None = None
+        if raw_minimum_support_coverage is not None:
+            parsed_minimum_support_coverage = math.nan
+            if isinstance(raw_minimum_support_coverage, (int, float)) and not isinstance(
+                raw_minimum_support_coverage, bool
+            ):
+                with suppress(OverflowError):
+                    parsed_minimum_support_coverage = float(raw_minimum_support_coverage)
+            if not math.isfinite(parsed_minimum_support_coverage) or not (
+                0.0 <= parsed_minimum_support_coverage <= 1.0
+            ):
+                self.meta_guidance = {
+                    "status": "invalid_calibration_policy",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": "minimum_support_coverage must be finite and within [0, 1]",
+                }
+                return ()
+            minimum_support_coverage = parsed_minimum_support_coverage
+
+        inference_rows: list[tuple[MutationCandidate, tuple[float, ...]]] = []
+        unknown_categories: set[str] = set()
+        support_coverage_by_candidate: dict[str, float] = {}
+        support_feature_count = len(bundle.preprocessor.numeric) + len(
+            bundle.preprocessor.categorical
+        )
+        for candidate in candidates:
+            raw_features = candidate_features[candidate.candidate_id]
             record = {
                 "example_id": candidate.candidate_id,
                 "model": proof._model_target.to_record(),
+                "hardware": proof._hardware.to_record(),
                 "mutation": {"plan": {"request": candidate.request.to_record()}},
                 "pre_mutation_features": list(raw_features),
                 "versions": {
@@ -594,19 +891,140 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 row = transform_inference_record(
                     record, bundle.preprocessor, refuse_missing=False
                 )
-                predicted = bundle.model.predict((row,))
+                row_unknown_categories = tuple(
+                    feature_name.removeprefix("cat:").removesuffix("=<unknown>")
+                    for feature_name, value in zip(
+                        bundle.preprocessor.output_feature_names, row, strict=True
+                    )
+                    if feature_name.startswith("cat:")
+                    and feature_name.endswith("=<unknown>")
+                    and value == 1.0
+                )
+                missing_numeric_features = {
+                    feature_name.removeprefix("missing:")
+                    for feature_name, value in zip(
+                        bundle.preprocessor.output_feature_names, row, strict=True
+                    )
+                    if feature_name.startswith("missing:") and value == 1.0
+                }
             except Exception as error:
                 raise FirstPartyOptimizeRuntimeError(
                     f"Meta-Surgeon inference failed for {candidate.candidate_id}: {error}"
                 ) from error
-            prediction_value = predicted[0] if len(predicted) == 1 else None
-            if not isinstance(prediction_value, (int, float)):
-                raise FirstPartyOptimizeRuntimeError(
-                    f"Meta-Surgeon returned an invalid prediction for {candidate.candidate_id}"
+            unknown_categories.update(row_unknown_categories)
+            unsupported_feature_count = len(row_unknown_categories) + len(
+                missing_numeric_features
+            )
+            support_coverage_by_candidate[candidate.candidate_id] = (
+                1.0
+                if support_feature_count == 0
+                else max(
+                    0.0,
+                    (support_feature_count - unsupported_feature_count)
+                    / support_feature_count,
                 )
-            predictions[candidate.candidate_id] = float(cast(int | float, prediction_value))
+            )
+            inference_rows.append((candidate, row))
 
-        higher_is_better = bundle.card.target_name in {"behavior", "safe_mutation"}
+        if unknown_categories:
+            self.meta_guidance = {
+                "status": "abstained_unknown_categories",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "unknown_categories": sorted(unknown_categories),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "target feature categories were absent from source training; "
+                    "the Meta-Surgeon prediction was withheld"
+                ),
+            }
+            return ()
+
+        if minimum_support_coverage is not None and any(
+            coverage < minimum_support_coverage
+            for coverage in support_coverage_by_candidate.values()
+        ):
+            self.meta_guidance = {
+                "status": "abstained_low_support_coverage",
+                "card_digest": card_digest,
+                "bundle_digest": card.bundle_digest,
+                "minimum_support_coverage": minimum_support_coverage,
+                "support_coverage_by_candidate": dict(
+                    sorted(support_coverage_by_candidate.items())
+                ),
+                "measurement_authority": "physical_evaluation",
+                "reason": (
+                    "one or more candidate rows fall below the signed minimum support coverage"
+                ),
+            }
+            return ()
+
+        prediction_proba: Callable[..., Any] | None = None
+        candidate_predict_proba = getattr(bundle.model, "predict_proba", None)
+        if bundle.card.target_name == "safe_mutation" and callable(candidate_predict_proba):
+            prediction_proba = candidate_predict_proba
+        predictions: dict[str, float] = {}
+        for candidate, row in inference_rows:
+            try:
+                predicted = (
+                    prediction_proba((row,))
+                    if prediction_proba is not None
+                    else bundle.model.predict((row,))
+                )
+            except Exception as error:
+                self.meta_predictions = {}
+                self.meta_order = ()
+                self.meta_guidance = {
+                    "status": "abstained_inference_error",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "candidate_id": candidate.candidate_id,
+                    "prediction_method": (
+                        "predict_proba" if prediction_proba is not None else "predict"
+                    ),
+                    "error_type": type(error).__name__,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": "the verified Meta-Surgeon model raised during inference",
+                }
+                return ()
+            try:
+                prediction_value = predicted[0] if len(predicted) == 1 else None
+                if isinstance(prediction_value, bool):
+                    numeric_prediction = (
+                        float(prediction_value)
+                        if bundle.card.target_name == "safe_mutation"
+                        and prediction_proba is None
+                        else math.nan
+                    )
+                elif isinstance(prediction_value, (int, float)) and not isinstance(
+                    prediction_value, bool
+                ):
+                    numeric_prediction = float(prediction_value)
+                else:
+                    numeric_prediction = math.nan
+            except (IndexError, KeyError, TypeError, ValueError, OverflowError):
+                numeric_prediction = math.nan
+            if not math.isfinite(numeric_prediction) or (
+                bundle.card.target_name == "safe_mutation"
+                and not 0.0 <= numeric_prediction <= 1.0
+            ):
+                self.meta_predictions = {}
+                self.meta_order = ()
+                self.meta_guidance = {
+                    "status": "abstained_invalid_prediction",
+                    "card_digest": card_digest,
+                    "bundle_digest": card.bundle_digest,
+                    "candidate_id": candidate.candidate_id,
+                    "measurement_authority": "physical_evaluation",
+                    "reason": (
+                        "the model returned a non-finite or non-numeric score, or a safety score "
+                        "outside the valid [0, 1] probability range"
+                    ),
+                }
+                return ()
+            predictions[candidate.candidate_id] = numeric_prediction
+
+        higher_is_better = target_direction == "higher_is_better"
         ordered = tuple(
             candidate_id
             for candidate_id, _ in sorted(
@@ -624,6 +1042,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
             "card_digest": card_digest,
             "bundle_digest": card.bundle_digest,
             "target": bundle.card.target_name,
+            "prediction_method": "predict_proba" if prediction_proba is not None else "predict",
             "direction": "higher_is_better" if higher_is_better else "lower_is_better",
             "predictions": dict(sorted(predictions.items())),
             "ordered_candidates": list(ordered),
@@ -1944,7 +2363,12 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
                 proof.run_id,
                 CandidateEnumeratorConfig(
                     seed=seed,
-                    filters=CandidateFilter(scopes=base_scopes),
+                    filters=CandidateFilter(
+                        scopes=base_scopes,
+                        layer_indices=(0,)
+                        if base_scopes == (CandidateScope.MLP_CHANNEL,)
+                        else (),
+                    ),
                     max_candidates=maximum,
                 ),
             )
@@ -2159,12 +2583,7 @@ class HuggingFaceOptimizeRuntime(OptimizeRuntime):
         self, proof: HuggingFaceMLPProofRuntime, candidate: MutationCandidate
     ) -> None:
         if candidate.scope is CandidateScope.MLP_CHANNEL:
-            partitions = proof.pre_mutation_feature_partitions(candidate)
-            if len(partitions) != 1:
-                raise FirstPartyOptimizeRuntimeError(
-                    "HF feature extraction must produce one candidate partition"
-                )
-            partition = partitions[0]
+            partition = proof.pre_mutation_group_feature_partition(candidate)
         else:
             partition = self._structural_feature_partition(proof, candidate)
         self.feature_cache_entries[candidate.candidate_id] = self._publish_feature_partition(

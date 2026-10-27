@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+  - Align Meta-Surgeon MLP training evidence and inference features with
+    physical surgery: proof datasets now use one canonical candidate per shared
+    intermediate channel, aggregate features across every transformer layer,
+    and mask that channel in every layer when measuring the training label.
+    Legacy or precision-incompatible Meta bundles abstain from learned ordering
+    while physical evaluation continues. This adaptation follows the grouped
+    importance principle documented by Torch-Pruning; its reviewed revision,
+    licence, and this implementation's provenance are recorded in
+    `docs/research/torch-pruning-grouped-importance-integration.md`.
+
+  - Meta-Surgeon candidate ordering now follows the metric direction recorded in
+    the verified bundle's target schema. Unknown or malformed target directions
+    make optional guidance abstain instead of silently assuming minimization.
+
+  - Make optional Meta-Surgeon guidance respect signed mutation, compatibility,
+    hardware, codec, and minimum-support-coverage declarations; verify declared
+    feature names against the loaded bundle; and include live target hardware
+    context during inference. The runtime abstains when target features are
+    outside source support or fail a signed coverage threshold, records the
+    reason, and falls back to unguided physical search. It also abstains on
+    malformed, target-incompatible, or non-finite model scores; boolean scores
+    remain a fallback for the binary `safe_mutation` target, which now uses
+    probabilities when the model exposes them so candidate ranking retains
+    confidence information. Model inference exceptions are also recorded as an
+    abstention so optional guidance cannot stop physical optimization.
+    Each ranking pass clears its prior predictions first, so an abstention in a
+    later pass cannot leak stale scores into evidence or comparison baselines.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B

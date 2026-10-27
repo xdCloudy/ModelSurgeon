@@ -28,6 +28,7 @@ from modelsurgeon.experiments.hardware import (
 )
 from modelsurgeon.first_party_optimize_runtime import (
     FirstPartyOptimizeRuntimeError,
+    _meta_target_direction,
     build_first_party_optimize_runtime,
 )
 from modelsurgeon.optimization import build_optimize_plan
@@ -44,9 +45,16 @@ from modelsurgeon.surgeon import (
     LinearSurgeonModel,
     PretrainedSurgeonCard,
     PretrainedSurgeonRegistry,
+    TargetDirection,
+    TargetMetricSpec,
+    TargetSchema,
     TrainingModelIdentity,
 )
-from modelsurgeon.surgeon.matrix import NumericPreprocessor, SurgeonPreprocessor
+from modelsurgeon.surgeon.matrix import (
+    CategoricalPreprocessor,
+    NumericPreprocessor,
+    SurgeonPreprocessor,
+)
 
 torch = pytest.importorskip("torch")
 tokenizers = pytest.importorskip("tokenizers")
@@ -123,6 +131,23 @@ def test_default_optimize_runtime_publishes_reloadable_child(tmp_path: Path) -> 
         quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
     )
     runtime = build_first_party_optimize_runtime(plan)
+    proof = runtime._ensure_loaded()
+    initial_candidates = runtime._enumerate_for_proof(proof)
+    for candidate in initial_candidates:
+        runtime._prepare_candidate_features(proof, candidate)
+    grouped_candidate = initial_candidates[0]
+    channel = runtime._channel(grouped_candidate)
+    expected_group_l1 = sum(
+        float(proof._layer_weight_statistics(layer).values[channel, 0].item())
+        for layer in range(proof._discovery.shape.layers)
+    )
+    grouped_feature_values = {
+        item["name"]: item["value"]
+        for item in runtime.candidate_features[grouped_candidate.candidate_id]
+    }
+    assert grouped_feature_values["coupled_group_weight_l1_norm"] == pytest.approx(
+        expected_group_l1
+    )
     run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
         runtime,
         approvals=tuple(item.code for item in plan.approvals if item.required),
@@ -545,8 +570,39 @@ def test_first_party_runtime_executes_reloadable_low_rank_scope(tmp_path: Path) 
     assert (artifact_dir / "modelsurgeon-low-rank.json").is_file()
 
 
-def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_meta_target_direction_uses_declared_schema_and_rejects_unknown() -> None:
+    assert _meta_target_direction(
+        "quality_gain",
+        {
+            "metrics": [
+                {"name": "quality_gain", "direction": "higher_is_better"}
+            ]
+        },
+    ) == "higher_is_better"
+    assert _meta_target_direction(
+        "latency",
+        {"metrics": [{"name": "latency", "direction": "lower_is_better"}]},
+    ) == "lower_is_better"
+    assert _meta_target_direction("safe_mutation", {}) == "higher_is_better"
+    assert _meta_target_direction(
+        "quality_gain",
+        {"metrics": [{"name": "quality_gain", "direction": "maximize"}]},
+    ) is None
+    assert _meta_target_direction("missing", {"metrics": []}) is None
+
+
+@pytest.mark.parametrize(
+    ("categorical_categories", "expected_meta_status"),
+    [
+        ((), "verified_bundle"),
+        (("<unknown>", "qwen"), "abstained_unknown_categories"),
+    ],
+)
+def test_first_party_runtime_respects_meta_surgeon_support(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    categorical_categories: tuple[str, ...],
+    expected_meta_status: str,
 ) -> None:
     model_path = tmp_path / "model"
     model_path.mkdir()
@@ -556,22 +612,49 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
 
     registry = PretrainedSurgeonRegistry(tmp_path / "surgeon-registry")
     preprocessor = SurgeonPreprocessor(
-        (NumericPreprocessor("weight_l1_norm", 0.0, 1.0),), (), 1, 1
+        (
+            NumericPreprocessor("coupled_group_weight_l1_norm", 0.0, 1.0),
+            NumericPreprocessor("coupled_group_weight_l2_norm", 0.0, 1.0),
+            NumericPreprocessor("weight_l1_norm", 0.0, 1.0),
+        ),
+        (
+            (CategoricalPreprocessor("model_family", categorical_categories),)
+            if categorical_categories
+            else ()
+        ),
+        1,
+        1,
     )
     model = LinearSurgeonModel(
         preprocessor.output_feature_names,
-        "perplexity",
-        (-1.0, 0.0),
+        "quality_gain",
+        (-1.0, *(0.0 for _ in preprocessor.output_feature_names[1:])),
         0.0,
         LinearConfig(max_epochs=1),
         1,
     )
     training_model = TrainingModelIdentity("tiny/source", "source-revision")
+    target_schema = TargetSchema(
+        tuple(
+            sorted(
+                (
+                    *DEFAULT_TARGET_SCHEMA.metrics,
+                    TargetMetricSpec(
+                        "quality_gain",
+                        ("quality_gain",),
+                        "score",
+                        TargetDirection.HIGHER_IS_BETTER,
+                    ),
+                ),
+                key=lambda item: item.name,
+            )
+        )
+    )
     evidence = registry.bundles.artifacts.put_bytes(b"held-out-evidence")
     bundle = registry.bundles.publish(
         model,
         preprocessor,
-        DEFAULT_TARGET_SCHEMA,
+        target_schema,
         training_models=(training_model,),
         metrics={"ranking": 0.5},
         split_manifest={"version": "test"},
@@ -588,9 +671,12 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         1,
         ("mlp_channel",),
         ("fp32",),
-        ("cpu",),
+        ("cpu", "cuda", "gpu"),
         {"minimum_support_coverage": 1.0},
-        {"model_families": ["llama"]},
+        {
+            "candidate_grouping": "mlp_channel_index_all_layers",
+            "model_families": ["llama"],
+        },
         "Apache-2.0",
         (("ranking", 0.5),),
         ("test bundle is not a production-quality transfer claim",),
@@ -616,15 +702,44 @@ def test_first_party_runtime_uses_verified_meta_surgeon_predictions(
         budget=replace(plan.budget, evaluations=2),
         quality_profile=replace(plan.quality_profile, max_perplexity_delta=1_000_000.0),
     )
+    runtime = build_first_party_optimize_runtime(plan)
     run = OptimizeOrchestrator(plan, tmp_path / "run.json").run(
-        build_first_party_optimize_runtime(plan),
+        runtime,
         approvals=tuple(item.code for item in plan.approvals if item.required),
     )
     assert run.outcome is WorkflowOutcome.SUPPORTED
     active = run.stages[4].result
     assert active is not None
     detail = json.loads(active.detail)
-    assert detail["meta_guidance"]["status"] == "verified_bundle"
+    assert detail["meta_guidance"]["status"] == expected_meta_status
+    if expected_meta_status == "abstained_unknown_categories":
+        assert detail["meta_guidance"]["unknown_categories"] == ["model_family"]
+        assert "predictions" not in detail["meta_guidance"]
+        assert not runtime.meta_predictions
+        assert not runtime.meta_order
+        assert detail["search_comparison"]["baselines"]
+        return
+    assert detail["meta_guidance"]["target"] == "quality_gain"
+    assert detail["meta_guidance"]["direction"] == "higher_is_better"
+    guidance_predictions = detail["meta_guidance"]["predictions"]
+    assert guidance_predictions[detail["meta_guidance"]["ordered_candidates"][0]] == max(
+        guidance_predictions.values()
+    )
+    assert runtime.candidates
+    assert all(candidate.layer_index == 0 for candidate in runtime.candidates)
+    candidate = runtime.candidates[0]
+    candidate_feature_records = {
+        item["name"]: item for item in runtime.candidate_features[candidate.candidate_id]
+    }
+    candidate_feature_values = {
+        name: item["value"] for name, item in candidate_feature_records.items()
+    }
+    assert candidate_feature_values["coupled_group_weight_l1_norm"] == pytest.approx(
+        candidate_feature_values["weight_l1_norm"]
+    )
+    assert candidate_feature_records["coupled_group_weight_l1_norm"]["metadata"][
+        "layer_count"
+    ] == 2
     assert detail["meta_guidance"]["measurement_authority"] == "physical_evaluation"
     assert {item["method"] for item in detail["search_comparison"]["baselines"]} == {
         "meta_surgeon",
