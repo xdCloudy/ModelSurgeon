@@ -87,6 +87,16 @@ def test_missing_shard_fails_safely(tmp_path: Path) -> None:
         inspect_safetensors(index_path)
 
 
+def test_deeply_nested_shard_index_is_rejected_without_leaking_recursion_error(
+    tmp_path: Path,
+) -> None:
+    index_path = tmp_path / "model.safetensors.index.json"
+    index_path.write_text("[" * 10_000 + "]" * 10_000, encoding="utf-8")
+
+    with pytest.raises(SafetensorsIndexError, match="invalid safetensors shard index"):
+        inspect_safetensors(index_path)
+
+
 def test_index_and_shard_disagreement_is_rejected(tmp_path: Path) -> None:
     shard = tmp_path / "part.safetensors"
     write_safetensors(shard, {"actual": ("F32", [1], b"\x00" * 4)})
