@@ -21,7 +21,7 @@ from modelsurgeon.evaluation.model_ladder import (
     ModelLadderTarget,
 )
 
-UNSTRUCTURED_BASELINE_SCHEMA_VERSION = 1
+UNSTRUCTURED_BASELINE_SCHEMA_VERSION = 2
 
 
 class UnstructuredBaselineError(ValueError):
@@ -272,12 +272,18 @@ class BaselineEvidenceCell:
     artifact_sha256: str | None = None
     artifact_size_bytes: int | None = None
     schema_version: int = UNSTRUCTURED_BASELINE_SCHEMA_VERSION
+    evaluation_split: str = "test"
 
     def __post_init__(self) -> None:
         if self.schema_version != UNSTRUCTURED_BASELINE_SCHEMA_VERSION:
             raise UnstructuredBaselineError("unsupported unstructured baseline schema version")
         if self.seed < 0:
             raise UnstructuredBaselineError("baseline seed must be unsigned")
+        _text(self.evaluation_split, "held-out evaluation split")
+        if self.evaluation_split == self.corpus.split:
+            raise UnstructuredBaselineError(
+                "calibration and held-out evaluation splits must be different"
+            )
         _text(self.reason, "baseline outcome reason")
         names = tuple(metric.name for metric in self.metrics)
         if len(names) != len(set(names)):
@@ -298,6 +304,7 @@ class BaselineEvidenceCell:
             "sparsity": self.sparsity.to_record(),
             "seed": self.seed,
             "corpus": self.corpus.to_record(),
+            "evaluation_split": self.evaluation_split,
             "hardware": self.hardware.to_record(),
             "budget": self.budget.to_record(),
         }
@@ -364,10 +371,16 @@ class UnstructuredBaselineProtocol:
     compatibility: tuple[BaselineCompatibility, ...]
     cells: tuple[BaselineEvidenceCell, ...]
     schema_version: int = UNSTRUCTURED_BASELINE_SCHEMA_VERSION
+    evaluation_split: str = "test"
 
     def __post_init__(self) -> None:
         if self.schema_version != UNSTRUCTURED_BASELINE_SCHEMA_VERSION:
             raise UnstructuredBaselineError("unsupported baseline protocol schema version")
+        _text(self.evaluation_split, "held-out evaluation split")
+        if self.evaluation_split == self.corpus.split:
+            raise UnstructuredBaselineError(
+                "calibration and held-out evaluation splits must be different"
+            )
         if len(self.models) < 2 or len({model.family for model in self.models}) < 2:
             raise UnstructuredBaselineError("baseline protocol requires two model families")
         if tuple(self.seeds) != tuple(sorted(set(self.seeds))) or len(self.seeds) < 3:
@@ -390,13 +403,13 @@ class UnstructuredBaselineProtocol:
             )
         }
         actual = {
-            (cell.model.rung, cell.method, cell.sparsity.fraction, cell.seed)
-            for cell in self.cells
+            (cell.model.rung, cell.method, cell.sparsity.fraction, cell.seed) for cell in self.cells
         }
         if actual != expected or len(actual) != len(self.cells):
             raise UnstructuredBaselineError("baseline protocol must retain every matched cell")
         if any(
             cell.corpus != self.corpus
+            or cell.evaluation_split != self.evaluation_split
             or cell.hardware != self.hardware
             or cell.budget != self.budget
             for cell in self.cells
@@ -431,6 +444,7 @@ class UnstructuredBaselineProtocol:
             "targets": [target.to_record() for target in self.targets],
             "seeds": list(self.seeds),
             "corpus": self.corpus.to_record(),
+            "evaluation_split": self.evaluation_split,
             "hardware": self.hardware.to_record(),
             "budget": self.budget.to_record(),
             "comparison_controls": list(self.comparison_controls),
@@ -500,7 +514,7 @@ def build_default_unstructured_baseline_protocol(
     corpus = CalibrationCorpus(
         "wikitext-2-raw-v1",
         "modelsurgeon-benchmark-datasets-v1.1",
-        "test",
+        "train",
         "CC-BY-SA-4.0",
         100_000,
         "tokenizer-revision-bound-to-model-checkpoint",
@@ -561,6 +575,7 @@ def build_default_unstructured_baseline_protocol(
             metrics,
             "pinned source revision is recorded, but its runnable executable is not "
             "bundled in this repository or CI; no performance claim is made",
+            evaluation_split="test",
         )
         for model, method, target, seed in product(
             models,
@@ -580,6 +595,7 @@ def build_default_unstructured_baseline_protocol(
         ("magnitude_mean_absolute", "seeded_random"),
         compatibility,
         cells,
+        evaluation_split="test",
     )
 
 

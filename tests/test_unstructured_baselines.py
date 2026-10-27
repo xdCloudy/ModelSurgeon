@@ -29,15 +29,17 @@ def test_default_protocol_is_matched_and_retains_unsupported_cells() -> None:
     assert tuple(target.fraction for target in protocol.targets) == (0.2, 0.5)
     assert protocol.comparison_controls == ("magnitude_mean_absolute", "seeded_random")
     assert protocol.seeds == (11, 23, 47)
+    assert protocol.corpus.split == "train"
+    assert protocol.evaluation_split == "test"
+    assert all(cell.corpus.split != cell.evaluation_split for cell in protocol.cells)
     assert len(protocol.cells) == 24
     assert all(cell.outcome is BaselineOutcome.UNSUPPORTED for cell in protocol.cells)
     assert all(metric.value is None for cell in protocol.cells for metric in cell.metrics)
-    assert sum(
-        item.outcome is CompatibilityOutcome.UNKNOWN for item in protocol.compatibility
-    ) == 4
-    assert sum(
-        item.outcome is CompatibilityOutcome.UNSUPPORTED for item in protocol.compatibility
-    ) == 4
+    assert sum(item.outcome is CompatibilityOutcome.UNKNOWN for item in protocol.compatibility) == 4
+    assert (
+        sum(item.outcome is CompatibilityOutcome.UNSUPPORTED for item in protocol.compatibility)
+        == 4
+    )
 
 
 def test_default_methods_are_revision_and_license_pinned() -> None:
@@ -58,12 +60,15 @@ def test_published_evidence_envelope_matches_protocol() -> None:
         Path(__file__).parents[1]
         / "docs"
         / "research"
-        / "v1.1-unstructured-baseline-evidence-v1.json"
+        / "v1.1-unstructured-baseline-evidence-v2.json"
     )
     evidence = json.loads(path.read_text(encoding="utf-8"))
     protocol = DEFAULT_UNSTRUCTURED_BASELINE_PROTOCOL
 
     assert evidence["protocol_id"] == protocol.protocol_id
+    assert evidence["schema_version"] == 2
+    assert evidence["calibration_corpus"]["split"] == "train"
+    assert evidence["evaluation_corpus"]["split"] == "test"
     assert evidence["cell_count"] == len(protocol.cells)
     assert evidence["outcome_counts"] == {"unsupported": 24}
     assert evidence["performance_claim"] is None
@@ -74,6 +79,8 @@ def test_protocol_identity_is_deterministic_and_changes_with_target() -> None:
 
     assert protocol.protocol_id == DEFAULT_UNSTRUCTURED_BASELINE_PROTOCOL.protocol_id
     assert protocol.protocol_id.startswith("baseline_protocol_")
+    with pytest.raises(UnstructuredBaselineError, match="splits must be different"):
+        replace(protocol, evaluation_split="train")
     with pytest.raises(UnstructuredBaselineError, match="20% and 50%"):
         replace(protocol, targets=(SparsityTarget(0.2), SparsityTarget(0.4)))
     assert "protocol_id" in render_unstructured_baseline_protocol(protocol)

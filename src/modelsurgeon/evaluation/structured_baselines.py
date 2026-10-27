@@ -17,7 +17,7 @@ from modelsurgeon.evaluation.unstructured_baselines import (
     CalibrationCorpus,
 )
 
-STRUCTURED_BASELINE_SCHEMA_VERSION = 1
+STRUCTURED_BASELINE_SCHEMA_VERSION = 2
 
 
 class StructuredBaselineError(ValueError):
@@ -194,10 +194,16 @@ class StructuredEvidenceCell:
     reason: str
     runtime_seconds: float | None = None
     gpu_seconds: float | None = None
+    evaluation_split: str = "test"
 
     def __post_init__(self) -> None:
         if self.seed < 0:
             raise StructuredBaselineError("structured baseline seed must be unsigned")
+        _text(self.evaluation_split, "held-out evaluation split")
+        if self.evaluation_split == self.corpus.split:
+            raise StructuredBaselineError(
+                "calibration and held-out evaluation splits must be different"
+            )
         _text(self.reason, "structured outcome reason")
         if self.outcome is StructuredOutcome.MEASURED:
             if self.reconciliation.achieved_fraction is None:
@@ -220,6 +226,7 @@ class StructuredEvidenceCell:
             "target": self.target.to_record(),
             "seed": self.seed,
             "corpus": self.corpus.to_record(),
+            "evaluation_split": self.evaluation_split,
             "hardware": self.hardware.to_record(),
             "budget": self.budget.to_record(),
         }
@@ -283,8 +290,14 @@ class StructuredBaselineProtocol:
     budget: BaselineBudget
     compatibility: tuple[StructuredCompatibilityCell, ...]
     cells: tuple[StructuredEvidenceCell, ...]
+    evaluation_split: str = "test"
 
     def __post_init__(self) -> None:
+        _text(self.evaluation_split, "held-out evaluation split")
+        if self.evaluation_split == self.corpus.split:
+            raise StructuredBaselineError(
+                "calibration and held-out evaluation splits must be different"
+            )
         if len({model.family for model in self.models}) < 2:
             raise StructuredBaselineError("structured protocol requires two model families")
         if tuple(target.fraction for target in self.targets) != (0.1, 0.2):
@@ -307,6 +320,7 @@ class StructuredBaselineProtocol:
             raise StructuredBaselineError("structured protocol must retain every matched cell")
         if any(
             cell.corpus != self.corpus
+            or cell.evaluation_split != self.evaluation_split
             or cell.hardware != self.hardware
             or cell.budget != self.budget
             for cell in self.cells
@@ -344,6 +358,7 @@ class StructuredBaselineProtocol:
             "operations": [operation.value for operation in self.operations],
             "seeds": list(self.seeds),
             "corpus": self.corpus.to_record(),
+            "evaluation_split": self.evaluation_split,
             "hardware": self.hardware.to_record(),
             "budget": self.budget.to_record(),
             "compatibility": [item.to_record() for item in self.compatibility],
@@ -390,7 +405,12 @@ def build_default_structured_baseline_protocol() -> StructuredBaselineProtocol:
         ),
         StructuredMethodSpec(
             StructuredMethod.SLICE_GPT,
-            CompetitorIdentity("SliceGPT", "954700a71c599e2e5f67632865b288f007326241", "MIT", "https://github.com/AbhinavDutta/slicegpt"),
+            CompetitorIdentity(
+                "SliceGPT",
+                "954700a71c599e2e5f67632865b288f007326241",
+                "MIT",
+                "https://github.com/AbhinavDutta/slicegpt",
+            ),
             (StructuredOperation.WIDTH, StructuredOperation.ROTATION_LOW_RANK),
             ("llama", "qwen"),
             ModelFormat.SAFETENSORS,
@@ -399,7 +419,12 @@ def build_default_structured_baseline_protocol() -> StructuredBaselineProtocol:
         ),
         StructuredMethodSpec(
             StructuredMethod.SHORT_GPT,
-            CompetitorIdentity("ShortGPT", "78d9615fdcae6d90368832bd0a86c49c323549b9", "MIT", "https://github.com/sramshetty/ShortGPT"),
+            CompetitorIdentity(
+                "ShortGPT",
+                "78d9615fdcae6d90368832bd0a86c49c323549b9",
+                "MIT",
+                "https://github.com/sramshetty/ShortGPT",
+            ),
             (StructuredOperation.DEPTH,),
             ("llama",),
             ModelFormat.SAFETENSORS,
@@ -425,7 +450,7 @@ def build_default_structured_baseline_protocol() -> StructuredBaselineProtocol:
     corpus = CalibrationCorpus(
         "wikitext-2-raw-v1",
         "modelsurgeon-benchmark-datasets-v1.1",
-        "test",
+        "train",
         "CC-BY-SA-4.0",
         100_000,
         "tokenizer-revision-bound-to-model-checkpoint",
@@ -476,6 +501,7 @@ def build_default_structured_baseline_protocol() -> StructuredBaselineProtocol:
             ArtifactReconciliation(target.fraction, None, 1, None, 1, None, None, None, None),
             "pinned upstream executable is not bundled; retain incompatibility or "
             "execute through the adapter before claiming a measured artifact",
+            evaluation_split="test",
         )
         for model, spec, operation, target, seed in product(
             models, methods, operations, targets, (11, 23, 47)
@@ -492,6 +518,7 @@ def build_default_structured_baseline_protocol() -> StructuredBaselineProtocol:
         budget,
         compatibility,
         cells,
+        evaluation_split="test",
     )
 
 

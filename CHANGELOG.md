@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+  - Versioned the structured and unstructured pruning baseline protocols to
+    separate WikiText training data used for calibration from the held-out test
+    split used for quality evaluation. The v1 evidence descriptors remain
+    available for audit; new schema v2 manifests record both split identities
+    and reject calibration/evaluation split reuse.
+
   - Fixed conversational task-quality execution to preserve explicit target
     configuration parameters when the interpreter supplies only benchmark
     identity and canonical defaults. Added a real chat-controlled Qwen2.5-0.5B
