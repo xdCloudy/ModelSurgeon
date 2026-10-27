@@ -549,9 +549,7 @@ def invoke_in_process(
 ) -> PluginResult:
     """Invoke only an explicitly trusted implementation with primitive requests."""
 
-    compatibility = negotiate_plugin(
-        card, request, available_dependencies=available_dependencies
-    )
+    compatibility = negotiate_plugin(card, request, available_dependencies=available_dependencies)
     if compatibility.outcome is not PluginOutcome.SUPPORTED:
         return PluginResult(card.plugin_id, compatibility.outcome, compatibility.detail)
     if not trusted or PluginExecutionMode.TRUSTED_IN_PROCESS not in card.trust_modes:
@@ -591,9 +589,7 @@ def invoke_subprocess(
 ) -> PluginResult:
     """Invoke a plugin over canonical JSON with wall/output bounds."""
 
-    compatibility = negotiate_plugin(
-        card, request, available_dependencies=available_dependencies
-    )
+    compatibility = negotiate_plugin(card, request, available_dependencies=available_dependencies)
     if compatibility.outcome is not PluginOutcome.SUPPORTED:
         return PluginResult(card.plugin_id, compatibility.outcome, compatibility.detail)
     if PluginExecutionMode.SUBPROCESS not in card.trust_modes:
