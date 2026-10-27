@@ -40,8 +40,17 @@ class SearchPolicyConfig:
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if self.evaluation_budget <= 0 or self.beam_width <= 0 or self.seed < 0:
-            raise SearchPolicyError("policy budget/width must be positive and seed non-negative")
+        if (
+            isinstance(self.evaluation_budget, bool)
+            or not isinstance(self.evaluation_budget, int)
+            or self.evaluation_budget <= 0
+            or isinstance(self.beam_width, bool)
+            or not isinstance(self.beam_width, int)
+            or self.beam_width <= 0
+        ):
+            raise SearchPolicyError("policy budget and beam width must be positive integers")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise SearchPolicyError("search seed must be a non-negative integer")
         if not math.isfinite(self.exploration_weight) or self.exploration_weight < 0:
             raise SearchPolicyError("exploration weight must be finite and non-negative")
         if self.kind is SearchPolicyKind.GREEDY and self.beam_width != 1:
@@ -82,8 +91,12 @@ class SearchPolicyState:
     def __post_init__(self) -> None:
         if not self.policy_id.startswith("policy_"):
             raise SearchPolicyError("search state requires its canonical policy ID")
-        if self.decision_index < 0:
-            raise SearchPolicyError("search decision index cannot be negative")
+        if (
+            isinstance(self.decision_index, bool)
+            or not isinstance(self.decision_index, int)
+            or self.decision_index < 0
+        ):
+            raise SearchPolicyError("search decision index must be a non-negative integer")
         if len(self.selected_candidate_ids) != len(set(self.selected_candidate_ids)):
             raise SearchPolicyError("selected candidate IDs must be unique")
 
