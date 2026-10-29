@@ -68,6 +68,24 @@ def test_first_order_sensitivity_is_finite_token_normalized_and_restores_hooks_a
     assert all(parameter.grad is None for parameter in model.parameters())
 
 
+def test_first_order_sensitivity_preserves_existing_parameter_gradients() -> None:
+    model = _TinyCausalModel()
+    for index, parameter in enumerate(model.parameters(), start=1):
+        parameter.grad = torch.full_like(parameter, float(index))
+    gradients_before = tuple(parameter.grad.clone() for parameter in model.parameters())
+
+    measure_huggingface_layer_sensitivity(
+        model,
+        ((1, 2, 3, 4),),
+        input_device=torch.device("cpu"),
+    )
+
+    assert all(
+        torch.equal(parameter.grad, expected)
+        for parameter, expected in zip(model.parameters(), gradients_before, strict=True)
+    )
+
+
 def test_first_order_sensitivity_rejects_short_or_malformed_chunks_without_hooks() -> None:
     model = _TinyCausalModel()
     with pytest.raises(HuggingFaceLayerSensitivityError, match="at least two"):

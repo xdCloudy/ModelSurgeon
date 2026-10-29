@@ -101,7 +101,6 @@ def measure_huggingface_layer_sensitivity(
         model.eval()
         for chunk in chunks:
             captured[:] = [None] * configured_layers
-            model.zero_grad(set_to_none=True)
             input_ids = torch.tensor((chunk,), dtype=torch.long, device=input_device)
             output = model(input_ids=input_ids, use_cache=False)
             logits = cast(Any, getattr(output, "logits", None))
@@ -139,7 +138,6 @@ def measure_huggingface_layer_sensitivity(
     finally:
         for handle in reversed(handles):
             handle.remove()
-        model.zero_grad(set_to_none=True)
         for module, was_training in training_states:
             module.training = was_training
 
