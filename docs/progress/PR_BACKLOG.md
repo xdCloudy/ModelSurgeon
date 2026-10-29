@@ -1,8 +1,8 @@
 # Open pull-request and issue backlog snapshot
 
-GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 58 open PRs.
+GitHub CLI snapshot: **2026-10-27** · assessed `main` `589c609e1571493e2aeb5ea717a3febf0447cf83` · 0 open issues · 61 open PRs.
 
-All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.
+All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; all four CI checks passed and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged. PR #771’s negative/mixed Q7 feature-diversity replay is tracked separately; the raw three-campaign inputs remain unavailable for independent reproduction.
 
 All open PRs were enumerated; notable optimizer/research and stacked-dependency changes are listed below. This is a dated snapshot, not live status. An open PR or green check is not integrated functionality.
 
@@ -18,6 +18,8 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#703](https://github.com/xdCloudy/ModelSurgeon/pull/703) → [#723](https://github.com/xdCloudy/ModelSurgeon/pull/723) | `codex/stream-task-quality-dataset → codex/gguf-task-quality` |
 | [#774](https://github.com/xdCloudy/ModelSurgeon/pull/774) → [#775](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system → codex/kfac-structured-sensitivity` |
 | [#776](https://github.com/xdCloudy/ModelSurgeon/pull/776) → [#777](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027 → codex/clarify-structural-surrogate-evidence` |
+| [#735](https://github.com/xdCloudy/ModelSurgeon/pull/735) → [#779](https://github.com/xdCloudy/ModelSurgeon/pull/779) | `codex/competitive-activation-baseline → codex/gradient-depth-sensitivity` |
+| [#775](https://github.com/xdCloudy/ModelSurgeon/pull/775) → [#780](https://github.com/xdCloudy/ModelSurgeon/pull/780) | `codex/kfac-structured-sensitivity → codex/kfac-physical-pilot` |
 
 ## Notable open and dependency PRs
 
@@ -47,9 +49,12 @@ Chains are listed in base-first order. Re-fetch branch bases and review conflict
 | [#775: Prototype bounded KFAC structured removal costs](https://github.com/xdCloudy/ModelSurgeon/pull/775) | `codex/model-progress-system` | `codex/kfac-structured-sensitivity` | stacked on progress system PR #774; CPU-only research primitive | No |
 | [#776: Expand evidence-backed research milestones](https://github.com/xdCloudy/ModelSurgeon/pull/776) | `main` | `codex/progress-inventory-refinement-20261027` | expanded progress inventory foundation | No |
 | [#777: Fix structural Meta-Surgeon test-set selection](https://github.com/xdCloudy/ModelSurgeon/pull/777) | `codex/progress-inventory-refinement-20261027` | `codex/clarify-structural-surrogate-evidence` | stacked on #776; structural feature-path selector evaluation guard | No |
+| [#778: Track bounded Qwen3.5 REAP outcomes](https://github.com/xdCloudy/ModelSurgeon/pull/778) | `codex/clarify-structural-surrogate-evidence` | `codex/reap-progress-evidence` | stacked on #777; records bounded CPU-only REAP experiments | No |
+| [#779: Add gradient sensitivity depth-pruning baseline](https://github.com/xdCloudy/ModelSurgeon/pull/779) | `codex/competitive-activation-baseline` | `codex/gradient-depth-sensitivity` | stacked on #735; CPU-only bounded gradient depth-sensitivity comparison | No |
+| [#780: Compare KFAC channel costs against pruning baselines](https://github.com/xdCloudy/ModelSurgeon/pull/780) | `codex/kfac-structured-sensitivity` | `codex/kfac-physical-pilot` | stacked on #775; CPU physical MLP channel comparison and bounded adapter; latest head adds held-out evaluation offsets, with second-window physical validation pending | No |
 
 ## Triage
 
-Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration.
+Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated. PR #780 records one bounded CPU KFAC channel-removal comparison stacked on #775; all tested cuts miss the PPL gate, so the result does not establish quality-preserving effectiveness or integration. PR #780 head e473388 adds held-out evaluation-window offsets and focused tests; the second-window physical run remains pending sufficient RAM. PRs #769–#771 form an active-learning diversity stack; #771 records mixed-to-negative offline replay results and remains unintegrated, with independent reproduction blocked by absent raw inputs. PR #771 head 607b0c4 corrects the line-ending-dependent Q7 evidence digest and passes quality, HF smoke, LightGBM smoke, and CPU performance CI; the raw replay inputs remain unavailable.
 
 Re-fetch and re-audit the live backlog before later review or branch integration. Respect normal CI and approval requirements; this inventory does not authorize merging or bypass review.

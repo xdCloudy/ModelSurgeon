@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "inventory_id": "modelsurgeon-progress",
-  "scope_version": "1.2.1",
+  "scope_version": "1.2.9",
   "assessment_date": "2026-10-27",
   "assessment_main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
-  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness.",
+  "scope_note": "Conservative evidence-bounded inventory. This revision adds method-specific differentiable-mask, layer-regularization, dependency-pruning, and Meta-Surgeon lifecycle questions; narrows the iterative-schedule record to its actual Q8 evidence; and refreshes the backlog after PR #774 merged. Research discovery and upstream claims do not imply ModelSurgeon support or effectiveness. Scope version 1.2.2 separates bounded Qwen3.5 REAP quality-gate and profile-aggregation results from the broader MoE selection milestone; the REAP evidence remains experimental and unintegrated. Scope version 1.2.3 adds a bounded Qwen3.5 leave-one-profile-out REAP ranking-stability study; its small descriptive stability gain does not establish improved model quality or optimization effectiveness. Scope version 1.2.4 adds a separate bounded Qwen2.5 ShortGPT physical depth-selection result from open PR #735; its negative quality finding does not imply effectiveness, integration, or generalization. Scope version 1.2.5 adds an independently tracked, bounded negative CPU pilot for first-order gradient-based transformer depth sensitivity from open PR #779, stacked on #735; the score neither improves the matched magnitude result nor establishes practical effectiveness. Scope version 1.2.6 adds the first bounded KFAC physical MLP-channel selection comparison in open PR #780, stacked on #775; KFAC beats magnitude on this single held-out PPL cell but all tested methods fail the declared quality gate, and random is better at some small cuts. Scope version 1.2.7 adds a separate CPU KFAC replication on one Qwen2.5-0.5B cell in open PR #780: KFAC ranks best among five candidates but still fails the quality gate, with substantial workspace and scoring costs. This is one bounded cross-model observation, not evidence of broad transfer. Scope version 1.2.8 adds a pinned MIT WANDA source audit and an independently implemented structured activation-score baseline. On Qwen2.5-0.5B, KFAC ranks best across two short train calibration windows, but all candidate artifacts fail the quality gate and channel overlap across windows is low; no reproduction of original unstructured WANDA is claimed. Scope version 1.2.9 separately tracks the bounded Q7 feature-diversity acquisition replay in open PR #771: its fixed mixture is not consistently better than uncertainty-only or random, and its raw source inputs are unavailable for independent reproduction. A Q7 report-integrity follow-up corrected its line-ending-dependent digest to the normalized Git-blob digest and added a regression test; this does not change the replay result or resolve missing raw campaign inputs. PR #771 commit 607b0c4 fixes the Q7 report digest to use Git-normalized LF bytes and adds a regression test; all four hosted CI checks passed. The missing raw campaign inputs still prevent independent replay. PR #779 commit f7ed705 removes unintended parameter-gradient clearing from the experimental scorer and adds a caller-state regression test; its negative pilot conclusion and experimental/unintegrated status are unchanged.",
   "scoring": {
     "dimension_weights": {
       "research": 20,
@@ -41,6 +41,42 @@
       "scope_version": "1.2.1",
       "change": "Audited the experimental structural-representation study, separated validation-based selection from test evaluation, corrected feature-path and analytical-resource claims, and retained the v1 protocol as superseded evidence.",
       "previous_scope_version": "1.2.0"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.4",
+      "change": "Split one bounded Qwen2.5 block-influence depth-selection experiment into its own negative-result milestone and recorded a separately pinned MIT source reference; no open-PR work is counted as integrated.",
+      "previous_scope_version": "1.2.3"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.5",
+      "change": "Added a bounded negative Qwen2.5 first-order gradient depth-sensitivity experiment and pinned Taylor-pruning literature provenance; updated the open-PR snapshot. No unmerged code is counted as integrated.",
+      "previous_scope_version": "1.2.4"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.6",
+      "change": "Added a separately weighted, bounded KFAC singleton-additive physical channel-removal comparison milestone; recorded mixed baseline results and failed quality gates without claiming optimization effectiveness. Refreshed the PR backlog for stacked PR #780.",
+      "previous_scope_version": "1.2.5"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.7",
+      "change": "Split a bounded Qwen2.5-0.5B KFAC physical replication into an independent milestone. It ranks KFAC ahead of magnitude and three random masks in one short held-out cell but fails the declared quality gate and requires a 14.97 GB planned workspace.",
+      "previous_scope_version": "1.2.6"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.8",
+      "change": "Audited pinned WANDA source and MIT license; added an independent structured channel-level activation baseline and a second disjoint Qwen2 calibration-window comparison. KFAC ranked first twice but all candidates fail the quality gate; low mask overlap prevents claiming stable selections.",
+      "previous_scope_version": "1.2.7"
+    },
+    {
+      "date": "2026-10-27",
+      "scope_version": "1.2.9",
+      "previous_scope_version": "1.2.8",
+      "change": "Added a separate Meta-Surgeon feature-diversity acquisition replay milestone, pinned kCenterGreedy source/license provenance, and retained the mixed-to-negative Q7 v2 results. Raw replay inputs are absent, so independent reproduction is explicitly uncredited. The existing Q7 milestone was narrowed from weight 7 to weight 6 and split into an uncertainty-only baseline and a separate 1-point feature-diversity research question; workstream weight remains fixed at 100."
     }
   ],
   "workstreams": [
@@ -385,7 +421,7 @@
       "title": "Structured/dependency-aware channel, MLP, head, layer, width, depth and rank surgery",
       "description": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
       "scope": "Structured, unstructured, semi-structured, block, channel, MLP, head, depth, width, rank, dependency, activation, gradient, Hessian, sensitivity, iterative and progressive pruning.",
-      "weight": 22,
+      "weight": 10,
       "research_status": "physical_experiment_conducted",
       "research_outcome": null,
       "implementation_status": "physically_benchmarked",
@@ -454,10 +490,48 @@
             }
           ],
           "reason": "Initial conservative assessment against the pinned main commit."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "physical_experiment_conducted",
+          "research_outcome": null,
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "locally_validated",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.7-hf-physical-mlp-evidence.md",
+              "label": "v0.7-hf-physical-mlp-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-physical-attention-evidence.md",
+              "label": "v0.7-hf-physical-attention-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-physical-layer-evidence.md",
+              "label": "v0.7-hf-physical-layer-evidence.md"
+            },
+            {
+              "path": "docs/research/v0.7-hf-low-rank-evidence.md",
+              "label": "v0.7-hf-low-rank-evidence.md"
+            }
+          ],
+          "weight": 22,
+          "reason": "Weight reduced by five points to score the newly separated bounded ShortGPT depth-selection result without changing the pre-existing physical-surgery evidence."
         }
       ],
       "research_questions": [
         "Within this milestone's declared scope, does evidence establish that named exact cells save, reload and meet declared quality/task/resource gates."
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.6",
+          "previous": {
+            "weight": 12
+          },
+          "reason": "Separated the newly completed bounded KFAC-versus-magnitude/random physical channel-removal comparison into its own evidence-scoped milestone; does not change the prior MLP/head/layer evidence."
+        }
       ]
     },
     {
@@ -945,6 +1019,160 @@
       ]
     },
     {
+      "id": "pruning.depth_shortgpt",
+      "workstream": "pruning",
+      "title": "ShortGPT block-influence depth selection",
+      "description": "Bounded physical evaluation of block-influence layer selection against magnitude and random layer removal.",
+      "scope": "One-layer removal from Qwen/Qwen2.5-0.5B at a single pinned revision, with CPU and already completed RTX 3060 runs recorded in open PR #735. This does not establish generalized ShortGPT effectiveness or main-branch support.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "At one-layer matched depth reduction on the pinned Qwen2.5-0.5B cell, does block-influence selection retain more held-out quality than magnitude and random selection?"
+      ],
+      "acceptance_criteria": [
+        "The pinned source, split hashes, selection metric, equal parameter reduction, held-out results and artifact reload are recorded; classify effectiveness only within this cell and grant no effectiveness credit unless a declared quality gate passes."
+      ],
+      "dependencies": [
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/shortgpt-qwen25-bounded-depth-result-2026-10-27.md",
+          "label": "Bounded Qwen2.5 ShortGPT result"
+        }
+      ],
+      "source_refs": [
+        "shortgpt-mit"
+      ],
+      "related_prs": [
+        735
+      ],
+      "related_commits": [
+        "61451985128b3c72a433300f69aa5e7a471d79c6"
+      ],
+      "remaining_work": "Repeat with longer held-out contexts and task metrics, additional models and matched layer choices; include decode, peak-memory, loading and surgery costs; test justified recovery separately.",
+      "limitations": [
+        "One model and one removed layer; three random selections are descriptive, not powered.",
+        "The PR remains open and unmerged; its implementation is experimental and not integrated into main.",
+        "All measured candidates failed the declared quality gate.",
+        "Short-context CUDA prefill timing does not establish autoregressive decode speed or a dependable deployment gain."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/shortgpt-qwen25-bounded-depth-result-2026-10-27.md",
+              "label": "Bounded Qwen2.5 ShortGPT result"
+            }
+          ],
+          "reason": "Pinned CPU and pre-existing RTX 3060 experiment in open PR #735: ShortGPT increased WikiText-2 test perplexity by about 6.0, worse than magnitude and two of three random candidates; artifacts reloaded but every candidate failed the quality gate."
+        }
+      ]
+    },
+    {
+      "id": "pruning.depth_gradient_sensitivity",
+      "workstream": "pruning",
+      "title": "First-order gradient sensitivity for transformer depth removal",
+      "description": "Compare a block-output first-order directional derivative and absolute per-token contribution against ShortGPT, magnitude, and random layer selection in one pinned physical cell.",
+      "scope": "Single CPU-only Qwen/Qwen2.5-0.5B one-layer-removal pilot with 256 calibration tokens and 508 held-out WikiText targets. This bounded experiment does not establish cross-model effectiveness, general quality preservation, integration, or runtime gain.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "In this pinned one-layer Qwen2.5-0.5B cell, do signed or absolute first-order gradient sensitivity rankings improve held-out perplexity over matched magnitude, ShortGPT, and random layer choices?"
+      ],
+      "acceptance_criteria": [
+        "Record pinned model and dataset revisions, calibration and test hashes, exact scoring methods, matched parameter reduction, held-out outcomes, measurement cost, artifact hashes, and save/reload results; conclude only for this single pilot cell."
+      ],
+      "dependencies": [
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+          "label": "Bounded gradient depth-sensitivity pilot"
+        }
+      ],
+      "source_refs": [
+        "molchanov-taylor-pruning-2019"
+      ],
+      "related_prs": [
+        779
+      ],
+      "related_commits": [
+        "ad254dc980d80260449f25e7c27e50915fc9940f",
+        "f7ed705a206eb5d29368adf4573f573120f967a1"
+      ],
+      "remaining_work": "Use an efficient scorer and longer independent calibration/test contexts; repeat across model families and seeds; compare against WANDA/ShortGPT and task metrics; measure surgery cost, peak memory, loading and autoregressive decode before claiming practical advantage.",
+      "limitations": [
+        "One model, one small calibration split, one random seed, and 508 held-out targets provide a descriptive low-powered pilot only.",
+        "Signed first-order sensitivity selected layer 0 and produced perplexity 56,977.40 versus baseline 23.2089; it is catastrophically harmful in this cell.",
+        "Absolute sensitivity selected layer 11 and tied magnitude exactly at perplexity 25.1388; no advantage was measured.",
+        "Scoring 256 calibration tokens took 623.36 seconds; the full CPU pilot took 915.08 seconds. A larger CPU attempt was stopped after 56 minutes without results.",
+        "Candidates saved and reloaded, but no task quality gate, statistical uncertainty, inference speed comparison, or deployment benefit was established.",
+        "Implementation remains experimental in open PR #779, stacked on open PR #735; it is not integrated on main."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+              "label": "Bounded gradient depth-sensitivity pilot"
+            }
+          ],
+          "reason": "One CPU-only pinned-model pilot found the signed score severely harmful and the absolute score tied magnitude, at substantial scoring cost. The conclusion is restricted to this tested cell."
+        },
+        {
+          "date": "2026-10-29",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+              "label": "Bounded gradient depth-sensitivity pilot"
+            }
+          ],
+          "reason": "Removed model.zero_grad calls from the experimental scorer because torch.autograd.grad does not populate parameter .grad fields; added a CPU regression test proving existing caller gradients are preserved. This fixes a state-mutation side effect only; the pilot remains negative, experimental, and unintegrated, with no optimization effectiveness claim."
+        }
+      ]
+    },
+    {
       "id": "quantization.codecs",
       "workstream": "quantization",
       "title": "PTQ/QAT, weight/activation, GPTQ/AWQ, GGUF and IQ codec correctness",
@@ -1225,10 +1453,10 @@
     {
       "id": "moe.selection",
       "workstream": "moe",
-      "title": "Expert scoring: random/router/activation/sensitivity/REAP and balancing",
-      "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
-      "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
-      "weight": 30,
+      "title": "Expert scoring: random, router, activation, sensitivity and balancing",
+      "description": "Compare expert selection methods and balancing on named MoE cells; REAP Qwen3.5 results are tracked separately.",
+      "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP quality, profile-ensemble and profile-stability studies tracked separately.",
+      "weight": 15,
       "research_status": "hypothesis_established",
       "research_outcome": null,
       "implementation_status": "experimental",
@@ -1241,7 +1469,7 @@
         "readiness"
       ],
       "acceptance_criteria": [
-        "Matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
+        "Compare random, router, activation and sensitivity selectors on pinned MoE checkpoints with independent calibration and held-out evaluation; report artifact validity, quality gates, size, runtime and memory, and retain negative results."
       ],
       "dependencies": [],
       "evidence_refs": [
@@ -1261,7 +1489,7 @@
         738
       ],
       "related_commits": [],
-      "remaining_work": "Complete pinned REAP source audit and fair expert-selection benchmarks.",
+      "remaining_work": "Complete matched comparisons for activation and sensitivity selectors, test further MoE cells, and measure deployment costs; bounded Qwen3.5 REAP quality and profile studies are tracked separately.",
       "limitations": [
         "No main-integrated MoE win is established."
       ],
@@ -1296,10 +1524,261 @@
             }
           ],
           "reason": "Linked audited upstream research records to the specific method/format milestone; source review does not imply implementation or support."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Narrowed this milestone after adding separate bounded records for Qwen3.5 REAP quality-gate and profile-aggregation experiments; historical broad scope is preserved in scope_history."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "hypothesis_established",
+          "research_outcome": null,
+          "implementation_status": "experimental",
+          "effectiveness_status": "not_assessed",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v1.1-competitor-pareto-study-v1.json",
+              "label": "v1.1-competitor-pareto-study-v1.json"
+            }
+          ],
+          "reason": "Separated the bounded Qwen3.5 profile-stability study from the broader expert-selection milestone; prior scopes remain in scope_history."
         }
       ],
       "research_questions": [
-        "Within this milestone's declared scope, does evidence establish that matched Qwen MoE physical comparisons beat random/router/activation baselines under held-out task and deployment gates."
+        "Across named MoE cells, which random, router, activation and sensitivity selectors produce the best held-out quality and deployment trade-offs at matched expert counts?"
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.2",
+          "previous": {
+            "title": "Expert scoring: random/router/activation/sensitivity/REAP and balancing",
+            "description": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+            "scope": "Expert importance, selection, pruning, merging, redundancy, router, REAP, balancing, specialization, shared/routed and architecture-specific optimization.",
+            "weight": 30
+          },
+          "reason": "Split the bounded Qwen3.5 REAP quality-gate study and profile-aggregation study into stable, independently assessable milestones; keep general expert-selection comparisons open."
+        },
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.3",
+          "previous": {
+            "title": "Expert scoring: random, router, activation, sensitivity and balancing",
+            "description": "Compare expert selection methods and balancing on named MoE cells; REAP Qwen3.5 results are tracked separately.",
+            "scope": "Matched expert scoring and selection using random, router, activation and sensitivity methods, plus balancing, on named MoE architecture cells. Excludes the bounded Qwen3.5 REAP studies tracked by moe.reap_qwen35_cut and moe.reap_profile_ensemble.",
+            "weight": 20
+          },
+          "reason": "Separated Qwen3.5 REAP profile-ranking stability into a bounded research milestone; broad expert-selection comparisons remain open."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_qwen35_cut",
+      "workstream": "moe",
+      "title": "REAP at a fixed Qwen3.5 MoE compression point",
+      "description": "One Qwen3.5-family GGUF checkpoint, 12.5% equal per-layer expert removal (256 to 224 experts), 8,192 WikiText-2 train calibration tokens and 296,960 held-out WikiText-2 test tokens. Compare single-profile REAP against router column norm and two random seeds; conclude only on the predeclared 98% PPL-retention gate for this cell.",
+      "scope": "One Qwen3.5-family GGUF checkpoint, 12.5% equal per-layer expert removal (256 to 224 experts), 8,192 WikiText-2 train calibration tokens and 296,960 held-out WikiText-2 test tokens. Compare single-profile REAP against router column norm and two random seeds; conclude only on the predeclared 98% PPL-retention gate for this cell.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "At this pinned Qwen3.5 checkpoint and 12.5% cut, does single-profile REAP pass the 98% held-out WikiText-2 PPL-retention gate against same-size random and router-norm controls?"
+      ],
+      "acceptance_criteria": [
+        "Run physical candidate generation and reload; compare the pinned held-out corpus against source, router-norm and at least two random seeds with paired uncertainty; report the predeclared quality gate and artifact size."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+          "label": "Bounded Qwen3.5 REAP results"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Test smaller cuts and recovery under the same untouched evaluation suite; add coding/task quality, throughput, latency, RAM/VRAM and independent model replications before considering optimizer integration.",
+      "limitations": [
+        "One checkpoint and one held-out WikiText-2 corpus; this is not evidence that REAP is generally ineffective.",
+        "REAP PPL 6.9050 versus source 6.7090 gives 97.16% retention and fails the 98% gate (candidate maximum PPL 6.8459), despite lower PPL than router norm and both random seeds.",
+        "Coding/reasoning accuracy, inference speed, latency, peak RAM/VRAM, loading time and energy were not measured.",
+        "Research artifacts and the scorer remain in open PR #738; no implementation is integrated into main."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+              "label": "Bounded Qwen3.5 REAP results"
+            }
+          ],
+          "reason": "Bounded to the named Qwen3.5 checkpoint, compression point, evaluation corpus and metrics in the linked reproducibility record. PR #738 remains open; this is not integrated capability."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_profile_ensemble",
+      "workstream": "moe",
+      "title": "Two-profile REAP score aggregation on Qwen3.5",
+      "description": "One pinned Qwen3.5-family GGUF checkpoint and 12.5% equal per-layer expert removal, comparing a two-disjoint-profile min-max-normalized REAP score ensemble with single-profile REAP on the same held-out WikiText-2 test corpus.",
+      "scope": "One pinned Qwen3.5-family GGUF checkpoint and 12.5% equal per-layer expert removal, comparing a two-disjoint-profile min-max-normalized REAP score ensemble with single-profile REAP on the same held-out WikiText-2 test corpus.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this checkpoint and cut, does combining two disjoint REAP calibration profiles improve held-out WikiText-2 PPL over single-profile REAP beyond paired uncertainty or pass the 98% retention gate?"
+      ],
+      "acceptance_criteria": [
+        "Generate and reload the two-profile candidate; compare paired held-out chunk NLL against single-profile REAP with a declared block bootstrap and report the same 98% PPL-retention gate."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+          "label": "Two-profile REAP ensemble result"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [],
+      "remaining_work": "Repeat across independent profile pairs and another checkpoint; test smaller compression points or recovery while preserving the quality gate, then measure task and deployment outcomes.",
+      "limitations": [
+        "Only one two-profile versus single-profile candidate pair was evaluated.",
+        "The ensemble PPL was 6.9008 versus 6.9050 single-profile; paired delta was -0.00419 with 95% interval [-0.03598, 0.03031], which includes zero. Its 97.22% retention also fails the 98% gate.",
+        "No coding/task quality, inference speed, latency, RAM/VRAM, loading time or energy measurements.",
+        "The planner and reports are in open PR #738; no optimizer integration or generalization claim is made."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-qwen35-bounded-results-2026-10-27.md",
+              "label": "Two-profile REAP ensemble result"
+            }
+          ],
+          "reason": "Bounded to the named Qwen3.5 checkpoint, compression point, evaluation corpus and metrics in the linked reproducibility record. PR #738 remains open; this is not integrated capability."
+        }
+      ]
+    },
+    {
+      "id": "moe.reap_profile_stability_qwen35",
+      "workstream": "moe",
+      "title": "REAP profile aggregation stability on Qwen3.5",
+      "description": "Compare expert-set stability for single-profile selection and score aggregation using three calibration profiles from one Qwen3.5-family checkpoint at a fixed 12.5% expert cut.",
+      "scope": "Three 8,192-token WikiText-2 train-prefix, disjoint train-suffix and validation profiles for the pinned Qwen3.5-family model. Leave one profile out, aggregate the other two with mean-minmax, max-minmax and mean-rank, and compare each selected bottom-32 set to the held-out profile using 41 per-layer Jaccard scores.",
+      "weight": 5,
+      "research_status": "research_concluded",
+      "research_outcome": "positive",
+      "implementation_status": "experimental",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this checkpoint and fixed cut, does mean-minmax aggregation of two calibration profiles improve the held-out profile bottom-expert-set agreement over single-profile selection?"
+      ],
+      "acceptance_criteria": [
+        "Run deterministic leave-one-profile-out analysis over all three pinned profiles; preserve hashes and per-fold Jaccards; report macro mean and worst fold against the single-profile baseline. A positive result applies only to these profiles and ranking metric."
+      ],
+      "dependencies": [],
+      "evidence_refs": [
+        {
+          "path": "docs/research/reap-profile-stability-bounded-results-2026-10-27.md",
+          "label": "Bounded Qwen3.5 profile-stability result"
+        }
+      ],
+      "source_refs": [
+        "reap",
+        "crucible"
+      ],
+      "related_prs": [
+        738
+      ],
+      "related_commits": [
+        "cf4d6fc2d304d432add1d3b138c00e02a134bb36"
+      ],
+      "remaining_work": "Repeat with more independent profiles and additional checkpoints; then physically generate candidates and evaluate them on untouched task and deployment measures before using stability as an optimization objective.",
+      "limitations": [
+        "Only three calibration profiles from one model were available; 41 layers are not independent samples, so no significance interval is claimed.",
+        "Mean-minmax improved the point estimates for both average held-out Jaccard (0.3129 to 0.3618) and worst held-out fold (0.2614 to 0.2736), but the gain is small and unreplicated.",
+        "This is ranking stability only. No candidate artifact, PPL, task quality, latency, memory, runtime, or recovery outcome was measured by this analysis.",
+        "The analysis utility is in open PR #738; no optimizer integration or production readiness is claimed."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "positive",
+          "implementation_status": "experimental",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/reap-profile-stability-bounded-results-2026-10-27.md",
+              "label": "Bounded Qwen3.5 profile-stability result"
+            }
+          ],
+          "reason": "A reproducible leave-one-profile-out point-estimate improvement was found for the bounded Jaccard stability metric; it is not evidence of better model quality."
+        }
       ]
     },
     {
@@ -3148,10 +3627,10 @@
     {
       "id": "meta_surgeon.active_learning",
       "workstream": "meta_surgeon",
-      "title": "Q7 offline uncertainty-acquisition replay",
-      "description": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
-      "scope": "The Q7 offline replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation.",
-      "weight": 7,
+      "title": "Q7 offline uncertainty-only acquisition replay",
+      "description": "The Q7 v1 offline uncertainty-versus-random replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation or feature-diversity acquisition.",
+      "scope": "The Q7 v1 offline uncertainty-versus-random replay on three models, five seeds, fixed data splits, and 16–384 candidate budgets; not live autonomous experimentation or feature-diversity acquisition.",
+      "weight": 6,
       "research_status": "research_concluded",
       "research_outcome": "inconclusive",
       "implementation_status": "integrated",
@@ -3183,7 +3662,7 @@
       "source_refs": [],
       "related_prs": [],
       "related_commits": [],
-      "remaining_work": "Run prospective campaigns where labels are acquired after selection; test cost-aware strategies across more models.",
+      "remaining_work": "Run prospective campaigns where labels are acquired after selection; test cost-aware strategies across more models. Feature-diversity acquisition is tracked separately in meta_surgeon.active_learning_diversity.",
       "limitations": [
         "Offline replay reuses measured labels; no general sample-efficiency advantage was shown."
       ],
@@ -3207,6 +3686,137 @@
             }
           ],
           "reason": "Added as a separately scoped Meta-Surgeon lifecycle milestone; no result beyond linked evidence is inferred."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.9",
+          "previous": {
+            "title": "Q7 offline uncertainty-acquisition replay",
+            "weight": 7
+          },
+          "reason": "Narrowed this milestone to the original uncertainty-only versus random replay and allocated one of its seven weight points to a separate fixed feature-diversity research question; total Meta-Surgeon workstream weight remains 100."
+        }
+      ]
+    },
+    {
+      "id": "meta_surgeon.active_learning_diversity",
+      "workstream": "meta_surgeon",
+      "title": "Feature-diversity acquisition replay",
+      "description": "Bounded offline replay of the fixed uncertainty/diversity mixture for selecting Meta-Surgeon training experiments; distinct from prospective acquisition and physical optimization effectiveness.",
+      "scope": "Three previously measured model campaigns (SmolLM2-135M, SmolLM2-360M, Qwen2.5-0.5B), five paired seeds, initial set of 16, budgets 16–384, and the fixed 75% uncertainty / 25% feature-diversity mixture compared with uncertainty-only and seeded random.",
+      "weight": 1,
+      "research_status": "baselines_compared",
+      "research_outcome": null,
+      "implementation_status": "ci_validated",
+      "effectiveness_status": "measured_inconclusive",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "On the archived Q7 offline replay scope, does adding fixed feature-space diversity reduce experiments to held-out AUC >= 0.90 versus uncertainty-only and random acquisition across model campaigns?"
+      ],
+      "acceptance_criteria": [
+        "The bounded replay record reports all three model campaigns, five paired seeds, 45 strategy curves, same initial labeled examples, same budgets, test-only AUC, candidate-selection digests, and measured candidate evaluation costs.",
+        "A research reproduction requires the exact examples, grouped split, and gradient manifest inputs to be available and hash-verified, followed by an independent rerun matching the recorded selection traces and metrics.",
+        "Effectiveness is not promoted from this replay: require prospective experiments with newly acquired labels and independent models, and demonstrate lower experiment or resource cost without degrading held-out quality relative to uncertainty-only and random baselines."
+      ],
+      "dependencies": [
+        "meta_surgeon.active_learning"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+          "label": "Q7 feature-diversity replay assessment"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+          "label": "Q7 v2 curves and immutable input hashes"
+        }
+      ],
+      "source_refs": [
+        "google_active_learning_kcenter"
+      ],
+      "related_prs": [
+        769,
+        770,
+        771
+      ],
+      "related_commits": [
+        "4480508f851a7a4cfa7d22863ee5b4ea2e8703b3",
+        "607b0c4bb3cd66d3d7bcf0a21a39ace06f26f136"
+      ],
+      "remaining_work": "The replay inputs are not committed or linked to a versioned archive. Obtain the three exact source bundles by hash and independently reproduce the recorded curves; then run prospective acquisition studies across additional model families. Keep the fixed mixture unpromoted until prospective evidence demonstrates value.",
+      "limitations": [
+        "The evidence is an offline replay of existing labels, not a prospective acquisition campaign or a physical compression/quality experiment.",
+        "The 75/25 mixture underperformed uncertainty-only and random on Qwen2.5-0.5B, tied target budget on SmolLM2-360M, and had only one target-reaching seed per arm on SmolLM2-135M; there is no consistent cross-model advantage.",
+        "Only input hashes and result curves are retained in the report; raw examples, split manifests, and gradient manifests are absent, so independent reproduction is not currently possible.",
+        "The selector exists only in open PRs #769–#771 and is not integrated into main; no physical optimization outcome is attributed to it.",
+        "The original report digest was computed over a Windows CRLF working copy; PR #771 now records the platform-independent Git-normalized LF blob digest and checks it in a focused regression test."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "baselines_compared",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+              "label": "Q7 feature-diversity replay assessment"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+              "label": "Q7 v2 curves and immutable input hashes"
+            }
+          ],
+          "reason": "Recorded PR #771’s bounded offline replay as mixed-to-negative evidence. The raw input files are missing from the repository, so independent reproduction and any effectiveness promotion remain pending."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "baselines_compared",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+              "label": "Q7 feature-diversity replay assessment and normalized digest"
+            },
+            {
+              "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+              "label": "Q7 v2 curves and immutable input hashes"
+            }
+          ],
+          "reason": "Corrected the Q7 report digest to hash Git-normalized LF bytes, added a regression test for the committed JSON/Markdown digest pair, and revalidated the report integrity. The report still cannot be independently rerun because raw campaign inputs are absent; scientific outcomes and effectiveness remain unchanged."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "baselines_compared",
+          "research_outcome": null,
+          "implementation_status": "ci_validated",
+          "effectiveness_status": "measured_inconclusive",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+              "label": "Q7 feature-diversity replay assessment and normalized digest"
+            },
+            {
+              "path": "tests/test_q7_feature_diversity_evidence.py",
+              "label": "Cross-platform report digest regression test"
+            }
+          ],
+          "reason": "Hosted PR #771 checks passed on commit 607b0c4bb3cd66d3d7bcf0a21a39ace06f26f136: quality, Hugging Face smoke, LightGBM smoke, and CPU performance. The new test validates the Git-normalized Q7 report digest; no independent campaign replay or effectiveness upgrade is implied."
         }
       ]
     },
@@ -3467,8 +4077,12 @@
         }
       ],
       "source_refs": [],
-      "related_prs": [777],
-      "related_commits": ["72beedca1df3c204c1671f3b47c64c023d83b2ca"],
+      "related_prs": [
+        777
+      ],
+      "related_commits": [
+        "72beedca1df3c204c1671f3b47c64c023d83b2ca"
+      ],
       "remaining_work": "Implement genuine learned set/graph representations and evaluate them on provenance-verified, model-grouped physical mutation outcomes; report downstream decisions and measured inference cost.",
       "limitations": [
         "The current prototype compares two feature paths through one linear predictor; it is not an MLP, Set Transformer, or graph neural network.",
@@ -3915,6 +4529,227 @@
           "reason": "Split from the former Q1–Q3 aggregate after auditing the individual report; the result is limited to this experiment and its measured outcome."
         }
       ]
+    },
+    {
+      "id": "pruning.kfac_physical_pilot",
+      "workstream": "pruning",
+      "title": "KFAC singleton-additive MLP channel ranking physical comparison",
+      "description": "Bounded CPU Hugging Face Llama-family gated-MLP KFAC cost adapter and physical comparison against magnitude and random channel selection.",
+      "scope": "One pinned HuggingFaceTB/SmolLM2-135M checkpoint (Llama architecture), FP32 safetensors, CPU; one 256-target-token WikiText-2 calibration prefix; one 2,048-target-token held-out prefix; globally shared 8/16/32/64 MLP-channel removals; one KFAC and magnitude selection plus three random seeds per removal count; no compensation or repair.",
+      "weight": 1,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "For this exact SmolLM2-135M CPU cell, does additive singleton KFAC selection yield a quality-gated physical channel-removal result better than magnitude and random selection at equal parameter budgets?"
+      ],
+      "acceptance_criteria": [
+        "Research comparison is complete when pinned model/data revisions, disjoint calibration and held-out token hashes, all four removal budgets, KFAC/magnitude/three random selections, artifact hashes, reload-logit checks and held-out perplexity are recorded.",
+        "Optimization effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 while physically reducing parameters and artifact bytes; no candidate currently meets this gate."
+      ],
+      "dependencies": [
+        "pruning.physical"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-smollm2-mlp-physical-comparison-2026-10-27.md",
+          "label": "Bounded KFAC physical comparison"
+        }
+      ],
+      "source_refs": [
+        "llm-surgeon"
+      ],
+      "related_prs": [
+        775,
+        780
+      ],
+      "related_commits": [
+        "59125b9a16c67295c9debcc644b4bca3ee8c45b0",
+        "36c842d",
+        "1732ae0",
+        "bc3ffa3",
+        "e9246f19d7503c85c33e6ae2e867304bf72ebf3a"
+      ],
+      "remaining_work": "Run longer independent calibration/evaluation and repeated seeds; compare with activation and first-order gradient selection; test cross-model transfer; add compensation/recovery only as a separate controlled arm; measure repeated prompt/decode latency and resource cost before considering quality-preserving effectiveness.",
+      "limitations": [
+        "One small dense model and one calibration/evaluation prefix; a single run per score selection; no confidence intervals or task metrics.",
+        "All tested cuts failed the fixed <=0.05 held-out perplexity gate. KFAC beat magnitude at all four cuts, but some random candidates beat KFAC at 8 and 16 channels.",
+        "Largest tested cut removes 2.4665% of total parameters and 2.3842% of source disk bytes with native BF16 serialization; no speed or memory improvement is established.",
+        "Costs are additive singleton proxies and omit channel interactions, cross-layer coupling, compensation and repair.",
+        "Implementation and benchmark are in open PR #780 stacked on open PR #775, not integrated on main.",
+        "Earlier FP32-export pilot reports are retained in PR #780 but invalid for artifact-size comparisons; the native-storage sweep supersedes those size measurements."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-smollm2-mlp-physical-comparison-2026-10-27.md",
+              "label": "Bounded KFAC physical comparison"
+            }
+          ],
+          "reason": "Completed one CPU physical comparison on a pinned dense Llama-family model using FP32 arithmetic and the source BF16 storage dtype for serialized artifacts. KFAC ranked ahead of magnitude on held-out PPL at four cuts but not every random candidate; every candidate failed the predeclared quality gate. The implementation remains open-PR experimental work."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.7",
+          "previous": {
+            "weight": 2
+          },
+          "reason": "Split the bounded Qwen2.5-0.5B replication into its own exact model cell so cross-model evidence does not inflate the SmolLM2 conclusion."
+        }
+      ]
+    },
+    {
+      "id": "pruning.kfac_qwen25_replication",
+      "workstream": "pruning",
+      "title": "KFAC singleton-additive channel selection on Qwen2.5-0.5B",
+      "description": "Bounded CPU physical replication of KFAC, magnitude and random globally shared MLP-channel selection on one Qwen2.5 dense checkpoint.",
+      "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; two disjoint 256-target-token WikiText-2 train calibration windows at offsets 0 and 1,024; one shared 1,024-target-token WikiText-2 held-out prefix; 64 globally shared MLP channels removed across 24 layers; KFAC, independently implemented WANDA-style channel aggregation, magnitude and three fixed random masks; no recovery.",
+      "weight": 1,
+      "research_status": "research_concluded",
+      "research_outcome": "inconclusive",
+      "implementation_status": "physically_benchmarked",
+      "effectiveness_status": "measured_negative",
+      "readiness_status": "experimental",
+      "scored_dimensions": [
+        "research",
+        "implementation",
+        "effectiveness",
+        "readiness"
+      ],
+      "research_questions": [
+        "On this exact Qwen2.5-0.5B cell, does KFAC channel ranking beat a WANDA-derived activation score, magnitude and random selection across two independent calibration windows while meeting the held-out quality gate?"
+      ],
+      "acceptance_criteria": [
+        "Research comparison is complete when pinned model/data revisions, two disjoint calibration input hashes, held-out hash, matched channel budgets, KFAC/WANDA-style/magnitude/random masks, serialized artifact hashes and reload-logit checks, held-out outcomes and resource costs are recorded.",
+        "Effectiveness passes only if a reloadable candidate meets absolute held-out perplexity delta <= 0.05 and demonstrates physical resource benefit; no candidate currently passes this gate."
+      ],
+      "dependencies": [
+        "pruning.kfac_physical_pilot"
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+          "label": "Qwen2.5-0.5B KFAC physical comparison"
+        },
+        {
+          "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+          "label": "Qwen KFAC/WANDA calibration-window comparison"
+        },
+        {
+          "path": "docs/research/kfac-qwen25-heldout-window-runner-2026-10-27.md",
+          "label": "Held-out window benchmark runner follow-up"
+        }
+      ],
+      "source_refs": [
+        "llm-surgeon",
+        "wanda"
+      ],
+      "related_prs": [
+        775,
+        780
+      ],
+      "related_commits": [
+        "e9246f19d7503c85c33e6ae2e867304bf72ebf3a",
+        "98a70facbec556d2e3191c78443cf27e7f75d565",
+        "741843998409aea19bbd004125be7e78c876a35b",
+        "6003b49306db43a77c8617155d2e85304ccc7d10",
+        "e4733886721c724d5135f88700febe14c03d1c88"
+      ],
+      "remaining_work": "Repeat with longer independent held-out data and more calibration windows; quantify per-channel score/rank stability; run WANDA and activation baselines on additional architectures and cut ratios; measure task quality, inference latency and resource cost; test compensation/recovery as separate controlled arms. The runner now supports evaluation offsets; repeat the same candidates on another held-out window when host RAM allows.",
+      "limitations": [
+        "One Qwen2.5-0.5B checkpoint, two short 256-token calibration windows and one reused 1,024-token held-out prefix; no statistical uncertainty or task metrics.",
+        "KFAC is best on the short held-out prefix in both windows but both KFAC candidates fail the <=0.05 PPL gate; the result is not quality-preserving effectiveness.",
+        "KFAC selected only 7 of 64 channels in common across calibration windows; WANDA-style activation scoring selected 10 of 64 in common. Similar aggregate PPL does not imply stable channel identity.",
+        "Scoring takes 88-121 seconds and peak RSS is 11.62-12.14 GB; planned workspace is 14,965,814,784 bytes under an explicit 16 GiB cap.",
+        "64 shared channels remove 0.8357% of parameters and 0.8323% of exact artifact bytes; no inference-speed improvement is established.",
+        "The activation baseline independently aggregates the published WANDA score into a structured channel score; it is not a reproduction of original unstructured WANDA pruning.",
+        "Adapter and physical comparisons are in open PR #780 stacked on #775 and are not integrated into main.",
+        "Evaluation-offset support is unit-tested in open PR #780 but has not yet been physically exercised; no second-window quality evidence is available."
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+              "label": "Qwen2.5-0.5B KFAC physical comparison"
+            }
+          ],
+          "reason": "Completed one CPU physical replication on a pinned Qwen2 checkpoint. KFAC ranked best among magnitude and three random selections, but its held-out delta was +0.5358 and all candidates failed the strict quality gate. The planned workspace was 14.97 GB and peak RSS was 11.65 GB."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-qwen25-05b-physical-comparison-2026-10-27.md",
+              "label": "Qwen2.5-0.5B KFAC physical comparison"
+            },
+            {
+              "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+              "label": "Qwen KFAC/WANDA calibration-window comparison"
+            }
+          ],
+          "reason": "Added a pinned WANDA source audit, a structured activation-score baseline, and a second disjoint Qwen2 train calibration window. KFAC ranked best on both short test-prefix comparisons, but all methods failed the quality gate and KFAC channel overlap across windows was only 7/64."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "inconclusive",
+          "implementation_status": "physically_benchmarked",
+          "effectiveness_status": "measured_negative",
+          "readiness_status": "experimental",
+          "evidence_refs": [
+            {
+              "path": "docs/research/kfac-qwen25-heldout-window-runner-2026-10-27.md",
+              "label": "Held-out window benchmark runner follow-up"
+            }
+          ],
+          "reason": "Added deterministic held-out evaluation offsets and two focused chunk-boundary tests in open PR #780. Static checks passed; the physical second-window follow-up was deferred because only 1.3 GiB host RAM was free against a prior 11.62–12.14 GB peak RSS. No result, effectiveness, or readiness upgrade is claimed; all four PR CI checks passed."
+        }
+      ],
+      "scope_history": [
+        {
+          "date": "2026-10-27",
+          "scope_version": "1.2.8",
+          "previous": {
+            "scope": "One pinned Qwen/Qwen2.5-0.5B checkpoint (Qwen2 architecture), BF16 safetensors, FP32 CPU arithmetic; 256 WikiText-2 train calibration target tokens; 1,024 WikiText-2 held-out target tokens; 64 globally shared MLP channels removed across 24 layers; one KFAC and magnitude selection plus three random seeds; no recovery.",
+            "research_questions": [
+              "For this exact Qwen2.5-0.5B CPU cell, does KFAC singleton-additive selection produce a quality-gated physical channel-removal result that beats magnitude and random selection?"
+            ],
+            "weight": 1
+          },
+          "reason": "Expanded the exact Qwen2.5 cell to include the pinned WANDA-style activation baseline and a second disjoint calibration window; model scope and held-out split remain fixed."
+        }
+      ]
     }
   ],
   "research_sources": [
@@ -3925,16 +4760,19 @@
       "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
       "license_spdx": "MIT",
       "licence_status": "verified",
-      "licence_note": "Activation-aware pruning",
-      "method": "WANDA",
-      "relevance": "Activation scoring may beat random at matched sparsity.",
+      "licence_note": "Pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6 LICENSE declares MIT; preserve the 2023 CMU Locus Lab copyright and notice if any code is reused. No code was copied.",
+      "method": "WANDA ranks weights using absolute weight magnitude multiplied by the L2 norm of the corresponding calibration input activation, comparing within each output row. The pinned lib/prune.py collects activation statistics and forms abs(weight) * sqrt(scaler_row).",
+      "relevance": "Strong activation-aware baseline against magnitude for channel importance; a structured channel-level aggregation can be compared within ModelSurgeon without conflating it with original unstructured per-weight pruning.",
       "research_status": "prior_art_reviewed",
-      "integration_approach": "INTEGRATE/ADAPT",
+      "integration_approach": "REIMPLEMENT the score mathematically; no external code copied. ModelSurgeon currently sums |down_proj weight| times calibration input-channel L2 norm across outputs and layers to rank a shared MLP channel.",
       "hypothesis": "Activation scoring may beat random at matched sparsity.",
-      "requirements": "Pinned runner, matched data/model, artifact, quality/performance/resources.",
-      "findings": "Availability cells are unsupported because the pinned external executable is not integrated; no pruning quality result is measured.",
-      "remaining_investigation": "Run pinned executable against random/magnitude with physical outcomes.",
-      "source_paths": [],
+      "requirements": "Pinned model/data; independent calibration windows; matched channel budget; physical BF16 artifact reload; random/magnitude/KFAC controls; quality gate, task/runtime/resource metrics. Original WANDA compares individual weights per output and is not identical to this structured adaptation.",
+      "findings": "At pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6, lib/prune.py computes per-weight abs(W) * sqrt(scaler_row); LICENSE is MIT; no code was copied. In PR #780, an independently implemented sum across down_proj outputs/layers ranked below KFAC but above magnitude on one Qwen2.5-0.5B held-out prefix at two 256-token calibration windows. All candidates failed the <=0.05 PPL gate. The structured activation selector shared only 10/64 channels across windows; this is not an original WANDA reproduction or an effectiveness result.",
+      "remaining_investigation": "Compare the same WANDA-derived structural score across longer held-out data, more calibration windows, Llama and additional architectures; test original unstructured WANDA separately under matched physical artifact/runtime conditions; record task quality and resource trade-offs.",
+      "source_paths": [
+        "lib/prune.py",
+        "LICENSE"
+      ],
       "research_outcome": null,
       "assessment_date": "2026-10-27",
       "history": [
@@ -3947,6 +4785,19 @@
           "licence_status": "verified",
           "source_paths": [],
           "reason": "Initial pinned-source inventory assessment; future findings are appended, not overwritten."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+          "licence_status": "verified",
+          "source_paths": [
+            "lib/prune.py",
+            "LICENSE"
+          ],
+          "findings": "At pinned revision 8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6, lib/prune.py computes per-weight abs(W) * sqrt(scaler_row); LICENSE is MIT; no code was copied. In PR #780, an independently implemented sum across down_proj outputs/layers ranked below KFAC but above magnitude on one Qwen2.5-0.5B held-out prefix at two 256-token calibration windows. All candidates failed the <=0.05 PPL gate. The structured activation selector shared only 10/64 channels across windows; this is not an original WANDA reproduction or an effectiveness result.",
+          "reason": "Inspected the exact pinned WANDA score entry point and MIT notice. Compared an independent structured channel-level score against KFAC, magnitude and random on two Qwen2 calibration windows; no source code was reused and no original unstructured WANDA reproduction is claimed."
         }
       ]
     },
@@ -4497,8 +5348,8 @@
       "integration_approach": "ADAPT mathematical scoring and compensation behind ModelSurgeon architecture adapters; do not adopt standalone optimizer as-is.",
       "hypothesis": "Bounded KFAC cost estimates and local compensation may lower held-out loss increase versus random, magnitude, activation, and first-order gradient selections at equal physical parameter removal.",
       "requirements": "Pinned OPT/LLaMA paths use calibration forward/backward/Fisher statistics, layerwise matrix factors, eigendecomposition/inverse-based compensation, PyTorch 2.1 and Transformers 4.34.1; assess factor storage and current-stack compatibility before physical evaluation.",
-      "findings": "At pinned revision, surgeon.py loads OPT/LLaMA; sparsify.py computes per-module structured costs and one global threshold; curvature.py implements identity/activation/KFAC paths; pruner.py estimates removal costs and can compensate surviving weights; threshold.py accounts for row/column overlap. Exact LICENSE is BSD-3-Clause-Clear. No ModelSurgeon KFAC collector, physical comparison, or code reuse exists.",
-      "remaining_investigation": "Validate KFAC quadratic cost and compensation against exact tiny dense calculations; build bounded factor collection for one supported HF architecture; compare same-size physical removals against random/magnitude/activation/gradient on held-out data and measure memory/time. Preserve attribution if any source code is adapted.",
+      "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded. On the separate Qwen2.5-0.5B cell in PR #780, KFAC ranked best among magnitude and three random selections at 64 shared channels, but the +0.5358 held-out PPL delta failed the <=0.05 gate; scoring took 140.36 seconds, peak RSS was 11.65 GB, and the planned workspace was 14.97 GB. This is one short, unreplicated observation, not transfer evidence.",
+      "remaining_investigation": "Validate compensation and coupled structural effects; run longer held-out and repeated-seed comparisons against activation and gradient baselines across additional architectures; assess deployment benefit and consumer-hardware costs. Current ModelSurgeon evidence includes one Llama and one Qwen2 bounded cell, with both failing quality gates. Preserve BSD-3-Clause-Clear if adapting upstream code; the current adapter copies no source.",
       "source_paths": [
         "surgeon.py",
         "sparsify.py",
@@ -4539,6 +5390,44 @@
             "LICENSE"
           ],
           "reason": "Pinned source-code and license audit recorded in docs/research/llm-surgeon-kfac-source-audit-2026-10-27.md; research remains at prior-art review until isolated and physical comparisons are run."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+          "licence_status": "verified",
+          "source_paths": [
+            "surgeon.py",
+            "sparsify.py",
+            "curvature.py",
+            "pruner.py",
+            "threshold.py",
+            "modelutils.py",
+            "requirements.txt",
+            "LICENSE"
+          ],
+          "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded.",
+          "reason": "Recorded bounded physical comparison as downstream ModelSurgeon evidence while preserving upstream-source review status and BSD-3-Clause-Clear provenance."
+        },
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "pinned_revision": "726734425b6866782048877bac0c0d90e8cb36b3",
+          "licence_status": "verified",
+          "source_paths": [
+            "surgeon.py",
+            "sparsify.py",
+            "curvature.py",
+            "pruner.py",
+            "threshold.py",
+            "modelutils.py",
+            "requirements.txt",
+            "LICENSE"
+          ],
+          "findings": "ModelSurgeon PR #780 adds an independent bounded singleton-additive KFAC channel-cost adapter and one physical SmolLM2-135M comparison: KFAC beats magnitude at 8/16/32/64 removed channels, but random wins some low-cut cells and every candidate fails the fixed quality gate; no upstream code was copied. Native-storage rerun preserved BF16 checkpoint serialization: the 64-channel candidate reduced bytes by 2.3842%, while all tested candidates still failed the quality gate. Earlier FP32-export pilot artifact sizes were invalid and are explicitly superseded. On the separate Qwen2.5-0.5B cell in PR #780, KFAC ranked best among magnitude and three random selections at 64 shared channels, but the +0.5358 held-out PPL delta failed the <=0.05 gate; scoring took 140.36 seconds, peak RSS was 11.65 GB, and the planned workspace was 14.97 GB. This is one short, unreplicated observation, not transfer evidence.",
+          "reason": "Added a second, separately scoped Qwen2.5 physical comparison and its measured resource cost; upstream source review status remains prior-art reviewed."
         }
       ]
     },
@@ -4826,6 +5715,121 @@
           ],
           "findings": "Traced finetune.py layer scaling-factor L1 loss, lowest-scale iterative layer selection, temporary layer bypass, and utils/block_remove.py physical OPT/Llama layer deletion with Llama attention-index reset. The training loop contains pdb.set_trace() calls, so it is not unattended as checked in. The repository has no LICENSE file or tests directory at the pinned tree; its README MIT badge is unverified and all reported outcomes remain upstream-only.",
           "reason": "Pinned and inspected the declared algorithm, removal entry points, dependencies, claims and license boundary; no reproduction or code reuse is claimed."
+        }
+      ]
+    },
+    {
+      "id": "shortgpt-mit",
+      "project": "ShortGPT (MIT-licensed implementation fork used as method reference)",
+      "url": "https://github.com/sramshetty/ShortGPT",
+      "pinned_revision": "78d9615fdcae6d90368832bd0a86c49c323549b9",
+      "license_spdx": "MIT",
+      "licence_status": "verified",
+      "licence_note": "LICENSE file at pinned revision grants MIT terms; this work records the method reference and does not copy upstream code.",
+      "method": "Block-influence layer scoring for transformer depth reduction.",
+      "relevance": "Provides an activation-derived layer-selection baseline for physical depth-pruning comparisons.",
+      "research_status": "research_concluded",
+      "research_outcome": "negative",
+      "integration_approach": "REIMPLEMENT",
+      "hypothesis": "Block-influence ranking may select lower-impact layers than magnitude or random selection at matched depth reduction.",
+      "requirements": "Pinned model and source; independent calibration and held-out splits; equal removed layers; artifact reload; task quality, decode, memory and total optimization cost.",
+      "findings": "One bounded Qwen2.5-0.5B experiment in open PR #735 found a roughly +6.0 WikiText-2 test perplexity delta, worse than magnitude and two of three random candidates; no candidate passed the declared quality gate.",
+      "remaining_investigation": "Test longer contexts, more models and task metrics, powered repeated selection comparisons, and quality recovery; do not generalize this single cell.",
+      "source_paths": [
+        "LICENSE",
+        "README.md"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "research_concluded",
+          "research_outcome": "negative",
+          "pinned_revision": "78d9615fdcae6d90368832bd0a86c49c323549b9",
+          "license_spdx": "MIT",
+          "licence_status": "verified",
+          "source_paths": [
+            "LICENSE",
+            "README.md"
+          ],
+          "findings": "One bounded Qwen2.5-0.5B experiment in open PR #735 found a roughly +6.0 WikiText-2 test perplexity delta, worse than magnitude and two of three random candidates; no candidate passed the declared quality gate.",
+          "reason": "Added distinct from the older unlicensed short-gpt source record so attribution and license status are precise."
+        }
+      ]
+    },
+    {
+      "id": "molchanov-taylor-pruning-2019",
+      "project": "Importance Estimation for Neural Network Pruning (Molchanov et al., CVPR 2019)",
+      "url": "https://github.com/NVlabs/Taylor_pruning",
+      "paper_url": "https://openaccess.thecvf.com/content_CVPR_2019/papers/Molchanov_Importance_Estimation_for_Neural_Network_Pruning_CVPR_2019_paper.pdf",
+      "pinned_revision": "4b70120a8903494cdb565cd8ca97509543fd2862",
+      "license_spdx": "CC-BY-NC-SA-4.0",
+      "licence_status": "verified",
+      "licence_note": "Pinned upstream pruning_engine.py includes an NVIDIA copyright notice and CC BY-NC-SA 4.0 terms. Non-commercial/share-alike terms are incompatible with direct incorporation into ModelSurgeon’s Apache-2.0 distribution; no code was copied.",
+      "method": "First- and second-order Taylor estimates for pruning units; pinned pruning_engine.py exposes Taylor-weight, Taylor-output, Taylor-gate and second-order gate variants with iterative pruning settings.",
+      "relevance": "Provides prior art for estimating loss sensitivity to removal; the ModelSurgeon pilot applies an independently implemented block-output directional estimate to transformer-layer deletion, a distinct and much coarser intervention.",
+      "research_status": "prior_art_reviewed",
+      "research_outcome": null,
+      "integration_approach": "REIMPLEMENT",
+      "hypothesis": "A first-order loss directional estimate at transformer block outputs may rank whole-layer deletion better than magnitude, ShortGPT, or random selection under a bounded calibration budget.",
+      "requirements": "Pinned transformer checkpoint; disjoint calibration and held-out data; matched one-layer surgery; physical artifact reload; task, resource, and runtime measurements; repeated seeds and model cells.",
+      "findings": "The CVPR paper reports Taylor saliency results on CNN filter pruning. The pinned pruning_engine.py implements multiple Taylor criteria. Its file header states CC BY-NC-SA 4.0, so direct incorporation into ModelSurgeon’s Apache-2.0 distribution is unsuitable. ModelSurgeon’s independent single Qwen2.5 pilot is negative for its tested variants: signed sensitivity is severely harmful, while absolute contribution ties magnitude at substantial scoring cost. This does not reproduce or refute the paper’s CNN results.",
+      "remaining_investigation": "Inspect the pinned upstream implementation and licensing before any reuse; test scalable aggregation, alternative Taylor estimators, longer contexts, multiple seeds and architectures against equal-budget baselines.",
+      "source_paths": [
+        "pruning_engine.py"
+      ],
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "The CVPR paper reports Taylor saliency results on CNN filter pruning. The pinned pruning_engine.py implements multiple Taylor criteria. Its file header states CC BY-NC-SA 4.0, so direct incorporation into ModelSurgeon’s Apache-2.0 distribution is unsuitable. ModelSurgeon’s independent single Qwen2.5 pilot is negative for its tested variants: signed sensitivity is severely harmful, while absolute contribution ties magnitude at substantial scoring cost. This does not reproduce or refute the paper’s CNN results.",
+          "pinned_revision": "4b70120a8903494cdb565cd8ca97509543fd2862",
+          "licence_status": "verified",
+          "source_paths": [
+            "pruning_engine.py"
+          ],
+          "reason": "Reviewed the primary CVPR paper and pinned pruning_engine.py entry point; confirmed the source file declares CC BY-NC-SA 4.0. That restriction is incompatible with direct incorporation into the Apache-2.0 distribution, so no upstream code was reused."
+        }
+      ],
+      "reason": "The primary paper and pinned repository were identified. The repository has no LICENSE file at the audited revision; source implementation was not reused."
+    },
+    {
+      "id": "google_active_learning_kcenter",
+      "project": "Google active-learning kCenterGreedy",
+      "url": "https://github.com/google/active-learning",
+      "pinned_revision": "efedd8f1c45421ee13af2b9ff593ad31f3835942",
+      "license_spdx": "Apache-2.0",
+      "licence_status": "verified",
+      "licence_note": "At the pinned commit, the repository LICENSE is Apache-2.0. The sampling_methods/kcenter_greedy.py implementation was inspected; ModelSurgeon implemented the coverage selection independently and copied no upstream code.",
+      "method": "Greedy farthest-first k-center selection maintains each unlabeled candidate's minimum distance to selected centers and repeatedly selects a farthest candidate.",
+      "relevance": "A feature-space coverage term can diversify experiments selected for Meta-Surgeon training, complementing predicted uncertainty.",
+      "research_status": "prior_art_reviewed",
+      "integration_approach": "REIMPLEMENT",
+      "hypothesis": "A fixed uncertainty/diversity acquisition mixture could improve the number of physical labels needed to reach a held-out Meta-Surgeon quality target.",
+      "requirements": "Reproduce the pinned offline replay from exact input files, then test prospective campaigns with newly acquired labels and equal budgets across models.",
+      "findings": "The Q7 v2 report in open PR #771 is mixed: the 75/25 policy required 64 more experiments than uncertainty-only and 25.6 more than random on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M and is inconclusive on SmolLM2-135M. The raw examples, split, and gradient input files are absent from the repository, preventing independent replay.",
+      "remaining_investigation": "Obtain or archive the three immutable input bundles named by the report hashes, verify them, independently rerun all 45 curves, and test adaptive acquisition only on prospective model campaigns.",
+      "source_paths": [
+        "sampling_methods/kcenter_greedy.py",
+        "LICENSE"
+      ],
+      "research_outcome": null,
+      "assessment_date": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-10-27",
+          "research_status": "prior_art_reviewed",
+          "research_outcome": null,
+          "findings": "The Q7 v2 report in open PR #771 is mixed: the 75/25 policy required 64 more experiments than uncertainty-only and 25.6 more than random on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M and is inconclusive on SmolLM2-135M. The raw examples, split, and gradient input files are absent from the repository, preventing independent replay.",
+          "pinned_revision": "efedd8f1c45421ee13af2b9ff593ad31f3835942",
+          "licence_status": "verified",
+          "source_paths": [
+            "sampling_methods/kcenter_greedy.py",
+            "LICENSE"
+          ],
+          "reason": "Recorded the pinned upstream method and license separately from ModelSurgeon effectiveness evidence."
         }
       ]
     }
@@ -5370,6 +6374,87 @@
       "integrated_on_main": true,
       "pull_requests": [],
       "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "qwen25-gradient-depth-cpu-pilot-2026-10-27",
+      "name": "Qwen2.5 first-order gradient depth-sensitivity CPU pilot",
+      "method": "signed and absolute first-order block-output sensitivity; ShortGPT, magnitude, and random controls",
+      "model_scope": "Qwen/Qwen2.5-0.5B@060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "dataset": "Salesforce/wikitext@b08601e04326c79dfdd32d625aee71d232d685c3",
+      "split": "256 calibration tokens; 508 held-out target tokens; one run; random seed 11",
+      "outcome": "negative",
+      "finding": "Signed sensitivity selected layer 0 and increased held-out PPL from 23.2089 to 56,977.3954. Absolute sensitivity selected layer 11 and tied magnitude at PPL 25.1388. The scorer took 623.36 seconds; all candidate edits reduced parameters by 3.02% and gradient candidates saved/reloaded.",
+      "limitations": [
+        "Single CPU-only model and short split; one seed and one repeat; no task gate, uncertainty, decode-speed, or deployment-gain evidence.",
+        "Gradient scoring cost is high relative to this bounded result."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/gradient-depth-sensitivity-qwen25-pilot-2026-10-27.md",
+          "label": "Bounded pilot protocol, findings, and immutable raw report link"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        779
+      ],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "qwen25-kfac-wanda-calibration-pilot",
+      "name": "Qwen2.5 KFAC versus WANDA-style activation channel comparison",
+      "method": "physical structured MLP channel selection; KFAC vs independently implemented WANDA-style activation, magnitude and random",
+      "model_scope": "Qwen/Qwen2.5-0.5B at pinned revision; 64 shared MLP channels",
+      "dataset": "Salesforce/WikiText pinned train/test revisions",
+      "split": "Two 256-token train calibration windows at offsets 0 and 1024; shared 1024-token test prefix",
+      "outcome": "inconclusive",
+      "finding": "KFAC ranked lowest held-out PPL in both calibration windows (+0.5358 and +0.5100), ahead of WANDA-style activation (+0.7958 and +1.2324), magnitude (+1.7622), and three random masks. Every candidate failed the <=0.05 gate. KFAC masks overlapped 7/64 channels across windows; WANDA-style masks 10/64. Scoring cost 88-121 seconds and peak RSS 11.62-12.14 GB.",
+      "limitations": [
+        "One Qwen2 checkpoint, short reused held-out prefix, two short calibration windows, no statistical uncertainty or task/latency measurements.",
+        "WANDA score was independently aggregated for structured channels; original unstructured WANDA was not reproduced.",
+        "All candidates failed the quality gate; this is not quality-preserving effectiveness."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/kfac-qwen25-05b-wanda-calibration-stability-2026-10-27.md",
+          "label": "Qwen KFAC/WANDA calibration-window comparison"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        775,
+        780
+      ],
+      "assessment_date": "2026-10-27"
+    },
+    {
+      "id": "active-diversity-replay",
+      "name": "Q7 feature-diversity active-learning replay",
+      "method": "75% uncertainty plus 25% feature-space k-center diversity versus uncertainty-only and seeded random",
+      "model_scope": "SmolLM2-135M, SmolLM2-360M, Qwen2.5-0.5B archived campaigns",
+      "dataset": "Previously measured ModelSurgeon mutation outcomes; raw source files unavailable in the repository",
+      "split": "Per-campaign grouped 409/52/51 train/validation/test split; five paired seeds",
+      "outcome": "inconclusive",
+      "finding": "Hybrid required 25.6 more experiments than random and 64 more than uncertainty-only on Qwen2.5-0.5B; it tied target budget on SmolLM2-360M; SmolLM2-135M had too few paired target-reaching seeds. No general acquisition advantage is established.",
+      "limitations": [
+        "Offline replay only; no fresh labels or physical compression results.",
+        "Raw examples, splits, and gradient manifests are missing, so the exact replay cannot currently be independently reproduced."
+      ],
+      "evidence_refs": [
+        {
+          "path": "docs/research/v0.8-q7-feature-diversity-evidence.md",
+          "label": "Q7 feature-diversity evidence"
+        },
+        {
+          "path": "docs/research/v0.8-q7-multi-model-active-learning-v2.json",
+          "label": "Q7 v2 machine-readable curves"
+        }
+      ],
+      "integrated_on_main": false,
+      "pull_requests": [
+        771
+      ],
+      "assessment_date": "2026-10-27"
     }
   ],
   "blockers": [
@@ -5390,9 +6475,16 @@
       "description": "Upstream sparse/structured executables are not available in current test environment.",
       "impact": "Comparative superiority claims lack measured established baselines.",
       "next_action": "Audit licenses and implement pinned isolated adapters where appropriate."
+    },
+    {
+      "id": "q7-feature-diversity-inputs",
+      "description": "The Q7 feature-diversity replay report contains hashes and curves, but its examples, split manifests, and gradient manifests are not available in the repository or a versioned archive.",
+      "impact": "The reported 45-curve acquisition result cannot be independently reproduced or checked against its input provenance.",
+      "next_action": "Locate or archive the exact three source bundles by hash, rerun the study, and update the milestone without upgrading effectiveness unless the replay and prospective tests support it."
     }
   ],
   "priority_order": [
+    "meta_surgeon.active_learning_diversity",
     "meta_surgeon.prospective_effectiveness",
     "meta_surgeon.dataset_generation",
     "meta_surgeon.predictor_selection",
@@ -5546,8 +6638,8 @@
     "audit_date": "2026-10-27",
     "main_commit": "589c609e1571493e2aeb5ea717a3febf0447cf83",
     "open_issue_count": 0,
-    "open_pull_request_count": 58,
-    "scope_note": "All 58 currently open PRs were enumerated; the following 24 notable optimization, evidence, and progress-system items are retained individually, including merged #774 for dependency history. This is a dated snapshot, not live CI state. No PR was merged as part of this audit.",
+    "open_pull_request_count": 61,
+    "scope_note": "All 61 currently open PRs were enumerated; notable optimization, evidence, and progress-system items are retained individually. PR #780 adds a bounded KFAC physical comparison stacked on #775. This dated snapshot is not live CI state. No PR was merged as part of this audit. PR #780 head e473388 adds tested evaluation-window offsets; all four CI checks passed and the physical repeat was deferred for host RAM, so prior negative/inconclusive effectiveness assessments remain unchanged. PR #771’s negative/mixed Q7 feature-diversity replay is tracked separately; the raw three-campaign inputs remain unavailable for independent reproduction.",
     "notable_pull_requests": [
       {
         "number": 693,
@@ -5774,6 +6866,33 @@
         "relationship": "stacked on #776; structural feature-path selector evaluation guard",
         "status": "open",
         "integrated_on_main": false
+      },
+      {
+        "number": 778,
+        "title": "Track bounded Qwen3.5 REAP outcomes",
+        "head_branch": "codex/reap-progress-evidence",
+        "base_branch": "codex/clarify-structural-surrogate-evidence",
+        "relationship": "stacked on #777; records bounded CPU-only REAP experiments",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 779,
+        "title": "Add gradient sensitivity depth-pruning baseline",
+        "head_branch": "codex/gradient-depth-sensitivity",
+        "base_branch": "codex/competitive-activation-baseline",
+        "relationship": "stacked on #735; CPU-only bounded gradient depth-sensitivity comparison",
+        "status": "open",
+        "integrated_on_main": false
+      },
+      {
+        "number": 780,
+        "title": "Compare KFAC channel costs against pruning baselines",
+        "head_branch": "codex/kfac-physical-pilot",
+        "base_branch": "codex/kfac-structured-sensitivity",
+        "relationship": "stacked on #775; CPU physical MLP channel comparison and bounded adapter; latest head adds held-out evaluation offsets, with second-window physical validation pending",
+        "status": "open",
+        "integrated_on_main": false
       }
     ],
     "dependency_chains": [
@@ -5801,8 +6920,16 @@
       [
         776,
         777
+      ],
+      [
+        735,
+        779
+      ],
+      [
+        775,
+        780
       ]
     ],
-    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration."
+    "triage": "Prioritize correctness/leakage/quality-gate fixes (#773, #767, #766, #772) before adoption. PR #774 merged to main at 589c609; PR #775 remains open and stacked on its former base branch codex/model-progress-system. PR #777 is stacked on open PR #776 and remains unintegrated. Preserve these review dependencies and recheck PR state before integration. PR #779 adds a bounded CPU-only gradient depth-sensitivity comparison stacked on open PR #735; its pilot is negative and is not integrated. PR #780 records one bounded CPU KFAC channel-removal comparison stacked on #775; all tested cuts miss the PPL gate, so the result does not establish quality-preserving effectiveness or integration. PR #780 head e473388 adds held-out evaluation-window offsets and focused tests; the second-window physical run remains pending sufficient RAM. PRs #769–#771 form an active-learning diversity stack; #771 records mixed-to-negative offline replay results and remains unintegrated, with independent reproduction blocked by absent raw inputs. PR #771 head 607b0c4 corrects the line-ending-dependent Q7 evidence digest and passes quality, HF smoke, LightGBM smoke, and CPU performance CI; the raw replay inputs remain unavailable."
   }
 }

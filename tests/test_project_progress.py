@@ -113,6 +113,25 @@ def test_narrowed_research_conclusions_preserve_prior_evidence() -> None:
     assert "Bayesian/evolutionary search" in milestones["search.controls"]["scope"]
 
 
+def test_bounded_shortgpt_negative_result_is_not_effectiveness_or_integration_credit() -> None:
+    data = load_data()
+    milestone = next(item for item in data["milestones"] if item["id"] == "pruning.depth_shortgpt")
+    source = next(item for item in data["research_sources"] if item["id"] == "shortgpt-mit")
+
+    assert milestone["research_status"] == "research_concluded"
+    assert milestone["research_outcome"] == "negative"
+    assert progress.score_dimension(milestone, "research") == 100
+    assert progress.score_dimension(milestone, "effectiveness") == 0
+    assert milestone["implementation_status"] == "experimental"
+    assert milestone["readiness_status"] == "experimental"
+    assert milestone["related_prs"] == [735]
+    assert milestone["related_commits"] == ["61451985128b3c72a433300f69aa5e7a471d79c6"]
+    assert source["pinned_revision"] == "78d9615fdcae6d90368832bd0a86c49c323549b9"
+    assert source["license_spdx"] == "MIT"
+    assert "main-branch support" in milestone["scope"]
+    assert "quality gate" in " ".join(milestone["limitations"])
+
+
 def test_compatibility_separates_theory_implementation_and_validation() -> None:
     data = load_data()
     cells = {item["id"]: item for item in data["compatibility_cells"]}
@@ -237,7 +256,7 @@ def test_added_methods_and_meta_surgeon_questions_are_independently_scoped() -> 
 def test_backlog_records_merged_progress_foundation_without_counting_it_open() -> None:
     data = load_data()
     audit = data["backlog_audit"]
-    assert audit["open_pull_request_count"] == 58
+    assert audit["open_pull_request_count"] == 61
     foundation = next(item for item in audit["notable_pull_requests"] if item["number"] == 774)
     assert foundation["status"] == "merged"
     assert foundation["integrated_on_main"] is True
@@ -251,6 +270,22 @@ def test_backlog_records_merged_progress_foundation_without_counting_it_open() -
     assert structural_study["status"] == "open"
     assert structural_study["base_branch"] == progress_parent["head_branch"]
     assert structural_study["integrated_on_main"] is False
+    reap_evidence = next(item for item in audit["notable_pull_requests"] if item["number"] == 778)
+    assert reap_evidence["status"] == "open"
+    assert reap_evidence["base_branch"] == structural_study["head_branch"]
+    assert reap_evidence["integrated_on_main"] is False
+    gradient_depth = next(item for item in audit["notable_pull_requests"] if item["number"] == 779)
+    activation_baseline = next(
+        item for item in audit["notable_pull_requests"] if item["number"] == 735
+    )
+    assert gradient_depth["status"] == "open"
+    assert gradient_depth["base_branch"] == activation_baseline["head_branch"]
+    assert gradient_depth["integrated_on_main"] is False
+    kfac_physical = next(item for item in audit["notable_pull_requests"] if item["number"] == 780)
+    assert kfac_physical["status"] == "open"
+    assert kfac_physical["base_branch"] == "codex/kfac-structured-sensitivity"
+    assert kfac_physical["integrated_on_main"] is False
+    assert [775, 780] in audit["dependency_chains"]
     assert "| Yes |" in progress.render_backlog(data)
     assert progress.validate(data, ROOT) == []
 
@@ -271,3 +306,17 @@ def test_readme_percentages_are_canonical_and_regenerated() -> None:
     assert f"{scores['overall']:.1f}%" in readme
     assert "**Overall completion:** `" in readme
     assert "**Model compatibility:**" in readme
+
+
+def test_reap_profile_stability_is_bounded_and_not_quality_effectiveness() -> None:
+    data = load_data()
+    milestone = next(
+        item for item in data["milestones"] if item["id"] == "moe.reap_profile_stability_qwen35"
+    )
+
+    assert milestone["research_status"] == "research_concluded"
+    assert milestone["research_outcome"] == "positive"
+    assert milestone["effectiveness_status"] == "measured_inconclusive"
+    assert milestone["related_prs"] == [738]
+    assert "three calibration profiles" in " ".join(milestone["limitations"])
+    assert "No candidate artifact" in " ".join(milestone["limitations"])
