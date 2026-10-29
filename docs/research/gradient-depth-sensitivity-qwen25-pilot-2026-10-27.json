@@ -1,0 +1,693 @@
+{
+  "benchmark": {
+    "script": "tools/benchmark_shortgpt_depth.py",
+    "script_sha256": "69ae36e07b5d5d21e0eca963aac045b8376da853ef43335e2f524f0855653270"
+  },
+  "calibration": {
+    "bytes": 10951562,
+    "name": "train.txt",
+    "sha256": "c58d555a94ada0882d1e8c0b3dc7ba68e1c269da5ad9e7a057300245d130c4e8",
+    "split": "train",
+    "tokens": 256
+  },
+  "candidates": {
+    "first_order_gradient_absolute_sensitivity": {
+      "artifact_reload": {
+        "disk_bytes": 969698403,
+        "files": [
+          {
+            "bytes": 2481,
+            "path": "chat_template.jinja",
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "bytes": 1341,
+            "path": "config.json",
+            "sha256": "f98cef46889e2adac4842ec7c0b8c0a14fac3ac84c7484f58c4922f1ca693e36"
+          },
+          {
+            "bytes": 146,
+            "path": "generation_config.json",
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "bytes": 958271720,
+            "path": "model.safetensors",
+            "sha256": "12670b52222a2eb3ed926c353291142548fccb0edb9fa84de206116ee1e06ac4"
+          },
+          {
+            "bytes": 11421990,
+            "path": "tokenizer.json",
+            "sha256": "68f259dbf73263bd208f9e5473dd5ff813f5221466cae69f2100b8714fae7bd9"
+          },
+          {
+            "bytes": 725,
+            "path": "tokenizer_config.json",
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ],
+        "finite_logits": true,
+        "parameter_count": 479120384,
+        "perplexity": 25.138766353351883,
+        "perplexity_delta": 1.9298456757631541
+      },
+      "candidate_parameters": 479120384,
+      "device": "cpu",
+      "mean_loss": 3.224411130890133,
+      "measurement_repeats": 1,
+      "parameter_delta": -14912384,
+      "perplexity": 25.138766353351883,
+      "perplexity_delta": 1.9298456757631541,
+      "removed_layer": 11,
+      "token_count": 508,
+      "tokens_per_second": 22.999781447760615,
+      "tokens_per_second_samples": [
+        22.999781447760615
+      ],
+      "wall_seconds": 22.087166399986017,
+      "wall_seconds_samples": [
+        22.087166399986017
+      ]
+    },
+    "first_order_gradient_sensitivity": {
+      "artifact_reload": {
+        "disk_bytes": 969698403,
+        "files": [
+          {
+            "bytes": 2481,
+            "path": "chat_template.jinja",
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "bytes": 1341,
+            "path": "config.json",
+            "sha256": "f98cef46889e2adac4842ec7c0b8c0a14fac3ac84c7484f58c4922f1ca693e36"
+          },
+          {
+            "bytes": 146,
+            "path": "generation_config.json",
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "bytes": 958271720,
+            "path": "model.safetensors",
+            "sha256": "4ac4f6bf7eb52acd62965befbc973294bcf62ef7284064ebc3712224c2a1f7e3"
+          },
+          {
+            "bytes": 11421990,
+            "path": "tokenizer.json",
+            "sha256": "68f259dbf73263bd208f9e5473dd5ff813f5221466cae69f2100b8714fae7bd9"
+          },
+          {
+            "bytes": 725,
+            "path": "tokenizer_config.json",
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ],
+        "finite_logits": true,
+        "parameter_count": 479120384,
+        "perplexity": 56977.39542843279,
+        "perplexity_delta": 56954.18650775521
+      },
+      "candidate_parameters": 479120384,
+      "device": "cpu",
+      "mean_loss": 10.950409896730438,
+      "measurement_repeats": 1,
+      "parameter_delta": -14912384,
+      "perplexity": 56977.39542843279,
+      "perplexity_delta": 56954.18650775521,
+      "removed_layer": 0,
+      "token_count": 508,
+      "tokens_per_second": 17.817547791500093,
+      "tokens_per_second_samples": [
+        17.817547791500093
+      ],
+      "wall_seconds": 28.511218600033317,
+      "wall_seconds_samples": [
+        28.511218600033317
+      ]
+    },
+    "random": [
+      {
+        "candidate_parameters": 479120384,
+        "device": "cpu",
+        "mean_loss": 3.3078657735989787,
+        "measurement_repeats": 1,
+        "parameter_delta": -14912384,
+        "perplexity": 27.326741738339695,
+        "perplexity_delta": 4.117821060750966,
+        "removed_layer": 14,
+        "seed": 11,
+        "token_count": 508,
+        "tokens_per_second": 21.631811728697887,
+        "tokens_per_second_samples": [
+          21.631811728697887
+        ],
+        "wall_seconds": 23.483932200004347,
+        "wall_seconds_samples": [
+          23.483932200004347
+        ]
+      }
+    ],
+    "shortgpt_block_influence": {
+      "artifact_reload": {
+        "disk_bytes": 969698403,
+        "files": [
+          {
+            "bytes": 2481,
+            "path": "chat_template.jinja",
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "bytes": 1341,
+            "path": "config.json",
+            "sha256": "f98cef46889e2adac4842ec7c0b8c0a14fac3ac84c7484f58c4922f1ca693e36"
+          },
+          {
+            "bytes": 146,
+            "path": "generation_config.json",
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "bytes": 958271720,
+            "path": "model.safetensors",
+            "sha256": "3bf91d9110b328c50f9e7e432cb808b3679776db79213407dce19599353d1288"
+          },
+          {
+            "bytes": 11421990,
+            "path": "tokenizer.json",
+            "sha256": "68f259dbf73263bd208f9e5473dd5ff813f5221466cae69f2100b8714fae7bd9"
+          },
+          {
+            "bytes": 725,
+            "path": "tokenizer_config.json",
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ],
+        "finite_logits": true,
+        "parameter_count": 479120384,
+        "perplexity": 27.34894060786961,
+        "perplexity_delta": 4.140019930280882
+      },
+      "candidate_parameters": 479120384,
+      "device": "cpu",
+      "mean_loss": 3.308677793487789,
+      "measurement_repeats": 1,
+      "parameter_delta": -14912384,
+      "perplexity": 27.34894060786961,
+      "perplexity_delta": 4.140019930280882,
+      "removed_layer": 18,
+      "token_count": 508,
+      "tokens_per_second": 19.13737123778132,
+      "tokens_per_second_samples": [
+        19.13737123778132
+      ],
+      "wall_seconds": 26.544920600019395,
+      "wall_seconds_samples": [
+        26.544920600019395
+      ]
+    },
+    "weight_magnitude": {
+      "candidate_parameters": 479120384,
+      "device": "cpu",
+      "mean_loss": 3.224411130890133,
+      "measurement_repeats": 1,
+      "parameter_delta": -14912384,
+      "perplexity": 25.138766353351883,
+      "perplexity_delta": 1.9298456757631541,
+      "removed_layer": 11,
+      "token_count": 508,
+      "tokens_per_second": 22.380541743725946,
+      "tokens_per_second_samples": [
+        22.380541743725946
+      ],
+      "wall_seconds": 22.698288800020237,
+      "wall_seconds_samples": [
+        22.698288800020237
+      ]
+    }
+  },
+  "environment": {
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "cuda_runtime": null,
+    "device": "cpu",
+    "device_map": "cpu",
+    "dtype": "torch.bfloat16",
+    "gpu": null,
+    "measurement_repeats": 1,
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.14",
+    "torch": "2.13.0+cpu",
+    "torch_threads": 2,
+    "transformers": "5.10.1"
+  },
+  "evaluation": {
+    "baseline": {
+      "device": "cpu",
+      "mean_loss": 3.1445367167315146,
+      "measurement_repeats": 1,
+      "perplexity": 23.20892067758873,
+      "token_count": 508,
+      "tokens_per_second": 17.929623144392476,
+      "tokens_per_second_samples": [
+        17.929623144392476
+      ],
+      "wall_seconds": 28.332999300037045,
+      "wall_seconds_samples": [
+        28.332999300037045
+      ]
+    },
+    "bytes": 1292013,
+    "name": "test.txt",
+    "sha256": "aca2f46735043bcfd0a44eca981d04627b9cdf74c4c9a04bf0856d04066f58fc",
+    "split": "test",
+    "tokens": 508
+  },
+  "limitations": [
+    "One pinned model and one removed layer; cross-model generalization is untested.",
+    "1 predeclared random seeds give descriptive, not powered, uncertainty estimates.",
+    "Prefill throughput on short contexts does not establish autoregressive decode speed.",
+    "Timed evaluation excludes model loading and candidate surgery costs.",
+    "Scores use WikiText-2 train tokens; quality uses its held-out test split.",
+    "First-order gradient scores are local loss approximations; nonlinear downstream effects are measured only by physical deletion."
+  ],
+  "model": {
+    "identifier": "Qwen/Qwen2.5-0.5B",
+    "parameters": 494032768,
+    "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "source_disk_bytes": 999586188,
+    "weight_file_sha256": "88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342"
+  },
+  "optimization_runtime": {
+    "block_influence_scoring_seconds": 14.33098530001007,
+    "cpu_threads": 2,
+    "device": "cpu",
+    "first_order_gradient_scoring_seconds": 623.3633916000254,
+    "total_benchmark_seconds": 915.0846739000408
+  },
+  "record_type": "shortgpt_depth_pruning_physical_comparison",
+  "schema_version": 1,
+  "selection": {
+    "first_order_gradient_absolute_layer_order": [
+      {
+        "absolute_token_sensitivity": 0.3062221647247555,
+        "layer_index": 11,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.3081768666665385,
+        "layer_index": 9,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.30975769823930394,
+        "layer_index": 12,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.3126012696994571,
+        "layer_index": 13,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.32160107169564317,
+        "layer_index": 18,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.32421941081369954,
+        "layer_index": 10,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.35178641071469763,
+        "layer_index": 7,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.37321629862147054,
+        "layer_index": 14,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.3913156404269962,
+        "layer_index": 16,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.41104947488138993,
+        "layer_index": 4,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.43117783013291244,
+        "layer_index": 6,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.4315420586293138,
+        "layer_index": 15,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.4331626141165185,
+        "layer_index": 19,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.43588961203267257,
+        "layer_index": 8,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.44243968753364143,
+        "layer_index": 5,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.46574063939372384,
+        "layer_index": 17,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.5198471489853747,
+        "layer_index": 2,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.5465541148748924,
+        "layer_index": 22,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.5582790074385996,
+        "layer_index": 20,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.5614350987231638,
+        "layer_index": 3,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.7290494723582831,
+        "layer_index": 21,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.7501819039892963,
+        "layer_index": 0,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 0.7697300347756213,
+        "layer_index": 1,
+        "tokens": 254
+      },
+      {
+        "absolute_token_sensitivity": 1.3157796183909019,
+        "layer_index": 23,
+        "tokens": 254
+      }
+    ],
+    "first_order_gradient_absolute_metric": "mean(abs(sum_hidden(grad(sum calibration next-token NLL, block_output) * (block_input - block_output))))",
+    "first_order_gradient_layer_order": [
+      {
+        "layer_index": 0,
+        "predicted_nll_delta": -0.1920909355944536,
+        "tokens": 254
+      },
+      {
+        "layer_index": 21,
+        "predicted_nll_delta": -0.10657228259589728,
+        "tokens": 254
+      },
+      {
+        "layer_index": 23,
+        "predicted_nll_delta": -0.0654772735956147,
+        "tokens": 254
+      },
+      {
+        "layer_index": 11,
+        "predicted_nll_delta": -0.05703049288021298,
+        "tokens": 254
+      },
+      {
+        "layer_index": 8,
+        "predicted_nll_delta": -0.044594619217820056,
+        "tokens": 254
+      },
+      {
+        "layer_index": 2,
+        "predicted_nll_delta": -0.02927854305177223,
+        "tokens": 254
+      },
+      {
+        "layer_index": 10,
+        "predicted_nll_delta": -0.027132962632366992,
+        "tokens": 254
+      },
+      {
+        "layer_index": 13,
+        "predicted_nll_delta": -0.023745872373656024,
+        "tokens": 254
+      },
+      {
+        "layer_index": 6,
+        "predicted_nll_delta": -0.019157974738774338,
+        "tokens": 254
+      },
+      {
+        "layer_index": 4,
+        "predicted_nll_delta": -0.01482474334596649,
+        "tokens": 254
+      },
+      {
+        "layer_index": 19,
+        "predicted_nll_delta": -0.010227959925734153,
+        "tokens": 254
+      },
+      {
+        "layer_index": 20,
+        "predicted_nll_delta": 0.003436216219203679,
+        "tokens": 254
+      },
+      {
+        "layer_index": 7,
+        "predicted_nll_delta": 0.005648436508779451,
+        "tokens": 254
+      },
+      {
+        "layer_index": 16,
+        "predicted_nll_delta": 0.015064482613811343,
+        "tokens": 254
+      },
+      {
+        "layer_index": 18,
+        "predicted_nll_delta": 0.017628632661864513,
+        "tokens": 254
+      },
+      {
+        "layer_index": 22,
+        "predicted_nll_delta": 0.019631646749541515,
+        "tokens": 254
+      },
+      {
+        "layer_index": 9,
+        "predicted_nll_delta": 0.023053936132295862,
+        "tokens": 254
+      },
+      {
+        "layer_index": 15,
+        "predicted_nll_delta": 0.026403042275135912,
+        "tokens": 254
+      },
+      {
+        "layer_index": 17,
+        "predicted_nll_delta": 0.02748022304745171,
+        "tokens": 254
+      },
+      {
+        "layer_index": 1,
+        "predicted_nll_delta": 0.035975904915276476,
+        "tokens": 254
+      },
+      {
+        "layer_index": 14,
+        "predicted_nll_delta": 0.03662549510715515,
+        "tokens": 254
+      },
+      {
+        "layer_index": 5,
+        "predicted_nll_delta": 0.04309946533263199,
+        "tokens": 254
+      },
+      {
+        "layer_index": 12,
+        "predicted_nll_delta": 0.04700482337493596,
+        "tokens": 254
+      },
+      {
+        "layer_index": 3,
+        "predicted_nll_delta": 0.059959512995922656,
+        "tokens": 254
+      }
+    ],
+    "first_order_gradient_metric": "mean(grad(sum calibration next-token NLL, block_output) * (block_input - block_output))",
+    "metric": "mean(1 - cosine(block_input, block_output))",
+    "random_seeds": [
+      11
+    ],
+    "random_selected_layers": [
+      14
+    ],
+    "shortgpt_layer_order": [
+      {
+        "layer_index": 18,
+        "score": 0.04144585132598877,
+        "tokens": 256
+      },
+      {
+        "layer_index": 13,
+        "score": 0.0491819828748703,
+        "tokens": 256
+      },
+      {
+        "layer_index": 10,
+        "score": 0.05002503842115402,
+        "tokens": 256
+      },
+      {
+        "layer_index": 12,
+        "score": 0.05215371027588844,
+        "tokens": 256
+      },
+      {
+        "layer_index": 9,
+        "score": 0.05334357172250748,
+        "tokens": 256
+      },
+      {
+        "layer_index": 11,
+        "score": 0.053351178765296936,
+        "tokens": 256
+      },
+      {
+        "layer_index": 19,
+        "score": 0.06008415296673775,
+        "tokens": 256
+      },
+      {
+        "layer_index": 22,
+        "score": 0.06182454526424408,
+        "tokens": 256
+      },
+      {
+        "layer_index": 17,
+        "score": 0.06196686625480652,
+        "tokens": 256
+      },
+      {
+        "layer_index": 21,
+        "score": 0.062369100749492645,
+        "tokens": 256
+      },
+      {
+        "layer_index": 14,
+        "score": 0.0691327229142189,
+        "tokens": 256
+      },
+      {
+        "layer_index": 20,
+        "score": 0.0699053406715393,
+        "tokens": 256
+      },
+      {
+        "layer_index": 15,
+        "score": 0.07529397308826447,
+        "tokens": 256
+      },
+      {
+        "layer_index": 16,
+        "score": 0.08361394703388214,
+        "tokens": 256
+      },
+      {
+        "layer_index": 8,
+        "score": 0.08376742899417877,
+        "tokens": 256
+      },
+      {
+        "layer_index": 7,
+        "score": 0.09079788625240326,
+        "tokens": 256
+      },
+      {
+        "layer_index": 6,
+        "score": 0.10355591028928757,
+        "tokens": 256
+      },
+      {
+        "layer_index": 5,
+        "score": 0.11723533272743225,
+        "tokens": 256
+      },
+      {
+        "layer_index": 4,
+        "score": 0.13467317819595337,
+        "tokens": 256
+      },
+      {
+        "layer_index": 3,
+        "score": 0.1369030475616455,
+        "tokens": 256
+      },
+      {
+        "layer_index": 2,
+        "score": 0.14000356197357178,
+        "tokens": 256
+      },
+      {
+        "layer_index": 1,
+        "score": 0.19949980080127716,
+        "tokens": 256
+      },
+      {
+        "layer_index": 23,
+        "score": 0.3758586049079895,
+        "tokens": 256
+      },
+      {
+        "layer_index": 0,
+        "score": 0.9657893180847168,
+        "tokens": 256
+      }
+    ],
+    "weight_magnitude_layer_order": [
+      11,
+      13,
+      9,
+      10,
+      12,
+      14,
+      15,
+      3,
+      16,
+      7,
+      4,
+      5,
+      6,
+      2,
+      8,
+      1,
+      17,
+      23,
+      19,
+      18,
+      20,
+      21,
+      22,
+      0
+    ]
+  }
+}

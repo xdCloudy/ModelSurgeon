@@ -13,6 +13,11 @@ from modelsurgeon.adapters.huggingface.discovery import (
     TransformerShape,
     discover_huggingface_components,
 )
+from modelsurgeon.adapters.huggingface.layer_sensitivity import (
+    HuggingFaceLayerSensitivityError,
+    LayerSensitivityScore,
+    measure_huggingface_layer_sensitivity,
+)
 from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceDependencyError,
     HuggingFaceDType,
@@ -64,6 +69,7 @@ __all__ = [
     "HuggingFaceDependencyError",
     "HuggingFaceDiscovery",
     "HuggingFaceLayerRemovalResult",
+    "HuggingFaceLayerSensitivityError",
     "HuggingFaceLoadError",
     "HuggingFaceLoadProvenance",
     "HuggingFaceLoadRequest",
@@ -77,6 +83,7 @@ __all__ = [
     "HuggingFacePhysicalLayerError",
     "HuggingFacePhysicalMLPError",
     "HuggingFaceRevisionError",
+    "LayerSensitivityScore",
     "LowRankReplacement",
     "LowRankReplacementReport",
     "ParameterReconciliationError",
@@ -84,6 +91,7 @@ __all__ = [
     "discover_huggingface_components",
     "load_causal_lm",
     "measure_huggingface_block_influence",
+    "measure_huggingface_layer_sensitivity",
     "remove_huggingface_attention_heads",
     "remove_huggingface_mlp_channels",
     "remove_huggingface_transformer_layers",
