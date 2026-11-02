@@ -1,0 +1,938 @@
+{
+  "record_type": "kfac_mlp_channel_physical_pilot",
+  "schema_version": 1,
+  "source_commit": "741843998409aea19bbd004125be7e78c876a35b",
+  "benchmark_script_sha256": "4285e53005ad9948a56d3ac469e6d5dbb804a1a142d72e0ce1a402fdd1593d47",
+  "model": {
+    "identifier": "Qwen/Qwen2.5-0.5B",
+    "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "path": "D:\\Stored Models\\models--Qwen--Qwen2.5-0.5B\\snapshots\\060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "config_sha256": "479dcf0c5286339e41ad3992cd08ae88a467c4187587936248e2b7c96283484b",
+    "weight_files": [
+      {
+        "path": "model.safetensors",
+        "bytes": 988097824,
+        "sha256": "88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342"
+      }
+    ],
+    "parameter_count": 494032768,
+    "parameter_dtypes": [
+      "torch.float32"
+    ],
+    "checkpoint_storage_dtype": "bfloat16",
+    "model_type": "qwen2",
+    "layer_count": 24,
+    "hidden_size": 896,
+    "intermediate_size": 4864,
+    "source_disk": {
+      "disk_bytes": 999586188,
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 681,
+          "sha256": "479dcf0c5286339e41ad3992cd08ae88a467c4187587936248e2b7c96283484b"
+        },
+        {
+          "path": "generation_config.json",
+          "bytes": 138,
+          "sha256": "8c970692323e3ea0e9b8b0a4dca79388d31226e41f83c9fd6014804280ebf6e8"
+        },
+        {
+          "path": "merges.txt",
+          "bytes": 1671839,
+          "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3"
+        },
+        {
+          "path": "model.safetensors",
+          "bytes": 988097824,
+          "sha256": "88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342"
+        },
+        {
+          "path": "tokenizer.json",
+          "bytes": 7031645,
+          "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "bytes": 7228,
+          "sha256": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+        },
+        {
+          "path": "vocab.json",
+          "bytes": 2776833,
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+        }
+      ]
+    }
+  },
+  "dataset": {
+    "identifier": "Salesforce/wikitext",
+    "revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+    "configuration": "wikitext-2-raw-v1",
+    "train": {
+      "parquet_path": "D:\\Stored Models\\datasets--Salesforce--wikitext\\blobs\\e83889baabc497075506f91975be5fac0d45c5290b6b20582c8cd1e853d0c9f7",
+      "parquet_bytes": 6357543,
+      "parquet_sha256": "e83889baabc497075506f91975be5fac0d45c5290b6b20582c8cd1e853d0c9f7",
+      "serialized_text_bytes": 11012046,
+      "serialized_text_sha256": "6929d7c17de108ee68800c120da694fbced4a0bf6affcb8c6fb9e3a9de4ea0f6",
+      "row_count": 36718
+    },
+    "test": {
+      "parquet_path": "D:\\Stored Models\\datasets--Salesforce--wikitext\\blobs\\5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91",
+      "parquet_bytes": 732610,
+      "parquet_sha256": "5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91",
+      "serialized_text_bytes": 1299261,
+      "serialized_text_sha256": "a6f23df4148d59ae891819f5b155171aed6295bbd97a77216418155696f83c9a",
+      "row_count": 4358
+    },
+    "calibration_target_tokens": 256,
+    "calibration_offset_tokens": 0,
+    "evaluation_target_tokens": 1024,
+    "sequence_length": 129,
+    "calibration_input_ids_sha256": "fe5c2e308adf0f6f7648767de0a3d4278ce8e41f83911c92d45a8b8f286463f2",
+    "evaluation_input_ids_sha256": "8a7f280ffdd68defab4740ea9a4ca39af04f6d789176c6ae5438ccc699a5edef"
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cpus": 20,
+    "device": "cpu",
+    "cuda_visible_devices": "-1",
+    "torch_cuda_available": false,
+    "torch_version": "2.13.0+cpu",
+    "torch_threads": 2,
+    "transformers_version": "5.10.1",
+    "numpy_version": "2.5.2",
+    "python_version": "3.12.14 (main, Aug 14 2026, 15:40:22) [MSC v.1944 64 bit (AMD64)]",
+    "model_load_seconds": 0.9433556000003591,
+    "peak_rss_bytes": 11616460800
+  },
+  "protocol": {
+    "removed_channel_counts": [
+      64
+    ],
+    "quality_gate_absolute_ppl_delta": 0.05,
+    "random_seeds": [
+      11,
+      29,
+      47
+    ],
+    "measurement_repeats": 1,
+    "candidate_comparison": "same held-out targets; globally shared MLP-channel set",
+    "kfac_selection": "Sum layer-local singleton down_proj input-column KFAC costs; choose lowest sum.",
+    "wanda_activation_channel_selection": "Sum per-layer structured channel scores over down_proj output rows: calibration input L2 norm multiplied by absolute weight; choose lowest sum. This is an independent channel-level aggregation of the published WANDA score, not the original per-weight sparsification implementation.",
+    "wanda_source": {
+      "repository": "https://github.com/locuslab/wanda",
+      "revision": "8e8fc87b4a2f9955baa7e76e64d5fce7fa8724a6",
+      "license": "MIT",
+      "source_file_inspected": "lib/prune.py",
+      "code_copied": false
+    },
+    "magnitude_selection": "Sum squared gate/up row and down column weights across layers; choose lowest L2.",
+    "limitations": [
+      "Single model and one CPU run; no statistical uncertainty or family transfer.",
+      "Additive singleton costs omit channel-channel and cross-layer interactions.",
+      "No compensation or recovery is applied.",
+      "Only WikiText perplexity is measured; no task or decode tests.",
+      "KFAC costs are proxies; held-out artifact measurements are authoritative."
+    ]
+  },
+  "baseline": {
+    "target_tokens": 1024,
+    "nll_sum": 3407.4988708496094,
+    "mean_nll": 3.3276356160640717,
+    "perplexity": 27.87236276742177,
+    "evaluation_seconds": 8.961369499971624,
+    "tokens_per_second": 114.26824884335396,
+    "benchmark_call_seconds": 8.968114499992225
+  },
+  "scoring": {
+    "seconds": 121.01125070004491,
+    "planned_workspace_bytes": 14965814784,
+    "max_workspace_bytes": 17179869184,
+    "activation_factor_sha256": [
+      "2c0df4819332d88a62daa2223c70bc672de67023310eb93246c83707770a1189",
+      "db4838f5188e4b74084884d02beb22b7bcc146789d703035ade0152dc68d8c9f",
+      "a2a705c9f83e1517d0e8b6f94f0fb972c4632239f5fdb014d3898154008aeaae",
+      "11e6e3251c8eb2accafbad9f7e331d0589b2322338130f01cee3603901f00b94",
+      "895900d6abdaa2f024ccb08e435ed4149eae0d8e843fc18041ef35c46568c2a3",
+      "b223622ce2f584616e122a1aa35828549d03f461b799f8a99df1cb08eed6ed80",
+      "e84aebcd2e73b8848350fb28475ef0ac083e05ea7511f1f3bf7808db27d5d9aa",
+      "a048bf8f00fa2c90c79950ec4a3f863066ead5ff98a7af9cf24344944028a8cc",
+      "4e2e719f1f19b0fe81ca88db86e9bff509f4b5e21ecc0fb9593c8e077592cb96",
+      "574b17358063da17c863e3e70150d61db933339070de3a8bce1b05ae30d3a406",
+      "38154f3a96dab8ba10ad0e3f4f83e141cd54b5020950f755c7a50a6074fe2325",
+      "c487952c4674eee670d856ece390b4122d6f70e3baf6c2612fea313950b1486c",
+      "bb33b5c2ad059f997fd77f927400a5bd48e3b97dad3e4df46956312971b22e1c",
+      "4ff29350dc007206b28fcedc2386aa85019d32b9aa8c9c58df41ac62636d2c6e",
+      "e02049c299561ab3429b4ca4f45b2161fe86111e3dea199577a46699e50e878d",
+      "3c594d2ba2c5cc5a0b4479ab7298f1fd55e6b3b8dd32a6ccff8bf75fb5f57d88",
+      "303bc66bfcb2fd0c7776013a7edd271959fe41b2e239cf767a08a4299b5acab6",
+      "a876b1705da4ecfa44110b2f756ff0d418cec558e25be1150e3144313c91f484",
+      "b48ea230f3d901c577c1a5fad9b85143e72e9cf6f0f6d41f93496c9bb341aefd",
+      "ad57da086ecc0dae9d4168a189b10a27d263ae044130ebfa714ae5e288af72b9",
+      "95e5435eeafb1a3a6156d219163036cc3388248ac2d267b1f96f3daa24ce47e0",
+      "7edfa9020f21db373a6aaac5aaafc1443ba920733f94f19f7ec41e7911854b7f",
+      "9ba9f8d265b46e30b52ed9c8f1282a38d0a14eb6f83bf8fba263c52950a65d9a",
+      "6230f37a92e58f83277f5165264c315f5079c4282aa7c7e062257b5fa01f59d2"
+    ],
+    "gradient_factor_sha256": [
+      "58eefb70c74d5c80e33dbb7bc1bebfd2fc332644f4fb80e1e16d0c9552100f74",
+      "8a9b35861358c6068805081b2e9656612a914d7435fb9efa896fa6443610ddb9",
+      "ef4b6ff0d949415c93608fa76cfffe68f01ac87c9dfe6c2a1fde1fcae3847f82",
+      "3a6ab615709bad3bf5df618e976e923850d9808da0ab0acd2a61eecd0c058af8",
+      "578acb754fc22b64168e2fefc844bf8262e727409e896717f223ac4ae2abf186",
+      "67965807b74d8605948b3972fa5e52ac5a45bdac3316675a0058d5e1b26d411d",
+      "2708c0973fa8342b46c773fbdce1f86cb722d9c613705d6ff9229022c3f8f264",
+      "493478d41f7ab838908c777e8191a567cc0aa74722437dcd01008bb8b034102e",
+      "4ea80602b756c868227e9cae99a57efff6265c0ded0b2beda3039f2828240a98",
+      "b5303f31019a6e212c69a3f9ca9d7fec036c71caa2cb872d4c32e39523852ace",
+      "987350923be11e83fc88d8e2342cb202ee2d21a41e7c007d88c5563ca9e293b7",
+      "542fcf9174d951ce4827495652a4be3dc84390bd26d1207739f02605679991b8",
+      "0b428aca9d10d78323ee49496969fdd99c054697804922f3d1f502b58a294fa8",
+      "c1471b606ef06d92247859ea3ee317cc6fd62294bf9d2676d012b838411822fe",
+      "de112b63d670f466184950c9e0cc972c719c1d2cff260774502869dfbbcfc743",
+      "1431a0b24f8bb15a10cebdf19283735672bfa7616ae611df495f4790af75d0ef",
+      "fbc61d0c711d0cbbbdce9add5b42a3af733b2281295ad31b18a70e8e15900654",
+      "122ac752267161bfd7aefb6f11e1bfa49da26ea42934da520c5c780b5f432a94",
+      "e5cd738c7e434825f9cec0bcc43a304b2a78c403f6c7a3d9b1776d9c13154677",
+      "17ed4525080e0f734310142e014996a9a0feba3cd739456616ba403f3542ac37",
+      "244141457bd81972e291bcc6e09adc29a454c5a387a8d0c1a1b0ca3da4ea4ff3",
+      "6e2d3941337f20a0ef04daab637c1c1cad3097b434bb4023ebf49b2e0da69045",
+      "0d8ba49d78897b50fea31ebe003bf5e2ef1fd7510fade92d152d3da6602c7387",
+      "08078c639927bdddfbafbba00b5715a3fb0e9f512696f343903f0f4fd1c4407d"
+    ],
+    "activation_weighted_score_range": {
+      "min": 629.9642311049296,
+      "max": 7082.935241242789
+    },
+    "selected_score_range": {
+      "kfac_min": 0.00029889198714541323,
+      "kfac_max": 290.1041209641786,
+      "magnitude_min": 22.14291928416945,
+      "magnitude_max": 89.0271483201275
+    }
+  },
+  "candidates": {
+    "kfac_singleton_additive_64": {
+      "removed_channels": [
+        127,
+        160,
+        477,
+        571,
+        610,
+        834,
+        846,
+        921,
+        972,
+        977,
+        978,
+        1092,
+        1213,
+        1254,
+        1402,
+        1437,
+        1581,
+        1614,
+        1759,
+        1908,
+        1916,
+        1928,
+        1952,
+        1957,
+        2358,
+        2393,
+        2434,
+        2443,
+        2474,
+        2645,
+        2726,
+        2791,
+        2841,
+        2928,
+        3056,
+        3090,
+        3125,
+        3413,
+        3453,
+        3553,
+        3566,
+        3610,
+        3645,
+        3800,
+        3915,
+        3988,
+        4015,
+        4026,
+        4028,
+        4030,
+        4038,
+        4064,
+        4092,
+        4192,
+        4210,
+        4216,
+        4238,
+        4330,
+        4476,
+        4603,
+        4742,
+        4748,
+        4769,
+        4859
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 0.4964832999976352,
+      "end_to_end_method_seconds": 13.233563599991612,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3426.997100830078,
+        "mean_nll": 3.346676856279373,
+        "perplexity": 28.408172171142695,
+        "evaluation_seconds": 7.065430800023023,
+        "tokens_per_second": 144.93100689580928
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 0.5358094037209256,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "7e621ca7f87b5cb2b5db441c7f4a5adec244fceded3a3b3160f0b2dd2abdeb3d"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    },
+    "magnitude_l2_64": {
+      "removed_channels": [
+        59,
+        119,
+        215,
+        408,
+        447,
+        505,
+        570,
+        577,
+        687,
+        714,
+        743,
+        811,
+        932,
+        1003,
+        1100,
+        1103,
+        1120,
+        1129,
+        1226,
+        1318,
+        1332,
+        1353,
+        1412,
+        1526,
+        1583,
+        1788,
+        1818,
+        1841,
+        1954,
+        1982,
+        2007,
+        2060,
+        2446,
+        2483,
+        2564,
+        2646,
+        2724,
+        2774,
+        2842,
+        2852,
+        2902,
+        3106,
+        3303,
+        3372,
+        3540,
+        3712,
+        3761,
+        3778,
+        4053,
+        4069,
+        4106,
+        4121,
+        4254,
+        4256,
+        4323,
+        4333,
+        4346,
+        4397,
+        4496,
+        4501,
+        4543,
+        4677,
+        4688,
+        4791
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 1.5652039000415243,
+      "end_to_end_method_seconds": 24.654335099970922,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3470.2771911621094,
+        "mean_nll": 3.3889425694942474,
+        "perplexity": 29.634599167241294,
+        "evaluation_seconds": 14.149867800006177,
+        "tokens_per_second": 72.36816728418854
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 1.7622363998195247,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "d3ef60a55804b77de1e289c025d7de441da93895dee2aa504186fd6f774abc8e"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    },
+    "wanda_activation_channel_64": {
+      "removed_channels": [
+        314,
+        349,
+        414,
+        610,
+        795,
+        800,
+        834,
+        846,
+        857,
+        978,
+        1046,
+        1122,
+        1318,
+        1415,
+        1462,
+        1471,
+        1490,
+        1553,
+        1948,
+        1956,
+        1957,
+        1966,
+        2358,
+        2426,
+        2443,
+        2474,
+        2560,
+        2580,
+        2680,
+        2686,
+        2751,
+        2791,
+        2928,
+        2939,
+        2954,
+        3000,
+        3023,
+        3143,
+        3245,
+        3299,
+        3453,
+        3504,
+        3610,
+        3644,
+        3645,
+        3684,
+        3787,
+        3800,
+        3811,
+        3915,
+        3919,
+        3932,
+        4194,
+        4214,
+        4216,
+        4313,
+        4336,
+        4547,
+        4685,
+        4742,
+        4769,
+        4813,
+        4853,
+        4859
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 1.3210377999930643,
+      "end_to_end_method_seconds": 18.175428299990017,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3436.3272094726562,
+        "mean_nll": 3.355788290500641,
+        "perplexity": 28.668194150931008,
+        "evaluation_seconds": 5.309974100033287,
+        "tokens_per_second": 192.84463176450913
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 0.7958313835092383,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "e1e3c84b6bb1fe995e521f0034f976caa4cf2180929f36aecd761f35d29eb476"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    },
+    "random_seed_11_64": {
+      "removed_channels": [
+        4,
+        37,
+        122,
+        138,
+        243,
+        246,
+        292,
+        343,
+        428,
+        487,
+        517,
+        547,
+        575,
+        681,
+        696,
+        742,
+        771,
+        883,
+        884,
+        1161,
+        1290,
+        1512,
+        1525,
+        1555,
+        1558,
+        1600,
+        1718,
+        1749,
+        1881,
+        1914,
+        1981,
+        2080,
+        2278,
+        2367,
+        2383,
+        2409,
+        2485,
+        2582,
+        2672,
+        3166,
+        3245,
+        3280,
+        3332,
+        3608,
+        3658,
+        3701,
+        3705,
+        3710,
+        3746,
+        3800,
+        3814,
+        3850,
+        3897,
+        4094,
+        4160,
+        4193,
+        4201,
+        4252,
+        4328,
+        4412,
+        4515,
+        4585,
+        4613,
+        4811
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 0.5680863000452518,
+      "end_to_end_method_seconds": 10.619635199953336,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3466.826904296875,
+        "mean_nll": 3.385573148727417,
+        "perplexity": 29.53491576536145,
+        "evaluation_seconds": 5.549681300006341,
+        "tokens_per_second": 184.5150999930086
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 1.662552997939681,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "2f8e22fe96f2dbade65574307259ba804d4d5391f90e9f115643c14205dfd640"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    },
+    "random_seed_29_64": {
+      "removed_channels": [
+        124,
+        152,
+        179,
+        264,
+        567,
+        623,
+        700,
+        710,
+        812,
+        849,
+        1139,
+        1177,
+        1228,
+        1275,
+        1337,
+        1396,
+        1608,
+        1633,
+        1681,
+        1797,
+        1801,
+        1841,
+        2163,
+        2279,
+        2280,
+        2304,
+        2364,
+        2444,
+        2451,
+        2515,
+        2629,
+        2697,
+        2790,
+        2816,
+        2833,
+        2863,
+        3008,
+        3218,
+        3254,
+        3259,
+        3342,
+        3364,
+        3400,
+        3403,
+        3437,
+        3460,
+        3489,
+        3554,
+        3643,
+        3663,
+        3822,
+        3861,
+        3870,
+        4078,
+        4180,
+        4193,
+        4224,
+        4288,
+        4442,
+        4453,
+        4490,
+        4522,
+        4608,
+        4809
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 0.631937799975276,
+      "end_to_end_method_seconds": 18.81681559997378,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3535.7151794433594,
+        "mean_nll": 3.4528468549251556,
+        "perplexity": 31.590197125726643,
+        "evaluation_seconds": 12.242378099996131,
+        "tokens_per_second": 83.6438796152133
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 3.7178343583048736,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "ae1a96e5263e8c0ad34e389ea3eb5058931d6e2c14d9e5792818e1083b5a7deb"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    },
+    "random_seed_47_64": {
+      "removed_channels": [
+        5,
+        74,
+        193,
+        272,
+        289,
+        335,
+        512,
+        795,
+        802,
+        839,
+        902,
+        1028,
+        1605,
+        1790,
+        1859,
+        1884,
+        1947,
+        1954,
+        1957,
+        1982,
+        2071,
+        2108,
+        2142,
+        2161,
+        2345,
+        2585,
+        2735,
+        2743,
+        2800,
+        2813,
+        2882,
+        2892,
+        2895,
+        2924,
+        2941,
+        2972,
+        3065,
+        3142,
+        3166,
+        3214,
+        3413,
+        3428,
+        3503,
+        3524,
+        3622,
+        3716,
+        3858,
+        3944,
+        4164,
+        4197,
+        4210,
+        4286,
+        4363,
+        4424,
+        4478,
+        4535,
+        4548,
+        4569,
+        4595,
+        4631,
+        4649,
+        4675,
+        4711,
+        4737
+      ],
+      "removed_channel_count": 64,
+      "parameter_count": 489904000,
+      "parameter_delta": -4128768,
+      "parameter_reduction_fraction": 0.00835727560484409,
+      "surgery_seconds": 1.6327505999943241,
+      "end_to_end_method_seconds": 26.95210130000487,
+      "reloaded": {
+        "target_tokens": 1024,
+        "nll_sum": 3451.052001953125,
+        "mean_nll": 3.3701679706573486,
+        "perplexity": 29.083411807337512,
+        "evaluation_seconds": 11.969697900000028,
+        "tokens_per_second": 85.54936043958115
+      },
+      "reload_max_logit_error": 0.0,
+      "candidate_perplexity_delta": 1.2110490399157428,
+      "quality_gate_passed": false,
+      "artifact": {
+        "disk_bytes": 991266896,
+        "files": [
+          {
+            "path": "chat_template.jinja",
+            "bytes": 2481,
+            "sha256": "7215110d1460d6dfdb8ed5bbc3f18b1772cc270404795c331bc0adc266a75008"
+          },
+          {
+            "path": "config.json",
+            "bytes": 1364,
+            "sha256": "f5277ac24278ab61ca139def5819105d509dc70a78e701df06842d893727bca3"
+          },
+          {
+            "path": "generation_config.json",
+            "bytes": 146,
+            "sha256": "084979985da376b8bf1ead8ab42abc26e878c5ff9f4dfc953523d3fdb12275a3"
+          },
+          {
+            "path": "model.safetensors",
+            "bytes": 979840288,
+            "sha256": "dccebadfab0946e73cf80f4db07f8b2080086e65d06ef6d31fc3505cfb08726f"
+          },
+          {
+            "path": "tokenizer.json",
+            "bytes": 11421892,
+            "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "bytes": 725,
+            "sha256": "bbd0543452af77800bdeac946fd6f9bf12cecfea89193e38a1922d15cc5f9098"
+          }
+        ]
+      }
+    }
+  }
+}

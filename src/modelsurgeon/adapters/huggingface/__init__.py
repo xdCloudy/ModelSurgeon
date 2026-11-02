@@ -8,6 +8,11 @@ from modelsurgeon.adapters.huggingface.discovery import (
     TransformerShape,
     discover_huggingface_components,
 )
+from modelsurgeon.adapters.huggingface.kfac_mlp_channels import (
+    HuggingFaceMLPKFACError,
+    HuggingFaceMLPKFACReport,
+    score_huggingface_gated_mlp_channels_kfac,
+)
 from modelsurgeon.adapters.huggingface.loader import (
     HuggingFaceDependencyError,
     HuggingFaceDType,
@@ -62,6 +67,8 @@ __all__ = [
     "HuggingFaceLoadRequest",
     "HuggingFaceLoadResult",
     "HuggingFaceLowRankError",
+    "HuggingFaceMLPKFACError",
+    "HuggingFaceMLPKFACReport",
     "HuggingFaceMLPLayerResize",
     "HuggingFaceMLPRemovalResult",
     "HuggingFaceModelError",
@@ -80,4 +87,5 @@ __all__ = [
     "remove_huggingface_mlp_channels",
     "remove_huggingface_transformer_layers",
     "replace_huggingface_linears_low_rank",
+    "score_huggingface_gated_mlp_channels_kfac",
 ]
