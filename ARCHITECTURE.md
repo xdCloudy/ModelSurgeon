@@ -268,6 +268,16 @@ The model ladder is heuristic, linear/logistic, LightGBM/XGBoost, small MLP, the
 
 Leakage-safe splitters group by component, layer, mutation, model and architecture family. Cross-model claims require completely held-out models. Active learning combines calibrated uncertainty, predicted utility and diversity under explicit experiment and hardware budgets; it deduplicates canonical candidate descriptions and records selection propensity.
 
+### Proposed offline teacher-to-Meta-Surgeon training (research only)
+
+The research design in [teacher-guided weight understanding](docs/design/teacher-guided-weight-understanding.md) introduces an **optional, offline reasoning teacher** for the learned surgeon, not a new runtime authority in the v3.0 conversational control plane. The teacher may inspect bounded raw/local weight views and permitted diagnostic evidence, then generate typed hypotheses about circuit functions and candidate interventions. All such output is untrusted until verified by independent probes, causal tests and physical measurements. Teacher-generated prose cannot become ground-truth labels or acceptance evidence by itself.
+
+The proposed student extends engineered/static/activation features with architecture-conditioned, bounded weight-block and cross-layer representations. Its targets distinguish functional identification, intervention-effect estimation, uncertainty, safety and measured deployment cost. Training must compare identical measured targets with and without teacher annotations, use lineage-held-out splits, test weight-only versus weight-plus-observation conditions, and check coordinate/permutation robustness. Claims require causal/behavioral ground truth and a measured, teacher-disconnected optimization benefit over equal-budget controls.
+
+At inference time, **the learned Meta-Surgeon proposes and predicts independently; ModelSurgeon executes and decides by measurement**. The optional conversational text LLM continues to interpret goals and explain evidence, not edit weights directly. Existing typed surgery, immutable source artifacts, approval scope, budget limits, rollback, fail-closed compatibility and evidence-grounded publication do not change. Model repair distillation remains a separate workflow and does not train the Meta-Surgeon.
+
+**Status:** design proposal only. No weight-semantic student, teacher-supervision dataset or teacher-free weight-programming effectiveness is currently established.
+
 ## Search and repair
 
 Objectives are user-defined combinations of quality, parameter, latency, memory and disk costs with hard constraints. Search operates on graph-valid mutation plans, evaluates short sequences transactionally, and may apply LoRA repair, short fine-tuning or distillation as separately budgeted operations. A Pareto archive prevents one hard-coded reward from defining all workflows.
