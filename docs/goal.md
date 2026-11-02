@@ -127,6 +127,8 @@ Potential outputs include:
 
 The architecture of this learned surgeon should be determined by evidence rather than branding. A future implementation may use a transformer, graph transformer, graph neural network, sequence model or another architecture if it demonstrably improves held-out optimization performance.
 
+A proposed **teacher-guided weight-understanding** track would use a frontier reasoning model **offline** to identify testable circuit functions and suggest interventions. ModelSurgeon would independently measure these suggestions, then train the *specialized Meta-Surgeon* to interpret bounded weight representations and propose useful edits **without calling the teacher at inference time**. This is distinct from the optional conversational LLM, which remains an interface, and from distillation repair, which trains a damaged target model. It is a research goal, not a current capability; see the [teacher-guided design](design/teacher-guided-weight-understanding.md).
+
 ## Why keep the text LLM and learned surgeon separate?
 
 A general-purpose LLM and a learned model optimizer solve different problems.
@@ -260,6 +262,14 @@ richer outcome dataset
 The value of the dataset depends on diversity, not only size. Millions of near-duplicate mutations on one small model are less useful than evidence spanning multiple architectures, model sizes, tasks, mutation types, quantizations and hardware targets.
 
 The eventual research question is therefore not simply whether a classifier can beat magnitude pruning on one campaign. It is whether **optimization knowledge scales and transfers as the surgery corpus becomes broader and the learned surgeon becomes more capable**.
+
+## From outcome learning to native weight understanding (proposed)
+
+The existing data flywheel teaches the surgeon **which interventions tend to work**. A separate, proposed research track asks whether it can also learn **what specific weight structures compute**, including circuit localization and the causal effect of changing them. A reasoning teacher can supply provisional, structured explanations and intervention proposals, but only measured effects, controlled functional probes and known synthetic mechanisms qualify as validated training targets. Unsupported or misleading teacher annotations must be retained as negative evidence.
+
+Training should test an architecture-aware student on bounded weight slices, cross-layer relations and explicit optional activation evidence—not just engineered pruning scores. Evaluation must distinguish weight-only inference from weight-plus-probe inference, hold out model lineages and task families, compare with teacher-free baselines, test coordinate/permutation robustness, and measure whether teacher supervision helps the student independently make better decisions. Teacher annotations must never determine artifact acceptance.
+
+The desired progression is **offline teacher → independently tested evidence → student weight-space learning → teacher-free surgical proposals → existing measured acceptance gates**. ModelSurgeon should remain useful without any teacher, including when a teacher is unavailable, incorrect or more expensive than the benefit it provides. See the [dedicated research design](design/teacher-guided-weight-understanding.md).
 
 ## From candidate scoring to operation sequences
 
@@ -523,6 +533,7 @@ This era may focus on:
 - stronger cross-hardware generalization;
 - active-learning and evaluation-efficiency improvements;
 - surgeon distillation and inference efficiency;
+- optional offline reasoning-teacher supervision for native weight/circuit understanding, independently verified and distilled into a teacher-free Meta-Surgeon (see the [research design](design/teacher-guided-weight-understanding.md));
 - better calibration, uncertainty and abstention;
 - reducing the number of expensive real evaluations needed to reach a strong Pareto frontier.
 

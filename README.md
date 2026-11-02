@@ -680,6 +680,8 @@ direct copying of unchanged ranges, resumable writes, and external
 validation; repair, additional quantization, and universal GGUF coverage
 remain unsupported in the autonomous cell.
 
+**Proposed research, not an implemented feature:** ModelSurgeon may eventually use an *offline reasoning teacher* to help train its own Meta-Surgeon to understand weight/circuit function and propose precise interventions independently. Teacher hypotheses would be verified by measurements; the trained student would not require a frontier LLM at inference time, and the existing safety and deployment gates would remain authoritative. This is separate from conversational LLM assistance and target-model repair distillation. See [teacher-guided native weight understanding](docs/design/teacher-guided-weight-understanding.md).
+
 See [ARCHITECTURE.md](ARCHITECTURE.md), the [architecture compatibility matrix](docs/architecture-compatibility.md), and the [design records](docs/design/).
 
 ## Safety and reproducibility

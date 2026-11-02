@@ -103,6 +103,8 @@ Collect ordered mutation interactions and condition predictions on cumulative ar
 
 Define lineage-safe model meta-features, compatibility rules and transfer confidence. Exit with four-family zero/few-shot evidence showing when transferable knowledge saves target evaluations and when target-specific retraining is required.
 
+**Proposed follow-on (not an existing v1.6 exit criterion):** investigate whether an offline reasoning teacher can improve the Meta-Surgeon's *native weight and circuit understanding* beyond engineered features and surgery-outcome fitting. This depends on v1.5/v1.6 state, leakage-safe transfer and measurement infrastructure, but belongs to an exploratory post-v1.6/v3.1 research track. The student must be evaluated without teacher access at inference time. See [teacher-guided weight understanding](docs/design/teacher-guided-weight-understanding.md).
+
 ## v1.7 — Learned Recovery, Distillation and Repair
 
 Predict recoverability and repair cost, then jointly choose surgery, repair and quantization under consumer budgets. Exit with measured no-repair, LoRA, fine-tuning, distillation and oracle comparisons; repair is never assumed to rescue an unsafe mutation.
@@ -212,6 +214,12 @@ configuration and safety contracts
 The tracked research program asks whether static features predict safe pruning; how much activations and gradients add; whether learned rankings beat magnitude and random baselines; whether predictions transfer across models and families; whether active learning reduces experiments; whether iterative surgery beats one-shot pruning; which quantized features remain reliable; and how surgery loss separates from requantization loss.
 
 Post-v1 research extends those questions without erasing negative results: whether ModelSurgeon is competitive under equal deployment budgets; which physical mutations create real hardware gains; whether cumulative interactions, meta-learning and recoverability estimates generalize; and whether an autonomous policy can produce a better feasible frontier with fewer evaluations while preserving provenance, safety and human control.
+
+### Proposed teacher-guided, student-native weight-space research (unscored)
+
+This is **not implemented** and does not amend completed milestone, release or effectiveness claims. The research sequence is: (1) independently reproduce small weight-reading and failure cases, (2) define typed, immutable teacher-hypothesis and verification records, (3) learn weight-local/relational representations under architecture and hardware constraints, (4) compare teacher-supervised versus teacher-free students on identical measured targets, (5) test *teacher-disconnected* student interventions through the existing bounded engine, and (6) expand cross-family, quantized and hardware coverage only with positive held-out evidence.
+
+The exit question is whether the student can identify held-out functional/circuit properties and improve **measured physical optimization** or evaluation efficiency beyond equal-budget baselines—not whether it can mimic persuasive teacher explanations. Keep unsuccessful or unsupported trials, audit lineage leakage and prohibit unverified teacher writes or direct publication. Details and controls: [teacher-guided weight understanding](docs/design/teacher-guided-weight-understanding.md).
 
 The [ModelSurgeon Roadmap Project](https://github.com/users/xdCloudy/projects/2) is the source of truth for individual issue status, priority, effort, risk, phase and native blocker relationships.
 
