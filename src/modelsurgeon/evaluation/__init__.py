@@ -397,6 +397,13 @@ from modelsurgeon.evaluation.v2_benchmark import (
     evaluate_v2_publication,
     render_v2_protocol,
 )
+from modelsurgeon.evaluation.weight_understanding import (
+    WEIGHT_UNDERSTANDING_STUDY_VERSION,
+    SmallReluNetwork,
+    WeightUnderstandingStudyError,
+    WeightUnderstandingStudyResult,
+    run_weight_understanding_study,
+)
 
 __all__ = [
     "ARCHITECTURE_PARETO_STUDY_SCHEMA_VERSION",
@@ -438,6 +445,7 @@ __all__ = [
     "TRANSFER_SUITE_SCHEMA_VERSION",
     "V2_BENCHMARK_SCHEMA_VERSION",
     "V2_REQUIRED_METRICS",
+    "WEIGHT_UNDERSTANDING_STUDY_VERSION",
     "AdversarialInteraction",
     "AdversarialKind",
     "AdversarialOutcome",
@@ -630,6 +638,7 @@ __all__ = [
     "RepairRecommendation",
     "RepeatedMetric",
     "SelectionComparison",
+    "SmallReluNetwork",
     "SparsityTarget",
     "StabilityStatus",
     "StatisticalPlan",
@@ -690,6 +699,8 @@ __all__ = [
     "V2ModelSpec",
     "V2PublicationDecision",
     "V2PublicationOutcome",
+    "WeightUnderstandingStudyError",
+    "WeightUnderstandingStudyResult",
     "audit_public_claims",
     "benchmark_gguf_perplexity",
     "benchmark_gguf_throughput",
@@ -743,6 +754,7 @@ __all__ = [
     "render_structured_baseline_protocol",
     "render_unstructured_baseline_protocol",
     "render_v2_protocol",
+    "run_weight_understanding_study",
     "summarize_long_sequence_study",
     "summarize_samples",
     "validate_generated_gguf",
