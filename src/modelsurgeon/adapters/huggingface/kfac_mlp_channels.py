@@ -176,29 +176,31 @@ def score_huggingface_gated_mlp_channels_kfac(
     captured_outputs: list[Any | None] = [None] * layer_count
     handles = []
 
-    for layer_index, module in enumerate(down_projections):
-
-        def capture_input(_module: Any, args: tuple[Any, ...], *, index: int = layer_index) -> None:
-            if len(args) != 1 or not torch.is_tensor(args[0]) or args[0].ndim != 3:
-                raise HuggingFaceMLPKFACError(
-                    "down_proj input must be a rank-three activation tensor"
-                )
-            captured_inputs[index] = args[0]
-
-        def capture_output(
-            _module: Any, _args: tuple[Any, ...], output: Any, *, index: int = layer_index
-        ) -> None:
-            if not torch.is_tensor(output) or output.ndim != 3:
-                raise HuggingFaceMLPKFACError("down_proj output must be a rank-three tensor")
-            captured_outputs[index] = output
-
-        handles.append(module.register_forward_pre_hook(capture_input))
-        handles.append(module.register_forward_hook(capture_output))
-
     training_states = tuple((module, module.training) for module in model.modules())
-    model.eval()
     target_token_count = 0
     try:
+        for layer_index, module in enumerate(down_projections):
+
+            def capture_input(
+                _module: Any, args: tuple[Any, ...], *, index: int = layer_index
+            ) -> None:
+                if len(args) != 1 or not torch.is_tensor(args[0]) or args[0].ndim != 3:
+                    raise HuggingFaceMLPKFACError(
+                        "down_proj input must be a rank-three activation tensor"
+                    )
+                captured_inputs[index] = args[0]
+
+            def capture_output(
+                _module: Any, _args: tuple[Any, ...], output: Any, *, index: int = layer_index
+            ) -> None:
+                if not torch.is_tensor(output) or output.ndim != 3:
+                    raise HuggingFaceMLPKFACError("down_proj output must be a rank-three tensor")
+                captured_outputs[index] = output
+
+            handles.append(module.register_forward_pre_hook(capture_input))
+            handles.append(module.register_forward_hook(capture_output))
+
+        model.eval()
         for token_ids in calibration_batches:
             if (
                 not torch.is_tensor(token_ids)

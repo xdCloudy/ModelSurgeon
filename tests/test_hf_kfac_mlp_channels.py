@@ -77,6 +77,13 @@ class _TinyCausalLM(nn.Module):
         return SimpleNamespace(loss=loss, logits=logits)
 
 
+class _EvalFailingLinear(nn.Linear):
+    def train(self, mode: bool = True) -> _EvalFailingLinear:
+        if not mode:
+            raise RuntimeError("eval transition failed")
+        return super().train(mode)
+
+
 def test_collects_cpu_factors_and_scores_shared_gated_mlp_channels() -> None:
     model = _TinyCausalLM()
     model.train()
@@ -110,6 +117,21 @@ def test_collects_cpu_factors_and_scores_shared_gated_mlp_channels() -> None:
     assert all(parameter.grad is None for parameter in model.parameters())
     assert all(not module._forward_hooks for module in down_projections)
     assert all(not module._forward_pre_hooks for module in down_projections)
+
+
+def test_hook_lifecycle_is_restored_when_eval_transition_raises() -> None:
+    model = _TinyCausalLM()
+    model.model.layers[0].mlp.down_proj = _EvalFailingLinear(6, 4, bias=False)
+    model.train()
+    down_projections = [layer.mlp.down_proj for layer in model.model.layers]
+    training_states = tuple((module, module.training) for module in model.modules())
+
+    with pytest.raises(RuntimeError, match="eval transition failed"):
+        score_huggingface_gated_mlp_channels_kfac(model, ())
+
+    assert all(not module._forward_hooks for module in down_projections)
+    assert all(not module._forward_pre_hooks for module in down_projections)
+    assert all(module.training is state for module, state in training_states)
 
 
 def test_collects_bfloat16_cpu_factors_without_upcasting_model_weights() -> None:
